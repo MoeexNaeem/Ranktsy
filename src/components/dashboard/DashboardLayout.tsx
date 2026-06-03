@@ -91,10 +91,10 @@ export function DashboardLayout() {
         <div style={{ padding: '12px 10px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
           {user && (
             <div style={{ padding: '10px', borderRadius: 10, background: C.warmGray, marginBottom: 8 }}>
-              <p style={{ fontSize: 12.5, fontWeight: 500, color: C.forest, marginBottom: 1 }}>{user.name}</p>
-              <p style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>{user.email}</p>
+              <p style={{ fontSize: 12.5, fontWeight: 500, color: C.forest, marginBottom: 1 }}>{user.name ?? 'User'}</p>
+              <p style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>{user.email ?? ''}</p>
               <span style={{ fontSize: 10, background: C.pale, color: C.forest, padding: '2px 8px', borderRadius: 999, fontFamily: "'IBM Plex Mono',monospace", fontWeight: 600, textTransform: 'uppercase' }}>
-                {user.plan}
+                {user.plan ?? 'free'}
               </span>
             </div>
           )}
@@ -120,7 +120,7 @@ export function DashboardLayout() {
             <span style={{ fontSize: 11, background: C.pale, color: C.forest, padding: '4px 12px', borderRadius: 999, fontFamily: "'IBM Plex Mono',monospace" }}>Etsy API · Live</span>
             {user && (
               <div style={{ width: 32, height: 32, borderRadius: '50%', background: C.forest, color: C.snow, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600 }}>
-                {user.name.charAt(0).toUpperCase()}
+                {user.name?.charAt(0)?.toUpperCase() ?? '?'}
               </div>
             )}
           </div>
