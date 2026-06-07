@@ -1,6 +1,6 @@
 import { Navbar }            from '@/components/landing/Navbar'
 import { Hero }              from '@/components/landing/Hero'
-import { Features, HowItWorks, Pricing, CTA, Footer } from '@/components/landing/Sections'
+import { Features, HowItWorks, Pricing, CTA, Footer, AboutContactTeaser } from '@/components/landing/Sections'
 import { KeywordTool }       from '@/components/landing/KeywordTool'
 import { DashboardSection }  from '@/components/landing/DashboardSection'
 
@@ -17,6 +17,7 @@ export default function HomePage() {
         <KeywordTool />
         <DashboardSection />
         <Pricing />
+        <AboutContactTeaser />
         <CTA />
       </main>
       <Footer />

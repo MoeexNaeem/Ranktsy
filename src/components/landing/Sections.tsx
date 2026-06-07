@@ -516,6 +516,93 @@ export function Pricing() {
   );
 }
 
+/* ─── About + Contact Teaser ───────────────────────────────────────────────── */
+export function AboutContactTeaser() {
+  return (
+    <section style={{ padding: '80px 48px', background: C.snow }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+        {/* About card */}
+        <a
+          href="/about"
+          style={{
+            background: C.warmGray, padding: '48px 40px', display: 'block',
+            textDecoration: 'none', transition: 'transform 0.2s',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
+          onMouseLeave={e => (e.currentTarget.style.transform = 'none')}
+        >
+          <div style={{
+            width: 44, height: 44, background: C.forest, borderRadius: 8,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 20, marginBottom: 20,
+          }}>🌱</div>
+          <div style={{
+            fontSize: 11, fontFamily: "'IBM Plex Mono', monospace",
+            textTransform: 'uppercase' as const, letterSpacing: '0.08em',
+            color: C.mutedGreen, marginBottom: 10,
+          }}>
+            Our Story
+          </div>
+          <h3 style={{
+            fontSize: 'clamp(22px, 2.5vw, 30px)', fontWeight: 300,
+            letterSpacing: '-0.8px', color: C.forest, lineHeight: 1.15, marginBottom: 16,
+          }}>
+            Built by Etsy sellers,<br />for Etsy sellers.
+          </h3>
+          <p style={{ fontSize: 14, color: '#666', lineHeight: 1.7, marginBottom: 28 }}>
+            We spent years selling on Etsy, manually tracking keywords in spreadsheets. Ranksty is the tool we always wished existed.
+          </p>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontSize: 13, fontWeight: 500, color: C.forest,
+          }}>
+            Read our story →
+          </span>
+        </a>
+
+        {/* Contact card */}
+        <a
+          href="/contact"
+          style={{
+            background: C.forest, padding: '48px 40px', display: 'block',
+            textDecoration: 'none', transition: 'transform 0.2s',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
+          onMouseLeave={e => (e.currentTarget.style.transform = 'none')}
+        >
+          <div style={{
+            width: 44, height: 44, background: 'rgba(211,250,153,0.15)', borderRadius: 8,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 20, marginBottom: 20,
+          }}>✉️</div>
+          <div style={{
+            fontSize: 11, fontFamily: "'IBM Plex Mono', monospace",
+            textTransform: 'uppercase' as const, letterSpacing: '0.08em',
+            color: C.mutedGreen, marginBottom: 10,
+          }}>
+            Get in touch
+          </div>
+          <h3 style={{
+            fontSize: 'clamp(22px, 2.5vw, 30px)', fontWeight: 300,
+            letterSpacing: '-0.8px', color: C.snow, lineHeight: 1.15, marginBottom: 16,
+          }}>
+            Questions? We&apos;re<br />always listening.
+          </h3>
+          <p style={{ fontSize: 14, color: 'rgba(252,252,247,0.6)', lineHeight: 1.7, marginBottom: 28 }}>
+            From technical support to feature requests, our team responds within 24 hours on business days.
+          </p>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontSize: 13, fontWeight: 500, color: C.pale,
+          }}>
+            Contact us →
+          </span>
+        </a>
+      </div>
+    </section>
+  )
+}
+
 /* ─── CTA ──────────────────────────────────────────────────────────────────── */
 export function CTA() {
   return (
@@ -602,6 +689,14 @@ export function CTA() {
 }
 
 /* ─── Footer ───────────────────────────────────────────────────────────────── */
+const FOOTER_LINK_MAP: Record<string, string> = {
+  "About": "/about",
+  "Pricing": "/#pricing",
+  "Contact": "/contact",
+  "Privacy Policy": "/privacy",
+  "Terms": "/terms",
+}
+
 export function Footer() {
   const cols = [
     {
@@ -672,7 +767,7 @@ export function Footer() {
             {c.l.map((l) => (
               <a
                 key={l}
-                href={l === "Privacy Policy" ? "/privacy" : "#"}
+                href={FOOTER_LINK_MAP[l] ?? "#"}
                 style={{
                   display: "block",
                   fontSize: 14,
