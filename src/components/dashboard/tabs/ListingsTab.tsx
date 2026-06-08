@@ -81,7 +81,7 @@ export function ListingsTab() {
       )}
       {isError && (
         <div style={{ background: '#fff0f0', borderRadius: 10, padding: '14px 16px', color: '#c00', fontSize: 13 }}>
-          ⚠ Failed to load listings. Check your ETSY_API_KEY.
+          ⚠ Failed to load listings. Check your APIFY_API_TOKEN.
         </div>
       )}
       {listings && !isLoading && (

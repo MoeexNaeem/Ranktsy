@@ -95,7 +95,7 @@ export function KeywordsTab() {
       )}
       {isError && (
         <div style={{ background: '#fff0f0', borderRadius: 10, padding: '14px 16px', color: '#c00', fontSize: 13 }}>
-          ⚠ Failed to load keyword data. Ensure your ETSY_API_KEY is set in .env.local.
+          ⚠ Failed to load keyword data. Ensure your APIFY_API_TOKEN is set in .env.local.
         </div>
       )}
       {kw && !isLoading && (

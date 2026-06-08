@@ -57,7 +57,7 @@ export function ShopTab() {
 
       {isError && (
         <div style={{ background: '#fff0f0', borderRadius: 10, padding: '14px 16px', color: '#c00', fontSize: 13 }}>
-          ⚠ Shop not found or Etsy API error. Check the shop name and your ETSY_API_KEY.
+          ⚠ Shop not found or scraper error. Check the shop name and your APIFY_API_TOKEN.
         </div>
       )}
 
