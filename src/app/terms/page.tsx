@@ -268,7 +268,7 @@ export default function TermsPage() {
                 color: '#444',
                 lineHeight: 1.75,
                 marginBottom: 56,
-                borderLeft: `3px solid ${C.orange}`}`,
+                borderLeft: `3px solid ${C.orange}`,
                 paddingLeft: 20,
               }}
             >
@@ -335,7 +335,7 @@ export default function TermsPage() {
                           padding: '16px 20px',
                           background: C.warmGray,
                           borderRadius: 2,
-                          borderLeft: `3px solid ${C.orange}`}`,
+                          borderLeft: `3px solid ${C.orange}`,
                         }}
                       >
                         <span style={{ flexShrink: 0, marginTop: 3, color: C.pale, fontSize: 10 }}>▸</span>
