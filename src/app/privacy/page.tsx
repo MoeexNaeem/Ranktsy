@@ -188,7 +188,7 @@ export default function PrivacyPage() {
             {sections.map((s) => (
               <a 
                 key={s.number}
-                href={`#section-${s.number}`}
+                href={"#section-" + s.number}
                 style={{
                   display: 'flex',
                   alignItems: 'baseline',
@@ -243,7 +243,7 @@ export default function PrivacyPage() {
             {sections.map((s, i) => (
               <div
                 key={s.number}
-                id={`section-${s.number}`}
+                id={"section-" + s.number}
                 style={{
                   marginBottom: 56,
                   paddingBottom: 56,
