@@ -4,13 +4,13 @@ import { Toaster }   from 'react-hot-toast'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title:       'Ranksty — Etsy Keyword Research & Analytics',
+  title:       'Ranktsy — Etsy Keyword Research & Analytics',
   description: 'Data-driven keyword research, competition analysis, and trend tracking for Etsy sellers.',
   keywords:    ['Etsy SEO', 'Etsy keyword research', 'Etsy analytics'],
-  openGraph:   { title: 'Ranksty', description: 'Keyword research for Etsy sellers.', type: 'website' },
+  openGraph:   { title: 'Ranktsy', description: 'Keyword research for Etsy sellers.', type: 'website' },
   robots:      { index: true, follow: true },
 }
-export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#1c3a13' }
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#FF6008' }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -23,7 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <Providers>
           {children}
-          <Toaster position="bottom-right" toastOptions={{ style: { background: '#1c3a13', color: '#fcfcf7', borderRadius: 999, fontSize: 13, fontFamily: 'Inter, sans-serif' } }} />
+          <Toaster position="bottom-right" toastOptions={{ style: { background: '#3C3C3C', color: '#FFFFFF', borderRadius: 999, fontSize: 13, fontFamily: 'Inter, sans-serif' } }} />
         </Providers>
       </body>
     </html>

@@ -50,12 +50,12 @@ const FEATURES = [
   {
     icon: "📈",
     title: "Search Trend Analysis",
-    desc: "Track keyword trends across Etsy, Google, Amazon, and eBay. Know exactly when buyer interest peaks for your products.",
+    desc: "Track keyword trends derived from Etsy listing data. Know when buyer interest peaks for your products using signals available through the official Etsy API.",
   },
   {
     icon: "🌍",
-    title: "Searchers by Country",
-    desc: "See where your buyers come from. Target high-value geographic markets with localized keywords and shipping strategies.",
+    title: "Market Insights",
+    desc: "Analyze competition levels and tag usage patterns across active Etsy listings to identify market gaps and opportunities.",
   },
   {
     icon: "🏆",
@@ -279,241 +279,13 @@ export function HowItWorks() {
 }
 
 /* ─── Pricing ──────────────────────────────────────────────────────────────── */
-const PLANS = [
-  {
-    name: "Sprout",
-    price: "$0",
-    period: "forever free",
-    featured: false,
-    features: [
-      { ok: true, t: "5 keyword searches / day" },
-      { ok: true, t: "Basic trend charts" },
-      { ok: true, t: "Top 10 related keywords" },
-      { ok: true, t: "1 Etsy shop connected" },
-      { ok: false, t: "Competition analysis" },
-      { ok: false, t: "Tag optimizer" },
-    ],
-    cta: "Get started free",
-    ctaStyle: "ghost",
-  },
-  {
-    name: "Grow",
-    price: "$9.99",
-    period: "per month",
-    featured: true,
-    badge: "Most popular",
-    features: [
-      { ok: true, t: "Unlimited keyword searches" },
-      { ok: true, t: "Full trend analysis (12 months)" },
-      { ok: true, t: "All related keywords" },
-      { ok: true, t: "Competition deep-dive" },
-      { ok: true, t: "Tag optimizer" },
-      { ok: true, t: "3 shops connected" },
-    ],
-    cta: "Start 14-day free trial",
-    ctaStyle: "outline",
-  },
-  {
-    name: "Scale",
-    price: "$24.99",
-    period: "per month",
-    featured: false,
-    features: [
-      { ok: true, t: "Everything in Grow" },
-      { ok: true, t: "Unlimited shops" },
-      { ok: true, t: "API access" },
-      { ok: true, t: "Bulk keyword export" },
-      { ok: true, t: "Priority support" },
-      { ok: true, t: "Team collaboration" },
-    ],
-    cta: "Start 14-day free trial",
-    ctaStyle: "forest",
-  },
-];
+/* Pricing plans coming soon. Currently all features are free during beta. */
 
+
+// Pricing section is coming soon. Currently in beta — all features are free.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function Pricing() {
-  return (
-    <section
-      id="pricing"
-      style={{ padding: "96px 48px", background: C.warmGray }}
-    >
-      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: 64 }}>
-          <SectionTag center>Pricing</SectionTag>
-          <h2
-            style={{
-              fontSize: "clamp(28px,3.5vw,40px)",
-              fontWeight: 300,
-              letterSpacing: "-1px",
-              color: C.forest,
-              lineHeight: 1.1,
-              marginBottom: 8,
-            }}
-          >
-            Grow at your own pace
-          </h2>
-          <p
-            style={{
-              fontSize: 16,
-              color: "#666",
-              maxWidth: 420,
-              margin: "0 auto",
-            }}
-          >
-            Start free, upgrade when you're ready. No hidden fees.
-          </p>
-        </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3,1fr)",
-            gap: 2,
-          }}
-        >
-          {PLANS.map((p) => (
-            <div
-              key={p.name}
-              style={{
-                background: p.featured ? C.forest : C.snow,
-                padding: "40px 32px",
-                position: "relative",
-              }}
-            >
-              {p.badge && (
-                <span
-                  style={{
-                    display: "inline-block",
-                    background: C.pale,
-                    color: C.forest,
-                    fontSize: 11,
-                    fontFamily: "'IBM Plex Mono',monospace",
-                    fontWeight: 500,
-                    padding: "4px 14px",
-                    borderRadius: 999,
-                    marginBottom: 24,
-                  }}
-                >
-                  {p.badge}
-                </span>
-              )}
-              <h3
-                style={{
-                  fontSize: 20,
-                  fontWeight: 500,
-                  color: p.featured ? C.snow : C.forest,
-                  marginBottom: 8,
-                }}
-              >
-                {p.name}
-              </h3>
-              <div
-                style={{
-                  fontSize: 40,
-                  fontWeight: 300,
-                  color: p.featured ? C.snow : C.forest,
-                  letterSpacing: "-2px",
-                  marginBottom: 4,
-                }}
-              >
-                {p.price}
-              </div>
-              <p
-                style={{
-                  fontSize: 13,
-                  fontFamily: "'IBM Plex Mono',monospace",
-                  color: p.featured ? "rgba(252,252,247,0.4)" : "#b3b3b3",
-                  marginBottom: 32,
-                }}
-              >
-                {p.period}
-              </p>
-              <ul
-                style={{
-                  listStyle: "none",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 12,
-                  marginBottom: 40,
-                }}
-              >
-                {p.features.map((f) => (
-                  <li
-                    key={f.t}
-                    style={{
-                      fontSize: 14,
-                      color: p.featured
-                        ? f.ok
-                          ? "rgba(252,252,247,0.7)"
-                          : "rgba(252,252,247,0.25)"
-                        : f.ok
-                          ? "#666"
-                          : "#ccc",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 16,
-                        height: 16,
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
-                        fontSize: 9,
-                        background: p.featured
-                          ? "rgba(211,250,153,0.2)"
-                          : C.pale,
-                        color: p.featured ? C.pale : C.forest,
-                      }}
-                    >
-                      {f.ok ? "✓" : "✗"}
-                    </span>
-                    {f.t}
-                  </li>
-                ))}
-              </ul>
-              <button
-                style={{
-                  width: "100%",
-                  padding: "14px 28px",
-                  borderRadius: 999,
-                  fontSize: 14,
-                  fontWeight: 500,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  transition: "all 0.2s",
-                  ...(p.ctaStyle === "ghost"
-                    ? {
-                        background: "transparent",
-                        border: `1px solid ${C.forest}`,
-                        color: C.forest,
-                      }
-                    : {}),
-                  ...(p.ctaStyle === "outline"
-                    ? {
-                        background: "transparent",
-                        border: "1.5px solid rgba(252,252,247,0.3)",
-                        color: C.snow,
-                      }
-                    : {}),
-                  ...(p.ctaStyle === "forest"
-                    ? { background: C.forest, border: "none", color: C.snow }
-                    : {}),
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.8")}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
-              >
-                {p.cta}
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
+  return null
 }
 
 /* ─── About + Contact Teaser ───────────────────────────────────────────────── */
@@ -571,7 +343,7 @@ export function AboutContactTeaser() {
           onMouseLeave={e => (e.currentTarget.style.transform = 'none')}
         >
           <div style={{
-            width: 44, height: 44, background: 'rgba(211,250,153,0.15)', borderRadius: 8,
+            width: 44, height: 44, background: 'rgba(255,96,8,0.10)', borderRadius: 8,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 20, marginBottom: 20,
           }}>✉️</div>
@@ -609,15 +381,15 @@ export function CTA() {
     <section
       style={{
         padding: "96px 48px",
-        background: C.forest,
+        background: C.charcoal,
         textAlign: "center",
       }}
     >
       <h2
         style={{
           fontSize: "clamp(32px,4vw,52px)",
-          fontWeight: 300,
-          color: C.snow,
+          fontWeight: 700,
+          color: '#FFFFFF',
           letterSpacing: "-1.5px",
           lineHeight: 1.05,
           marginBottom: 16,
@@ -628,11 +400,11 @@ export function CTA() {
       <p
         style={{
           fontSize: 17,
-          color: "rgba(252,252,247,0.6)",
+          color: "rgba(255,255,255,0.6)",
           marginBottom: 48,
         }}
       >
-        Join thousands of sellers using data to rank higher and sell more.
+        Join Etsy sellers using data to rank higher and sell more.
       </p>
       <div
         style={{
@@ -644,13 +416,13 @@ export function CTA() {
       >
         <button
           style={{
-            background: C.pale,
+            background: C.orange,
             border: "none",
-            color: C.forest,
+            color: '#fff',
             padding: "16px 36px",
             borderRadius: 999,
             fontSize: 15,
-            fontWeight: 500,
+            fontWeight: 600,
             cursor: "pointer",
             fontFamily: "inherit",
             display: "inline-flex",
@@ -666,8 +438,8 @@ export function CTA() {
         <button
           style={{
             background: "transparent",
-            border: "1px solid rgba(252,252,247,0.3)",
-            color: C.snow,
+            border: "1.5px solid rgba(255,255,255,0.35)",
+            color: '#fff',
             padding: "16px 36px",
             borderRadius: 999,
             fontSize: 15,
@@ -676,9 +448,9 @@ export function CTA() {
             fontFamily: "inherit",
             transition: "all 0.2s",
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.borderColor = C.snow)}
+          onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#fff')}
           onMouseLeave={(e) =>
-            (e.currentTarget.style.borderColor = "rgba(252,252,247,0.3)")
+            (e.currentTarget.style.borderColor = "rgba(255,255,255,0.35)")
           }
         >
           View live demo
@@ -733,17 +505,12 @@ export function Footer() {
           marginBottom: 32,
         }}
       >
-        <div style={{ color: C.forest }}>
-          <p
-            style={{
-              fontSize: 18,
-              fontWeight: 600,
-              letterSpacing: "-0.5px",
-              marginBottom: 12,
-            }}
-          >
-            🌱 Ranksty
-          </p>
+        <div style={{ color: C.charcoal }}>
+          <img
+            src="/website_logo.png"
+            alt="Ranktsy"
+            style={{ width: 130, height: 44, objectFit: 'contain', display: 'block', marginBottom: 14 }}
+          />
           <p style={{ fontSize: 13, color: "#666", lineHeight: 1.6 }}>
             Data-driven keyword research and analytics for Etsy sellers. Grow
             smarter, not harder.
@@ -776,7 +543,7 @@ export function Footer() {
                   marginBottom: 10,
                   transition: "color 0.2s",
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = C.forest)}
+                onMouseEnter={(e) => (e.currentTarget.style.color = C.orange)}
                 onMouseLeave={(e) => (e.currentTarget.style.color = "#666")}
               >
                 {l}
@@ -804,7 +571,7 @@ export function Footer() {
             margin: 0,
           }}
         >
-          © 2026 Ranksty. Built with the Seed Design System.
+          © 2026 Ranktsy. All rights reserved.
         </p>
         <p
           style={{
@@ -815,7 +582,7 @@ export function Footer() {
             lineHeight: "1.5",
           }}
         >
-          The term 'Etsy' is a trademark of Etsy, Inc. Ranktsy is an independent
+          The term 'Etsy' is a trademark of Etsy, Inc. Ranksty is an independent
           application and is not endorsed, certified, or affiliated with Etsy,
           Inc.
         </p>

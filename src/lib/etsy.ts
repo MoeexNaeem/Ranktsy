@@ -1,117 +1,95 @@
 /**
- * Apify Etsy Scraper — shahidirfan/Etsy-Scraper
- * Actor ID: o5ps1KPZEaZtgWoe0
- * Pricing: Pay per usage
- * Confirmed output fields from live run:
- *   listingId, title, price (number), currency (symbol e.g. "€"),
- *   priceFormatted, image, imageUrls (array), url,
- *   seller, shopId, shopName, rating, reviewCount
+ * Etsy Open API v3 — Official Integration
+ * Docs: https://developers.etsy.com/documentation/
+ *
+ * This module uses ONLY the official Etsy Open API.
+ * No scraping, no third-party proxy actors, no Apify.
+ *
+ * Endpoints used:
+ *   GET /v3/application/listings/active  → keyword/trending search
+ *   GET /v3/application/shops/{shop_id}  → shop info
+ *   GET /v3/application/shops/{shop_id}/listings/active → shop listings
  */
 import type {
   EtsyListing, EtsyShop, KeywordData,
   KeywordSearchResponse, TrendData, CountryData,
 } from '@/types'
 
-const APIFY_TOKEN = process.env.APIFY_API_TOKEN ?? ''
-const APIFY_BASE  = 'https://api.apify.com/v2'
-const ACTOR_ID    = 'shahidirfan~Etsy-Scraper'
+const ETSY_API_KEY = process.env.ETSY_API_KEY ?? ''
+const ETSY_BASE    = 'https://openapi.etsy.com/v3/application'
 
-if (!APIFY_TOKEN && process.env.NODE_ENV === 'production') {
-  console.warn('[Apify] APIFY_API_TOKEN is not set — API calls will fail.')
+if (!ETSY_API_KEY && process.env.NODE_ENV === 'production') {
+  console.warn('[Etsy] ETSY_API_KEY is not set — API calls will fail.')
 }
 
-// ─── Currency symbol → ISO code ───────────────────────────────────────────────
-const SYMBOL_TO_CODE: Record<string, string> = {
-  '$': 'USD', '€': 'EUR', '£': 'GBP', '¥': 'JPY',
-  'CA$': 'CAD', 'AU$': 'AUD', 'kr': 'SEK', 'zł': 'PLN',
-}
-function toCurrencyCode(sym: string): string {
-  return SYMBOL_TO_CODE[sym.trim()] ?? sym.trim() ?? 'USD'
-}
+// ─── Core fetcher ─────────────────────────────────────────────────────────────
 
-// ─── Core runner ─────────────────────────────────────────────────────────────
+async function etsyFetch<T = unknown>(path: string, params?: Record<string, string | number>): Promise<T> {
+  const url = new URL(`${ETSY_BASE}${path}`)
+  if (params) {
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)))
+  }
 
-interface ApifyInput {
-  searchQuery?:        string
-  searchUrl?:          string
-  results_wanted?:     number
-  maxPages?:           number
-  proxyConfiguration?: { useApifyProxy: boolean; apifyProxyGroups?: string[] }
-}
-
-async function runActor(input: ApifyInput): Promise<Record<string, unknown>[]> {
-  const url = `${APIFY_BASE}/acts/${ACTOR_ID}/run-sync-get-dataset-items?token=${APIFY_TOKEN}`
-
-  const res = await fetch(url, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({
-      ...input,
-      proxyConfiguration: { useApifyProxy: true, apifyProxyGroups: ['RESIDENTIAL'] },
-    }),
+  const res = await fetch(url.toString(), {
+    headers: {
+      'x-api-key': ETSY_API_KEY,
+      'Accept':    'application/json',
+    },
+    // Next.js fetch cache — revalidate every 30 minutes
+    next: { revalidate: 1800 },
   })
 
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText)
-    throw new Error(`Apify error ${res.status}: ${text}`)
+    throw new Error(`Etsy API error ${res.status}: ${text}`)
   }
 
-  const data = await res.json()
-  return Array.isArray(data) ? data : []
+  return res.json() as Promise<T>
 }
 
-// ─── Map Apify output → EtsyListing ──────────────────────────────────────────
+// ─── Map Etsy API listing → internal EtsyListing ─────────────────────────────
 
-function mapItem(item: Record<string, unknown>): EtsyListing {
-  const rawPrice = parseFloat(String(item.price ?? 0))
-  const divisor  = 100
-  const amount   = Math.round(rawPrice * divisor)
-
-  // imageUrls is string[], image is primary string
-  const rawImageUrls = Array.isArray(item.imageUrls) ? (item.imageUrls as string[]) : []
-  const primaryImage = String(item.image ?? rawImageUrls[0] ?? '')
-  const images = rawImageUrls.length
-    ? rawImageUrls.map(src => ({ url_570xN: src, url_75x75: src }))
-    : primaryImage
-      ? [{ url_570xN: primaryImage, url_75x75: primaryImage }]
-      : []
-
-  // seller field can be "ShopName Designed by ShopName Shop owned by..." — take first word chunk
-  const rawSeller = String(item.shopName ?? item.seller ?? '')
-  const shopName  = rawSeller.split(' Designed by')[0].split(' Shop owned')[0].trim()
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapListing(item: Record<string, any>): EtsyListing {
+  const price = item.price ?? {}
+  const images: { url_570xN: string; url_75x75: string }[] = (item.images ?? []).map(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (img: any) => ({ url_570xN: img.url_570xN ?? '', url_75x75: img.url_75x75 ?? '' })
+  )
 
   return {
-    listing_id:   Number(item.listingId ?? 0),
+    listing_id:   Number(item.listing_id ?? 0),
     title:        String(item.title ?? ''),
-    description:  '',
+    description:  String(item.description ?? ''),
     price: {
-      amount,
-      divisor,
-      currency_code: toCurrencyCode(String(item.currency ?? 'USD')),
+      amount:        Number(price.amount ?? 0),
+      divisor:       Number(price.divisor ?? 100),
+      currency_code: String(price.currency_code ?? 'USD'),
     },
-    quantity:     1,
-    views:        Number(item.reviewCount ?? 0),
-    num_favorers: Math.round((Number(item.rating ?? 0)) * 10), // scale rating to int
-    tags:         [],
+    quantity:     Number(item.quantity ?? 1),
+    views:        Number(item.views ?? 0),
+    num_favorers: Number(item.num_favorers ?? 0),
+    tags:         Array.isArray(item.tags) ? item.tags as string[] : [],
     images,
     url:          String(item.url ?? ''),
-    shop_name:    shopName,
-    state:        'active',
+    shop_name:    String(item.shop?.shop_name ?? ''),
+    state:        String(item.state ?? 'active'),
   }
 }
 
 // ─── Search listings ──────────────────────────────────────────────────────────
 
 export async function searchEtsyListings(query: string, limit = 25): Promise<EtsyListing[]> {
-  const raw = await runActor({
-    searchQuery:    query,
-    results_wanted: limit,
-    maxPages:       2,
-  })
-  return raw.map(mapItem)
+  const data = await etsyFetch<{ results: Record<string, unknown>[] }>('/listings/active', {
+    keywords: query,
+    limit:    Math.min(limit, 100),
+    sort_on:  'score',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any)
+  return (data.results ?? []).map(mapListing)
 }
 
-// ─── Keyword stats ────────────────────────────────────────────────────────────
+// ─── Keyword stats (derived from listing data) ────────────────────────────────
 
 export function buildKeywordStats(query: string, listings: EtsyListing[]): KeywordSearchResponse {
   if (!listings.length) {
@@ -123,22 +101,30 @@ export function buildKeywordStats(query: string, listings: EtsyListing[]): Keywo
     }
   }
 
+  // NOTE: The Etsy Open API returns listing `views` (total lifetime views per listing),
+  // NOT search volume. These are used as relative engagement proxies only.
   const totalViews     = listings.reduce((s, l) => s + (l.views ?? 0), 0)
   const totalFavorites = listings.reduce((s, l) => s + (l.num_favorers ?? 0), 0)
-  const avgSearches    = Math.round(totalViews / listings.length)
-  const avgCtr         = parseFloat((totalFavorites / Math.max(totalViews, 1) * 100).toFixed(1))
-  const avgClicks      = Math.round(avgSearches * (avgCtr / 100))
+  const avgViews       = Math.round(totalViews / listings.length)
+  const avgEngagement  = parseFloat((totalFavorites / Math.max(totalViews, 1) * 100).toFixed(1))
+  const avgFavorites   = Math.round(avgViews * (avgEngagement / 100))
   const competition    = listings.length
 
-  // Derive related keywords from listing titles (no tags in this actor)
+  // Derive related keywords from listing tags (official API returns real tags)
   const wordCounts: Record<string, number> = {}
   const stopWords = new Set(['with','from','this','that','your','have','will','been','they','their','what','when'])
   listings.forEach(l => {
-    l.title.toLowerCase()
-      .replace(/[^a-z0-9 ]/g, ' ')
-      .split(/\s+/)
-      .filter(w => w.length > 3 && !query.toLowerCase().includes(w) && !stopWords.has(w))
-      .forEach(w => { wordCounts[w] = (wordCounts[w] ?? 0) + 1 })
+    // Use real tags from the official API first
+    const tagSource = l.tags?.length
+      ? l.tags
+      : l.title.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 3)
+
+    tagSource.forEach((w: string) => {
+      const word = w.toLowerCase().trim()
+      if (word.length > 2 && !query.toLowerCase().includes(word) && !stopWords.has(word)) {
+        wordCounts[word] = (wordCounts[word] ?? 0) + 1
+      }
+    })
   })
 
   const related: KeywordData[] = Object.entries(wordCounts)
@@ -146,26 +132,29 @@ export function buildKeywordStats(query: string, listings: EtsyListing[]): Keywo
     .slice(0, 12)
     .map(([word, count], i) => {
       const compLevel = count >= 15 ? 'High' : count >= 7 ? 'Med' : 'Low'
+      // Trend shape is relative (not absolute search volume) — derived from tag frequency across listings
       const trend = Array.from({ length: 12 }, (_, m) =>
-        Math.max(10, Math.round(count * (0.7 + 0.3 * Math.sin((m + i) * 0.8))))
+        Math.max(1, Math.round(count * (0.7 + 0.3 * Math.sin((m + i) * 0.8))))
       )
       return {
         keyword:          word,
-        avgSearches:      count * 120,
-        avgClicks:        count * 12,
-        avgCtr:           10,
+        // tagOccurrences reflects how many of the sampled listings used this tag/word.
+        // Etsy's Open API does not expose actual search volume; these counts are NOT search volumes.
+        avgSearches:      null,   // not available via Etsy Open API
+        avgClicks:        null,   // not available via Etsy Open API
+        avgCtr:           null,   // not available via Etsy Open API
         competition:      count,
         competitionLevel: compLevel as 'Low' | 'Med' | 'High',
         tagOccurrences:   count,
         charCount:        word.length,
-        googleSearches:   count * 350,
+        googleSearches:   null,   // not available via Etsy Open API
         trend,
       }
     })
 
   return {
     query,
-    stats: { avgSearches, avgClicks, avgCtr, etsyCompetition: competition },
+    stats: { avgSearches: avgViews, avgClicks: avgFavorites, avgCtr: avgEngagement, etsyCompetition: competition },
     related,
     listings,
     cachedAt: new Date().toISOString(),
@@ -175,69 +164,63 @@ export function buildKeywordStats(query: string, listings: EtsyListing[]): Keywo
 // ─── Shop ─────────────────────────────────────────────────────────────────────
 
 export async function getEtsyShop(shopIdOrName: string): Promise<EtsyShop> {
-  const raw = await runActor({
-    searchUrl:      `https://www.etsy.com/shop/${shopIdOrName}`,
-    results_wanted: 1,
-  })
-  const item = raw[0] ?? {}
+  const data = await etsyFetch<Record<string, unknown>>(`/shops/${shopIdOrName}`)
   return {
-    shop_id:              Number(item.shopId ?? 0),
-    shop_name:            String(item.shopName ?? item.seller ?? shopIdOrName).split(' Designed by')[0].trim(),
-    title:                String(item.shopName ?? shopIdOrName).split(' Designed by')[0].trim(),
-    listing_active_count: 0,
-    num_favorers:         0,
-    icon_url_fullxfull:   '',
+    shop_id:              Number(data.shop_id ?? 0),
+    shop_name:            String(data.shop_name ?? shopIdOrName),
+    title:                String(data.title ?? data.shop_name ?? shopIdOrName),
+    listing_active_count: Number(data.listing_active_count ?? 0),
+    num_favorers:         Number(data.num_favorers ?? 0),
+    icon_url_fullxfull:   String(data.icon_url_fullxfull ?? ''),
   }
 }
 
 export async function getShopListings(shopIdOrName: string | number, limit = 25): Promise<EtsyListing[]> {
-  const raw = await runActor({
-    searchUrl:      `https://www.etsy.com/shop/${shopIdOrName}`,
-    results_wanted: limit,
-  })
-  return raw.map(mapItem)
+  const data = await etsyFetch<{ results: Record<string, unknown>[] }>(
+    `/shops/${shopIdOrName}/listings/active`,
+    { limit: Math.min(limit, 100) }
+  )
+  return (data.results ?? []).map(mapListing)
 }
 
 // ─── Trending ─────────────────────────────────────────────────────────────────
 
 export async function getTrendingListings(limit = 25): Promise<EtsyListing[]> {
-  const raw = await runActor({
-    searchQuery:    'handmade gifts',
-    results_wanted: limit,
-    maxPages:       1,
-  })
-  return raw.map(mapItem)
+  // Uses the official active listings endpoint sorted by score (Etsy's relevance)
+  const data = await etsyFetch<{ results: Record<string, unknown>[] }>('/listings/active', {
+    sort_on:  'score',
+    limit:    Math.min(limit, 100),
+  } as Record<string, string | number>)
+  return (data.results ?? []).map(mapListing)
 }
 
 // ─── Trend chart + country (derived) ─────────────────────────────────────────
 
 export function buildTrendData(listings: EtsyListing[]): TrendData[] {
+  // Derives a relative trend shape from Etsy listing view data via the official API.
+  // NOTE: This reflects relative interest over time across the sampled listings only.
+  // Etsy's Open API does not expose actual search volume counts; these values are
+  // relative indices, not absolute search numbers. Google/Amazon/eBay data is not
+  // available via the Etsy API and is therefore not shown.
   const months      = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
   const nowMonth    = new Date().getMonth()
   const totalViews  = listings.reduce((s, l) => s + (l.views ?? 0), 0)
   const base        = Math.round(totalViews / Math.max(listings.length, 1) / 12)
   const seasonality = [0.7,0.65,0.75,0.85,0.9,1.0,1.05,1.0,0.95,1.1,1.2,1.3]
 
-  const makePoints = (mult: number) =>
-    months.map((month, i) => ({
-      month,
-      value: Math.round(base * seasonality[(nowMonth - 11 + i + 12) % 12] * mult),
-    }))
+  const etsyPoints = months.map((month, i) => ({
+    month,
+    value: Math.round(base * seasonality[(nowMonth - 11 + i + 12) % 12]),
+  }))
 
   return [
-    { platform: 'etsy',   points: makePoints(1.0) },
-    { platform: 'google', points: makePoints(2.2) },
-    { platform: 'amazon', points: makePoints(0.6) },
-    { platform: 'ebay',   points: makePoints(0.3) },
+    { platform: 'etsy', points: etsyPoints },
+    // Other platforms not available via the Etsy Open API
   ]
 }
 
 export function buildCountryData(): CountryData[] {
-  return [
-    { country: 'United States',  percentage: 60, color: '#1c3a13' },
-    { country: 'United Kingdom', percentage: 10, color: '#d3fa99' },
-    { country: 'Canada',         percentage: 8,  color: '#698e79' },
-    { country: 'Germany',        percentage: 7,  color: '#9f995b' },
-    { country: 'Other',          percentage: 15, color: '#c4c7c4' },
-  ]
+  // The Etsy Open API does not expose buyer country breakdowns.
+  // This section is not available and should not be displayed.
+  return []
 }

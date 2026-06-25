@@ -37,9 +37,9 @@ export function KeywordTool() {
             <input ref={ref} type="text" className="kw-input"
               placeholder="e.g. handmade candles, silver ring, boho jewelry..."
               onKeyDown={e=>e.key==='Enter'&&go()}
-              style={{ flex: 1, padding: '14px 20px', border: '1.5px solid rgba(28,58,19,0.2)', borderRadius: 8, fontSize: 15, fontFamily: 'inherit', background: C.snow, outline: 'none', color: '#000', transition: 'border-color 0.2s' }}
+              style={{ flex: 1, padding: '14px 20px', border: '1.5px solid rgba(255,96,8,0.15)', borderRadius: 8, fontSize: 15, fontFamily: 'inherit', background: C.snow, outline: 'none', color: '#000', transition: 'border-color 0.2s' }}
               onFocus={e=>(e.currentTarget.style.borderColor=C.forest)}
-              onBlur={e=>(e.currentTarget.style.borderColor='rgba(28,58,19,0.2)')}
+              onBlur={e=>(e.currentTarget.style.borderColor='rgba(255,96,8,0.15)')}
             />
             <button onClick={go}
               style={{ background: C.forest, border: 'none', color: C.snow, padding: '14px 32px', borderRadius: 999, fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'opacity 0.2s' }}
@@ -85,9 +85,9 @@ export function KeywordTool() {
                 {SUGG.map(s => (
                   <button key={s}
                     onClick={()=>{ if(ref.current) ref.current.value=s; setQ(s); addR(s) }}
-                    style={{ fontSize: 12, fontFamily:"'IBM Plex Mono',monospace", color: C.forest, background: 'rgba(211,250,153,0.4)', border: 'none', padding: '5px 13px', borderRadius: 999, cursor: 'pointer', transition: 'background 0.15s' }}
+                    style={{ fontSize: 12, fontFamily:"'IBM Plex Mono',monospace", color: C.forest, background: 'rgba(255,96,8,0.10)', border: 'none', padding: '5px 13px', borderRadius: 999, cursor: 'pointer', transition: 'background 0.15s' }}
                     onMouseEnter={e=>(e.currentTarget.style.background=C.pale)}
-                    onMouseLeave={e=>(e.currentTarget.style.background='rgba(211,250,153,0.4)')}>
+                    onMouseLeave={e=>(e.currentTarget.style.background='rgba(255,96,8,0.10)')}>
                     {s}
                   </button>
                 ))}

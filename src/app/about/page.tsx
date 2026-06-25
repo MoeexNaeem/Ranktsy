@@ -51,10 +51,10 @@ const VALUES = [
 ]
 
 const STATS = [
-  { number: '12,000+', label: 'Active Sellers' },
-  { number: '850M+', label: 'Keywords Analyzed' },
-  { number: '47', label: 'Countries Reached' },
+  { number: 'Beta', label: 'Current Stage' },
   { number: '2024', label: 'Founded' },
+  { number: '100%', label: 'Etsy API Powered' },
+  { number: 'Free', label: 'During Beta' },
 ]
 
 export default function AboutPage() {
@@ -66,7 +66,7 @@ export default function AboutPage() {
         {/* ── Hero Header ── */}
         <div
           style={{
-            background: C.forest,
+            background: C.charcoal,
             padding: '100px 48px 72px',
             position: 'relative',
             overflow: 'hidden',
@@ -79,7 +79,7 @@ export default function AboutPage() {
               position: 'absolute',
               inset: 0,
               backgroundImage:
-                'linear-gradient(rgba(211,250,153,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(211,250,153,0.04) 1px, transparent 1px)',
+                'linear-gradient(rgba(255,96,8,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(255,96,8,0.10) 1px, transparent 1px)',
               backgroundSize: '40px 40px',
               pointerEvents: 'none',
             }}
@@ -94,7 +94,7 @@ export default function AboutPage() {
               width: 400,
               height: 400,
               borderRadius: '50%',
-              background: 'radial-gradient(circle, rgba(211,250,153,0.08) 0%, transparent 70%)',
+              background: 'radial-gradient(circle, rgba(255,96,8,0.10) 0%, transparent 70%)',
               pointerEvents: 'none',
             }}
           />
@@ -112,7 +112,7 @@ export default function AboutPage() {
                 marginBottom: 20,
               }}
             >
-              <span style={{ width: 24, height: 1, background: C.pale, display: 'inline-block' }} />
+              <span style={{ width: 24, height: 1, background: C.orangeFaint, display: 'inline-block' }} />
               Our Story
             </div>
             <h1
@@ -120,7 +120,7 @@ export default function AboutPage() {
                 fontSize: 'clamp(36px, 5vw, 60px)',
                 fontWeight: 300,
                 letterSpacing: '-2px',
-                color: C.snow,
+                color: '#FFFFFF',
                 lineHeight: 1.05,
                 marginBottom: 24,
                 maxWidth: 700,
@@ -144,7 +144,7 @@ export default function AboutPage() {
         </div>
 
         {/* ── Stats Strip ── */}
-        <div style={{ background: C.pale, padding: '32px 48px' }}>
+        <div style={{ background: C.orangeFaint, padding: '32px 48px' }}>
           <div
             style={{
               maxWidth: 1200,
@@ -160,14 +160,14 @@ export default function AboutPage() {
                 style={{
                   textAlign: 'center',
                   padding: '16px 24px',
-                  borderRight: i < STATS.length - 1 ? `1px solid rgba(28,58,19,0.15)` : 'none',
+                  borderRight: i < STATS.length - 1 ? `1px solid rgba(60,60,60,0.15)` : 'none',
                 }}
               >
                 <div
                   style={{
                     fontSize: 'clamp(24px, 3vw, 36px)',
                     fontWeight: 300,
-                    color: C.forest,
+                    color: C.orange,
                     letterSpacing: '-1.5px',
                     marginBottom: 4,
                   }}
@@ -178,7 +178,7 @@ export default function AboutPage() {
                   style={{
                     fontSize: 12,
                     fontFamily: "'IBM Plex Mono', monospace",
-                    color: C.mutedGreen,
+                    color: C.charcoalMid,
                     textTransform: 'uppercase',
                     letterSpacing: '0.06em',
                   }}
@@ -212,11 +212,11 @@ export default function AboutPage() {
                   fontFamily: "'IBM Plex Mono', monospace",
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
-                  color: C.forest,
+                  color: C.orange,
                   marginBottom: 16,
                 }}
               >
-                <span style={{ width: 24, height: 1, background: C.forest, display: 'inline-block' }} />
+                <span style={{ width: 24, height: 1, background: C.charcoal, display: 'inline-block' }} />
                 Our Mission
               </div>
               <h2
@@ -224,7 +224,7 @@ export default function AboutPage() {
                   fontSize: 'clamp(28px, 3.5vw, 40px)',
                   fontWeight: 300,
                   letterSpacing: '-1px',
-                  color: C.forest,
+                  color: C.orange,
                   lineHeight: 1.1,
                 }}
               >
@@ -250,7 +250,7 @@ export default function AboutPage() {
                   marginBottom: 20,
                 }}
               >
-                Ranksty puts professional-grade keyword intelligence in the hands of independent creators — the people who make Etsy what it is. We analyze hundreds of millions of search signals so you can focus on what you do best: making great products.
+                Ranksty puts professional-grade keyword intelligence in the hands of independent creators — the people who make Etsy what it is. We analyze real listing data via the official Etsy Open API so you can focus on what you do best: making great products.
               </p>
               <p
                 style={{
@@ -277,11 +277,11 @@ export default function AboutPage() {
                 fontFamily: "'IBM Plex Mono', monospace",
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
-                color: C.forest,
+                color: C.orange,
                 marginBottom: 16,
               }}
             >
-              <span style={{ width: 24, height: 1, background: C.forest, display: 'inline-block' }} />
+              <span style={{ width: 24, height: 1, background: C.charcoal, display: 'inline-block' }} />
               What we believe
             </div>
             <h2
@@ -289,7 +289,7 @@ export default function AboutPage() {
                 fontSize: 'clamp(28px, 3.5vw, 40px)',
                 fontWeight: 300,
                 letterSpacing: '-1px',
-                color: C.forest,
+                color: C.orange,
                 lineHeight: 1.1,
                 marginBottom: 16,
               }}
@@ -324,7 +324,7 @@ export default function AboutPage() {
                     style={{
                       width: 44,
                       height: 44,
-                      background: C.pale,
+                      background: C.orangeFaint,
                       borderRadius: 8,
                       display: 'flex',
                       alignItems: 'center',
@@ -339,7 +339,7 @@ export default function AboutPage() {
                     style={{
                       fontSize: 19,
                       fontWeight: 500,
-                      color: C.forest,
+                      color: C.orange,
                       marginBottom: 12,
                       letterSpacing: '-0.3px',
                     }}
@@ -365,11 +365,11 @@ export default function AboutPage() {
                 fontFamily: "'IBM Plex Mono', monospace",
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
-                color: C.forest,
+                color: C.orange,
                 marginBottom: 16,
               }}
             >
-              <span style={{ width: 24, height: 1, background: C.forest, display: 'inline-block' }} />
+              <span style={{ width: 24, height: 1, background: C.charcoal, display: 'inline-block' }} />
               The Team
             </div>
             <h2
@@ -377,7 +377,7 @@ export default function AboutPage() {
                 fontSize: 'clamp(28px, 3.5vw, 40px)',
                 fontWeight: 300,
                 letterSpacing: '-1px',
-                color: C.forest,
+                color: C.orange,
                 lineHeight: 1.1,
                 marginBottom: 56,
               }}
@@ -401,7 +401,7 @@ export default function AboutPage() {
                     style={{
                       width: 56,
                       height: 56,
-                      background: C.forest,
+                      background: C.charcoal,
                       borderRadius: 12,
                       display: 'flex',
                       alignItems: 'center',
@@ -415,8 +415,8 @@ export default function AboutPage() {
                   <span
                     style={{
                       display: 'inline-block',
-                      background: C.pale,
-                      color: C.forest,
+                      background: C.orangeFaint,
+                      color: C.orange,
                       fontSize: 10,
                       fontFamily: "'IBM Plex Mono', monospace",
                       fontWeight: 500,
@@ -432,7 +432,7 @@ export default function AboutPage() {
                     style={{
                       fontSize: 18,
                       fontWeight: 500,
-                      color: C.forest,
+                      color: C.orange,
                       marginBottom: 4,
                       letterSpacing: '-0.3px',
                     }}
@@ -443,7 +443,7 @@ export default function AboutPage() {
                     style={{
                       fontSize: 12,
                       fontFamily: "'IBM Plex Mono', monospace",
-                      color: C.mutedGreen,
+                      color: C.charcoalMid,
                       marginBottom: 16,
                     }}
                   >
@@ -459,7 +459,7 @@ export default function AboutPage() {
         {/* ── CTA ── */}
         <div
           style={{
-            background: C.forest,
+            background: C.charcoal,
             padding: '80px 48px',
             textAlign: 'center',
             position: 'relative',
@@ -472,7 +472,7 @@ export default function AboutPage() {
               position: 'absolute',
               inset: 0,
               backgroundImage:
-                'linear-gradient(rgba(211,250,153,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(211,250,153,0.04) 1px, transparent 1px)',
+                'linear-gradient(rgba(255,96,8,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(255,96,8,0.10) 1px, transparent 1px)',
               backgroundSize: '40px 40px',
               pointerEvents: 'none',
             }}
@@ -482,7 +482,7 @@ export default function AboutPage() {
               style={{
                 fontSize: 'clamp(28px, 4vw, 44px)',
                 fontWeight: 300,
-                color: C.snow,
+                color: '#FFFFFF',
                 letterSpacing: '-1.5px',
                 lineHeight: 1.1,
                 marginBottom: 16,
@@ -497,15 +497,15 @@ export default function AboutPage() {
                 marginBottom: 40,
               }}
             >
-              Join 12,000+ sellers using Ranksty to rank higher and sell more.
+              Join Etsy sellers using Ranksty to rank higher and sell more.
             </p>
             <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
               <a
                 href="/register"
                 style={{
-                  background: C.pale,
+                  background: C.orangeFaint,
                   border: 'none',
-                  color: C.forest,
+                  color: C.orange,
                   padding: '14px 32px',
                   borderRadius: 999,
                   fontSize: 14,
@@ -526,7 +526,7 @@ export default function AboutPage() {
                 style={{
                   background: 'transparent',
                   border: '1px solid rgba(252,252,247,0.3)',
-                  color: C.snow,
+                  color: '#FFFFFF',
                   padding: '14px 32px',
                   borderRadius: 999,
                   fontSize: 14,

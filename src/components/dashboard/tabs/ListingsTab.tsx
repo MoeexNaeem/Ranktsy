@@ -15,7 +15,7 @@ function ListingCard({ listing }: { listing: EtsyListing }) {
   return (
     <a href={listing.url} target="_blank" rel="noopener noreferrer"
       style={{ display: 'block', background: C.snow, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(0,0,0,0.07)', textDecoration: 'none', transition: 'transform 0.15s, box-shadow 0.15s' }}
-      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 16px rgba(28,58,19,0.1)' }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 16px rgba(60,60,60,0.10)' }}
       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'none'; (e.currentTarget as HTMLElement).style.boxShadow = 'none' }}>
       <div style={{ height: 180, background: C.warmGray, overflow: 'hidden' }}>
         {img

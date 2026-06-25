@@ -11,7 +11,7 @@ const sections = [
     bullets: [
       {
         label: 'Account Data',
-        text: 'When you register on Ranktsy, we may collect personal identifiers such as your name, email address, and account credentials.',
+        text: 'When you register on Ranksty, we may collect personal identifiers such as your name, email address, and account credentials.',
       },
       {
         label: 'Payment Information',
@@ -41,7 +41,7 @@ const sections = [
     bullets: [
       {
         label: 'Third-Party APIs',
-        text: 'Ranktsy utilizes official application programming interfaces (APIs) from platforms like Etsy to fetch public marketplace metrics and trend analytics.',
+        text: 'Ranksty utilizes official application programming interfaces (APIs) from platforms like Etsy to fetch public marketplace metrics and trend analytics.',
       },
       {
         label: 'Service Providers',
@@ -73,7 +73,7 @@ const sections = [
   {
     number: '06',
     title: 'Third-Party Trademarks and Disclaimers',
-    content: 'Ranktsy is an independent analytics tool.',
+    content: 'Ranksty is an independent analytics tool.',
     disclaimer: true,
     bullets: [],
   },
@@ -101,7 +101,7 @@ export default function PrivacyPage() {
         {/* ── Header ── */}
         <div
           style={{
-            background: C.forest,
+            background: C.charcoal,
             padding: '96px 48px 64px',
             position: 'relative',
             overflow: 'hidden',
@@ -113,7 +113,7 @@ export default function PrivacyPage() {
               position: 'absolute',
               inset: 0,
               backgroundImage:
-                'linear-gradient(rgba(211,250,153,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(211,250,153,0.04) 1px, transparent 1px)',
+                'linear-gradient(rgba(255,96,8,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(255,96,8,0.10) 1px, transparent 1px)',
               backgroundSize: '40px 40px',
               pointerEvents: 'none',
             }}
@@ -132,7 +132,7 @@ export default function PrivacyPage() {
                 marginBottom: 20,
               }}
             >
-              <span style={{ width: 24, height: 1, background: C.pale, display: 'inline-block' }} />
+              <span style={{ width: 24, height: 1, background: C.orangeFaint, display: 'inline-block' }} />
               Legal
             </div>
             <h1
@@ -140,7 +140,7 @@ export default function PrivacyPage() {
                 fontSize: 'clamp(32px, 5vw, 56px)',
                 fontWeight: 300,
                 letterSpacing: '-1.5px',
-                color: C.snow,
+                color: '#FFFFFF',
                 lineHeight: 1.05,
                 marginBottom: 20,
               }}
@@ -151,7 +151,7 @@ export default function PrivacyPage() {
               style={{
                 fontSize: 13,
                 fontFamily: "'IBM Plex Mono', monospace",
-                color: C.mutedGreen,
+                color: C.charcoalMid,
                 letterSpacing: '0.02em',
               }}
             >
@@ -179,7 +179,7 @@ export default function PrivacyPage() {
                 fontFamily: "'IBM Plex Mono', monospace",
                 textTransform: 'uppercase',
                 letterSpacing: '0.1em',
-                color: C.mutedGreen,
+                color: C.charcoalMid,
                 marginBottom: 16,
               }}
             >
@@ -207,7 +207,7 @@ export default function PrivacyPage() {
                   style={{
                     fontFamily: "'IBM Plex Mono', monospace",
                     fontSize: 10,
-                    color: C.mutedGreen,
+                    color: C.charcoalMid,
                     flexShrink: 0,
                   }}
                 >
@@ -227,14 +227,14 @@ export default function PrivacyPage() {
                 color: '#444',
                 lineHeight: 1.75,
                 marginBottom: 56,
-                borderLeft: `3px solid ${C.pale}`,
+                borderLeft: `3px solid ${C.orange}`}`,
                 paddingLeft: 20,
               }}
             >
-              Welcome to Ranktsy ("we," "our," or "us"). We are committed to protecting your privacy
+              Welcome to Ranksty ("we," "our," or "us"). We are committed to protecting your privacy
               and ensuring a transparent relationship with our users. This Privacy Policy explains how
               we collect, use, disclose, and safeguard your information when you visit our website at{' '}
-              <a href="https://ranktsy.com" style={{ color: C.forest, textDecoration: 'underline' }}>
+              <a href="https://ranktsy.com" style={{ color: C.orange, textDecoration: 'underline' }}>
                 ranktsy.com
               </a>
               .
@@ -257,7 +257,7 @@ export default function PrivacyPage() {
                       fontFamily: "'IBM Plex Mono', monospace",
                       fontSize: 11,
                       color: C.pale,
-                      background: C.forest,
+                      background: C.charcoal,
                       padding: '4px 8px',
                       borderRadius: 2,
                       letterSpacing: '0.04em',
@@ -269,7 +269,7 @@ export default function PrivacyPage() {
                     style={{
                       fontSize: 22,
                       fontWeight: 500,
-                      color: C.forest,
+                      color: C.orange,
                       letterSpacing: '-0.4px',
                     }}
                   >
@@ -293,13 +293,13 @@ export default function PrivacyPage() {
                           padding: '16px 20px',
                           background: C.warmGray,
                           borderRadius: 2,
-                          borderLeft: `3px solid ${C.pale}`,
+                          borderLeft: `3px solid ${C.orange}`}`,
                         }}
                       >
                         <span style={{ flexShrink: 0, marginTop: 3, color: C.pale, fontSize: 10 }}>▸</span>
                         <p style={{ fontSize: 14, color: '#444', lineHeight: 1.7, margin: 0 }}>
                           {b.label && (
-                            <strong style={{ color: C.forest, fontWeight: 600 }}>{b.label}: </strong>
+                            <strong style={{ color: C.orange, fontWeight: 600 }}>{b.label}: </strong>
                           )}
                           {b.text}
                         </p>
@@ -319,12 +319,12 @@ export default function PrivacyPage() {
                     style={{
                       marginTop: 20,
                       padding: '20px 24px',
-                      background: '#fffbe6',
-                      border: '1px solid rgba(159,153,91,0.3)',
+                      background: '#FFF4EE',
+                      border: '1px solid rgba(255,122,46,0.10)',
                       borderRadius: 2,
                     }}
                   >
-                    <p style={{ fontSize: 13, color: '#5a5220', lineHeight: 1.7, margin: 0, fontFamily: "'IBM Plex Mono', monospace" }}>
+                    <p style={{ fontSize: 13, color: '#3C3C3C', lineHeight: 1.7, margin: 0, fontFamily: "'IBM Plex Mono', monospace" }}>
                       ⚠ Important Disclaimer: The term 'Etsy' is a trademark of Etsy, Inc. This
                       application is an independent service and is not endorsed, certified, or
                       officially affiliated with Etsy, Inc. in any capacity.
@@ -337,7 +337,7 @@ export default function PrivacyPage() {
                     style={{
                       marginTop: 20,
                       padding: '24px 28px',
-                      background: C.forest,
+                      background: C.charcoal,
                       borderRadius: 2,
                       display: 'flex',
                       flexDirection: 'column',

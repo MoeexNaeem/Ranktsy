@@ -8,9 +8,9 @@ type SortKey = keyof Pick<KeywordData,'avgSearches'|'avgClicks'|'avgCtr'|'compet
 type SortDir = 'asc'|'desc'
 
 const COMP: Record<string,{bg:string;color:string}> = {
-  Low:  { bg:'rgba(105,142,121,0.15)', color:'#698e79' },
-  Med:  { bg:'rgba(159,153,91,0.15)',  color:'#7a7320' },
-  High: { bg:'rgba(28,58,19,0.1)',     color:'#1c3a13' },
+  Low:  { bg:'rgba(60,60,60,0.10)', color:'#5A5A5A' },
+  Med:  { bg:'rgba(255,122,46,0.10)',  color:'#7a7320' },
+  High: { bg:'rgba(60,60,60,0.10)',     color:'#3C3C3C' },
 }
 
 const COLS: { label:string; key?:SortKey }[] = [

@@ -1,6 +1,8 @@
-# 🌱 SeedRank — Etsy Keyword Research & Analytics
+# 🌱 Ranktsy — Etsy Keyword Research & Analytics
 
-A full-stack Next.js 16 application for Etsy sellers — keyword research, search trend analysis, competition tracking, and shop analytics.
+A full-stack Next.js application to help Etsy sellers analyze search trends, optimize listings, and track shop performance — powered by the **official Etsy Open API v3**.
+
+> **Note:** Ranktsy is an independent analytics tool and is not affiliated with, endorsed by, or certified by Etsy, Inc. 'Etsy' is a trademark of Etsy, Inc.
 
 ---
 
@@ -8,8 +10,8 @@ A full-stack Next.js 16 application for Etsy sellers — keyword research, searc
 
 | Layer       | Technology                                           |
 |-------------|------------------------------------------------------|
-| Framework   | Next.js 16 (App Router, Turbopack)                   |
-| Language    | TypeScript (strict, zero errors)                     |
+| Framework   | Next.js (App Router, Turbopack)                      |
+| Language    | TypeScript (strict)                                  |
 | Styling     | Tailwind CSS v4 (Seed Design System tokens)          |
 | Data fetch  | TanStack React Query v5 (stale-while-revalidate)     |
 | State       | Zustand v5 (devtools middleware)                     |
@@ -17,6 +19,20 @@ A full-stack Next.js 16 application for Etsy sellers — keyword research, searc
 | Database    | MongoDB + Mongoose ODM                               |
 | Cache       | 3-layer: In-memory → MongoDB TTL → Next.js fetch     |
 | Icons       | Lucide React                                         |
+| Data source | Official Etsy Open API v3 (https://openapi.etsy.com) |
+
+---
+
+## Etsy API Integration
+
+This app uses **only** the official [Etsy Open API v3](https://developers.etsy.com/documentation/).
+
+Endpoints used:
+- `GET /v3/application/listings/active` — keyword search and trending listings
+- `GET /v3/application/shops/{shop_id}` — shop profile
+- `GET /v3/application/shops/{shop_id}/listings/active` — shop listings
+
+No scraping, no third-party data proxies, no unofficial methods.
 
 ---
 
@@ -26,22 +42,8 @@ A full-stack Next.js 16 application for Etsy sellers — keyword research, searc
 React Query (client, 30min stale)
   → In-Memory LRU (Node process, 6h TTL, ~0ms)
     → MongoDB TTL Index (persistent, 6h auto-expire)
-      → Etsy API / demo data generator
+      → Etsy Open API v3
 ```
-
----
-
-## Performance Patterns Used
-
-- `memo()` — every chart + table row component
-- `useMemo()` — chart datasets, sorted rows, stat values
-- `useCallback()` — all event handlers (search, sort, tabs)
-- `dynamic()` with `ssr:false` — Dashboard lazy-loads Chart.js only when needed
-- `forwardRef` — Button component for form integration
-- MongoDB TTL indexes — auto-expire keyword cache, no cron needed
-- ISR — home page static, revalidated every 24h
-- React Query deduplication — parallel requests collapsed automatically
-- `placeholderData` — previous results visible while new query fetches
 
 ---
 
@@ -61,15 +63,15 @@ npm run build        # production build
 npm run type-check   # TypeScript (zero errors guaranteed)
 ```
 
+### Get an Etsy API Key
+1. Register at https://www.etsy.com/developers/register
+2. Create an application describing how Ranktsy uses the API
+3. Copy your API key → paste into `ETSY_API_KEY` in `.env.local`
+
 ### MongoDB (Atlas)
 1. Create free cluster at mongodb.com/atlas
-2. Copy connection string → MONGODB_URI in .env.local
+2. Copy connection string → `MONGODB_URI` in `.env.local`
 3. Collections auto-created: `keywordcaches` (TTL 6h), `keywordhistories`
-
-### Etsy API
-1. Apply at developers.etsy.com (free, 1-3 day approval)
-2. Set ETSY_API_KEY in .env.local
-3. Replace `generateKeywordData()` in `src/lib/etsy.ts` with real API calls
 
 ---
 
@@ -80,20 +82,21 @@ src/
 ├── app/
 │   ├── api/keywords/route.ts   ← 3-layer cached keyword API
 │   ├── api/trends/route.ts     ← Trend + country data API
-│   ├── dashboard/page.tsx      ← Full dashboard page ('use client')
+│   ├── api/etsy/               ← Etsy proxy routes (search, shop, trending)
+│   ├── dashboard/page.tsx      ← Full dashboard page
 │   ├── layout.tsx              ← Root layout + Providers
 │   └── page.tsx                ← Landing page (ISR 24h)
 ├── components/
-│   ├── charts/                 ← TrendChart, CountryChart, MiniTrend (all memo'd)
+│   ├── charts/                 ← TrendChart, CountryChart, MiniTrend
 │   ├── dashboard/              ← Dashboard, KeywordTable, PlatformToggle
 │   ├── landing/                ← Navbar, Hero, Sections, KeywordTool
 │   └── ui/                     ← Button, Badge, StatCard, Loading
 ├── hooks/useKeywords.ts        ← React Query hooks
 ├── lib/
-│   ├── db.ts                   ← MongoDB singleton (no hot-reload leaks)
+│   ├── db.ts                   ← MongoDB singleton
 │   ├── models.ts               ← Mongoose models with TTL indexes
 │   ├── cache.ts                ← In-memory LRU cache
-│   ├── etsy.ts                 ← Data layer (swap for real Etsy API)
+│   ├── etsy.ts                 ← Official Etsy API client
 │   └── providers.tsx           ← QueryClient config
 ├── store/app.ts                ← Zustand store
 ├── types/index.ts              ← All TypeScript interfaces
@@ -108,8 +111,8 @@ src/
 npm i -g vercel && vercel --prod
 ```
 
-Add MONGODB_URI + ETSY_API_KEY in Vercel → Settings → Environment Variables.
+Add `MONGODB_URI` and `ETSY_API_KEY` in Vercel → Settings → Environment Variables.
 
 ---
 
-*Not affiliated with Etsy, Inc.*
+*Ranktsy is not affiliated with Etsy, Inc.*

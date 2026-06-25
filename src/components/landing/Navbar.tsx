@@ -1,5 +1,6 @@
 'use client'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useAuth, useLogout } from '@/hooks/useAuth'
 import { C } from '@/utils'
@@ -8,38 +9,41 @@ const S = {
   nav: {
     position: 'fixed' as const, top: 0, left: 0, right: 0, zIndex: 100,
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '16px 48px',
-    background: 'rgba(252,252,247,0.92)',
+    padding: '12px 48px',
+    background: 'rgba(255,255,255,0.96)',
     backdropFilter: 'blur(12px)',
     WebkitBackdropFilter: 'blur(12px)',
-    borderBottom: '1px solid rgba(28,58,19,0.1)',
+    borderBottom: '1px solid rgba(60,60,60,0.10)',
+    boxShadow: '0 1px 8px rgba(0,0,0,0.06)',
   },
-  logo: { display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' },
-  logoText: { fontWeight: 600, fontSize: 20, color: C.forest, letterSpacing: '-0.5px' },
-  beta: { background: C.forest, color: C.snow, fontSize: 13, fontWeight: 500, padding: '2px 8px', borderRadius: 999 },
+  logo: { display: 'flex', alignItems: 'center', gap: 0, textDecoration: 'none' },
+  beta: {
+    background: C.orange, color: '#fff', fontSize: 11, fontWeight: 600,
+    padding: '2px 8px', borderRadius: 999, marginLeft: 10,
+    letterSpacing: '0.04em', textTransform: 'uppercase' as const,
+  },
   links: { display: 'flex', gap: 28, listStyle: 'none', alignItems: 'center' },
-  link: { fontSize: 14, fontWeight: 400, color: '#000', textDecoration: 'none', transition: 'color 0.2s' },
-  activeLink: { fontSize: 14, fontWeight: 500, color: C.forest, textDecoration: 'none' },
-  divider: { width: 1, height: 16, background: 'rgba(28,58,19,0.15)', display: 'inline-block' },
+  link: { fontSize: 14, fontWeight: 400, color: C.charcoal, textDecoration: 'none', transition: 'color 0.2s' },
+  activeLink: { fontSize: 14, fontWeight: 600, color: C.orange, textDecoration: 'none' },
+  divider: { width: 1, height: 16, background: 'rgba(60,60,60,0.15)', display: 'inline-block' },
   cta: { display: 'flex', gap: 12, alignItems: 'center' },
   login: {
-    background: 'transparent', border: `1px solid ${C.forest}`, color: C.forest,
-    padding: '8px 20px', borderRadius: 0, fontSize: 14, cursor: 'pointer',
-    fontFamily: 'inherit', transition: 'all 0.2s',
+    background: 'transparent', border: `1.5px solid ${C.orange}`, color: C.orange,
+    padding: '8px 20px', borderRadius: 999, fontSize: 14, fontWeight: 500, cursor: 'pointer',
+    fontFamily: 'inherit', transition: 'all 0.2s', textDecoration: 'none', display: 'inline-block',
   },
   start: {
-    background: C.forest, border: 'none', color: C.snow,
-    padding: '10px 24px', borderRadius: 999, fontSize: 14, fontWeight: 500,
+    background: C.orange, border: 'none', color: '#fff',
+    padding: '10px 24px', borderRadius: 999, fontSize: 14, fontWeight: 600,
     cursor: 'pointer', fontFamily: 'inherit', transition: 'opacity 0.2s',
+    textDecoration: 'none', display: 'inline-block',
   },
 }
 
-// Anchor links (scroll on homepage) vs page links
 const LANDING_LINKS = [
   ['#features', 'Features'],
   ['#dashboard', 'Dashboard'],
   ['#keywords', 'Keyword Tool'],
-  ['#pricing', 'Pricing'],
 ]
 
 const PAGE_LINKS = [
@@ -55,28 +59,34 @@ export function Navbar() {
 
   return (
     <nav style={S.nav}>
+      {/* Logo */}
       <Link href="/" style={S.logo}>
-        <span style={S.logoText}>Ranksty</span>
+        <Image
+          src="/website_logo.png"
+          alt="Ranktsy — Etsy SEO Tools"
+          width={140}
+          height={48}
+          style={{ objectFit: 'contain', display: 'block' }}
+          priority
+        />
         <span style={S.beta}>BETA</span>
       </Link>
 
+      {/* Nav links */}
       <ul style={S.links}>
-        {/* Anchor links — only show on homepage */}
         {isHome && LANDING_LINKS.map(([h, l]) => (
           <li key={h}>
             <a href={h} style={S.link}
-              onMouseEnter={e => { e.currentTarget.style.color = C.forest }}
-              onMouseLeave={e => { e.currentTarget.style.color = '#000' }}
+              onMouseEnter={e => { e.currentTarget.style.color = C.orange }}
+              onMouseLeave={e => { e.currentTarget.style.color = C.charcoal }}
             >
               {l}
             </a>
           </li>
         ))}
 
-        {/* Divider between anchor and page links, only on homepage */}
         {isHome && <li><span style={S.divider} /></li>}
 
-        {/* Page links — always visible */}
         {PAGE_LINKS.map(([href, label]) => {
           const active = pathname === href
           return (
@@ -84,17 +94,14 @@ export function Navbar() {
               <Link
                 href={href}
                 style={active ? S.activeLink : S.link}
-                onMouseEnter={e => { if (!active) e.currentTarget.style.color = C.forest }}
-                onMouseLeave={e => { if (!active) e.currentTarget.style.color = '#000' }}
+                onMouseEnter={e => { if (!active) e.currentTarget.style.color = C.orange }}
+                onMouseLeave={e => { if (!active) e.currentTarget.style.color = C.charcoal }}
               >
                 {label}
                 {active && (
                   <span style={{
-                    display: 'block',
-                    height: 2,
-                    background: C.pale,
-                    borderRadius: 999,
-                    marginTop: 2,
+                    display: 'block', height: 2,
+                    background: C.orange, borderRadius: 999, marginTop: 2,
                   }} />
                 )}
               </Link>
@@ -103,28 +110,24 @@ export function Navbar() {
         })}
       </ul>
 
+      {/* CTA buttons */}
       <div style={S.cta}>
         {user ? (
           <>
-            <Link href="/dashboard" style={{ ...S.start, textDecoration: 'none', display: 'inline-block' }}>
-              Dashboard →
-            </Link>
+            <Link href="/dashboard" style={S.start}>Dashboard →</Link>
             <button
               onClick={() => logout.mutate()}
-              style={S.login}
-              onMouseEnter={e => { const b = e.currentTarget; b.style.background = C.forest; b.style.color = C.snow }}
-              onMouseLeave={e => { const b = e.currentTarget; b.style.background = 'transparent'; b.style.color = C.forest }}>
+              style={S.login as React.CSSProperties}
+              onMouseEnter={e => { const b = e.currentTarget; b.style.background = C.orange; b.style.color = '#fff' }}
+              onMouseLeave={e => { const b = e.currentTarget; b.style.background = 'transparent'; b.style.color = C.orange }}
+            >
               Log out
             </button>
           </>
         ) : (
           <>
-            <Link href="/login" style={{ ...S.login, textDecoration: 'none', display: 'inline-block' }}>
-              Log in
-            </Link>
-            <Link href="/register" style={{ ...S.start, textDecoration: 'none', display: 'inline-block' }}>
-              Start free →
-            </Link>
+            <Link href="/login" style={S.login}>Log in</Link>
+            <Link href="/register" style={S.start}>Start free →</Link>
           </>
         )}
       </div>

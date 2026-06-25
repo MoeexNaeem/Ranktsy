@@ -40,7 +40,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
     data = buildKeywordStats(query, listings)
   } catch (err) {
     console.error('[Keywords] Etsy API error:', err)
-    return NextResponse.json({ success: false, error: 'Failed to fetch keyword data from Etsy. Check your APIFY_API_TOKEN.' }, { status: 502 })
+    return NextResponse.json({ success: false, error: 'Failed to fetch keyword data from Etsy. Check your ETSY_API_KEY.' }, { status: 502 })
   }
 
   const expiresAt = new Date(Date.now() + CACHE_TTL.KEYWORD * 1000)

@@ -1,14 +1,27 @@
 export const C = {
-  forest:      '#1c3a13',
-  snow:        '#fcfcf7',
-  pale:        '#d3fa99',
-  frosted:     '#c4c7c4',
-  warmGray:    '#eeeee9',
-  mutedGreen:  '#757c5d',
-  mutedYellow: '#9f995b',
-  mutedTeal:   '#698e79',
-  ghostGray:   '#b3b3b3',
-  overlay:     '#666666',
+  // ── Brand palette ──────────────────────────────────────────
+  orange:      '#FF6008',        // primary CTA / accents
+  orangeLight: '#FF7A2E',        // hover state
+  orangeFaint: 'rgba(255,96,8,0.10)', // soft backgrounds
+  charcoal:    '#3C3C3C',        // primary text / dark surfaces
+  charcoalMid: '#5A5A5A',        // secondary text
+  charcoalSoft:'rgba(60,60,60,0.08)', // borders / dividers
+
+  // ── Neutrals ───────────────────────────────────────────────
+  snow:        '#FFFFFF',        // pure white
+  offWhite:    '#F8F7F5',        // page background
+  warmGray:    '#F0EFED',        // card backgrounds / sections
+  lightGray:   '#E5E4E2',        // borders
+  ghostGray:   '#B0B0B0',        // placeholder / disabled text
+  overlay:     '#666666',        // muted body text
+
+  // ── Legacy aliases kept for any missed references ───────────
+  forest:      '#3C3C3C',        // mapped → charcoal
+  pale:        '#FF6008',        // mapped → orange
+  mutedGreen:  '#5A5A5A',        // mapped → charcoalMid
+  mutedYellow: '#FF7A2E',        // mapped → orangeLight
+  mutedTeal:   '#3C3C3C',        // mapped → charcoal
+  frosted:     '#E5E4E2',        // mapped → lightGray
 } as const
 
 export function formatNumber(n: number): string {

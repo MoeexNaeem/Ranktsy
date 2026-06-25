@@ -59,12 +59,13 @@ export function DashboardLayout() {
       {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
       <aside style={{ width: 220, background: C.snow, borderRight: '1px solid rgba(0,0,0,0.07)', display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }}>
         {/* Logo */}
-        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 7, textDecoration: 'none' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.forest} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 22V12M12 12C12 7 7 4 2 5c0 5 3 9 10 7M12 12c0-5 5-8 10-7 0 5-3 9-10 7"/>
-            </svg>
-            <span style={{ fontWeight: 600, fontSize: 16, color: C.forest, letterSpacing: '-0.4px' }}>Ranksty</span>
+        <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid rgba(0,0,0,0.07)' }}>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+            <img
+              src="/website_logo.png"
+              alt="Ranktsy"
+              style={{ width: 120, height: 40, objectFit: 'contain', display: 'block' }}
+            />
           </Link>
         </div>
 
@@ -78,8 +79,8 @@ export function DashboardLayout() {
                 padding: '9px 10px', borderRadius: 8, border: 'none',
                 cursor: 'pointer', fontFamily: 'inherit',
                 textAlign: 'left', width: '100%', transition: 'background 0.15s',
-                background: activeTab === tab.id ? C.forest : 'transparent',
-                color:      activeTab === tab.id ? C.snow : '#555',
+                background: activeTab === tab.id ? C.orange : 'transparent',
+                color:      activeTab === tab.id ? '#fff' : '#555',
               }}>
               <span style={{ display: 'flex', flexShrink: 0, opacity: activeTab === tab.id ? 1 : 0.7 }}>{tab.icon}</span>
               <span style={{ fontSize: 13, fontWeight: activeTab === tab.id ? 500 : 400 }}>{tab.label}</span>
@@ -91,9 +92,9 @@ export function DashboardLayout() {
         <div style={{ padding: '12px 10px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
           {user && (
             <div style={{ padding: '10px', borderRadius: 10, background: C.warmGray, marginBottom: 8 }}>
-              <p style={{ fontSize: 12.5, fontWeight: 500, color: C.forest, marginBottom: 1 }}>{user.name ?? 'User'}</p>
+              <p style={{ fontSize: 12.5, fontWeight: 500, color: C.charcoal, marginBottom: 1 }}>{user.name ?? 'User'}</p>
               <p style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>{user.email ?? ''}</p>
-              <span style={{ fontSize: 10, background: C.pale, color: C.forest, padding: '2px 8px', borderRadius: 999, fontFamily: "'IBM Plex Mono',monospace", fontWeight: 600, textTransform: 'uppercase' }}>
+              <span style={{ fontSize: 10, background: C.orange, color: '#fff', padding: '2px 8px', borderRadius: 999, fontFamily: "'IBM Plex Mono',monospace", fontWeight: 600, textTransform: 'uppercase' }}>
                 {user.plan ?? 'free'}
               </span>
             </div>
@@ -113,13 +114,13 @@ export function DashboardLayout() {
         {/* Top bar */}
         <div style={{ padding: '16px 28px', borderBottom: '1px solid rgba(0,0,0,0.06)', background: C.snow, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
-            <h1 style={{ fontSize: 17, fontWeight: 500, color: C.forest, letterSpacing: '-0.3px', marginBottom: 2 }}>{activeInfo.label}</h1>
+            <h1 style={{ fontSize: 17, fontWeight: 600, color: C.charcoal, letterSpacing: '-0.3px', marginBottom: 2 }}>{activeInfo.label}</h1>
             <p style={{ fontSize: 12, color: '#999' }}>{activeInfo.description}</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 11, background: C.pale, color: C.forest, padding: '4px 12px', borderRadius: 999, fontFamily: "'IBM Plex Mono',monospace" }}>Etsy API · Live</span>
+            <span style={{ fontSize: 11, background: C.orangeFaint, color: C.orange, padding: '4px 12px', borderRadius: 999, fontFamily: "'IBM Plex Mono',monospace", border: `1px solid rgba(255,96,8,0.20)` }}>Etsy API · Live</span>
             {user && (
-              <div style={{ width: 32, height: 32, borderRadius: '50%', background: C.forest, color: C.snow, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600 }}>
+              <div style={{ width: 32, height: 32, borderRadius: '50%', background: C.orange, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600 }}>
                 {user.name?.charAt(0)?.toUpperCase() ?? '?'}
               </div>
             )}

@@ -56,7 +56,7 @@ function AuthFormInner({ type, email: initEmail, onNext }: { type: FormType; ema
     card:  { background:C.snow, borderRadius:16, padding:'48px 44px', width:'100%', maxWidth:440, border:'1px solid rgba(0,0,0,0.08)' } as const,
     label: { display:'block', fontSize:12.5, fontWeight:500, color:'#444', marginBottom:6 } as const,
     input: { width:'100%', border:'1.5px solid rgba(0,0,0,0.12)', borderRadius:8, padding:'11px 14px', fontSize:14, fontFamily:'inherit', outline:'none', background:C.snow, color:'#1a1a1a', transition:'border-color 0.15s', boxSizing:'border-box' } as const,
-    btn:   { width:'100%', background:C.forest, color:C.snow, border:'none', borderRadius:999, padding:'13px', fontSize:14.5, fontWeight:500, cursor:'pointer', fontFamily:'inherit', marginTop:24, transition:'opacity 0.18s' } as const,
+    btn:   { width:'100%', background: C.orange, color:C.snow, border:'none', borderRadius:999, padding:'13px', fontSize:14.5, fontWeight:500, cursor:'pointer', fontFamily:'inherit', marginTop:24, transition:'opacity 0.18s' } as const,
     link:  { color:C.forest, fontSize:13, textDecoration:'none', fontWeight:500 } as const,
   }
 

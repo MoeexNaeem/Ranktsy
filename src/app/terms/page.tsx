@@ -18,7 +18,7 @@ const sections = [
       'Ranksty is an independent keyword research and analytics platform designed to help Etsy sellers analyze search trends, optimize listings, and track shop performance. The Service includes:',
     bullets: [
       { label: 'Keyword Research', text: 'Analysis of search volumes, click-through rates, and competition metrics across marketplace platforms.' },
-      { label: 'Trend Analytics', text: 'Historical and real-time trend data to identify peak buyer interest periods.' },
+      { label: 'Trend Analytics', text: 'Relative trend data derived from Etsy listing view signals to identify peak buyer interest periods. Note: Etsy\'s Open API does not expose raw search volume counts.' },
       { label: 'Competition Analysis', text: 'Insights into competing listings, tags, and titles within Etsy\'s marketplace.' },
       { label: 'Tag Optimizer', text: 'Data-backed tag recommendations to maximize listing visibility within Etsy\'s 13-tag allowance.' },
       { label: 'Shop Analytics', text: 'Optional integration to track your connected shop\'s views, favorites, and revenue trends.' },
@@ -38,14 +38,12 @@ const sections = [
   },
   {
     number: '04',
-    title: 'Subscription Plans & Billing',
-    content: 'Ranksty offers both free and paid subscription tiers. For paid subscriptions:',
+    title: 'Service Access & Beta Period',
+    content: 'Ranksty is currently in beta and available free of charge. During this period:',
     bullets: [
-      { label: 'Billing Cycle', text: 'Subscriptions are billed monthly or annually in advance, depending on the plan selected at checkout.' },
-      { label: 'Automatic Renewal', text: 'Subscriptions automatically renew at the end of each billing period unless cancelled prior to the renewal date.' },
-      { label: 'Free Trials', text: 'Paid plans include a 14-day free trial. You will not be charged until the trial period ends. Cancel anytime before the trial ends to avoid charges.' },
-      { label: 'Refunds', text: 'We offer a 7-day money-back guarantee on the first payment of any new paid subscription. Subsequent charges are non-refundable.' },
-      { label: 'Price Changes', text: 'We reserve the right to modify pricing with at least 30 days\' notice to existing subscribers.' },
+      { label: 'Free Access', text: 'All features are available at no cost while we are in beta. No credit card is required.' },
+      { label: 'Future Pricing', text: 'We may introduce paid subscription tiers in the future. Existing users will receive at least 30 days\' notice before any billing begins.' },
+      { label: 'No Current Charges', text: 'We do not currently collect payment information or charge any fees.' },
     ],
   },
   {
@@ -75,9 +73,13 @@ const sections = [
     number: '07',
     title: 'Third-Party Services & Disclaimer',
     content:
-      'Ranksty integrates with third-party APIs including the Etsy Open API to provide its analytics features.',
+      'Ranksty uses the official Etsy Open API v3 (https://openapi.etsy.com) to retrieve publicly available marketplace data, such as active listing details, shop information, and product search results. We do not use scraping, unofficial endpoints, or any third-party data proxy services to access Etsy data.',
     disclaimer: true,
-    bullets: [],
+    bullets: [
+      { label: 'Data Source', text: 'All Etsy data displayed in Ranksty is retrieved via the official Etsy Open API v3. The API provides listing-level data (titles, tags, views, favorites, prices, images) for active public listings. It does not expose raw search volume, click data, or buyer country breakdowns — any engagement metrics shown are derived from listing view/favorite counts as relative proxies only.' },
+      { label: 'Data Scope', text: 'We access only publicly available listing data (titles, tags, views, images, prices). We do not access private seller data without explicit OAuth consent.' },
+      { label: 'No Affiliation', text: 'Ranksty is an independent application. "Etsy" is a trademark of Etsy, Inc. This app uses the Etsy API but is not endorsed or certified by Etsy, Inc.' },
+    ],
   },
   {
     number: '08',
@@ -131,7 +133,7 @@ export default function TermsPage() {
         {/* ── Header ── */}
         <div
           style={{
-            background: C.forest,
+            background: C.charcoal,
             padding: '100px 48px 72px',
             position: 'relative',
             overflow: 'hidden',
@@ -143,7 +145,7 @@ export default function TermsPage() {
               position: 'absolute',
               inset: 0,
               backgroundImage:
-                'linear-gradient(rgba(211,250,153,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(211,250,153,0.04) 1px, transparent 1px)',
+                'linear-gradient(rgba(255,96,8,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(255,96,8,0.10) 1px, transparent 1px)',
               backgroundSize: '40px 40px',
               pointerEvents: 'none',
             }}
@@ -162,7 +164,7 @@ export default function TermsPage() {
                 marginBottom: 20,
               }}
             >
-              <span style={{ width: 24, height: 1, background: C.pale, display: 'inline-block' }} />
+              <span style={{ width: 24, height: 1, background: C.orangeFaint, display: 'inline-block' }} />
               Legal
             </div>
             <h1
@@ -170,7 +172,7 @@ export default function TermsPage() {
                 fontSize: 'clamp(32px, 5vw, 56px)',
                 fontWeight: 300,
                 letterSpacing: '-1.5px',
-                color: C.snow,
+                color: '#FFFFFF',
                 lineHeight: 1.05,
                 marginBottom: 20,
               }}
@@ -181,7 +183,7 @@ export default function TermsPage() {
               style={{
                 fontSize: 13,
                 fontFamily: "'IBM Plex Mono', monospace",
-                color: C.mutedGreen,
+                color: C.charcoalMid,
                 letterSpacing: '0.02em',
               }}
             >
@@ -218,7 +220,7 @@ export default function TermsPage() {
                 fontFamily: "'IBM Plex Mono', monospace",
                 textTransform: 'uppercase',
                 letterSpacing: '0.1em',
-                color: C.mutedGreen,
+                color: C.charcoalMid,
                 marginBottom: 16,
               }}
             >
@@ -246,7 +248,7 @@ export default function TermsPage() {
                   style={{
                     fontFamily: "'IBM Plex Mono', monospace",
                     fontSize: 10,
-                    color: C.mutedGreen,
+                    color: C.charcoalMid,
                     flexShrink: 0,
                   }}
                 >
@@ -266,7 +268,7 @@ export default function TermsPage() {
                 color: '#444',
                 lineHeight: 1.75,
                 marginBottom: 56,
-                borderLeft: `3px solid ${C.pale}`,
+                borderLeft: `3px solid ${C.orange}`}`,
                 paddingLeft: 20,
               }}
             >
@@ -290,7 +292,7 @@ export default function TermsPage() {
                       fontFamily: "'IBM Plex Mono', monospace",
                       fontSize: 11,
                       color: C.pale,
-                      background: C.forest,
+                      background: C.charcoal,
                       padding: '4px 8px',
                       borderRadius: 2,
                       letterSpacing: '0.04em',
@@ -302,7 +304,7 @@ export default function TermsPage() {
                     style={{
                       fontSize: 22,
                       fontWeight: 500,
-                      color: C.forest,
+                      color: C.orange,
                       letterSpacing: '-0.4px',
                     }}
                   >
@@ -333,13 +335,13 @@ export default function TermsPage() {
                           padding: '16px 20px',
                           background: C.warmGray,
                           borderRadius: 2,
-                          borderLeft: `3px solid ${C.pale}`,
+                          borderLeft: `3px solid ${C.orange}`}`,
                         }}
                       >
                         <span style={{ flexShrink: 0, marginTop: 3, color: C.pale, fontSize: 10 }}>▸</span>
                         <p style={{ fontSize: 14, color: '#444', lineHeight: 1.7, margin: 0 }}>
                           {b.label && (
-                            <strong style={{ color: C.forest, fontWeight: 600 }}>{b.label}: </strong>
+                            <strong style={{ color: C.orange, fontWeight: 600 }}>{b.label}: </strong>
                           )}
                           {b.text}
                         </p>
@@ -359,15 +361,15 @@ export default function TermsPage() {
                     style={{
                       marginTop: 20,
                       padding: '20px 24px',
-                      background: '#fffbe6',
-                      border: '1px solid rgba(159,153,91,0.3)',
+                      background: '#FFF4EE',
+                      border: '1px solid rgba(255,122,46,0.10)',
                       borderRadius: 2,
                     }}
                   >
                     <p
                       style={{
                         fontSize: 13,
-                        color: '#5a5220',
+                        color: '#3C3C3C',
                         lineHeight: 1.7,
                         margin: 0,
                         fontFamily: "'IBM Plex Mono', monospace",
@@ -383,7 +385,7 @@ export default function TermsPage() {
                     style={{
                       marginTop: 20,
                       padding: '24px 28px',
-                      background: C.forest,
+                      background: C.charcoal,
                       borderRadius: 2,
                       display: 'flex',
                       flexDirection: 'column',

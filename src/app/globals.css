@@ -4,8 +4,8 @@ html { scroll-behavior: smooth; }
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #fcfcf7;
-  color: #000;
+  background: #F8F7F5;
+  color: #3C3C3C;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -16,7 +16,7 @@ a { color: inherit; }
 /* ─── Scrollbar ─────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar       { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #c4c7c4; border-radius: 9999px; }
+::-webkit-scrollbar-thumb { background: #FF6008; border-radius: 9999px; opacity: 0.5; }
 
 /* ─── Animations ────────────────────────────────────────────────────────────── */
 @keyframes fadeUp {

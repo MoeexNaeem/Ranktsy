@@ -50,10 +50,10 @@ const FAQS = [
 const inputStyle = {
   width: '100%',
   padding: '12px 16px',
-  border: '1px solid rgba(28,58,19,0.15)',
+  border: '1px solid rgba(60,60,60,0.15)',
   borderRadius: 2,
   fontSize: 14,
-  color: C.forest,
+  color: C.orange,
   background: C.snow,
   fontFamily: 'inherit',
   outline: 'none',
@@ -83,7 +83,7 @@ export default function ContactPage() {
         {/* ── Header ── */}
         <div
           style={{
-            background: C.forest,
+            background: C.charcoal,
             padding: '100px 48px 72px',
             position: 'relative',
             overflow: 'hidden',
@@ -95,7 +95,7 @@ export default function ContactPage() {
               position: 'absolute',
               inset: 0,
               backgroundImage:
-                'linear-gradient(rgba(211,250,153,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(211,250,153,0.04) 1px, transparent 1px)',
+                'linear-gradient(rgba(255,96,8,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(255,96,8,0.10) 1px, transparent 1px)',
               backgroundSize: '40px 40px',
               pointerEvents: 'none',
             }}
@@ -114,7 +114,7 @@ export default function ContactPage() {
                 marginBottom: 20,
               }}
             >
-              <span style={{ width: 24, height: 1, background: C.pale, display: 'inline-block' }} />
+              <span style={{ width: 24, height: 1, background: C.orangeFaint, display: 'inline-block' }} />
               Contact Us
             </div>
             <h1
@@ -122,7 +122,7 @@ export default function ContactPage() {
                 fontSize: 'clamp(36px, 5vw, 60px)',
                 fontWeight: 300,
                 letterSpacing: '-2px',
-                color: C.snow,
+                color: '#FFFFFF',
                 lineHeight: 1.05,
                 marginBottom: 20,
               }}
@@ -171,7 +171,7 @@ export default function ContactPage() {
                   style={{
                     width: 44,
                     height: 44,
-                    background: C.pale,
+                    background: C.orangeFaint,
                     borderRadius: 8,
                     display: 'flex',
                     alignItems: 'center',
@@ -186,7 +186,7 @@ export default function ContactPage() {
                   style={{
                     fontSize: 11,
                     fontFamily: "'IBM Plex Mono', monospace",
-                    color: C.mutedGreen,
+                    color: C.charcoalMid,
                     textTransform: 'uppercase',
                     letterSpacing: '0.07em',
                     marginBottom: 6,
@@ -198,7 +198,7 @@ export default function ContactPage() {
                   style={{
                     fontSize: 15,
                     fontWeight: 500,
-                    color: C.forest,
+                    color: C.orange,
                     marginBottom: 8,
                     letterSpacing: '-0.2px',
                   }}
@@ -234,11 +234,11 @@ export default function ContactPage() {
                   fontFamily: "'IBM Plex Mono', monospace",
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
-                  color: C.forest,
+                  color: C.orange,
                   marginBottom: 16,
                 }}
               >
-                <span style={{ width: 24, height: 1, background: C.forest, display: 'inline-block' }} />
+                <span style={{ width: 24, height: 1, background: C.charcoal, display: 'inline-block' }} />
                 Send a message
               </div>
               <h2
@@ -246,7 +246,7 @@ export default function ContactPage() {
                   fontSize: 'clamp(24px, 3vw, 36px)',
                   fontWeight: 300,
                   letterSpacing: '-1px',
-                  color: C.forest,
+                  color: C.orange,
                   marginBottom: 40,
                 }}
               >
@@ -256,8 +256,8 @@ export default function ContactPage() {
               {submitted ? (
                 <div
                   style={{
-                    background: C.pale,
-                    border: `1px solid rgba(28,58,19,0.2)`,
+                    background: C.orangeFaint,
+                    border: `1px solid rgba(255,96,8,0.15)`,
                     borderRadius: 2,
                     padding: '40px 36px',
                     textAlign: 'center',
@@ -268,13 +268,13 @@ export default function ContactPage() {
                     style={{
                       fontSize: 20,
                       fontWeight: 500,
-                      color: C.forest,
+                      color: C.orange,
                       marginBottom: 8,
                     }}
                   >
                     Message sent!
                   </h3>
-                  <p style={{ fontSize: 14, color: C.mutedGreen, lineHeight: 1.6 }}>
+                  <p style={{ fontSize: 14, color: C.charcoalMid, lineHeight: 1.6 }}>
                     Thanks for reaching out, {form.name}. We&apos;ll get back to you at {form.email} within 24 hours.
                   </p>
                 </div>
@@ -290,7 +290,7 @@ export default function ContactPage() {
                           fontFamily: "'IBM Plex Mono', monospace",
                           textTransform: 'uppercase',
                           letterSpacing: '0.07em',
-                          color: C.mutedGreen,
+                          color: C.charcoalMid,
                           marginBottom: 8,
                         }}
                       >
@@ -303,7 +303,7 @@ export default function ContactPage() {
                         placeholder="Your name"
                         style={inputStyle}
                         onFocus={(e) => (e.currentTarget.style.borderColor = C.forest)}
-                        onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(28,58,19,0.15)')}
+                        onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(60,60,60,0.15)')}
                       />
                     </div>
                     <div>
@@ -314,7 +314,7 @@ export default function ContactPage() {
                           fontFamily: "'IBM Plex Mono', monospace",
                           textTransform: 'uppercase',
                           letterSpacing: '0.07em',
-                          color: C.mutedGreen,
+                          color: C.charcoalMid,
                           marginBottom: 8,
                         }}
                       >
@@ -328,7 +328,7 @@ export default function ContactPage() {
                         placeholder="you@example.com"
                         style={inputStyle}
                         onFocus={(e) => (e.currentTarget.style.borderColor = C.forest)}
-                        onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(28,58,19,0.15)')}
+                        onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(60,60,60,0.15)')}
                       />
                     </div>
                   </div>
@@ -342,7 +342,7 @@ export default function ContactPage() {
                         fontFamily: "'IBM Plex Mono', monospace",
                         textTransform: 'uppercase',
                         letterSpacing: '0.07em',
-                        color: C.mutedGreen,
+                        color: C.charcoalMid,
                         marginBottom: 8,
                       }}
                     >
@@ -354,7 +354,7 @@ export default function ContactPage() {
                       onChange={handleChange}
                       style={{ ...inputStyle, cursor: 'pointer' }}
                       onFocus={(e) => (e.currentTarget.style.borderColor = C.forest)}
-                      onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(28,58,19,0.15)')}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(60,60,60,0.15)')}
                     >
                       <option>General</option>
                       <option>Technical Support</option>
@@ -374,7 +374,7 @@ export default function ContactPage() {
                         fontFamily: "'IBM Plex Mono', monospace",
                         textTransform: 'uppercase',
                         letterSpacing: '0.07em',
-                        color: C.mutedGreen,
+                        color: C.charcoalMid,
                         marginBottom: 8,
                       }}
                     >
@@ -392,16 +392,16 @@ export default function ContactPage() {
                         minHeight: 140,
                       }}
                       onFocus={(e) => (e.currentTarget.style.borderColor = C.forest)}
-                      onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(28,58,19,0.15)')}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(60,60,60,0.15)')}
                     />
                   </div>
 
                   <button
                     onClick={handleSubmit}
                     style={{
-                      background: C.forest,
+                      background: C.charcoal,
                       border: 'none',
-                      color: C.snow,
+                      color: '#FFFFFF',
                       padding: '14px 32px',
                       borderRadius: 999,
                       fontSize: 14,
@@ -431,11 +431,11 @@ export default function ContactPage() {
                   fontFamily: "'IBM Plex Mono', monospace",
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
-                  color: C.forest,
+                  color: C.orange,
                   marginBottom: 16,
                 }}
               >
-                <span style={{ width: 24, height: 1, background: C.forest, display: 'inline-block' }} />
+                <span style={{ width: 24, height: 1, background: C.charcoal, display: 'inline-block' }} />
                 Common questions
               </div>
               <h2
@@ -443,7 +443,7 @@ export default function ContactPage() {
                   fontSize: 'clamp(24px, 3vw, 36px)',
                   fontWeight: 300,
                   letterSpacing: '-1px',
-                  color: C.forest,
+                  color: C.orange,
                   marginBottom: 40,
                 }}
               >
@@ -517,7 +517,7 @@ export default function ContactPage() {
                 style={{
                   marginTop: 32,
                   padding: '20px 24px',
-                  background: C.pale,
+                  background: C.orangeFaint,
                   borderRadius: 2,
                   display: 'flex',
                   alignItems: 'center',
@@ -525,7 +525,7 @@ export default function ContactPage() {
                 }}
               >
                 <span style={{ fontSize: 20, flexShrink: 0 }}>⚡</span>
-                <p style={{ fontSize: 13, color: C.forest, lineHeight: 1.6, margin: 0 }}>
+                <p style={{ fontSize: 13, color: C.orange, lineHeight: 1.6, margin: 0 }}>
                   <strong>Typical response time:</strong> We reply to most messages within 24 hours on business days. Premium plan users get priority support.
                 </p>
               </div>

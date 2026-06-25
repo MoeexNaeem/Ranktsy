@@ -23,7 +23,7 @@ export const TrendChart = memo(function TrendChart({ data, activePlatforms }:Pro
       label:           s.platform.charAt(0).toUpperCase() + s.platform.slice(1),
       data:            s.points.map(p=>p.value),
       borderColor:     COLORS[s.platform],
-      backgroundColor: s.platform==='etsy' ? 'rgba(28,58,19,0.06)' : 'transparent',
+      backgroundColor: s.platform==='etsy' ? 'rgba(255,96,8,0.06)' : 'transparent',
       tension:         0.4,
       borderWidth:     s.platform==='etsy' ? 2 : 1.5,
       borderDash:      s.platform==='etsy' ? [] : [4,4],
