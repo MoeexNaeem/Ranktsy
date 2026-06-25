@@ -34,14 +34,14 @@ export interface IOTP {
 // ─── Keyword ──────────────────────────────────────────────────────────────────
 export interface KeywordData {
   keyword: string
-  avgSearches: number
-  avgClicks: number
-  avgCtr: number
+  avgSearches: number | null
+  avgClicks: number | null
+  avgCtr: number | null
   competition: number
   competitionLevel: 'Low' | 'Med' | 'High'
   tagOccurrences: number
   charCount: number
-  googleSearches: number
+  googleSearches: number | null
   trend: number[]
 }
 

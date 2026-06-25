@@ -38,7 +38,7 @@ const KeywordRow = memo(function KeywordRow({ row, onSelect }: { row:KeywordData
       <span style={{ fontSize:12.5, fontWeight:500, color:'#1a1a1a', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{row.keyword}</span>
       <span style={{ fontSize:11, fontFamily:"'IBM Plex Mono',monospace", color:'#555' }}>{formatNumber(row.avgSearches)}</span>
       <span style={{ fontSize:11, fontFamily:"'IBM Plex Mono',monospace", color:'#555' }}>{formatNumber(row.avgClicks)}</span>
-      <span style={{ fontSize:11, fontFamily:"'IBM Plex Mono',monospace", color:'#555' }}>{row.avgCtr}%</span>
+      <span style={{ fontSize:11, fontFamily:"'IBM Plex Mono',monospace", color:'#555' }}>{row.avgCtr !== null ? `${row.avgCtr}%` : '—'}</span>
       <span style={{ display:'inline-flex', padding:'2px 9px', borderRadius:999, fontSize:10, fontWeight:500, background:cs.bg, color:cs.color, width:'fit-content' }}>
         {row.competitionLevel}
       </span>
@@ -57,7 +57,7 @@ export const KeywordTable = memo(function KeywordTable({ rows, onSelect }: { row
   }, [sortKey])
 
   const sorted = useMemo(() =>
-    [...rows].sort((a,b) => (sortDir==='desc'?-1:1) * (a[sortKey]-b[sortKey])),
+    [...rows].sort((a,b) => (sortDir==='desc'?-1:1) * ((a[sortKey] ?? -Infinity) - (b[sortKey] ?? -Infinity))),
     [rows, sortKey, sortDir]
   )
 

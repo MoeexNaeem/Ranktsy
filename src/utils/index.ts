@@ -24,13 +24,15 @@ export const C = {
   frosted:     '#E5E4E2',        // mapped → lightGray
 } as const
 
-export function formatNumber(n: number): string {
+export function formatNumber(n: number | null): string {
+  if (n === null || n === undefined) return '—'
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
   if (n >= 1_000)     return (n / 1_000).toFixed(1) + 'K'
   return n.toString()
 }
 
-export function formatPercent(n: number): string {
+export function formatPercent(n: number | null): string {
+  if (n === null || n === undefined) return '—'
   return n.toFixed(1) + '%'
 }
 

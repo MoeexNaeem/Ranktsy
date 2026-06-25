@@ -463,7 +463,7 @@ export function CTA() {
 /* ─── Footer ───────────────────────────────────────────────────────────────── */
 const FOOTER_LINK_MAP: Record<string, string> = {
   "About": "/about",
-  "Pricing": "/#pricing",
+  // "Pricing": "/#pricing",
   "Contact": "/contact",
   "Privacy Policy": "/privacy",
   "Terms": "/terms",
@@ -484,7 +484,7 @@ export function Footer() {
     { t: "Company", l: ["About", "Blog", "Pricing", "Changelog"] },
     {
       t: "Support",
-      l: ["Help Center", "Etsy API Docs", "Contact", "Privacy Policy", "Terms"],
+      l: ["Help Center", "Contact", "Privacy Policy", "Terms"],
     },
   ];
   return (
