@@ -27,7 +27,7 @@ function ListingCard({ listing }: { listing: EtsyListing }) {
         <p style={{ fontSize: 12.5, fontWeight: 500, color: '#1a1a1a', marginBottom: 4, lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const }}>
           {listing.title}
         </p>
-        <p style={{ fontSize: 12, color: C.forest, fontWeight: 600, marginBottom: 8 }}>{priceStr(listing)}</p>
+        <p style={{ fontSize: 12, color: C.charcoal, fontWeight: 600, marginBottom: 8 }}>{priceStr(listing)}</p>
         <div style={{ display: 'flex', gap: 10, fontSize: 10.5, color: '#888', fontFamily: "'IBM Plex Mono',monospace" }}>
           <span>👁 {formatNumber(listing.views ?? 0)}</span>
           <span>♥ {formatNumber(listing.num_favorers ?? 0)}</span>
@@ -67,7 +67,7 @@ export function ListingsTab() {
             style={{ background: 'transparent', border: 'none', padding: '9px 14px', fontSize: 13, fontFamily: 'inherit', outline: 'none', flex: 1, color: '#1a1a1a' }} />
         </div>
         <button onClick={go}
-          style={{ background: C.forest, color: C.snow, border: 'none', padding: '0 20px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+          style={{ background: C.charcoal, color: C.snow, border: 'none', padding: '0 20px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
           Search →
         </button>
       </div>
@@ -81,7 +81,7 @@ export function ListingsTab() {
       )}
       {isError && (
         <div style={{ background: '#fff0f0', borderRadius: 10, padding: '14px 16px', color: '#c00', fontSize: 13 }}>
-          ⚠ Failed to load listings. Check your APIFY_API_TOKEN.
+          ⚠ Failed to load listings from Etsy. Please try again.
         </div>
       )}
       {listings && !isLoading && (

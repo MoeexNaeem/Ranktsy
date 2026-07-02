@@ -7,7 +7,7 @@ const TEAM = [
   {
     name: 'Sarah Chen',
     role: 'Co-founder & CEO',
-    bio: 'Former Etsy top-seller turned product builder. Spent 6 years running a 7-figure jewelry shop before starting Ranksty.',
+    bio: 'Former Etsy top-seller turned product builder. Spent 6 years running a 7-figure jewelry shop before starting Ranktsy.',
     emoji: '👩‍💻',
     tag: 'Seller → Builder',
   },
@@ -108,7 +108,7 @@ export default function AboutPage() {
                 fontFamily: "'IBM Plex Mono', monospace",
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
-                color: C.pale,
+                color: C.orange,
                 marginBottom: 20,
               }}
             >
@@ -138,7 +138,7 @@ export default function AboutPage() {
                 maxWidth: 560,
               }}
             >
-              Ranksty was born out of frustration. We spent years selling on Etsy, manually tracking keywords in spreadsheets, guessing what buyers were searching for. There had to be a better way.
+              Ranktsy was born out of frustration. We spent years selling on Etsy, manually tracking keywords in spreadsheets, guessing what buyers were searching for. There had to be a better way.
             </p>
           </div>
         </div>
@@ -250,7 +250,7 @@ export default function AboutPage() {
                   marginBottom: 20,
                 }}
               >
-                Ranksty puts professional-grade keyword intelligence in the hands of independent creators — the people who make Etsy what it is. We analyze real listing data via the official Etsy Open API so you can focus on what you do best: making great products.
+                Ranktsy puts professional-grade keyword intelligence in the hands of independent creators — the people who make Etsy what it is. We analyze real listing data via the official Etsy Open API so you can focus on what you do best: making great products.
               </p>
               <p
                 style={{
@@ -497,7 +497,7 @@ export default function AboutPage() {
                 marginBottom: 40,
               }}
             >
-              Join Etsy sellers using Ranksty to rank higher and sell more.
+              Join Etsy sellers using Ranktsy to rank higher and sell more.
             </p>
             <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
               <a

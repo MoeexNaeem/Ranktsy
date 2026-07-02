@@ -40,9 +40,9 @@ export function Dashboard() {
     if(!kw) return null
     const {avgSearches,avgClicks,avgCtr} = kw.stats
     return [
-      {label:'Avg. Searches',value:formatNumber(avgSearches),sub:'per month',pct:Math.min((avgSearches/80000)*100,100),color:C.forest},
-      {label:'Avg. Clicks',  value:formatNumber(avgClicks),  sub:'per month',pct:Math.min((avgClicks/60000)*100,100),  color:C.mutedYellow},
-      {label:'Avg. CTR',     value:formatPercent(avgCtr),    sub:'click-through',pct:avgCtr,                          color:C.mutedTeal},
+      {label:'Avg. Searches',value:formatNumber(avgSearches),sub:'per month',pct:Math.min((avgSearches/80000)*100,100),color:C.charcoal},
+      {label:'Avg. Clicks',  value:formatNumber(avgClicks),  sub:'per month',pct:Math.min((avgClicks/60000)*100,100),  color:C.orangeLight},
+      {label:'Avg. CTR',     value:formatPercent(avgCtr),    sub:'click-through',pct:avgCtr,                          color:C.charcoal},
     ]
   },[kw])
 
@@ -55,7 +55,7 @@ export function Dashboard() {
         {/* Sidebar */}
         <div style={{ width:52, background:C.warmGray, borderRight:'1px solid rgba(0,0,0,0.07)', display:'flex', flexDirection:'column', alignItems:'center', padding:'12px 0', gap:5, flexShrink:0 }}>
           {NAV.map((n,i)=>(
-            <button key={n.label} title={n.label} style={{ width:36, height:36, borderRadius:8, border:'none', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:2, cursor:'pointer', fontSize:7.5, fontFamily:'inherit', background:i===0?C.forest:'transparent', color:i===0?C.snow:'#999' }}>
+            <button key={n.label} title={n.label} style={{ width:36, height:36, borderRadius:8, border:'none', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:2, cursor:'pointer', fontSize:7.5, fontFamily:'inherit', background:i===0?C.charcoal:'transparent', color:i===0?C.snow:'#999' }}>
               <span style={{ color:i===0?C.snow:'#999', display:'flex' }}>{n.icon}</span>
               <span>{n.label}</span>
             </button>
@@ -73,10 +73,10 @@ export function Dashboard() {
             <div style={{ display:'flex', background:C.warmGray, borderRadius:8, overflow:'hidden', border:'1px solid rgba(0,0,0,0.08)', flex:1, maxWidth:340 }}>
               <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&search()} placeholder="Search any keyword..."
                 style={{ background:'transparent', border:'none', padding:'7px 11px', fontSize:12.5, fontFamily:'inherit', outline:'none', flex:1, color:'#1a1a1a' }} />
-              <button onClick={search} style={{ background:C.forest, border:'none', color:C.snow, padding:'0 13px', fontSize:11.5, fontWeight:500, cursor:'pointer', fontFamily:'inherit' }}>Search</button>
+              <button onClick={search} style={{ background:C.charcoal, border:'none', color:C.snow, padding:'0 13px', fontSize:11.5, fontWeight:500, cursor:'pointer', fontFamily:'inherit' }}>Search</button>
             </div>
             <div style={{ marginLeft:'auto', display:'flex', gap:8, alignItems:'center' }}>
-              <span style={{ fontSize:10.5, background:C.pale, color:C.forest, padding:'3px 10px', borderRadius:999, fontFamily:"'IBM Plex Mono',monospace" }}>Etsy US</span>
+              <span style={{ fontSize:10.5, background:C.orange, color:C.snow, padding:'3px 10px', borderRadius:999, fontFamily:"'IBM Plex Mono',monospace" }}>Etsy US</span>
               <span style={{ fontSize:10, color:'#bbb', fontFamily:"'IBM Plex Mono',monospace" }}>Live data</span>
             </div>
           </div>
@@ -84,7 +84,7 @@ export function Dashboard() {
           {/* Tabs */}
           <div style={{ display:'flex', padding:'0 14px', borderBottom:'1px solid rgba(0,0,0,0.06)', flexShrink:0 }}>
             {TABS.map(t=>(
-              <button key={t} onClick={()=>setTab(t)} style={{ fontSize:12, fontWeight:500, padding:'9px 13px', border:'none', borderBottom:`2px solid ${tab===t?C.forest:'transparent'}`, cursor:'pointer', fontFamily:'inherit', background:'transparent', color:tab===t?C.forest:'#aaa', marginBottom:-1, transition:'color 0.15s' }}>{t}</button>
+              <button key={t} onClick={()=>setTab(t)} style={{ fontSize:12, fontWeight:500, padding:'9px 13px', border:'none', borderBottom:`2px solid ${tab===t?C.charcoal:'transparent'}`, cursor:'pointer', fontFamily:'inherit', background:'transparent', color:tab===t?C.charcoal:'#aaa', marginBottom:-1, transition:'color 0.15s' }}>{t}</button>
             ))}
           </div>
 
@@ -111,24 +111,24 @@ export function Dashboard() {
                 <div style={{ display:'grid', gridTemplateColumns:'1.3fr 1fr', gap:9 }}>
                   <div style={{ background:C.warmGray, borderRadius:10, padding:'11px 13px' }}>
                     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:9 }}>
-                      <p style={{ fontSize:11, fontWeight:500, color:C.forest }}>Search Trend</p>
+                      <p style={{ fontSize:11, fontWeight:500, color:C.charcoal }}>Search Trend</p>
                       {tr && <PlatformToggle active={plats} onChange={setPlats} />}
                     </div>
                     {tr ? <TrendChart data={tr.trends} activePlatforms={plats} /> : <Skel h={108} />}
                   </div>
                   <div style={{ background:C.warmGray, borderRadius:10, padding:'11px 13px' }}>
-                    <p style={{ fontSize:11, fontWeight:500, color:C.forest, marginBottom:9 }}>Searchers by Country</p>
+                    <p style={{ fontSize:11, fontWeight:500, color:C.charcoal, marginBottom:9 }}>Searchers by Country</p>
                     {tr ? <CountryChart data={tr.countries} /> : <Skel h={108} />}
                   </div>
                 </div>
 
                 {/* Table */}
-                {isLoading && <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'22px 0', fontSize:13, color:C.forest }}>
-                  {[0,1,2].map(i=><span key={i} className="shimmer" style={{ width:6,height:6,borderRadius:'50%',background:C.forest,display:'inline-block',animationDelay:`${i*0.15}s` }}/>)} Analyzing...
+                {isLoading && <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'22px 0', fontSize:13, color:C.charcoal }}>
+                  {[0,1,2].map(i=><span key={i} className="shimmer" style={{ width:6,height:6,borderRadius:'50%',background:C.charcoal,display:'inline-block',animationDelay:`${i*0.15}s` }}/>)} Analyzing...
                 </div>}
                 {isError && <p style={{ color:'#c00', textAlign:'center', fontSize:13, padding:'18px 0' }}>Failed. Please retry.</p>}
                 {kw && <div>
-                  <p style={{ fontSize:11.5, fontWeight:500, color:C.forest, marginBottom:7 }}>Keywords related to &ldquo;{kw.query}&rdquo;</p>
+                  <p style={{ fontSize:11.5, fontWeight:500, color:C.charcoal, marginBottom:7 }}>Keywords related to &ldquo;{kw.query}&rdquo;</p>
                   <KeywordTable rows={kw.related} />
                 </div>}
               </div>
@@ -136,19 +136,19 @@ export function Dashboard() {
 
             {tab==='Trends' && (
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'75%', gap:9, textAlign:'center' }}>
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={C.forest} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-                <p style={{ fontSize:14, fontWeight:500, color:C.forest }}>Full Trend Analytics</p>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={C.charcoal} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                <p style={{ fontSize:14, fontWeight:500, color:C.charcoal }}>Full Trend Analytics</p>
                 <p style={{ fontSize:13, color:'#888', maxWidth:270 }}>Connect your Etsy shop to unlock 24-month trend data across all listings.</p>
-                <button style={{ marginTop:10, fontSize:12.5, background:C.forest, color:C.snow, border:'none', padding:'9px 20px', borderRadius:999, cursor:'pointer', fontFamily:'inherit' }}>Connect Etsy Shop →</button>
+                <button style={{ marginTop:10, fontSize:12.5, background:C.charcoal, color:C.snow, border:'none', padding:'9px 20px', borderRadius:999, cursor:'pointer', fontFamily:'inherit' }}>Connect Etsy Shop →</button>
               </div>
             )}
 
             {tab==='Shop Analytics' && (
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'75%', gap:9, textAlign:'center' }}>
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={C.forest} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                <p style={{ fontSize:14, fontWeight:500, color:C.forest }}>Shop Analytics</p>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={C.charcoal} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                <p style={{ fontSize:14, fontWeight:500, color:C.charcoal }}>Shop Analytics</p>
                 <p style={{ fontSize:13, color:'#888', maxWidth:270 }}>Connect your Etsy shop via OAuth to see views, favourites, revenue and conversion trends.</p>
-                <button style={{ marginTop:10, fontSize:12.5, background:C.forest, color:C.snow, border:'none', padding:'9px 20px', borderRadius:999, cursor:'pointer', fontFamily:'inherit' }}>Authorize with Etsy →</button>
+                <button style={{ marginTop:10, fontSize:12.5, background:C.charcoal, color:C.snow, border:'none', padding:'9px 20px', borderRadius:999, cursor:'pointer', fontFamily:'inherit' }}>Authorize with Etsy →</button>
               </div>
             )}
 

@@ -8,7 +8,7 @@ import type { TrendData, TrendPlatform } from '@/types'
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend)
 
 const COLORS: Record<TrendPlatform,string> = {
-  etsy: C.forest, google: C.mutedYellow, amazon: C.mutedTeal, ebay: C.frosted,
+  etsy: C.charcoal, google: C.orangeLight, amazon: C.charcoal, ebay: C.lightGray,
 }
 
 interface Props { data:TrendData[]; activePlatforms:TrendPlatform[] }

@@ -31,9 +31,9 @@ export function KeywordsTab() {
     if (!kw) return null
     const { avgSearches, avgClicks, avgCtr } = kw.stats
     return [
-      { label: 'Avg. Searches', value: formatNumber(avgSearches), sub: 'per month',    pct: Math.min((avgSearches / 80000) * 100, 100), color: C.forest },
-      { label: 'Avg. Clicks',   value: formatNumber(avgClicks),   sub: 'per month',    pct: Math.min((avgClicks / 60000) * 100, 100),   color: C.mutedYellow },
-      { label: 'Avg. CTR',      value: formatPercent(avgCtr),     sub: 'click-through',pct: avgCtr,                                      color: C.mutedTeal },
+      { label: 'Avg. Searches', value: formatNumber(avgSearches), sub: 'per month',    pct: Math.min((avgSearches / 80000) * 100, 100), color: C.charcoal },
+      { label: 'Avg. Clicks',   value: formatNumber(avgClicks),   sub: 'per month',    pct: Math.min((avgClicks / 60000) * 100, 100),   color: C.orangeLight },
+      { label: 'Avg. CTR',      value: formatPercent(avgCtr),     sub: 'click-through',pct: avgCtr,                                      color: C.charcoal },
     ]
   }, [kw])
 
@@ -50,7 +50,7 @@ export function KeywordsTab() {
             style={{ background: 'transparent', border: 'none', padding: '9px 10px', fontSize: 13, fontFamily: 'inherit', outline: 'none', flex: 1, color: '#1a1a1a' }} />
         </div>
         <button onClick={search}
-          style={{ background: C.forest, color: C.snow, border: 'none', padding: '0 20px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+          style={{ background: C.charcoal, color: C.snow, border: 'none', padding: '0 20px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
           Search →
         </button>
       </div>
@@ -75,21 +75,21 @@ export function KeywordsTab() {
       <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 9 }}>
         <div style={{ background: C.warmGray, borderRadius: 10, padding: '12px 14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 }}>
-            <p style={{ fontSize: 11, fontWeight: 500, color: C.forest }}>Search Trend (12 months)</p>
+            <p style={{ fontSize: 11, fontWeight: 500, color: C.charcoal }}>Search Trend (12 months)</p>
             {tr && <PlatformToggle active={plats} onChange={setPlats} />}
           </div>
           {tr ? <TrendChart data={tr.trends} activePlatforms={plats} /> : <Skel h={108} />}
         </div>
         <div style={{ background: C.warmGray, borderRadius: 10, padding: '12px 14px' }}>
-          <p style={{ fontSize: 11, fontWeight: 500, color: C.forest, marginBottom: 9 }}>Searchers by Country</p>
+          <p style={{ fontSize: 11, fontWeight: 500, color: C.charcoal, marginBottom: 9 }}>Searchers by Country</p>
           {tr ? <CountryChart data={tr.countries} /> : <Skel h={108} />}
         </div>
       </div>
 
       {/* Keyword table */}
       {isLoading && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '24px 0', fontSize: 13, color: C.forest }}>
-          <div className="shimmer" style={{ width: 6, height: 6, borderRadius: '50%', background: C.forest }} />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '24px 0', fontSize: 13, color: C.charcoal }}>
+          <div className="shimmer" style={{ width: 6, height: 6, borderRadius: '50%', background: C.charcoal }} />
           Fetching from Etsy...
         </div>
       )}
@@ -101,7 +101,7 @@ export function KeywordsTab() {
       {kw && !isLoading && (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <p style={{ fontSize: 12, fontWeight: 500, color: C.forest }}>
+            <p style={{ fontSize: 12, fontWeight: 500, color: C.charcoal }}>
               Keywords related to &ldquo;{kw.query}&rdquo;
             </p>
             <span style={{ fontSize: 10.5, fontFamily: "'IBM Plex Mono',monospace", color: '#aaa' }}>

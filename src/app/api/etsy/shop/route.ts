@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getEtsyShop, getShopListings } from '@/lib/etsy'
+import { getEtsyShop, getShopListings, resolveShopId } from '@/lib/etsy'
 import { getCurrentUser } from '@/lib/auth/session'
 
 export async function GET(req: NextRequest) {
@@ -17,9 +17,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // Resolve a shop name (e.g. "silvercraft") to its numeric id once, so both
+    // calls below reuse it instead of each hitting the findShops endpoint.
+    const numericId = await resolveShopId(resolvedId)
     const [shop, listings] = await Promise.all([
-      getEtsyShop(resolvedId),
-      getShopListings(resolvedId, 25),
+      getEtsyShop(numericId),
+      getShopListings(numericId, 25),
     ])
     return NextResponse.json({ success: true, data: { shop, listings } })
   } catch (err: unknown) {

@@ -11,7 +11,7 @@ const sections = [
     bullets: [
       {
         label: 'Account Data',
-        text: 'When you register on Ranksty, we may collect personal identifiers such as your name, email address, and account credentials.',
+        text: 'When you register on Ranktsy, we may collect personal identifiers such as your name, email address, and account credentials.',
       },
       {
         label: 'Payment Information',
@@ -41,7 +41,7 @@ const sections = [
     bullets: [
       {
         label: 'Third-Party APIs',
-        text: 'Ranksty utilizes official application programming interfaces (APIs) from platforms like Etsy to fetch public marketplace metrics and trend analytics.',
+        text: 'Ranktsy utilizes official application programming interfaces (APIs) from platforms like Etsy to fetch public marketplace metrics and trend analytics.',
       },
       {
         label: 'Service Providers',
@@ -73,7 +73,7 @@ const sections = [
   {
     number: '06',
     title: 'Third-Party Trademarks and Disclaimers',
-    content: 'Ranksty is an independent analytics tool.',
+    content: 'Ranktsy is an independent analytics tool.',
     disclaimer: true,
     bullets: [],
   },
@@ -128,7 +128,7 @@ export default function PrivacyPage() {
                 fontFamily: "'IBM Plex Mono', monospace",
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
-                color: C.pale,
+                color: C.orange,
                 marginBottom: 20,
               }}
             >
@@ -200,7 +200,7 @@ export default function PrivacyPage() {
                   lineHeight: 1.4,
                   transition: 'color 0.15s',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = C.forest)}
+                onMouseEnter={(e) => (e.currentTarget.style.color = C.charcoal)}
                 onMouseLeave={(e) => (e.currentTarget.style.color = '#666')}
               >
                 <span
@@ -231,7 +231,7 @@ export default function PrivacyPage() {
                 paddingLeft: 20,
               }}
             >
-              Welcome to Ranksty ("we," "our," or "us"). We are committed to protecting your privacy
+              Welcome to Ranktsy ("we," "our," or "us"). We are committed to protecting your privacy
               and ensuring a transparent relationship with our users. This Privacy Policy explains how
               we collect, use, disclose, and safeguard your information when you visit our website at{' '}
               <a href="https://ranktsy.com" style={{ color: C.orange, textDecoration: 'underline' }}>
@@ -256,7 +256,7 @@ export default function PrivacyPage() {
                     style={{
                       fontFamily: "'IBM Plex Mono', monospace",
                       fontSize: 11,
-                      color: C.pale,
+                      color: C.orange,
                       background: C.charcoal,
                       padding: '4px 8px',
                       borderRadius: 2,
@@ -296,7 +296,7 @@ export default function PrivacyPage() {
                           borderLeft: `3px solid ${C.orange}`,
                         }}
                       >
-                        <span style={{ flexShrink: 0, marginTop: 3, color: C.pale, fontSize: 10 }}>▸</span>
+                        <span style={{ flexShrink: 0, marginTop: 3, color: C.orange, fontSize: 10 }}>▸</span>
                         <p style={{ fontSize: 14, color: '#444', lineHeight: 1.7, margin: 0 }}>
                           {b.label && (
                             <strong style={{ color: C.orange, fontWeight: 600 }}>{b.label}: </strong>
@@ -325,9 +325,8 @@ export default function PrivacyPage() {
                     }}
                   >
                     <p style={{ fontSize: 13, color: '#3C3C3C', lineHeight: 1.7, margin: 0, fontFamily: "'IBM Plex Mono', monospace" }}>
-                      ⚠ Important Disclaimer: The term 'Etsy' is a trademark of Etsy, Inc. This
-                      application is an independent service and is not endorsed, certified, or
-                      officially affiliated with Etsy, Inc. in any capacity.
+                      ⚠ Important Disclaimer: The term &apos;Etsy&apos; is a trademark of Etsy, Inc. This
+                      application uses the Etsy API but is not endorsed or certified by Etsy, Inc.
                     </p>
                   </div>
                 )}
@@ -350,7 +349,7 @@ export default function PrivacyPage() {
                         display: 'flex',
                         alignItems: 'center',
                         gap: 12,
-                        color: C.pale,
+                        color: C.orange,
                         textDecoration: 'none',
                         fontSize: 14,
                         fontFamily: "'IBM Plex Mono', monospace",
@@ -365,7 +364,7 @@ export default function PrivacyPage() {
                         display: 'flex',
                         alignItems: 'center',
                         gap: 12,
-                        color: C.pale,
+                        color: C.orange,
                         textDecoration: 'none',
                         fontSize: 14,
                         fontFamily: "'IBM Plex Mono', monospace",

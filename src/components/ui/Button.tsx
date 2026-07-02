@@ -13,10 +13,10 @@ const BASE: React.CSSProperties = {
 }
 
 const VARIANTS: Record<string,React.CSSProperties> = {
-  primary: { background:C.forest, color:C.snow, borderRadius:999 },
-  ghost:   { background:'transparent', color:C.forest, border:`1px solid ${C.forest}`, borderRadius:0 },
+  primary: { background:C.charcoal, color:C.snow, borderRadius:999 },
+  ghost:   { background:'transparent', color:C.charcoal, border:`1px solid ${C.charcoal}`, borderRadius:0 },
   outline: { background:'transparent', color:C.snow, border:'1px solid rgba(252,252,247,0.3)', borderRadius:999 },
-  pale:    { background:C.pale, color:C.forest, borderRadius:999 },
+  pale:    { background:C.orange, color:C.snow, borderRadius:999 },
 }
 const SIZES: Record<string,React.CSSProperties> = {
   sm: { fontSize:12, padding:'6px 14px', gap:5 },

@@ -15,7 +15,7 @@ const FIELDS: Record<FormType, Field[]> = {
   reset:        [{ name:'password',label:'New Password',type:'password',placeholder:'Min 8 chars, 1 uppercase, 1 number' },{ name:'confirmPassword',label:'Confirm Password',type:'password',placeholder:'Repeat new password' }],
 }
 const TITLES:    Record<FormType,string> = { login:'Welcome back', register:'Create your account', forgot:'Forgot password', 'verify-otp':'Enter your OTP', reset:'Set new password' }
-const SUBTITLES: Record<FormType,string> = { login:'Log in to your Ranksty dashboard', register:'Start growing your Etsy shop with data', forgot:"We'll send a 6-digit code to your email", 'verify-otp':'Check your inbox for the code we sent', reset:'Choose a strong new password' }
+const SUBTITLES: Record<FormType,string> = { login:'Log in to your Ranktsy dashboard', register:'Start growing your Etsy shop with data', forgot:"We'll send a 6-digit code to your email", 'verify-otp':'Check your inbox for the code we sent', reset:'Choose a strong new password' }
 const BUTTONS:   Record<FormType,string> = { login:'Log in →', register:'Create account →', forgot:'Send reset code →', 'verify-otp':'Verify code →', reset:'Reset password →' }
 const ENDPOINTS: Record<FormType,string> = { login:'/api/auth/login', register:'/api/auth/register', forgot:'/api/auth/forgot-password', 'verify-otp':'/api/auth/verify-otp', reset:'/api/auth/reset-password' }
 
@@ -57,20 +57,20 @@ function AuthFormInner({ type, email: initEmail, onNext }: { type: FormType; ema
     label: { display:'block', fontSize:12.5, fontWeight:500, color:'#444', marginBottom:6 } as const,
     input: { width:'100%', border:'1.5px solid rgba(0,0,0,0.12)', borderRadius:8, padding:'11px 14px', fontSize:14, fontFamily:'inherit', outline:'none', background:C.snow, color:'#1a1a1a', transition:'border-color 0.15s', boxSizing:'border-box' } as const,
     btn:   { width:'100%', background: C.orange, color:C.snow, border:'none', borderRadius:999, padding:'13px', fontSize:14.5, fontWeight:500, cursor:'pointer', fontFamily:'inherit', marginTop:24, transition:'opacity 0.18s' } as const,
-    link:  { color:C.forest, fontSize:13, textDecoration:'none', fontWeight:500 } as const,
+    link:  { color:C.charcoal, fontSize:13, textDecoration:'none', fontWeight:500 } as const,
   }
 
   return (
     <div style={S.wrap}>
       <div style={S.card}>
         <Link href="/" style={{ display:'flex', alignItems:'center', gap:7, marginBottom:32, textDecoration:'none' }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.forest} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22V12M12 12C12 7 7 4 2 5c0 5 3 9 10 7M12 12c0-5 5-8 10-7 0 5-3 9-10 7"/></svg>
-          <span style={{ fontWeight:600, fontSize:17, color:C.forest, letterSpacing:'-0.4px' }}>Ranksty</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.charcoal} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22V12M12 12C12 7 7 4 2 5c0 5 3 9 10 7M12 12c0-5 5-8 10-7 0 5-3 9-10 7"/></svg>
+          <span style={{ fontWeight:600, fontSize:17, color:C.charcoal, letterSpacing:'-0.4px' }}>Ranktsy</span>
         </Link>
-        <h1 style={{ fontSize:24, fontWeight:400, color:C.forest, letterSpacing:'-0.5px', marginBottom:6 }}>{TITLES[type]}</h1>
+        <h1 style={{ fontSize:24, fontWeight:400, color:C.charcoal, letterSpacing:'-0.5px', marginBottom:6 }}>{TITLES[type]}</h1>
         <p style={{ fontSize:14, color:'#888', marginBottom:32, lineHeight:1.5 }}>{SUBTITLES[type]}</p>
 
-        {success  && <div style={{ background:C.pale, color:C.forest, borderRadius:10, padding:'12px 16px', fontSize:13.5, marginBottom:16 }}>✓ {success}</div>}
+        {success  && <div style={{ background:C.orange, color:C.snow, borderRadius:10, padding:'12px 16px', fontSize:13.5, marginBottom:16 }}>✓ {success}</div>}
         {errors._ && <div style={{ background:'#fff0f0', color:'#c00', borderRadius:10, padding:'12px 16px', fontSize:13.5, marginBottom:16 }}>⚠ {errors._}</div>}
 
         <div style={{ display:'flex', flexDirection:'column', gap:16 }}>

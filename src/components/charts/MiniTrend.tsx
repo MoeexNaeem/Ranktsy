@@ -6,7 +6,7 @@ export const MiniTrend = memo(function MiniTrend({ data }:{ data:number[] }) {
   return (
     <div style={{ display:'flex', alignItems:'flex-end', gap:2, height:24 }}>
       {data.map((v,i) => (
-        <div key={i} style={{ width:4, borderRadius:1, height:`${Math.round((v/max)*100)}%`, background:i>=data.length-3?C.forest:C.frosted, flexShrink:0 }}/>
+        <div key={i} style={{ width:4, borderRadius:1, height:`${Math.round((v/max)*100)}%`, background:i>=data.length-3?C.charcoal:C.lightGray, flexShrink:0 }}/>
       ))}
     </div>
   )

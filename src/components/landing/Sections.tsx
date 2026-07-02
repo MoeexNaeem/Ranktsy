@@ -11,7 +11,7 @@ export function SectionTag({
   light?: boolean;
   center?: boolean;
 }) {
-  const col = light ? C.pale : C.forest;
+  const col = light ? C.orange : C.charcoal;
   return (
     <div
       style={{
@@ -87,7 +87,7 @@ export function Features() {
             fontSize: "clamp(28px,3.5vw,40px)",
             fontWeight: 300,
             letterSpacing: "-1px",
-            color: C.forest,
+            color: C.charcoal,
             lineHeight: 1.1,
             marginBottom: 16,
           }}
@@ -103,7 +103,7 @@ export function Features() {
             marginBottom: 64,
           }}
         >
-          From keyword research to competitor tracking, Ranksty is your complete
+          From keyword research to competitor tracking, Ranktsy is your complete
           Etsy analytics platform.
         </p>
         <div
@@ -131,7 +131,7 @@ export function Features() {
                 style={{
                   width: 40,
                   height: 40,
-                  background: C.pale,
+                  background: C.orange,
                   borderRadius: 8,
                   display: "flex",
                   alignItems: "center",
@@ -146,7 +146,7 @@ export function Features() {
                 style={{
                   fontSize: 18,
                   fontWeight: 500,
-                  color: C.forest,
+                  color: C.charcoal,
                   marginBottom: 12,
                   letterSpacing: "-0.3px",
                 }}
@@ -170,7 +170,7 @@ export function HowItWorks() {
     {
       n: "01",
       title: "Enter a keyword",
-      desc: "Type any product idea or keyword into Ranksty's search bar to begin your research.",
+      desc: "Type any product idea or keyword into Ranktsy's search bar to begin your research.",
     },
     {
       n: "02",
@@ -197,7 +197,7 @@ export function HowItWorks() {
             fontSize: "clamp(28px,3.5vw,40px)",
             fontWeight: 300,
             letterSpacing: "-1px",
-            color: C.forest,
+            color: C.charcoal,
             lineHeight: 1.1,
             marginBottom: 16,
           }}
@@ -213,7 +213,7 @@ export function HowItWorks() {
             marginBottom: 64,
           }}
         >
-          Ranksty turns complex Etsy data into clear, actionable insights.
+          Ranktsy turns complex Etsy data into clear, actionable insights.
         </p>
         <div
           style={{
@@ -232,7 +232,7 @@ export function HowItWorks() {
                     left: 40,
                     right: -60,
                     height: 1,
-                    background: C.pale,
+                    background: C.orange,
                     zIndex: 0,
                   }}
                 />
@@ -241,7 +241,7 @@ export function HowItWorks() {
                 style={{
                   width: 28,
                   height: 28,
-                  background: C.pale,
+                  background: C.orange,
                   borderRadius: 999,
                   display: "flex",
                   alignItems: "center",
@@ -249,7 +249,7 @@ export function HowItWorks() {
                   fontSize: 11,
                   fontFamily: "'IBM Plex Mono',monospace",
                   fontWeight: 500,
-                  color: C.forest,
+                  color: C.snow,
                   marginBottom: 16,
                   position: "relative",
                   zIndex: 1,
@@ -261,7 +261,7 @@ export function HowItWorks() {
                 style={{
                   fontSize: 16,
                   fontWeight: 500,
-                  color: C.forest,
+                  color: C.charcoal,
                   marginBottom: 8,
                 }}
               >
@@ -304,29 +304,29 @@ export function AboutContactTeaser() {
           onMouseLeave={e => (e.currentTarget.style.transform = 'none')}
         >
           <div style={{
-            width: 44, height: 44, background: C.forest, borderRadius: 8,
+            width: 44, height: 44, background: C.charcoal, borderRadius: 8,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 20, marginBottom: 20,
           }}>🌱</div>
           <div style={{
             fontSize: 11, fontFamily: "'IBM Plex Mono', monospace",
             textTransform: 'uppercase' as const, letterSpacing: '0.08em',
-            color: C.mutedGreen, marginBottom: 10,
+            color: C.charcoalMid, marginBottom: 10,
           }}>
             Our Story
           </div>
           <h3 style={{
             fontSize: 'clamp(22px, 2.5vw, 30px)', fontWeight: 300,
-            letterSpacing: '-0.8px', color: C.forest, lineHeight: 1.15, marginBottom: 16,
+            letterSpacing: '-0.8px', color: C.charcoal, lineHeight: 1.15, marginBottom: 16,
           }}>
             Built by Etsy sellers,<br />for Etsy sellers.
           </h3>
           <p style={{ fontSize: 14, color: '#666', lineHeight: 1.7, marginBottom: 28 }}>
-            We spent years selling on Etsy, manually tracking keywords in spreadsheets. Ranksty is the tool we always wished existed.
+            We spent years selling on Etsy, manually tracking keywords in spreadsheets. Ranktsy is the tool we always wished existed.
           </p>
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
-            fontSize: 13, fontWeight: 500, color: C.forest,
+            fontSize: 13, fontWeight: 500, color: C.charcoal,
           }}>
             Read our story →
           </span>
@@ -336,7 +336,7 @@ export function AboutContactTeaser() {
         <a
           href="/contact"
           style={{
-            background: C.forest, padding: '48px 40px', display: 'block',
+            background: C.charcoal, padding: '48px 40px', display: 'block',
             textDecoration: 'none', transition: 'transform 0.2s',
           }}
           onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
@@ -350,7 +350,7 @@ export function AboutContactTeaser() {
           <div style={{
             fontSize: 11, fontFamily: "'IBM Plex Mono', monospace",
             textTransform: 'uppercase' as const, letterSpacing: '0.08em',
-            color: C.mutedGreen, marginBottom: 10,
+            color: C.charcoalMid, marginBottom: 10,
           }}>
             Get in touch
           </div>
@@ -365,7 +365,7 @@ export function AboutContactTeaser() {
           </p>
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
-            fontSize: 13, fontWeight: 500, color: C.pale,
+            fontSize: 13, fontWeight: 500, color: C.orange,
           }}>
             Contact us →
           </span>
@@ -575,16 +575,16 @@ export function Footer() {
         </p>
         <p
           style={{
-            fontSize: 12,
-            color: "#b3b3b3",
+            fontSize: 12.5,
+            color: "#555",
             fontFamily: "'IBM Plex Mono', monospace",
             margin: 0,
-            lineHeight: "1.5",
+            lineHeight: "1.6",
+            maxWidth: 760,
           }}
         >
-          The term 'Etsy' is a trademark of Etsy, Inc. Ranksty is an independent
-          application and is not endorsed, certified, or affiliated with Etsy,
-          Inc.
+          The term &apos;Etsy&apos; is a trademark of Etsy, Inc. This application uses the
+          Etsy API but is not endorsed or certified by Etsy, Inc.
         </p>
       </div>
     </footer>

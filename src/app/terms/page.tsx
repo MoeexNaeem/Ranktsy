@@ -8,14 +8,14 @@ const sections = [
     number: '01',
     title: 'Acceptance of Terms',
     content:
-      'By accessing or using Ranksty ("the Service," "our platform," "we," or "us"), you agree to be bound by these Terms of Service and all applicable laws and regulations. If you do not agree with any part of these terms, you may not access or use the Service. These Terms apply to all visitors, users, and others who access or use the Service.',
+      'By accessing or using Ranktsy ("the Service," "our platform," "we," or "us"), you agree to be bound by these Terms of Service and all applicable laws and regulations. If you do not agree with any part of these terms, you may not access or use the Service. These Terms apply to all visitors, users, and others who access or use the Service.',
     bullets: [],
   },
   {
     number: '02',
     title: 'Description of Service',
     content:
-      'Ranksty is an independent keyword research and analytics platform designed to help Etsy sellers analyze search trends, optimize listings, and track shop performance. The Service includes:',
+      'Ranktsy is an independent keyword research and analytics platform designed to help Etsy sellers analyze search trends, optimize listings, and track shop performance. The Service includes:',
     bullets: [
       { label: 'Keyword Research', text: 'Analysis of search volumes, click-through rates, and competition metrics across marketplace platforms.' },
       { label: 'Trend Analytics', text: 'Relative trend data derived from Etsy listing view signals to identify peak buyer interest periods. Note: Etsy\'s Open API does not expose raw search volume counts.' },
@@ -39,7 +39,7 @@ const sections = [
   {
     number: '04',
     title: 'Service Access & Beta Period',
-    content: 'Ranksty is currently in beta and available free of charge. During this period:',
+    content: 'Ranktsy is currently in beta and available free of charge. During this period:',
     bullets: [
       { label: 'Free Access', text: 'All features are available at no cost while we are in beta. No credit card is required.' },
       { label: 'Future Pricing', text: 'We may introduce paid subscription tiers in the future. Existing users will receive at least 30 days\' notice before any billing begins.' },
@@ -63,7 +63,7 @@ const sections = [
     number: '06',
     title: 'Intellectual Property',
     content:
-      'The Service and its original content, features, and functionality are and will remain the exclusive property of Ranksty and its licensors. Our trademarks and trade dress may not be used in connection with any product or service without prior written consent.',
+      'The Service and its original content, features, and functionality are and will remain the exclusive property of Ranktsy and its licensors. Our trademarks and trade dress may not be used in connection with any product or service without prior written consent.',
     bullets: [
       { label: 'Your Content', text: 'You retain ownership of any data or content you upload to the Service. By using the Service, you grant us a limited license to process that data solely to provide you with the features of the Service.' },
       { label: 'Third-Party Data', text: 'Marketplace data and trend metrics are sourced from publicly available APIs and databases. Such data remains the property of their respective owners.' },
@@ -73,26 +73,26 @@ const sections = [
     number: '07',
     title: 'Third-Party Services & Disclaimer',
     content:
-      'Ranksty uses the official Etsy Open API v3 (https://openapi.etsy.com) to retrieve publicly available marketplace data, such as active listing details, shop information, and product search results. We do not use scraping, unofficial endpoints, or any third-party data proxy services to access Etsy data.',
+      'Ranktsy uses the official Etsy Open API v3 (https://openapi.etsy.com) to retrieve publicly available marketplace data, such as active listing details, shop information, and product search results. We do not use scraping, unofficial endpoints, or any third-party data proxy services to access Etsy data.',
     disclaimer: true,
     bullets: [
-      { label: 'Data Source', text: 'All Etsy data displayed in Ranksty is retrieved via the official Etsy Open API v3. The API provides listing-level data (titles, tags, views, favorites, prices, images) for active public listings. It does not expose raw search volume, click data, or buyer country breakdowns — any engagement metrics shown are derived from listing view/favorite counts as relative proxies only.' },
+      { label: 'Data Source', text: 'All Etsy data displayed in Ranktsy is retrieved via the official Etsy Open API v3. The API provides listing-level data (titles, tags, views, favorites, prices, images) for active public listings. It does not expose raw search volume, click data, or buyer country breakdowns — any engagement metrics shown are derived from listing view/favorite counts as relative proxies only.' },
       { label: 'Data Scope', text: 'We access only publicly available listing data (titles, tags, views, images, prices). We do not access private seller data without explicit OAuth consent.' },
-      { label: 'No Affiliation', text: 'Ranksty is an independent application. "Etsy" is a trademark of Etsy, Inc. This app uses the Etsy API but is not endorsed or certified by Etsy, Inc.' },
+      { label: 'No Affiliation', text: 'Ranktsy is an independent application. "Etsy" is a trademark of Etsy, Inc. This app uses the Etsy API but is not endorsed or certified by Etsy, Inc.' },
     ],
   },
   {
     number: '08',
     title: 'Limitation of Liability',
     content:
-      'To the maximum extent permitted by applicable law, Ranksty shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or business opportunities, resulting from:',
+      'To the maximum extent permitted by applicable law, Ranktsy shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or business opportunities, resulting from:',
     bullets: [
       { label: '', text: 'Your use of or inability to use the Service.' },
       { label: '', text: 'Inaccuracies in keyword data, trend metrics, or analytics provided by the Service.' },
       { label: '', text: 'Changes to Etsy\'s platform, algorithm, or API that affect the accuracy of our data.' },
       { label: '', text: 'Unauthorized access to or alteration of your data.' },
     ],
-    footer: 'Our total liability to you for any claim arising out of or relating to these Terms or the Service shall not exceed the amount paid by you to Ranksty in the 12 months preceding the claim.',
+    footer: 'Our total liability to you for any claim arising out of or relating to these Terms or the Service shall not exceed the amount paid by you to Ranktsy in the 12 months preceding the claim.',
   },
   {
     number: '09',
@@ -160,7 +160,7 @@ export default function TermsPage() {
                 fontFamily: "'IBM Plex Mono', monospace",
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
-                color: C.pale,
+                color: C.orange,
                 marginBottom: 20,
               }}
             >
@@ -241,7 +241,7 @@ export default function TermsPage() {
                   lineHeight: 1.4,
                   transition: 'color 0.15s',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = C.forest)}
+                onMouseEnter={(e) => (e.currentTarget.style.color = C.charcoal)}
                 onMouseLeave={(e) => (e.currentTarget.style.color = '#666')}
               >
                 <span
@@ -272,7 +272,7 @@ export default function TermsPage() {
                 paddingLeft: 20,
               }}
             >
-              Welcome to Ranksty. These Terms of Service govern your access to and use of our platform, including all features, tools, and analytics services. Please read these terms carefully before using the Service. By using Ranksty, you confirm that you are at least 18 years old and have the legal authority to agree to these terms.
+              Welcome to Ranktsy. These Terms of Service govern your access to and use of our platform, including all features, tools, and analytics services. Please read these terms carefully before using the Service. By using Ranktsy, you confirm that you are at least 18 years old and have the legal authority to agree to these terms.
             </p>
 
             {sections.map((s, i) => (
@@ -291,7 +291,7 @@ export default function TermsPage() {
                     style={{
                       fontFamily: "'IBM Plex Mono', monospace",
                       fontSize: 11,
-                      color: C.pale,
+                      color: C.orange,
                       background: C.charcoal,
                       padding: '4px 8px',
                       borderRadius: 2,
@@ -338,7 +338,7 @@ export default function TermsPage() {
                           borderLeft: `3px solid ${C.orange}`,
                         }}
                       >
-                        <span style={{ flexShrink: 0, marginTop: 3, color: C.pale, fontSize: 10 }}>▸</span>
+                        <span style={{ flexShrink: 0, marginTop: 3, color: C.orange, fontSize: 10 }}>▸</span>
                         <p style={{ fontSize: 14, color: '#444', lineHeight: 1.7, margin: 0 }}>
                           {b.label && (
                             <strong style={{ color: C.orange, fontWeight: 600 }}>{b.label}: </strong>
@@ -375,7 +375,7 @@ export default function TermsPage() {
                         fontFamily: "'IBM Plex Mono', monospace",
                       }}
                     >
-                      ⚠ Important Disclaimer: The term &apos;Etsy&apos; is a trademark of Etsy, Inc. Ranksty is an independent application and is not endorsed, certified, or officially affiliated with Etsy, Inc. in any capacity. Use of Etsy&apos;s API is subject to Etsy&apos;s own Terms of Use, and users of Ranksty who connect their Etsy shops remain bound by Etsy&apos;s policies.
+                      ⚠ Important Disclaimer: The term &apos;Etsy&apos; is a trademark of Etsy, Inc. This application uses the Etsy API but is not endorsed or certified by Etsy, Inc. Use of Etsy&apos;s API is subject to Etsy&apos;s own Terms of Use, and users of Ranktsy who connect their Etsy shops remain bound by Etsy&apos;s policies.
                     </p>
                   </div>
                 )}
@@ -398,7 +398,7 @@ export default function TermsPage() {
                         display: 'flex',
                         alignItems: 'center',
                         gap: 12,
-                        color: C.pale,
+                        color: C.orange,
                         textDecoration: 'none',
                         fontSize: 14,
                         fontFamily: "'IBM Plex Mono', monospace",
@@ -413,7 +413,7 @@ export default function TermsPage() {
                         display: 'flex',
                         alignItems: 'center',
                         gap: 12,
-                        color: C.pale,
+                        color: C.orange,
                         textDecoration: 'none',
                         fontSize: 14,
                         fontFamily: "'IBM Plex Mono', monospace",

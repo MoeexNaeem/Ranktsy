@@ -14,15 +14,12 @@ export const C = {
   lightGray:   '#E5E4E2',        // borders
   ghostGray:   '#B0B0B0',        // placeholder / disabled text
   overlay:     '#666666',        // muted body text
-
-  // ── Legacy aliases kept for any missed references ───────────
-  forest:      '#3C3C3C',        // mapped → charcoal
-  pale:        '#FF6008',        // mapped → orange
-  mutedGreen:  '#5A5A5A',        // mapped → charcoalMid
-  mutedYellow: '#FF7A2E',        // mapped → orangeLight
-  mutedTeal:   '#3C3C3C',        // mapped → charcoal
-  frosted:     '#E5E4E2',        // mapped → lightGray
 } as const
+
+// Contrast guide (avoids the dark-text-on-orange readability bug):
+//   • C.orange background  → always use C.snow (white) text
+//   • C.charcoal background → always use C.snow (white) text
+//   • C.orangeFaint / warmGray / snow backgrounds → use C.charcoal text
 
 export function formatNumber(n: number | null): string {
   if (n === null || n === undefined) return '—'

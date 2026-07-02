@@ -2,7 +2,7 @@
 
 A full-stack Next.js application to help Etsy sellers analyze search trends, optimize listings, and track shop performance — powered by the **official Etsy Open API v3**.
 
-> **Note:** Ranktsy is an independent analytics tool and is not affiliated with, endorsed by, or certified by Etsy, Inc. 'Etsy' is a trademark of Etsy, Inc.
+> **Note:** The term 'Etsy' is a trademark of Etsy, Inc. This application uses the Etsy API but is not endorsed or certified by Etsy, Inc.
 
 ---
 

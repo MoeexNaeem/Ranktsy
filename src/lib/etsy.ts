@@ -15,8 +15,16 @@ import type {
   KeywordSearchResponse, TrendData, CountryData,
 } from '@/types'
 
-const ETSY_API_KEY = process.env.ETSY_API_KEY ?? ''
-const ETSY_BASE    = 'https://openapi.etsy.com/v3/application'
+const ETSY_API_KEY       = process.env.ETSY_API_KEY ?? ''
+const ETSY_SHARED_SECRET = process.env.ETSY_SHARED_SECRET ?? ''
+const ETSY_BASE          = 'https://openapi.etsy.com/v3/application'
+
+// This app requires the shared secret to be appended to the keystring in the
+// x-api-key header (format: "<keystring>:<shared_secret>"). Using the keystring
+// alone returns: 403 "Shared secret is required in x-api-key header."
+const ETSY_KEY_HEADER = ETSY_SHARED_SECRET
+  ? `${ETSY_API_KEY}:${ETSY_SHARED_SECRET}`
+  : ETSY_API_KEY
 
 if (!ETSY_API_KEY && process.env.NODE_ENV === 'production') {
   console.warn('[Etsy] ETSY_API_KEY is not set — API calls will fail.')
@@ -32,7 +40,7 @@ async function etsyFetch<T = unknown>(path: string, params?: Record<string, stri
 
   const res = await fetch(url.toString(), {
     headers: {
-      'x-api-key': ETSY_API_KEY,
+      'x-api-key': ETSY_KEY_HEADER,
       'Accept':    'application/json',
     },
     // Next.js fetch cache — revalidate every 30 minutes
@@ -77,6 +85,43 @@ function mapListing(item: Record<string, any>): EtsyListing {
   }
 }
 
+// ─── Image enrichment ─────────────────────────────────────────────────────────
+// The keyword-search and shop-listing endpoints do NOT return images. We fetch
+// them in a single batch call to /listings/batch?includes=Images,Shop (up to 100
+// ids) and merge them back onto the listings by listing_id.
+
+async function attachImages(listings: EtsyListing[]): Promise<EtsyListing[]> {
+  const ids = listings.map(l => l.listing_id).filter(Boolean)
+  if (!ids.length) return listings
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = await etsyFetch<{ results: Record<string, any>[] }>('/listings/batch', {
+      listing_ids: ids.slice(0, 100).join(','),
+      includes:    'Images,Shop',
+    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const byId = new Map<number, any>()
+    for (const r of data.results ?? []) byId.set(Number(r.listing_id), r)
+
+    return listings.map(l => {
+      const full = byId.get(l.listing_id)
+      if (!full) return l
+      const images: { url_570xN: string; url_75x75: string }[] = (full.images ?? []).map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (img: any) => ({ url_570xN: img.url_570xN ?? '', url_75x75: img.url_75x75 ?? '' })
+      )
+      return {
+        ...l,
+        images:    images.length ? images : l.images,
+        shop_name: full.shop?.shop_name ?? l.shop_name,
+      }
+    })
+  } catch (e) {
+    console.error('[Etsy] image enrichment failed:', e)
+    return listings
+  }
+}
+
 // ─── Search listings ──────────────────────────────────────────────────────────
 
 export async function searchEtsyListings(query: string, limit = 25): Promise<EtsyListing[]> {
@@ -86,7 +131,7 @@ export async function searchEtsyListings(query: string, limit = 25): Promise<Ets
     sort_on:  'score',
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any)
-  return (data.results ?? []).map(mapListing)
+  return attachImages((data.results ?? []).map(mapListing))
 }
 
 // ─── Keyword stats (derived from listing data) ────────────────────────────────
@@ -163,10 +208,27 @@ export function buildKeywordStats(query: string, listings: EtsyListing[]): Keywo
 
 // ─── Shop ─────────────────────────────────────────────────────────────────────
 
-export async function getEtsyShop(shopIdOrName: string): Promise<EtsyShop> {
-  const data = await etsyFetch<Record<string, unknown>>(`/shops/${shopIdOrName}`)
+// Etsy's /shops/{shop_id} endpoint requires a NUMERIC shop id. When the user
+// types a shop name (e.g. "silvercraft") we resolve it to an id via the
+// findShops endpoint (GET /shops?shop_name=...) first.
+export async function resolveShopId(shopIdOrName: string | number): Promise<number> {
+  if (typeof shopIdOrName === 'number' || /^\d+$/.test(String(shopIdOrName).trim())) {
+    return Number(shopIdOrName)
+  }
+  const data = await etsyFetch<{ results: { shop_id: number; shop_name: string }[] }>('/shops', {
+    shop_name: String(shopIdOrName).trim(),
+    limit:     1,
+  })
+  const first = data.results?.[0]
+  if (!first) throw new Error(`No Etsy shop found matching "${shopIdOrName}".`)
+  return first.shop_id
+}
+
+export async function getEtsyShop(shopIdOrName: string | number): Promise<EtsyShop> {
+  const shopId = await resolveShopId(shopIdOrName)
+  const data = await etsyFetch<Record<string, unknown>>(`/shops/${shopId}`)
   return {
-    shop_id:              Number(data.shop_id ?? 0),
+    shop_id:              Number(data.shop_id ?? shopId),
     shop_name:            String(data.shop_name ?? shopIdOrName),
     title:                String(data.title ?? data.shop_name ?? shopIdOrName),
     listing_active_count: Number(data.listing_active_count ?? 0),
@@ -176,11 +238,12 @@ export async function getEtsyShop(shopIdOrName: string): Promise<EtsyShop> {
 }
 
 export async function getShopListings(shopIdOrName: string | number, limit = 25): Promise<EtsyListing[]> {
+  const shopId = await resolveShopId(shopIdOrName)
   const data = await etsyFetch<{ results: Record<string, unknown>[] }>(
-    `/shops/${shopIdOrName}/listings/active`,
+    `/shops/${shopId}/listings/active`,
     { limit: Math.min(limit, 100) }
   )
-  return (data.results ?? []).map(mapListing)
+  return attachImages((data.results ?? []).map(mapListing))
 }
 
 // ─── Trending ─────────────────────────────────────────────────────────────────
@@ -191,7 +254,7 @@ export async function getTrendingListings(limit = 25): Promise<EtsyListing[]> {
     sort_on:  'score',
     limit:    Math.min(limit, 100),
   } as Record<string, string | number>)
-  return (data.results ?? []).map(mapListing)
+  return attachImages((data.results ?? []).map(mapListing))
 }
 
 // ─── Trend chart + country (derived) ─────────────────────────────────────────

@@ -39,7 +39,7 @@ export function CompetitorsTab() {
             style={{ background: 'transparent', border: 'none', padding: '9px 14px', fontSize: 13, fontFamily: 'inherit', outline: 'none', flex: 1, color: '#1a1a1a' }} />
         </div>
         <button onClick={go}
-          style={{ background: C.forest, color: C.snow, border: 'none', padding: '0 20px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+          style={{ background: C.charcoal, color: C.snow, border: 'none', padding: '0 20px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
           Analyze →
         </button>
       </div>
@@ -52,9 +52,9 @@ export function CompetitorsTab() {
           {/* Summary cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 9 }}>
             {[
-              { label: 'Total Competitors', value: sorted.length.toString(), color: C.forest },
-              { label: 'Avg. Views',        value: formatNumber(Math.round(sorted.reduce((s,l)=>s+(l.views??0),0)/sorted.length)), color: C.mutedYellow },
-              { label: 'Avg. Favorites',    value: formatNumber(Math.round(sorted.reduce((s,l)=>s+(l.num_favorers??0),0)/sorted.length)), color: C.mutedTeal },
+              { label: 'Total Competitors', value: sorted.length.toString(), color: C.charcoal },
+              { label: 'Avg. Views',        value: formatNumber(Math.round(sorted.reduce((s,l)=>s+(l.views??0),0)/sorted.length)), color: C.orangeLight },
+              { label: 'Avg. Favorites',    value: formatNumber(Math.round(sorted.reduce((s,l)=>s+(l.num_favorers??0),0)/sorted.length)), color: C.charcoal },
             ].map(s => (
               <div key={s.label} style={{ background: C.warmGray, borderRadius: 10, padding: '12px 14px' }}>
                 <p style={{ fontSize: 9.5, fontFamily: "'IBM Plex Mono',monospace", color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{s.label}</p>
@@ -79,12 +79,12 @@ export function CompetitorsTab() {
                   <span style={{ fontSize: 10, fontFamily: "'IBM Plex Mono',monospace", color: '#bbb', width: 20 }}>#{idx + 1}</span>
                   <span style={{ fontSize: 12.5, fontWeight: 500, color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.title}</span>
                 </div>
-                <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono',monospace", color: C.forest, fontWeight: 600 }}>{priceStr(l)}</span>
+                <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono',monospace", color: C.charcoal, fontWeight: 600 }}>{priceStr(l)}</span>
                 <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono',monospace", color: '#555' }}>{formatNumber(l.views ?? 0)}</span>
                 <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono',monospace", color: '#555' }}>{formatNumber(l.num_favorers ?? 0)}</span>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                   {(l.tags ?? []).slice(0, 3).map(tag => (
-                    <span key={tag} style={{ fontSize: 9.5, background: C.pale + '60', color: C.forest, padding: '2px 6px', borderRadius: 999, fontFamily: "'IBM Plex Mono',monospace" }}>{tag}</span>
+                    <span key={tag} style={{ fontSize: 9.5, background: C.orange + '60', color: C.charcoal, padding: '2px 6px', borderRadius: 999, fontFamily: "'IBM Plex Mono',monospace" }}>{tag}</span>
                   ))}
                 </div>
               </a>

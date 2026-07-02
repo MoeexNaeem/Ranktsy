@@ -34,8 +34,8 @@ const FAQS = [
     a: 'We aim to respond to all inquiries within 24 hours on business days. Technical support tickets usually get a first response within a few hours.',
   },
   {
-    q: 'Is Ranksty officially affiliated with Etsy?',
-    a: "No. Ranksty is an independent analytics tool. The term 'Etsy' is a trademark of Etsy, Inc. We are not endorsed, certified, or affiliated with Etsy, Inc. in any way.",
+    q: 'Is Ranktsy officially affiliated with Etsy?',
+    a: "No. Ranktsy is an independent analytics tool. The term 'Etsy' is a trademark of Etsy, Inc. We are not endorsed, certified, or affiliated with Etsy, Inc. in any way.",
   },
   {
     q: 'Do you offer a free trial?',
@@ -110,7 +110,7 @@ export default function ContactPage() {
                 fontFamily: "'IBM Plex Mono', monospace",
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
-                color: C.pale,
+                color: C.orange,
                 marginBottom: 20,
               }}
             >
@@ -302,7 +302,7 @@ export default function ContactPage() {
                         onChange={handleChange}
                         placeholder="Your name"
                         style={inputStyle}
-                        onFocus={(e) => (e.currentTarget.style.borderColor = C.forest)}
+                        onFocus={(e) => (e.currentTarget.style.borderColor = C.charcoal)}
                         onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(60,60,60,0.15)')}
                       />
                     </div>
@@ -327,7 +327,7 @@ export default function ContactPage() {
                         onChange={handleChange}
                         placeholder="you@example.com"
                         style={inputStyle}
-                        onFocus={(e) => (e.currentTarget.style.borderColor = C.forest)}
+                        onFocus={(e) => (e.currentTarget.style.borderColor = C.charcoal)}
                         onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(60,60,60,0.15)')}
                       />
                     </div>
@@ -353,7 +353,7 @@ export default function ContactPage() {
                       value={form.subject}
                       onChange={handleChange}
                       style={{ ...inputStyle, cursor: 'pointer' }}
-                      onFocus={(e) => (e.currentTarget.style.borderColor = C.forest)}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = C.charcoal)}
                       onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(60,60,60,0.15)')}
                     >
                       <option>General</option>
@@ -391,7 +391,7 @@ export default function ContactPage() {
                         resize: 'vertical',
                         minHeight: 140,
                       }}
-                      onFocus={(e) => (e.currentTarget.style.borderColor = C.forest)}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = C.charcoal)}
                       onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(60,60,60,0.15)')}
                     />
                   </div>
@@ -454,7 +454,7 @@ export default function ContactPage() {
                   <div
                     key={i}
                     style={{
-                      background: openFaq === i ? C.forest : C.warmGray,
+                      background: openFaq === i ? C.charcoal : C.warmGray,
                       transition: 'background 0.2s',
                       cursor: 'pointer',
                       overflow: 'hidden',
@@ -474,7 +474,7 @@ export default function ContactPage() {
                         style={{
                           fontSize: 15,
                           fontWeight: 500,
-                          color: openFaq === i ? C.snow : C.forest,
+                          color: openFaq === i ? C.snow : C.charcoal,
                           letterSpacing: '-0.2px',
                           transition: 'color 0.2s',
                         }}
@@ -484,7 +484,7 @@ export default function ContactPage() {
                       <span
                         style={{
                           fontSize: 18,
-                          color: openFaq === i ? C.pale : C.forest,
+                          color: openFaq === i ? C.orange : C.charcoal,
                           flexShrink: 0,
                           transform: openFaq === i ? 'rotate(45deg)' : 'none',
                           transition: 'transform 0.2s, color 0.2s',

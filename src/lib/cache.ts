@@ -52,10 +52,16 @@ class InMemoryCache {
 export const memCache = new InMemoryCache(500)
 
 // Cache TTLs (seconds)
+//
+// Etsy API Terms of Use (Section 1) caching policy:
+//   • Listing content must NOT be displayed more than 6 hours older than Etsy.
+//   • Any other Etsy content must NOT be displayed more than 24 hours older.
+// All values below are kept safely UNDER those ceilings so cached data is always
+// refreshed before it can breach Etsy's limits.
 export const CACHE_TTL = {
-  KEYWORD:  60 * 60 * 6,   // 6 hours — keyword data doesn't change that fast
-  TRENDING: 60 * 60 * 1,   // 1 hour
-  SHOP:     60 * 15,        // 15 minutes
+  KEYWORD:  60 * 60 * 5,   // 5 h  — listing-derived data (Etsy limit: 6 h)
+  TRENDING: 60 * 60 * 1,   // 1 h  — listing content (Etsy limit: 6 h)
+  SHOP:     60 * 15,       // 15 m — shop + listing content (Etsy limit: 6 h)
 } as const
 
 export function cacheKey(...parts: string[]): string {

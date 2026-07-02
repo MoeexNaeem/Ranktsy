@@ -1,6 +1,6 @@
 import { C } from '@/utils'
 
-export function StatCard({ label, value, sub, fillPct, fillColor=C.forest, style }: {
+export function StatCard({ label, value, sub, fillPct, fillColor=C.charcoal, style }: {
   label:string; value:string; sub?:string; fillPct?:number; fillColor?:string; style?:React.CSSProperties
 }) {
   return (

@@ -131,6 +131,13 @@ export function DashboardLayout() {
         <div style={{ flex: 1, padding: '20px 28px', overflowY: 'auto' }}>
           <TabContent active={activeTab} />
         </div>
+
+        {/* Etsy API attribution — required by Etsy API Terms of Use (Section 6) */}
+        <div style={{ padding: '12px 28px', borderTop: '1px solid rgba(0,0,0,0.06)', background: C.snow, flexShrink: 0 }}>
+          <p style={{ fontSize: 11.5, color: '#777', fontFamily: "'IBM Plex Mono',monospace", lineHeight: 1.5, margin: 0 }}>
+            The term &apos;Etsy&apos; is a trademark of Etsy, Inc. This application uses the Etsy API but is not endorsed or certified by Etsy, Inc.
+          </p>
+        </div>
       </main>
     </div>
   )

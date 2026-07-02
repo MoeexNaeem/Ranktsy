@@ -15,7 +15,7 @@ export function DashboardSection() {
   const [active, setActive] = useState(0)
   const go = useCallback((i:number)=>setActive(i),[])
   return (
-    <section id="dashboard" style={{ padding:'96px 48px', background:C.forest }}>
+    <section id="dashboard" style={{ padding:'96px 48px', background:C.charcoal }}>
       <div style={{ maxWidth:1200, margin:'0 auto' }}>
         <SectionTag light>Dashboard</SectionTag>
         <h2 style={{ fontSize:'clamp(28px,3.5vw,40px)', fontWeight:300, color:C.snow, letterSpacing:'-1px', lineHeight:1.1, marginBottom:16 }}>
@@ -30,7 +30,7 @@ export function DashboardSection() {
               padding:'10px 24px', borderRadius:999, fontSize:13, fontWeight:400, cursor:'pointer',
               fontFamily:'inherit', border:'none', transition:'all 0.2s',
               background:active===i ? C.snow : 'rgba(255,255,255,0.1)',
-              color:active===i ? C.forest : 'rgba(252,252,247,0.6)',
+              color:active===i ? C.charcoal : 'rgba(252,252,247,0.6)',
             }}
             onMouseEnter={e=>{ if(active!==i) e.currentTarget.style.background='rgba(255,255,255,0.15)'; if(active!==i) e.currentTarget.style.color=C.snow }}
             onMouseLeave={e=>{ if(active!==i) e.currentTarget.style.background='rgba(255,255,255,0.1)'; if(active!==i) e.currentTarget.style.color='rgba(252,252,247,0.6)' }}>

@@ -1,10 +1,10 @@
 import { C } from '@/utils'
 
 const VARIANTS: Record<string,React.CSSProperties> = {
-  green:  { background:`${C.forest}14`, color:C.forest },
-  yellow: { background:`${C.mutedYellow}20`, color:'#7a7320' },
-  teal:   { background:`${C.mutedTeal}22`, color:C.mutedTeal },
-  pale:   { background:C.pale, color:C.forest },
+  green:  { background:`${C.charcoal}14`, color:C.charcoal },
+  yellow: { background:`${C.orangeLight}20`, color:'#7a7320' },
+  teal:   { background:`${C.charcoal}22`, color:C.charcoal },
+  pale:   { background:C.orange, color:C.snow },
   ghost:  { background:C.warmGray, color:'#666' },
 }
 

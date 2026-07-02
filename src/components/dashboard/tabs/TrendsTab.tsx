@@ -37,17 +37,17 @@ export function TrendsTab() {
             style={{ background: 'transparent', border: 'none', padding: '9px 14px', fontSize: 13, fontFamily: 'inherit', outline: 'none', flex: 1, color: '#1a1a1a' }} />
         </div>
         <button onClick={go}
-          style={{ background: C.forest, color: C.snow, border: 'none', padding: '0 20px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+          style={{ background: C.charcoal, color: C.snow, border: 'none', padding: '0 20px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
           Track →
         </button>
       </div>
 
       {peakMonth && (
-        <div style={{ background: C.pale, borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ background: C.orange, borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 18 }}>📈</span>
           <div>
-            <p style={{ fontSize: 13, fontWeight: 500, color: C.forest }}>Peak season: {peakMonth}</p>
-            <p style={{ fontSize: 12, color: '#666' }}>Etsy searches for &ldquo;{query}&rdquo; peak in {peakMonth}. Start preparing listings 4-6 weeks earlier.</p>
+            <p style={{ fontSize: 13, fontWeight: 600, color: C.snow }}>Peak season: {peakMonth}</p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.9)' }}>Etsy searches for &ldquo;{query}&rdquo; peak in {peakMonth}. Start preparing listings 4-6 weeks earlier.</p>
           </div>
         </div>
       )}
@@ -59,7 +59,7 @@ export function TrendsTab() {
         <>
           <div style={{ background: C.warmGray, borderRadius: 12, padding: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <p style={{ fontSize: 13, fontWeight: 500, color: C.forest }}>Search Trend — &ldquo;{query}&rdquo;</p>
+              <p style={{ fontSize: 13, fontWeight: 500, color: C.charcoal }}>Search Trend — &ldquo;{query}&rdquo;</p>
               <PlatformToggle active={plats} onChange={setPlats} />
             </div>
             <TrendChart data={tr.trends} activePlatforms={plats} />
@@ -67,17 +67,17 @@ export function TrendsTab() {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div style={{ background: C.warmGray, borderRadius: 12, padding: '16px' }}>
-              <p style={{ fontSize: 12, fontWeight: 500, color: C.forest, marginBottom: 12 }}>Buyers by Country</p>
+              <p style={{ fontSize: 12, fontWeight: 500, color: C.charcoal, marginBottom: 12 }}>Buyers by Country</p>
               <CountryChart data={tr.countries} />
             </div>
             <div style={{ background: C.warmGray, borderRadius: 12, padding: '16px' }}>
-              <p style={{ fontSize: 12, fontWeight: 500, color: C.forest, marginBottom: 12 }}>Platform Breakdown</p>
+              <p style={{ fontSize: 12, fontWeight: 500, color: C.charcoal, marginBottom: 12 }}>Platform Breakdown</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {tr.trends.map((t: import("@/types").TrendData) => {
                   const total = Math.max(...t.points.map((p: import("@/types").TrendPoint) => p.value))
                   const latest= t.points[t.points.length - 1]?.value ?? 0
                   const pct   = Math.round((latest / (total || 1)) * 100)
-                  const colors: Record<string,string> = { etsy: C.forest, google: C.mutedYellow, amazon: C.mutedTeal, ebay: C.frosted }
+                  const colors: Record<string,string> = { etsy: C.charcoal, google: C.orangeLight, amazon: C.charcoal, ebay: C.lightGray }
                   return (
                     <div key={t.platform}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>

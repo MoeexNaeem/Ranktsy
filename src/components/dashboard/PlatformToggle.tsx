@@ -4,10 +4,10 @@ import { C } from '@/utils'
 import type { TrendPlatform } from '@/types'
 
 const PLAT: { key:TrendPlatform; label:string; color:string }[] = [
-  { key:'etsy',   label:'Etsy',   color:C.forest },
-  { key:'google', label:'Google', color:C.mutedYellow },
-  { key:'amazon', label:'Amazon', color:C.mutedTeal },
-  { key:'ebay',   label:'eBay',   color:C.frosted },
+  { key:'etsy',   label:'Etsy',   color:C.charcoal },
+  { key:'google', label:'Google', color:C.orangeLight },
+  { key:'amazon', label:'Amazon', color:C.charcoal },
+  { key:'ebay',   label:'eBay',   color:C.lightGray },
 ]
 
 interface Props { active:TrendPlatform[]; onChange:(p:TrendPlatform[])=>void }

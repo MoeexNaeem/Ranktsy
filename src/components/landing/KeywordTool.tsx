@@ -21,10 +21,10 @@ export function KeywordTool() {
   return (
     <section id="keywords" style={{ padding: '96px 48px', background: C.snow }}>
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontFamily:"'IBM Plex Mono',monospace", textTransform: 'uppercase' as const, letterSpacing: '0.08em', color: C.forest, marginBottom: 16 }}>
-          <span style={{ width: 24, height: 1, background: C.forest, display: 'inline-block' }} />Keyword Tool
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontFamily:"'IBM Plex Mono',monospace", textTransform: 'uppercase' as const, letterSpacing: '0.08em', color: C.charcoal, marginBottom: 16 }}>
+          <span style={{ width: 24, height: 1, background: C.charcoal, display: 'inline-block' }} />Keyword Tool
         </div>
-        <h2 style={{ fontSize: 'clamp(28px,3.5vw,40px)', fontWeight: 300, letterSpacing: '-1px', color: C.forest, lineHeight: 1.1, marginBottom: 16 }}>
+        <h2 style={{ fontSize: 'clamp(28px,3.5vw,40px)', fontWeight: 300, letterSpacing: '-1px', color: C.charcoal, lineHeight: 1.1, marginBottom: 16 }}>
           Try it live — search any keyword
         </h2>
         <p style={{ fontSize: 16, color: '#666', lineHeight: 1.6, maxWidth: 480, marginBottom: 48 }}>
@@ -38,11 +38,11 @@ export function KeywordTool() {
               placeholder="e.g. handmade candles, silver ring, boho jewelry..."
               onKeyDown={e=>e.key==='Enter'&&go()}
               style={{ flex: 1, padding: '14px 20px', border: '1.5px solid rgba(255,96,8,0.15)', borderRadius: 8, fontSize: 15, fontFamily: 'inherit', background: C.snow, outline: 'none', color: '#000', transition: 'border-color 0.2s' }}
-              onFocus={e=>(e.currentTarget.style.borderColor=C.forest)}
+              onFocus={e=>(e.currentTarget.style.borderColor=C.charcoal)}
               onBlur={e=>(e.currentTarget.style.borderColor='rgba(255,96,8,0.15)')}
             />
             <button onClick={go}
-              style={{ background: C.forest, border: 'none', color: C.snow, padding: '14px 32px', borderRadius: 999, fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'opacity 0.2s' }}
+              style={{ background: C.charcoal, border: 'none', color: C.snow, padding: '14px 32px', borderRadius: 999, fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'opacity 0.2s' }}
               onMouseEnter={e=>(e.currentTarget.style.opacity='0.85')}
               onMouseLeave={e=>(e.currentTarget.style.opacity='1')}>
               Search keywords →
@@ -51,10 +51,10 @@ export function KeywordTool() {
 
           {/* Loading */}
           {isLoading && (
-            <div id="loading-state" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '32px 0', fontSize: 14, color: C.forest }}>
+            <div id="loading-state" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '32px 0', fontSize: 14, color: C.charcoal }}>
               <div style={{ display: 'inline-flex', gap: 4 }}>
                 {[0,1,2].map(i=>(
-                  <span key={i} className="shimmer" style={{ width: 6, height: 6, borderRadius: '50%', background: C.forest, display: 'inline-block', animationDelay:`${i*0.15}s` }}/>
+                  <span key={i} className="shimmer" style={{ width: 6, height: 6, borderRadius: '50%', background: C.charcoal, display: 'inline-block', animationDelay:`${i*0.15}s` }}/>
                 ))}
               </div>
               <span>Analyzing keyword data...</span>
@@ -68,7 +68,7 @@ export function KeywordTool() {
           {data && !isLoading && (
             <div>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-                <p style={{ fontSize:15, fontWeight:500, color:C.forest }}>Keywords related to &ldquo;{data.query}&rdquo;</p>
+                <p style={{ fontSize:15, fontWeight:500, color:C.charcoal }}>Keywords related to &ldquo;{data.query}&rdquo;</p>
                 <span style={{ fontSize:12, color:'#b3b3b3', fontFamily:"'IBM Plex Mono',monospace" }}>{data.related.length} keywords found</span>
               </div>
               <div style={{ background: C.snow, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(0,0,0,0.06)' }}>
@@ -85,8 +85,8 @@ export function KeywordTool() {
                 {SUGG.map(s => (
                   <button key={s}
                     onClick={()=>{ if(ref.current) ref.current.value=s; setQ(s); addR(s) }}
-                    style={{ fontSize: 12, fontFamily:"'IBM Plex Mono',monospace", color: C.forest, background: 'rgba(255,96,8,0.10)', border: 'none', padding: '5px 13px', borderRadius: 999, cursor: 'pointer', transition: 'background 0.15s' }}
-                    onMouseEnter={e=>(e.currentTarget.style.background=C.pale)}
+                    style={{ fontSize: 12, fontFamily:"'IBM Plex Mono',monospace", color: C.charcoal, background: 'rgba(255,96,8,0.10)', border: 'none', padding: '5px 13px', borderRadius: 999, cursor: 'pointer', transition: 'background 0.15s' }}
+                    onMouseEnter={e=>(e.currentTarget.style.background=C.orange)}
                     onMouseLeave={e=>(e.currentTarget.style.background='rgba(255,96,8,0.10)')}>
                     {s}
                   </button>

@@ -57,7 +57,7 @@ export function TagOptimizerTab() {
             style={{ background: 'transparent', border: 'none', padding: '9px 14px', fontSize: 13, fontFamily: 'inherit', outline: 'none', flex: 1, color: '#1a1a1a' }} />
         </div>
         <button onClick={go}
-          style={{ background: C.forest, color: C.snow, border: 'none', padding: '0 20px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+          style={{ background: C.charcoal, color: C.snow, border: 'none', padding: '0 20px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
           Analyze Tags →
         </button>
       </div>
@@ -66,24 +66,24 @@ export function TagOptimizerTab() {
 
       {tagAnalysis.length > 0 && !isLoading && (
         <>
-          <div style={{ background: C.pale, borderRadius: 10, padding: '12px 16px' }}>
-            <p style={{ fontSize: 13, fontWeight: 500, color: C.forest, marginBottom: 4 }}>
+          <div style={{ background: C.orange, borderRadius: 10, padding: '12px 16px' }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: C.snow, marginBottom: 4 }}>
               Top {tagAnalysis.length} tags from {listings?.length} listings for &ldquo;{query}&rdquo;
             </p>
-            <p style={{ fontSize: 12.5, color: '#666' }}>
+            <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.9)' }}>
               Etsy allows up to 13 tags per listing. Use the highest-scoring tags below to maximize discoverability.
             </p>
           </div>
 
           {/* Top 13 recommended */}
           <div style={{ background: C.warmGray, borderRadius: 12, padding: '16px' }}>
-            <p style={{ fontSize: 12, fontWeight: 500, color: C.forest, marginBottom: 10 }}>✨ Recommended tags (copy these)</p>
+            <p style={{ fontSize: 12, fontWeight: 500, color: C.charcoal, marginBottom: 10 }}>✨ Recommended tags (copy these)</p>
             <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
               {tagAnalysis.slice(0, 13).map(t => (
                 <button key={t.tag}
                   onClick={() => navigator.clipboard?.writeText(t.tag)}
                   title="Click to copy"
-                  style={{ fontSize: 12, fontFamily: "'IBM Plex Mono',monospace", color: C.forest, background: C.pale, border: 'none', padding: '5px 12px', borderRadius: 999, cursor: 'pointer', transition: 'opacity 0.15s' }}
+                  style={{ fontSize: 12, fontFamily: "'IBM Plex Mono',monospace", color: C.snow, background: C.orange, border: 'none', padding: '5px 12px', borderRadius: 999, cursor: 'pointer', transition: 'opacity 0.15s' }}
                   onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
                   onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
                   {t.tag}
@@ -103,7 +103,7 @@ export function TagOptimizerTab() {
               <div key={t.tag}
                 style={{ display: 'grid', gridTemplateColumns: '2fr 0.6fr 0.9fr 0.8fr 2fr', gap: 8, padding: '8px 14px', borderBottom: '1px solid rgba(0,0,0,0.04)', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {i < 13 && <span style={{ fontSize: 8, background: C.pale, color: C.forest, padding: '1px 5px', borderRadius: 999, fontFamily: "'IBM Plex Mono',monospace", fontWeight: 600 }}>✓</span>}
+                  {i < 13 && <span style={{ fontSize: 8, background: C.orange, color: C.snow, padding: '1px 5px', borderRadius: 999, fontFamily: "'IBM Plex Mono',monospace", fontWeight: 600 }}>✓</span>}
                   <span style={{ fontSize: 12.5, color: '#1a1a1a', fontFamily: "'IBM Plex Mono',monospace" }}>{t.tag}</span>
                 </div>
                 <span style={{ fontSize: 11, fontFamily: "'IBM Plex Mono',monospace", color: '#666' }}>{t.count}x</span>
@@ -111,9 +111,9 @@ export function TagOptimizerTab() {
                 <span style={{ fontSize: 11, fontFamily: "'IBM Plex Mono',monospace", color: '#666' }}>{t.avgFavs}</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <div style={{ flex: 1, height: 5, background: 'rgba(0,0,0,0.07)', borderRadius: 999, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${(t.score / maxScore) * 100}%`, background: C.forest, borderRadius: 999 }} />
+                    <div style={{ height: '100%', width: `${(t.score / maxScore) * 100}%`, background: C.charcoal, borderRadius: 999 }} />
                   </div>
-                  <span style={{ fontSize: 10, fontFamily: "'IBM Plex Mono',monospace", color: C.forest, width: 28 }}>{t.score}</span>
+                  <span style={{ fontSize: 10, fontFamily: "'IBM Plex Mono',monospace", color: C.charcoal, width: 28 }}>{t.score}</span>
                 </div>
               </div>
             ))}
@@ -124,7 +124,7 @@ export function TagOptimizerTab() {
       {!tagAnalysis.length && !isLoading && (
         <div style={{ textAlign: 'center', padding: '40px 0', color: '#bbb' }}>
           <div style={{ fontSize: 36, marginBottom: 10 }}>🏷️</div>
-          <p style={{ fontSize: 14, fontWeight: 500, color: C.forest }}>Tag optimizer ready</p>
+          <p style={{ fontSize: 14, fontWeight: 500, color: C.charcoal }}>Tag optimizer ready</p>
           <p style={{ fontSize: 13, color: '#aaa', marginTop: 4 }}>Search any product to see the best performing tags</p>
         </div>
       )}
