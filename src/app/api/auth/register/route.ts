@@ -6,6 +6,7 @@ import { signAccessToken, signRefreshToken } from '@/lib/auth/jwt'
 import { setAuthCookies } from '@/lib/auth/cookies'
 import { sendWelcomeEmail } from '@/lib/auth/email'
 import { registerSchema } from '@/lib/auth/schemas'
+import { resolveRole } from '@/lib/auth/roles'
 import type { ApiResponse, AuthUser } from '@/types'
 
 export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<AuthUser>>> {
@@ -28,8 +29,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<A
     }
 
     const hashed  = await hashPassword(password)
-    const user    = await User.create({ name, email, password: hashed })
-    const authUser: AuthUser = { id: user._id.toString(), name: user.name, email: user.email, plan: user.plan, isVerified: user.isVerified }
+    const role    = resolveRole(email)
+    const user    = await User.create({ name, email, password: hashed, role })
+    const authUser: AuthUser = { id: user._id.toString(), name: user.name, email: user.email, role, plan: user.plan, isVerified: user.isVerified }
 
     const [at, rt] = await Promise.all([signAccessToken(authUser), signRefreshToken(authUser.id)])
     await setAuthCookies(at, rt)

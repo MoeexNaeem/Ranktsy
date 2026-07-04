@@ -14,6 +14,29 @@ export const C = {
   lightGray:   '#E5E4E2',        // borders
   ghostGray:   '#B0B0B0',        // placeholder / disabled text
   overlay:     '#666666',        // muted body text
+
+  // ── eRank-style surfaces (dense data-tool look) ────────────
+  bg:          '#F6F5F2',        // app background
+  card:        '#FFFFFF',        // card / table surface
+  cardBorder:  '#EBE9E4',        // card + row borders
+  headerBg:    '#FAF9F6',        // table header strip
+  rowHover:    '#F7F6F2',        // table row hover
+  inkSoft:     '#5A5A55',        // table body text
+  inkFaint:    '#9A9A93',        // labels / captions
+
+  // ── Semantic status (competition / difficulty) ─────────────
+  success:     '#1E9E6A',  successBg: 'rgba(30,158,106,0.12)',   // Low competition = good
+  warn:        '#B9791A',  warnBg:    'rgba(232,160,40,0.16)',   // Medium
+  danger:      '#CF463A',  dangerBg:  'rgba(207,70,58,0.12)',    // High competition = hard
+
+  // ── Huddle editorial language (flat, hairline, paper) ──────
+  paper:       '#FFFFFF',        // page canvas / card base
+  canvas:      '#F7F6F1',        // warm paper background
+  bone:        '#ECEBE4',        // secondary tinted surface
+  softOrange:  '#FBEADD',        // soft orange category tile
+  hair:        '#DBD9D1',        // soft editorial hairline (dividers)
+  hairInk:     '#2C2B27',        // crisp near-black hairline (Huddle card outline)
+  ink:         '#1A1A18',        // display headline / high-contrast text
 } as const
 
 // Contrast guide (avoids the dark-text-on-orange readability bug):

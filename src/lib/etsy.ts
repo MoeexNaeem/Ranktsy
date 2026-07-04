@@ -124,14 +124,30 @@ async function attachImages(listings: EtsyListing[]): Promise<EtsyListing[]> {
 
 // ─── Search listings ──────────────────────────────────────────────────────────
 
-export async function searchEtsyListings(query: string, limit = 25): Promise<EtsyListing[]> {
-  const data = await etsyFetch<{ results: Record<string, unknown>[] }>('/listings/active', {
+// Paged search — returns listings for the requested page plus Etsy's total match
+// count, so the UI can build server-side pagination via the Etsy `offset` param.
+export async function searchEtsyListingsPaged(query: string, limit = 24, offset = 0): Promise<{ listings: EtsyListing[]; count: number }> {
+  const data = await etsyFetch<{ count?: number; results: Record<string, unknown>[] }>('/listings/active', {
     keywords: query,
-    limit:    Math.min(limit, 100),
+    limit:    Math.min(Math.max(limit, 1), 100),
+    offset:   Math.max(0, offset),
     sort_on:  'score',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any)
-  return attachImages((data.results ?? []).map(mapListing))
+  } as Record<string, string | number>)
+  const listings = await attachImages((data.results ?? []).map(mapListing))
+  return { listings, count: Number(data.count ?? 0) }
+}
+
+export async function searchEtsyListings(query: string, limit = 25): Promise<EtsyListing[]> {
+  return (await searchEtsyListingsPaged(query, limit, 0)).listings
+}
+
+// Fetch a single active listing by id (title, tags, description, price…) and
+// enrich it with images. Used by the Listing Audit tool.
+export async function getListingById(id: number): Promise<EtsyListing | null> {
+  const data = await etsyFetch<Record<string, unknown>>(`/listings/${id}`)
+  if (!data || !data.listing_id) return null
+  const [enriched] = await attachImages([mapListing(data)])
+  return enriched ?? null
 }
 
 // ─── Keyword stats (derived from listing data) ────────────────────────────────

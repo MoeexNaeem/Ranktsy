@@ -3,7 +3,10 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { C, formatNumber } from '@/utils'
+import { Card, SearchBar, StatCard, SectionTitle, ErrorBox, EmptyState, tableCard, tableHead, th, tableRow, tdMono, tdTitle } from '../kit'
 import type { EtsyListing } from '@/types'
+
+const GRID = '3fr 0.8fr 0.8fr 0.8fr'
 
 function priceStr(l: EtsyListing) {
   if (!l.price?.amount) return '—'
@@ -14,7 +17,7 @@ export function ShopTab() {
   const [shopInput, setShopInput] = useState('')
   const [shopId,    setShopId]    = useState('')
 
-  const { data, isLoading, isError, error } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['shop', shopId],
     queryFn: async () => {
       const { data } = await axios.get(`/api/etsy/shop?id=${encodeURIComponent(shopId)}`)
@@ -32,83 +35,57 @@ export function ShopTab() {
     : 0
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* Shop lookup */}
-      <div style={{ background: C.warmGray, borderRadius: 12, padding: '18px' }}>
-        <p style={{ fontSize: 13, fontWeight: 500, color: C.charcoal, marginBottom: 4 }}>Analyze any Etsy shop</p>
-        <p style={{ fontSize: 12.5, color: '#888', marginBottom: 14 }}>Enter a shop name or ID to see their listings, views, and performance metrics.</p>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input value={shopInput} onChange={e => setShopInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && setShopId(shopInput.trim())}
-            placeholder="e.g. SilverCraftStudio or shop ID..."
-            style={{ flex: 1, background: C.snow, border: '1.5px solid rgba(0,0,0,0.12)', borderRadius: 8, padding: '10px 14px', fontSize: 13, fontFamily: 'inherit', outline: 'none', color: '#1a1a1a', maxWidth: 420 }} />
-          <button onClick={() => setShopId(shopInput.trim())}
-            style={{ background: C.charcoal, color: C.snow, border: 'none', padding: '0 20px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
-            Analyze →
-          </button>
-        </div>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <Card pad="18px">
+        <p style={{ fontSize: 13, fontWeight: 600, color: C.charcoal, marginBottom: 3 }}>Analyze any Etsy shop</p>
+        <p style={{ fontSize: 12.5, color: C.inkFaint, marginBottom: 14 }}>Enter a shop name or ID to see their listings, views, and performance metrics.</p>
+        <SearchBar value={shopInput} onChange={setShopInput} onSubmit={() => setShopId(shopInput.trim())}
+          placeholder="e.g. SilverCraftStudio or shop ID…" button="Analyze →" maxWidth={460} />
+      </Card>
 
       {isLoading && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          {[76, 160, 240].map(h => <div key={h} className="shimmer" style={{ height: h, borderRadius: 12, background: '#ddd' }} />)}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {[76, 160, 240].map(h => <div key={h} className="shimmer" style={{ height: h, borderRadius: 10, background: '#e8e7e2' }} />)}
         </div>
       )}
 
-      {isError && (
-        <div style={{ background: '#fff0f0', borderRadius: 10, padding: '14px 16px', color: '#c00', fontSize: 13 }}>
-          ⚠ Shop not found. Check the shop name or ID and try again.
-        </div>
-      )}
+      {isError && <ErrorBox>Shop not found. Check the shop name or ID and try again.</ErrorBox>}
 
       {data && !isLoading && (
         <>
           {/* Shop header */}
-          <div style={{ background: C.charcoal, borderRadius: 12, padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ background: C.charcoal, borderRadius: 10, padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
             <div style={{ width: 48, height: 48, borderRadius: '50%', background: C.orange, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>🏪</div>
             <div>
-              <h2 style={{ fontSize: 18, fontWeight: 500, color: C.snow, marginBottom: 2 }}>
-                {String(data.shop.shop_name ?? shopId)}
-              </h2>
-              <p style={{ fontSize: 12.5, color: 'rgba(252,252,247,0.6)' }}>
-                {String(data.shop.listing_active_count ?? data.listings.length)} active listings
-              </p>
+              <h2 style={{ fontSize: 18, fontWeight: 600, color: C.snow, marginBottom: 2 }}>{String(data.shop.shop_name ?? shopId)}</h2>
+              <p style={{ fontSize: 12.5, color: 'rgba(252,252,247,0.6)' }}>{String(data.shop.listing_active_count ?? data.listings.length)} active listings</p>
             </div>
           </div>
 
           {/* Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 9 }}>
-            {[
-              { label: 'Active Listings', value: String(data.listings.length),       color: C.charcoal },
-              { label: 'Total Views',     value: formatNumber(totalViews),            color: C.orangeLight },
-              { label: 'Total Favorites', value: formatNumber(totalFavs),             color: C.charcoal },
-              { label: 'Avg. Price',      value: avgPrice > 0 ? `$${avgPrice.toFixed(2)}` : '—', color: C.charcoal },
-            ].map(s => (
-              <div key={s.label} style={{ background: C.warmGray, borderRadius: 10, padding: '12px 14px' }}>
-                <p style={{ fontSize: 9.5, fontFamily: "'IBM Plex Mono',monospace", color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{s.label}</p>
-                <p style={{ fontSize: 20, fontWeight: 600, color: s.color, letterSpacing: '-0.5px' }}>{s.value}</p>
-              </div>
-            ))}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+            <StatCard label="Active Listings" value={String(data.listings.length)} accent={C.charcoal} />
+            <StatCard label="Total Views" value={formatNumber(totalViews)} accent={C.orange} />
+            <StatCard label="Total Favorites" value={formatNumber(totalFavs)} accent={C.charcoal} />
+            <StatCard label="Avg. Price" value={avgPrice > 0 ? `$${avgPrice.toFixed(2)}` : '—'} accent={C.charcoal} />
           </div>
 
           {/* Listings */}
           <div>
-            <p style={{ fontSize: 12, fontWeight: 500, color: C.charcoal, marginBottom: 8 }}>Active Listings</p>
-            <div style={{ background: C.snow, border: '1px solid rgba(0,0,0,0.07)', borderRadius: 12, overflow: 'hidden' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '3fr 0.8fr 0.8fr 0.8fr', gap: 8, padding: '8px 14px', background: '#f8f8f4', borderBottom: '1px solid rgba(0,0,0,0.07)' }}>
-                {['Title', 'Price', 'Views', 'Favorites'].map(h => (
-                  <span key={h} style={{ fontSize: 9, fontFamily: "'IBM Plex Mono',monospace", textTransform: 'uppercase', letterSpacing: '0.06em', color: '#aaa' }}>{h}</span>
-                ))}
+            <SectionTitle>Active Listings</SectionTitle>
+            <div style={tableCard}>
+              <div style={tableHead(GRID)}>
+                {['Title', 'Price', 'Views', 'Favorites'].map(h => <span key={h} style={th}>{h}</span>)}
               </div>
               {data.listings.map(l => (
                 <a key={l.listing_id} href={l.url} target="_blank" rel="noopener noreferrer"
-                  style={{ display: 'grid', gridTemplateColumns: '3fr 0.8fr 0.8fr 0.8fr', gap: 8, padding: '9px 14px', borderBottom: '1px solid rgba(0,0,0,0.04)', alignItems: 'center', textDecoration: 'none', transition: 'background 0.12s' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(238,238,233,0.5)')}
+                  style={{ ...tableRow(GRID), textDecoration: 'none', transition: 'background 0.12s' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = C.rowHover)}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                  <span style={{ fontSize: 12.5, fontWeight: 500, color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.title}</span>
-                  <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono',monospace", color: C.charcoal, fontWeight: 600 }}>{priceStr(l)}</span>
-                  <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono',monospace", color: '#555' }}>{formatNumber(l.views ?? 0)}</span>
-                  <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono',monospace", color: '#555' }}>{formatNumber(l.num_favorers ?? 0)}</span>
+                  <span style={tdTitle}>{l.title}</span>
+                  <span style={{ ...tdMono, color: C.charcoal, fontWeight: 600 }}>{priceStr(l)}</span>
+                  <span style={tdMono}>{formatNumber(l.views ?? 0)}</span>
+                  <span style={tdMono}>{formatNumber(l.num_favorers ?? 0)}</span>
                 </a>
               ))}
             </div>
@@ -117,11 +94,7 @@ export function ShopTab() {
       )}
 
       {!shopId && !isLoading && (
-        <div style={{ textAlign: 'center', padding: '40px 0', color: '#bbb' }}>
-          <div style={{ fontSize: 36, marginBottom: 10 }}>🏪</div>
-          <p style={{ fontSize: 14, fontWeight: 500, color: C.charcoal }}>Enter any Etsy shop name above</p>
-          <p style={{ fontSize: 13, color: '#aaa', marginTop: 4 }}>See their listings, views, favorites, and pricing</p>
-        </div>
+        <EmptyState icon="🏪" title="Enter any Etsy shop name above" sub="See their listings, views, favorites, and pricing" />
       )}
     </div>
   )

@@ -1,5 +1,7 @@
 "use client";
+import Link from "next/link";
 import { C } from "@/utils";
+import { Reveal, RevealGroup, RevealItem } from "./Reveal";
 
 /* ─── Shared label ─────────────────────────────────────────────────────────── */
 export function SectionTag({
@@ -11,27 +13,29 @@ export function SectionTag({
   light?: boolean;
   center?: boolean;
 }) {
-  const col = light ? C.orange : C.charcoal;
+  const col = light ? C.orange : C.ink;
   return (
     <div
       style={{
         display: "flex",
         alignItems: "center",
         gap: 8,
-        fontSize: 11,
+        fontSize: 11.5,
+        fontWeight: 500,
         fontFamily: "'IBM Plex Mono',monospace",
         textTransform: "uppercase" as const,
-        letterSpacing: "0.08em",
+        letterSpacing: "0.09em",
         color: col,
-        marginBottom: 16,
+        marginBottom: 18,
         justifyContent: center ? "center" : "flex-start",
       }}
     >
       <span
         style={{
-          width: 24,
-          height: 1,
-          background: col,
+          width: 6,
+          height: 6,
+          borderRadius: "50%",
+          background: C.orange,
           display: "inline-block",
         }}
       />
@@ -74,91 +78,54 @@ const FEATURES = [
   },
 ];
 
+const FEATURE_FILLS = ["#FBEADD", "#ECEBE4", "#FFFFFF"]; // softOrange, bone, paper
+
 export function Features() {
   return (
-    <section
-      id="features"
-      style={{ padding: "96px 48px", background: C.warmGray }}
-    >
+    <section id="features" style={{ padding: "96px 40px", background: C.canvas }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <SectionTag>Features</SectionTag>
         <h2
           style={{
-            fontSize: "clamp(28px,3.5vw,40px)",
+            fontSize: "clamp(30px,4vw,46px)",
             fontWeight: 300,
-            letterSpacing: "-1px",
-            color: C.charcoal,
-            lineHeight: 1.1,
+            letterSpacing: "-1.2px",
+            color: C.ink,
+            lineHeight: 1.08,
             marginBottom: 16,
+            maxWidth: 720,
           }}
         >
-          Everything you need to dominate Etsy search
+          Everything you need to rank higher on Etsy search.
         </h2>
-        <p
-          style={{
-            fontSize: 16,
-            color: "#666",
-            lineHeight: 1.6,
-            maxWidth: 480,
-            marginBottom: 64,
-          }}
-        >
+        <p style={{ fontSize: 18, color: "#3a4444", lineHeight: 1.5, letterSpacing: "-0.14px", maxWidth: 500, marginBottom: 56 }}>
           From keyword research to competitor tracking, Ranktsy is your complete
-          Etsy analytics platform.
+          Etsy analytics toolkit.
         </p>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3,1fr)",
-            gap: 2,
-          }}
-        >
-          {FEATURES.map((f) => (
-            <div
+        <RevealGroup style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
+          {FEATURES.map((f, i) => (
+            <RevealItem
               key={f.title}
               style={{
-                background: C.snow,
-                padding: "40px 32px",
-                transition: "transform 0.2s",
-                cursor: "default",
+                background: FEATURE_FILLS[i % 3],
+                border: `1px solid ${C.hairInk}`,
+                borderRadius: 8,
+                padding: 24,
               }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.transform = "translateY(-2px)")
-              }
-              onMouseLeave={(e) => (e.currentTarget.style.transform = "none")}
             >
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  background: C.orange,
-                  borderRadius: 8,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginBottom: 20,
-                  fontSize: 20,
-                }}
-              >
-                {f.icon}
+              <div style={{ fontSize: 22, marginBottom: 16 }}>{f.icon}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10, fontSize: 11, fontFamily: "'IBM Plex Mono',monospace", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.08em", color: "#3a4444" }}>
+                <span style={{ color: C.orange }}>{String(i + 1).padStart(2, "0")}</span> / Tool
               </div>
-              <h3
-                style={{
-                  fontSize: 18,
-                  fontWeight: 500,
-                  color: C.charcoal,
-                  marginBottom: 12,
-                  letterSpacing: "-0.3px",
-                }}
-              >
+              <h3 style={{ fontSize: 22, fontWeight: 500, color: C.ink, marginBottom: 12, letterSpacing: "-0.4px", lineHeight: 1.2 }}>
                 {f.title}
               </h3>
-              <p style={{ fontSize: 14, color: "#666", lineHeight: 1.65 }}>
+              <p style={{ fontSize: 15, color: "#3a4444", lineHeight: 1.55, letterSpacing: "-0.1px" }}>
                 {f.desc}
               </p>
-            </div>
+            </RevealItem>
           ))}
-        </div>
+        </RevealGroup>
       </div>
     </section>
   );
@@ -189,90 +156,33 @@ export function HowItWorks() {
     },
   ];
   return (
-    <section style={{ padding: "96px 48px", background: C.snow }}>
+    <section style={{ padding: "96px 40px", background: C.paper }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <SectionTag>How it works</SectionTag>
-        <h2
-          style={{
-            fontSize: "clamp(28px,3.5vw,40px)",
-            fontWeight: 300,
-            letterSpacing: "-1px",
-            color: C.charcoal,
-            lineHeight: 1.1,
-            marginBottom: 16,
-          }}
-        >
-          From search to sale in four steps
+        <h2 style={{ fontSize: "clamp(30px,4vw,46px)", fontWeight: 300, letterSpacing: "-1.2px", color: C.ink, lineHeight: 1.08, marginBottom: 16, maxWidth: 720 }}>
+          From search to sale in four steps.
         </h2>
-        <p
-          style={{
-            fontSize: 16,
-            color: "#666",
-            lineHeight: 1.6,
-            maxWidth: 480,
-            marginBottom: 64,
-          }}
-        >
+        <p style={{ fontSize: 18, color: "#3a4444", lineHeight: 1.5, letterSpacing: "-0.14px", maxWidth: 500, marginBottom: 56 }}>
           Ranktsy turns complex Etsy data into clear, actionable insights.
         </p>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4,1fr)",
-            gap: 32,
-          }}
-        >
-          {steps.map((s, i) => (
-            <div key={s.n} style={{ position: "relative" }}>
-              {i < steps.length - 1 && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 14,
-                    left: 40,
-                    right: -60,
-                    height: 1,
-                    background: C.orange,
-                    zIndex: 0,
-                  }}
-                />
-              )}
-              <div
-                style={{
-                  width: 28,
-                  height: 28,
-                  background: C.orange,
-                  borderRadius: 999,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 11,
-                  fontFamily: "'IBM Plex Mono',monospace",
-                  fontWeight: 500,
-                  color: C.snow,
-                  marginBottom: 16,
-                  position: "relative",
-                  zIndex: 1,
-                }}
-              >
+        <RevealGroup style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 28 }}>
+          {steps.map((s) => (
+            <RevealItem key={s.n} style={{ borderTop: `1px solid ${C.hairInk}`, paddingTop: 18 }}>
+              <div style={{ fontSize: 40, fontWeight: 300, fontFamily: "'IBM Plex Mono',monospace", color: C.orange, letterSpacing: "-2px", marginBottom: 14, lineHeight: 1 }}>
                 {s.n}
               </div>
-              <h3
-                style={{
-                  fontSize: 16,
-                  fontWeight: 500,
-                  color: C.charcoal,
-                  marginBottom: 8,
-                }}
-              >
+              <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10, fontSize: 11, fontFamily: "'IBM Plex Mono',monospace", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.08em", color: "#3a4444" }}>
+                • Step {s.n}
+              </div>
+              <h3 style={{ fontSize: 21, fontWeight: 500, color: C.ink, marginBottom: 10, letterSpacing: "-0.3px", lineHeight: 1.2 }}>
                 {s.title}
               </h3>
-              <p style={{ fontSize: 14, color: "#666", lineHeight: 1.6 }}>
+              <p style={{ fontSize: 15, color: "#3a4444", lineHeight: 1.55, letterSpacing: "-0.1px" }}>
                 {s.desc}
               </p>
-            </div>
+            </RevealItem>
           ))}
-        </div>
+        </RevealGroup>
       </div>
     </section>
   );
@@ -291,43 +201,38 @@ export function Pricing() {
 /* ─── About + Contact Teaser ───────────────────────────────────────────────── */
 export function AboutContactTeaser() {
   return (
-    <section style={{ padding: '80px 48px', background: C.snow }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+    <section style={{ padding: '96px 40px', background: C.paper }}>
+      <Reveal style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         {/* About card */}
         <a
           href="/about"
           style={{
-            background: C.warmGray, padding: '48px 40px', display: 'block',
-            textDecoration: 'none', transition: 'transform 0.2s',
+            background: C.bone, border: `1px solid ${C.hairInk}`, borderRadius: 8,
+            padding: '40px 36px', display: 'block',
+            textDecoration: 'none', transition: 'transform 0.18s',
           }}
           onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
           onMouseLeave={e => (e.currentTarget.style.transform = 'none')}
         >
+          <div style={{ fontSize: 22, marginBottom: 18 }}>🌱</div>
           <div style={{
-            width: 44, height: 44, background: C.charcoal, borderRadius: 8,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 20, marginBottom: 20,
-          }}>🌱</div>
-          <div style={{
-            fontSize: 11, fontFamily: "'IBM Plex Mono', monospace",
-            textTransform: 'uppercase' as const, letterSpacing: '0.08em',
-            color: C.charcoalMid, marginBottom: 10,
+            display: 'inline-flex', alignItems: 'center', gap: 7, marginBottom: 12,
+            fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 500,
+            textTransform: 'uppercase' as const, letterSpacing: '0.09em', color: '#3a4444',
           }}>
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: C.orange, display: 'inline-block' }} />
             Our Story
           </div>
           <h3 style={{
-            fontSize: 'clamp(22px, 2.5vw, 30px)', fontWeight: 300,
-            letterSpacing: '-0.8px', color: C.charcoal, lineHeight: 1.15, marginBottom: 16,
+            fontSize: 'clamp(22px, 2.5vw, 29px)', fontWeight: 500,
+            letterSpacing: '-0.5px', color: C.ink, lineHeight: 1.18, marginBottom: 14,
           }}>
             Built by Etsy sellers,<br />for Etsy sellers.
           </h3>
-          <p style={{ fontSize: 14, color: '#666', lineHeight: 1.7, marginBottom: 28 }}>
+          <p style={{ fontSize: 15, color: '#3a4444', lineHeight: 1.6, letterSpacing: '-0.1px', marginBottom: 24 }}>
             We spent years selling on Etsy, manually tracking keywords in spreadsheets. Ranktsy is the tool we always wished existed.
           </p>
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            fontSize: 13, fontWeight: 500, color: C.charcoal,
-          }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 500, color: C.orange }}>
             Read our story →
           </span>
         </a>
@@ -336,41 +241,35 @@ export function AboutContactTeaser() {
         <a
           href="/contact"
           style={{
-            background: C.charcoal, padding: '48px 40px', display: 'block',
-            textDecoration: 'none', transition: 'transform 0.2s',
+            background: C.charcoal, border: `1px solid ${C.hairInk}`, borderRadius: 8, padding: '40px 36px', display: 'block',
+            textDecoration: 'none', transition: 'transform 0.18s',
           }}
           onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
           onMouseLeave={e => (e.currentTarget.style.transform = 'none')}
         >
+          <div style={{ fontSize: 22, marginBottom: 18 }}>✉️</div>
           <div style={{
-            width: 44, height: 44, background: 'rgba(255,96,8,0.10)', borderRadius: 8,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 20, marginBottom: 20,
-          }}>✉️</div>
-          <div style={{
-            fontSize: 11, fontFamily: "'IBM Plex Mono', monospace",
-            textTransform: 'uppercase' as const, letterSpacing: '0.08em',
-            color: C.charcoalMid, marginBottom: 10,
+            display: 'inline-flex', alignItems: 'center', gap: 7, marginBottom: 12,
+            fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 500,
+            textTransform: 'uppercase' as const, letterSpacing: '0.09em', color: 'rgba(252,252,247,0.65)',
           }}>
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: C.orange, display: 'inline-block' }} />
             Get in touch
           </div>
           <h3 style={{
-            fontSize: 'clamp(22px, 2.5vw, 30px)', fontWeight: 300,
-            letterSpacing: '-0.8px', color: C.snow, lineHeight: 1.15, marginBottom: 16,
+            fontSize: 'clamp(22px, 2.5vw, 29px)', fontWeight: 500,
+            letterSpacing: '-0.5px', color: C.snow, lineHeight: 1.18, marginBottom: 14,
           }}>
             Questions? We&apos;re<br />always listening.
           </h3>
-          <p style={{ fontSize: 14, color: 'rgba(252,252,247,0.6)', lineHeight: 1.7, marginBottom: 28 }}>
+          <p style={{ fontSize: 15, color: 'rgba(252,252,247,0.62)', lineHeight: 1.6, letterSpacing: '-0.1px', marginBottom: 24 }}>
             From technical support to feature requests, our team responds within 24 hours on business days.
           </p>
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            fontSize: 13, fontWeight: 500, color: C.orange,
-          }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 500, color: C.orange }}>
             Contact us →
           </span>
         </a>
-      </div>
+      </Reveal>
     </section>
   )
 }
@@ -378,213 +277,90 @@ export function AboutContactTeaser() {
 /* ─── CTA ──────────────────────────────────────────────────────────────────── */
 export function CTA() {
   return (
-    <section
-      style={{
-        padding: "96px 48px",
-        background: C.charcoal,
-        textAlign: "center",
-      }}
-    >
-      <h2
-        style={{
-          fontSize: "clamp(32px,4vw,52px)",
-          fontWeight: 700,
-          color: '#FFFFFF',
-          letterSpacing: "-1.5px",
-          lineHeight: 1.05,
-          marginBottom: 16,
-        }}
-      >
-        Ready to grow your Etsy shop?
-      </h2>
-      <p
-        style={{
-          fontSize: 17,
-          color: "rgba(255,255,255,0.6)",
-          marginBottom: 48,
-        }}
-      >
-        Join Etsy sellers using data to rank higher and sell more.
-      </p>
-      <div
-        style={{
-          display: "flex",
-          gap: 16,
-          justifyContent: "center",
-          flexWrap: "wrap",
-        }}
-      >
-        <button
-          style={{
-            background: C.orange,
-            border: "none",
-            color: '#fff',
-            padding: "16px 36px",
-            borderRadius: 999,
-            fontSize: 15,
-            fontWeight: 600,
-            cursor: "pointer",
-            fontFamily: "inherit",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            transition: "opacity 0.2s",
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
-        >
-          Start for free →
-        </button>
-        <button
-          style={{
-            background: "transparent",
-            border: "1.5px solid rgba(255,255,255,0.35)",
-            color: '#fff',
-            padding: "16px 36px",
-            borderRadius: 999,
-            fontSize: 15,
-            fontWeight: 500,
-            cursor: "pointer",
-            fontFamily: "inherit",
-            transition: "all 0.2s",
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#fff')}
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.borderColor = "rgba(255,255,255,0.35)")
-          }
-        >
-          View live demo
-        </button>
+    <section style={{ padding: "40px 40px 96px", background: C.canvas }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <Reveal style={{ background: C.charcoal, border: `1px solid ${C.hairInk}`, borderRadius: 40, padding: "72px 48px", textAlign: "center" }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 7, marginBottom: 20, fontSize: 11.5, fontFamily: "'IBM Plex Mono',monospace", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.09em", color: "rgba(252,252,247,0.6)" }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.orange, display: "inline-block" }} />
+            Get started
+          </div>
+          <h2 style={{ fontSize: "clamp(34px,4.4vw,56px)", fontWeight: 300, color: "#FFFFFF", letterSpacing: "-1.6px", lineHeight: 1.05, marginBottom: 18 }}>
+            Ready to grow your Etsy shop?
+          </h2>
+          <p style={{ fontSize: 18, color: "rgba(255,255,255,0.6)", marginBottom: 40, letterSpacing: "-0.14px" }}>
+            Start using real Etsy data to rank higher and sell more.
+          </p>
+          <div style={{ display: "flex", gap: 26, justifyContent: "center", alignItems: "center", flexWrap: "wrap" }}>
+            <Link href="/register" style={{ background: C.orange, color: "#fff", textDecoration: "none", padding: "15px 32px", borderRadius: 1000, fontSize: 16, fontWeight: 500, letterSpacing: "-0.01em", transition: "opacity 0.18s" }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.88")}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}>
+              Start free
+            </Link>
+            <a href="#keywords" style={{ color: "#fff", fontSize: 16, fontWeight: 400, textDecoration: "underline", textUnderlineOffset: 4 }}>
+              Try the keyword tool ↓
+            </a>
+          </div>
+        </Reveal>
       </div>
     </section>
   );
 }
 
 /* ─── Footer ───────────────────────────────────────────────────────────────── */
-const FOOTER_LINK_MAP: Record<string, string> = {
-  "About": "/about",
-  // "Pricing": "/#pricing",
-  "Contact": "/contact",
-  "Privacy Policy": "/privacy",
-  "Terms": "/terms",
-}
-
 export function Footer() {
   const cols = [
-    {
-      t: "Product",
-      l: [
-        "Keyword Research",
-        "Trend Analysis",
-        "Competition Tool",
-        "Tag Optimizer",
-        "Shop Analytics",
-      ],
-    },
-    { t: "Company", l: ["About", "Blog", "Pricing", "Changelog"] },
-    {
-      t: "Support",
-      l: ["Help Center", "Contact", "Privacy Policy", "Terms"],
-    },
+    { t: "Product",  l: [["Keyword Tool", "/#keywords"], ["Features", "/#features"], ["Dashboard", "/dashboard"]] as [string, string][] },
+    { t: "Company",  l: [["About", "/about"], ["Contact", "/contact"]] as [string, string][] },
+    { t: "Legal",    l: [["Privacy Policy", "/privacy"], ["Terms", "/terms"]] as [string, string][] },
   ];
+  const mono = "'IBM Plex Mono', monospace";
   return (
-    <footer
-      style={{
-        padding: "48px",
-        background: C.snow,
-        borderTop: "1px solid rgba(0,0,0,0.06)",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 1200,
-          margin: "0 auto",
-          display: "grid",
-          gridTemplateColumns: "2fr 1fr 1fr 1fr",
-          gap: 48,
-          marginBottom: 32,
-        }}
-      >
-        <div style={{ color: C.charcoal }}>
-          <img
-            src="/website_logo.png"
-            alt="Ranktsy"
-            style={{ width: 130, height: 44, objectFit: 'contain', display: 'block', marginBottom: 14 }}
-          />
-          <p style={{ fontSize: 13, color: "#666", lineHeight: 1.6 }}>
-            Data-driven keyword research and analytics for Etsy sellers. Grow
-            smarter, not harder.
-          </p>
+    <footer style={{ background: C.bone, borderTop: `1px solid ${C.hairInk}`, padding: "72px 40px 36px" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+
+        {/* Brand + link columns */}
+        <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr 1fr", gap: 48, paddingBottom: 44, borderBottom: `1px solid ${C.hair}` }}>
+          <div>
+            <img src="/website_logo.png" alt="Ranktsy" style={{ width: 132, height: 44, objectFit: "contain", display: "block", marginBottom: 18 }} />
+            <p style={{ fontSize: 15, color: "#3a4444", lineHeight: 1.55, letterSpacing: "-0.1px", maxWidth: 300, marginBottom: 20 }}>
+              Data-driven keyword research and analytics for Etsy sellers. Grow smarter, not harder.
+            </p>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11, fontFamily: mono, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.08em", color: "#808080" }}>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: C.orange, display: "inline-block" }} />
+              Built on the official Etsy Open API v3
+            </div>
+          </div>
+          {cols.map((c) => (
+            <div key={c.t}>
+              <h4 style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, fontFamily: mono, fontWeight: 500, color: "#3a4444", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 18 }}>
+                <span style={{ width: 5, height: 5, borderRadius: "50%", background: C.orange, display: "inline-block" }} />
+                {c.t}
+              </h4>
+              {c.l.map(([label, href]) => (
+                <a key={label} href={href}
+                  style={{ display: "block", fontSize: 14, color: "#3a4444", textDecoration: "none", marginBottom: 12, letterSpacing: "-0.1px", transition: "color 0.15s" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = C.ink)}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "#3a4444")}>
+                  {label}
+                </a>
+              ))}
+            </div>
+          ))}
         </div>
-        {cols.map((c) => (
-          <div key={c.t}>
-            <h4
-              style={{
-                fontSize: 11,
-                fontFamily: "'IBM Plex Mono',monospace",
-                fontWeight: 500,
-                color: "#000",
-                textTransform: "uppercase" as const,
-                letterSpacing: "0.06em",
-                marginBottom: 16,
-              }}
-            >
-              {c.t}
-            </h4>
-            {c.l.map((l) => (
-              <a
-                key={l}
-                href={FOOTER_LINK_MAP[l] ?? "#"}
-                style={{
-                  display: "block",
-                  fontSize: 14,
-                  color: "#666",
-                  textDecoration: "none",
-                  marginBottom: 10,
-                  transition: "color 0.2s",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = C.orange)}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "#666")}
-              >
-                {l}
-              </a>
+
+        {/* Bottom bar */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, paddingTop: 24 }}>
+          <p style={{ fontSize: 12, color: "#808080", fontFamily: mono, margin: 0 }}>© 2026 Ranktsy. All rights reserved.</p>
+          <div style={{ display: "flex", gap: 20 }}>
+            {[["Privacy", "/privacy"], ["Terms", "/terms"], ["Contact", "/contact"]].map(([l, h]) => (
+              <a key={l} href={h} style={{ fontSize: 12, color: "#808080", fontFamily: mono, textDecoration: "none" }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = C.ink)}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "#808080")}>{l}</a>
             ))}
           </div>
-        ))}
-      </div>
-      <div
-        style={{
-          maxWidth: 1200,
-          margin: "0 auto",
-          paddingTop: 24,
-          borderTop: "1px solid rgba(0,0,0,0.06)",
-          display: "flex",
-          flexDirection: "column",
-          gap: "8px",
-        }}
-      >
-        <p
-          style={{
-            fontSize: 12,
-            color: "#b3b3b3",
-            fontFamily: "'IBM Plex Mono', monospace",
-            margin: 0,
-          }}
-        >
-          © 2026 Ranktsy. All rights reserved.
-        </p>
-        <p
-          style={{
-            fontSize: 12.5,
-            color: "#555",
-            fontFamily: "'IBM Plex Mono', monospace",
-            margin: 0,
-            lineHeight: "1.6",
-            maxWidth: 760,
-          }}
-        >
-          The term &apos;Etsy&apos; is a trademark of Etsy, Inc. This application uses the
-          Etsy API but is not endorsed or certified by Etsy, Inc.
+        </div>
+        <p style={{ fontSize: 12, color: "#808080", fontFamily: mono, margin: "14px 0 0", lineHeight: 1.6, maxWidth: 820 }}>
+          The term &apos;Etsy&apos; is a trademark of Etsy, Inc. This application uses the Etsy API but is not endorsed or certified by Etsy, Inc.
         </p>
       </div>
     </footer>

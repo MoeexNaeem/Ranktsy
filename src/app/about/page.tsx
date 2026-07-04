@@ -3,30 +3,6 @@ import { Navbar } from '@/components/landing/Navbar'
 import { Footer } from '@/components/landing/Sections'
 import { C } from '@/utils'
 
-const TEAM = [
-  {
-    name: 'Sarah Chen',
-    role: 'Co-founder & CEO',
-    bio: 'Former Etsy top-seller turned product builder. Spent 6 years running a 7-figure jewelry shop before starting Ranktsy.',
-    emoji: '👩‍💻',
-    tag: 'Seller → Builder',
-  },
-  {
-    name: 'James Okafor',
-    role: 'Co-founder & CTO',
-    bio: 'Ex-Google engineer with a passion for data infrastructure and marketplace analytics. Obsessed with making complex data feel simple.',
-    emoji: '🧑‍🔬',
-    tag: 'Data & Systems',
-  },
-  {
-    name: 'Layla Reyes',
-    role: 'Head of Product',
-    bio: 'Product lead who spent 4 years at a major e-commerce analytics company. Brings a deep understanding of seller pain points.',
-    emoji: '👩‍🎨',
-    tag: 'UX & Strategy',
-  },
-]
-
 const VALUES = [
   {
     icon: '🔍',
@@ -61,67 +37,43 @@ export default function AboutPage() {
   return (
     <>
       <Navbar />
-      <main style={{ background: C.snow, minHeight: '100vh' }}>
+      <main style={{ background: C.paper, minHeight: '100vh' }}>
 
         {/* ── Hero Header ── */}
         <div
           style={{
-            background: C.charcoal,
-            padding: '100px 48px 72px',
+            background: C.canvas,
+            padding: '150px 40px 72px',
             position: 'relative',
             overflow: 'hidden',
+            borderBottom: `1px solid ${C.hair}`,
           }}
         >
-          {/* Grid texture */}
-          <div
-            aria-hidden
-            style={{
-              position: 'absolute',
-              inset: 0,
-              backgroundImage:
-                'linear-gradient(rgba(255,96,8,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(255,96,8,0.10) 1px, transparent 1px)',
-              backgroundSize: '40px 40px',
-              pointerEvents: 'none',
-            }}
-          />
-          {/* Glow accent */}
-          <div
-            aria-hidden
-            style={{
-              position: 'absolute',
-              top: -80,
-              right: -80,
-              width: 400,
-              height: 400,
-              borderRadius: '50%',
-              background: 'radial-gradient(circle, rgba(255,96,8,0.10) 0%, transparent 70%)',
-              pointerEvents: 'none',
-            }}
-          />
           <div style={{ maxWidth: 1200, margin: '0 auto', position: 'relative' }}>
             <div
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 8,
-                fontSize: 11,
+                fontSize: 11.5,
+                fontWeight: 500,
                 fontFamily: "'IBM Plex Mono', monospace",
                 textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-                color: C.orange,
-                marginBottom: 20,
+                letterSpacing: '0.09em',
+                color: '#3a4444',
+                marginBottom: 22,
               }}
             >
-              <span style={{ width: 24, height: 1, background: C.orangeFaint, display: 'inline-block' }} />
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.orange, display: 'inline-block' }} />
               Our Story
             </div>
             <h1
               style={{
-                fontSize: 'clamp(36px, 5vw, 60px)',
+                fontSize: 'clamp(40px, 5.4vw, 64px)',
                 fontWeight: 300,
                 letterSpacing: '-2px',
-                color: '#FFFFFF',
-                lineHeight: 1.05,
+                color: C.ink,
+                lineHeight: 1.04,
                 marginBottom: 24,
                 maxWidth: 700,
               }}
@@ -132,9 +84,10 @@ export default function AboutPage() {
             </h1>
             <p
               style={{
-                fontSize: 17,
-                color: 'rgba(252,252,247,0.65)',
-                lineHeight: 1.7,
+                fontSize: 18,
+                color: '#3a4444',
+                lineHeight: 1.6,
+                letterSpacing: '-0.14px',
                 maxWidth: 560,
               }}
             >
@@ -216,16 +169,16 @@ export default function AboutPage() {
                   marginBottom: 16,
                 }}
               >
-                <span style={{ width: 24, height: 1, background: C.charcoal, display: 'inline-block' }} />
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.orange, display: 'inline-block' }} />
                 Our Mission
               </div>
               <h2
                 style={{
                   fontSize: 'clamp(28px, 3.5vw, 40px)',
                   fontWeight: 300,
-                  letterSpacing: '-1px',
-                  color: C.orange,
-                  lineHeight: 1.1,
+                  letterSpacing: '-1.2px',
+                  color: C.ink,
+                  lineHeight: 1.08,
                 }}
               >
                 Level the playing field for every Etsy seller
@@ -266,31 +219,32 @@ export default function AboutPage() {
         </div>
 
         {/* ── Values ── */}
-        <div style={{ padding: '80px 48px', background: C.warmGray }}>
+        <div style={{ padding: '96px 40px', background: C.bone }}>
           <div style={{ maxWidth: 1200, margin: '0 auto' }}>
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
-                fontSize: 11,
+                fontSize: 11.5,
+                fontWeight: 500,
                 fontFamily: "'IBM Plex Mono', monospace",
                 textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-                color: C.orange,
-                marginBottom: 16,
+                letterSpacing: '0.09em',
+                color: '#3a4444',
+                marginBottom: 18,
               }}
             >
-              <span style={{ width: 24, height: 1, background: C.charcoal, display: 'inline-block' }} />
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.orange, display: 'inline-block' }} />
               What we believe
             </div>
             <h2
               style={{
                 fontSize: 'clamp(28px, 3.5vw, 40px)',
                 fontWeight: 300,
-                letterSpacing: '-1px',
-                color: C.orange,
-                lineHeight: 1.1,
+                letterSpacing: '-1.2px',
+                color: C.ink,
+                lineHeight: 1.08,
                 marginBottom: 16,
               }}
             >
@@ -307,46 +261,34 @@ export default function AboutPage() {
             >
               They show up in every product decision we make.
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
               {VALUES.map((v) => (
                 <div
                   key={v.title}
                   style={{
-                    background: C.snow,
-                    padding: '40px 36px',
+                    background: C.paper,
+                    border: `1px solid ${C.hairInk}`,
+                    borderRadius: 8,
+                    padding: '32px 30px',
                     cursor: 'default',
-                    transition: 'transform 0.2s',
+                    transition: 'transform 0.18s',
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
                   onMouseLeave={(e) => (e.currentTarget.style.transform = 'none')}
                 >
-                  <div
-                    style={{
-                      width: 44,
-                      height: 44,
-                      background: C.orangeFaint,
-                      borderRadius: 8,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 22,
-                      marginBottom: 20,
-                    }}
-                  >
-                    {v.icon}
-                  </div>
+                  <div style={{ fontSize: 24, marginBottom: 18 }}>{v.icon}</div>
                   <h3
                     style={{
-                      fontSize: 19,
+                      fontSize: 21,
                       fontWeight: 500,
-                      color: C.orange,
-                      marginBottom: 12,
-                      letterSpacing: '-0.3px',
+                      color: C.ink,
+                      marginBottom: 10,
+                      letterSpacing: '-0.4px',
                     }}
                   >
                     {v.title}
                   </h3>
-                  <p style={{ fontSize: 14, color: '#666', lineHeight: 1.7 }}>{v.desc}</p>
+                  <p style={{ fontSize: 15, color: '#3a4444', lineHeight: 1.6, letterSpacing: '-0.1px' }}>{v.desc}</p>
                 </div>
               ))}
             </div>
@@ -354,194 +296,76 @@ export default function AboutPage() {
         </div>
 
         {/* ── Team ── */}
-        <div style={{ padding: '80px 48px', background: C.snow }}>
+        <div style={{ padding: '96px 40px', background: C.paper }}>
           <div style={{ maxWidth: 1200, margin: '0 auto' }}>
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
-                fontSize: 11,
+                fontSize: 11.5,
+                fontWeight: 500,
                 fontFamily: "'IBM Plex Mono', monospace",
                 textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-                color: C.orange,
-                marginBottom: 16,
+                letterSpacing: '0.09em',
+                color: '#3a4444',
+                marginBottom: 18,
               }}
             >
-              <span style={{ width: 24, height: 1, background: C.charcoal, display: 'inline-block' }} />
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.orange, display: 'inline-block' }} />
               The Team
             </div>
             <h2
               style={{
-                fontSize: 'clamp(28px, 3.5vw, 40px)',
+                fontSize: 'clamp(30px, 4vw, 46px)',
                 fontWeight: 300,
-                letterSpacing: '-1px',
-                color: C.orange,
-                lineHeight: 1.1,
-                marginBottom: 56,
+                letterSpacing: '-1.2px',
+                color: C.ink,
+                lineHeight: 1.08,
+                marginBottom: 40,
+                maxWidth: 760,
               }}
             >
-              The people behind the data
+              An independent team, building in the open.
             </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2 }}>
-              {TEAM.map((member) => (
-                <div
-                  key={member.name}
-                  style={{
-                    background: C.warmGray,
-                    padding: '40px 32px',
-                    transition: 'transform 0.2s',
-                    cursor: 'default',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.transform = 'none')}
-                >
-                  <div
-                    style={{
-                      width: 56,
-                      height: 56,
-                      background: C.charcoal,
-                      borderRadius: 12,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 28,
-                      marginBottom: 20,
-                    }}
-                  >
-                    {member.emoji}
-                  </div>
-                  <span
-                    style={{
-                      display: 'inline-block',
-                      background: C.orangeFaint,
-                      color: C.orange,
-                      fontSize: 10,
-                      fontFamily: "'IBM Plex Mono', monospace",
-                      fontWeight: 500,
-                      padding: '3px 10px',
-                      borderRadius: 999,
-                      marginBottom: 14,
-                      letterSpacing: '0.04em',
-                    }}
-                  >
-                    {member.tag}
-                  </span>
-                  <h3
-                    style={{
-                      fontSize: 18,
-                      fontWeight: 500,
-                      color: C.orange,
-                      marginBottom: 4,
-                      letterSpacing: '-0.3px',
-                    }}
-                  >
-                    {member.name}
-                  </h3>
-                  <p
-                    style={{
-                      fontSize: 12,
-                      fontFamily: "'IBM Plex Mono', monospace",
-                      color: C.charcoalMid,
-                      marginBottom: 16,
-                    }}
-                  >
-                    {member.role}
-                  </p>
-                  <p style={{ fontSize: 14, color: '#666', lineHeight: 1.7 }}>{member.bio}</p>
-                </div>
-              ))}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, maxWidth: 900 }}>
+              <p style={{ fontSize: 16, color: '#3a4444', lineHeight: 1.7, letterSpacing: '-0.1px' }}>
+                Ranktsy is built by a small, independent team of Etsy sellers and engineers. We&apos;re not backed by a
+                private-equity firm with misaligned incentives, and we&apos;re not affiliated with Etsy — that independence
+                is exactly what lets us give you objective, unbiased market intelligence.
+              </p>
+              <p style={{ fontSize: 16, color: '#3a4444', lineHeight: 1.7, letterSpacing: '-0.1px' }}>
+                We&apos;re in beta and building in the open — shipping improvements every week and reading every piece of
+                feedback. Our business grows only when our sellers grow, and that keeps us honest.
+              </p>
             </div>
           </div>
         </div>
 
         {/* ── CTA ── */}
-        <div
-          style={{
-            background: C.charcoal,
-            padding: '80px 48px',
-            textAlign: 'center',
-            position: 'relative',
-            overflow: 'hidden',
-          }}
-        >
-          <div
-            aria-hidden
-            style={{
-              position: 'absolute',
-              inset: 0,
-              backgroundImage:
-                'linear-gradient(rgba(255,96,8,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(255,96,8,0.10) 1px, transparent 1px)',
-              backgroundSize: '40px 40px',
-              pointerEvents: 'none',
-            }}
-          />
-          <div style={{ position: 'relative' }}>
-            <h2
-              style={{
-                fontSize: 'clamp(28px, 4vw, 44px)',
-                fontWeight: 300,
-                color: '#FFFFFF',
-                letterSpacing: '-1.5px',
-                lineHeight: 1.1,
-                marginBottom: 16,
-              }}
-            >
-              Ready to grow your Etsy shop?
-            </h2>
-            <p
-              style={{
-                fontSize: 16,
-                color: 'rgba(252,252,247,0.6)',
-                marginBottom: 40,
-              }}
-            >
-              Join Etsy sellers using Ranktsy to rank higher and sell more.
-            </p>
-            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <a
-                href="/register"
-                style={{
-                  background: C.orangeFaint,
-                  border: 'none',
-                  color: C.orange,
-                  padding: '14px 32px',
-                  borderRadius: 999,
-                  fontSize: 14,
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  textDecoration: 'none',
-                  display: 'inline-block',
-                  transition: 'opacity 0.2s',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-              >
-                Start for free →
-              </a>
-              <a
-                href="/contact"
-                style={{
-                  background: 'transparent',
-                  border: '1px solid rgba(252,252,247,0.3)',
-                  color: '#FFFFFF',
-                  padding: '14px 32px',
-                  borderRadius: 999,
-                  fontSize: 14,
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  textDecoration: 'none',
-                  display: 'inline-block',
-                  transition: 'all 0.2s',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = C.snow)}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'rgba(252,252,247,0.3)')}
-              >
-                Get in touch
-              </a>
+        <div style={{ background: C.canvas, padding: '40px 40px 96px' }}>
+          <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+            <div style={{ background: C.charcoal, border: `1px solid ${C.hairInk}`, borderRadius: 40, padding: '72px 48px', textAlign: 'center' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginBottom: 20, fontSize: 11.5, fontFamily: "'IBM Plex Mono',monospace", fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(252,252,247,0.6)' }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.orange, display: 'inline-block' }} />
+                Get started
+              </div>
+              <h2 style={{ fontSize: 'clamp(32px, 4.4vw, 52px)', fontWeight: 300, color: '#FFFFFF', letterSpacing: '-1.6px', lineHeight: 1.05, marginBottom: 18 }}>
+                Ready to grow your Etsy shop?
+              </h2>
+              <p style={{ fontSize: 18, color: 'rgba(252,252,247,0.6)', marginBottom: 40, letterSpacing: '-0.14px' }}>
+                Start using real Etsy data to rank higher and sell more.
+              </p>
+              <div style={{ display: 'flex', gap: 26, justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+                <a href="/register" style={{ background: C.orange, color: '#fff', textDecoration: 'none', padding: '15px 32px', borderRadius: 1000, fontSize: 16, fontWeight: 500, letterSpacing: '-0.01em', transition: 'opacity 0.18s' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.88')}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}>
+                  Start free
+                </a>
+                <a href="/contact" style={{ color: '#fff', fontSize: 16, fontWeight: 400, textDecoration: 'underline', textUnderlineOffset: 4 }}>
+                  Get in touch
+                </a>
+              </div>
             </div>
           </div>
         </div>

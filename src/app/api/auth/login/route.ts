@@ -5,6 +5,7 @@ import { comparePassword } from '@/lib/auth/password'
 import { signAccessToken, signRefreshToken } from '@/lib/auth/jwt'
 import { setAuthCookies } from '@/lib/auth/cookies'
 import { loginSchema } from '@/lib/auth/schemas'
+import { resolveRole } from '@/lib/auth/roles'
 import type { ApiResponse, AuthUser } from '@/types'
 
 export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<AuthUser>>> {
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<A
       return NextResponse.json({ success: false, errors: { password: 'Incorrect password' } }, { status: 401 })
     }
 
-    const authUser: AuthUser = { id: user._id.toString(), name: user.name, email: user.email, plan: user.plan, isVerified: user.isVerified, etsyShopId: user.etsyShopId }
+    const authUser: AuthUser = { id: user._id.toString(), name: user.name, email: user.email, role: resolveRole(user.email, user.role), plan: user.plan, isVerified: user.isVerified, etsyShopId: user.etsyShopId }
     const [at, rt] = await Promise.all([signAccessToken(authUser), signRefreshToken(authUser.id)])
     await setAuthCookies(at, rt)
 

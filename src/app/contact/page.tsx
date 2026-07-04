@@ -50,11 +50,11 @@ const FAQS = [
 const inputStyle = {
   width: '100%',
   padding: '12px 16px',
-  border: '1px solid rgba(60,60,60,0.15)',
-  borderRadius: 2,
+  border: `1px solid ${C.hair}`,
+  borderRadius: 8,
   fontSize: 14,
-  color: C.orange,
-  background: C.snow,
+  color: '#1a1a1a',
+  background: C.canvas,
   fontFamily: 'inherit',
   outline: 'none',
   boxSizing: 'border-box' as const,
@@ -78,62 +78,54 @@ export default function ContactPage() {
   return (
     <>
       <Navbar />
-      <main style={{ background: C.snow, minHeight: '100vh' }}>
+      <main style={{ background: C.paper, minHeight: '100vh' }}>
 
         {/* ── Header ── */}
         <div
           style={{
-            background: C.charcoal,
-            padding: '100px 48px 72px',
+            background: C.canvas,
+            padding: '150px 40px 72px',
             position: 'relative',
             overflow: 'hidden',
+            borderBottom: `1px solid ${C.hair}`,
           }}
         >
-          <div
-            aria-hidden
-            style={{
-              position: 'absolute',
-              inset: 0,
-              backgroundImage:
-                'linear-gradient(rgba(255,96,8,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(255,96,8,0.10) 1px, transparent 1px)',
-              backgroundSize: '40px 40px',
-              pointerEvents: 'none',
-            }}
-          />
           <div style={{ maxWidth: 1200, margin: '0 auto', position: 'relative' }}>
             <div
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 8,
-                fontSize: 11,
+                fontSize: 11.5,
+                fontWeight: 500,
                 fontFamily: "'IBM Plex Mono', monospace",
                 textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-                color: C.orange,
-                marginBottom: 20,
+                letterSpacing: '0.09em',
+                color: '#3a4444',
+                marginBottom: 22,
               }}
             >
-              <span style={{ width: 24, height: 1, background: C.orangeFaint, display: 'inline-block' }} />
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.orange, display: 'inline-block' }} />
               Contact Us
             </div>
             <h1
               style={{
-                fontSize: 'clamp(36px, 5vw, 60px)',
+                fontSize: 'clamp(40px, 5.4vw, 64px)',
                 fontWeight: 300,
                 letterSpacing: '-2px',
-                color: '#FFFFFF',
-                lineHeight: 1.05,
-                marginBottom: 20,
+                color: C.ink,
+                lineHeight: 1.04,
+                marginBottom: 22,
               }}
             >
               We&apos;d love to hear<br />from you.
             </h1>
             <p
               style={{
-                fontSize: 17,
-                color: 'rgba(252,252,247,0.65)',
-                lineHeight: 1.7,
+                fontSize: 18,
+                color: '#3a4444',
+                lineHeight: 1.6,
+                letterSpacing: '-0.14px',
                 maxWidth: 500,
               }}
             >
@@ -143,14 +135,14 @@ export default function ContactPage() {
         </div>
 
         {/* ── Channels ── */}
-        <div style={{ background: C.warmGray, padding: '48px' }}>
+        <div style={{ background: C.bone, padding: '56px 40px' }}>
           <div
             style={{
               maxWidth: 1200,
               margin: '0 auto',
               display: 'grid',
               gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: 2,
+              gap: 16,
             }}
           >
             {CONTACT_CHANNELS.map((ch) => (
@@ -158,54 +150,42 @@ export default function ContactPage() {
                 key={ch.label}
                 href={ch.href}
                 style={{
-                  background: C.snow,
-                  padding: '32px',
+                  background: C.paper,
+                  border: `1px solid ${C.hairInk}`,
+                  borderRadius: 8,
+                  padding: '28px',
                   textDecoration: 'none',
                   display: 'block',
-                  transition: 'transform 0.2s',
+                  transition: 'transform 0.18s',
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
                 onMouseLeave={(e) => (e.currentTarget.style.transform = 'none')}
               >
-                <div
-                  style={{
-                    width: 44,
-                    height: 44,
-                    background: C.orangeFaint,
-                    borderRadius: 8,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 20,
-                    marginBottom: 16,
-                  }}
-                >
-                  {ch.icon}
-                </div>
+                <div style={{ fontSize: 22, marginBottom: 16 }}>{ch.icon}</div>
                 <p
                   style={{
                     fontSize: 11,
                     fontFamily: "'IBM Plex Mono', monospace",
-                    color: C.charcoalMid,
+                    color: '#808080',
                     textTransform: 'uppercase',
                     letterSpacing: '0.07em',
-                    marginBottom: 6,
+                    marginBottom: 8,
                   }}
                 >
                   {ch.label}
                 </p>
                 <p
                   style={{
-                    fontSize: 15,
+                    fontSize: 17,
                     fontWeight: 500,
-                    color: C.orange,
+                    color: C.ink,
                     marginBottom: 8,
-                    letterSpacing: '-0.2px',
+                    letterSpacing: '-0.3px',
                   }}
                 >
                   {ch.value}
                 </p>
-                <p style={{ fontSize: 13, color: '#666', lineHeight: 1.6 }}>{ch.desc}</p>
+                <p style={{ fontSize: 14, color: '#3a4444', lineHeight: 1.55 }}>{ch.desc}</p>
               </a>
             ))}
           </div>
@@ -238,15 +218,15 @@ export default function ContactPage() {
                   marginBottom: 16,
                 }}
               >
-                <span style={{ width: 24, height: 1, background: C.charcoal, display: 'inline-block' }} />
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.orange, display: 'inline-block' }} />
                 Send a message
               </div>
               <h2
                 style={{
                   fontSize: 'clamp(24px, 3vw, 36px)',
                   fontWeight: 300,
-                  letterSpacing: '-1px',
-                  color: C.orange,
+                  letterSpacing: '-1.2px',
+                  color: C.ink,
                   marginBottom: 40,
                 }}
               >
@@ -399,12 +379,12 @@ export default function ContactPage() {
                   <button
                     onClick={handleSubmit}
                     style={{
-                      background: C.charcoal,
+                      background: C.orange,
                       border: 'none',
                       color: '#FFFFFF',
                       padding: '14px 32px',
-                      borderRadius: 999,
-                      fontSize: 14,
+                      borderRadius: 1000,
+                      fontSize: 14.5,
                       fontWeight: 500,
                       cursor: 'pointer',
                       fontFamily: 'inherit',
@@ -435,15 +415,15 @@ export default function ContactPage() {
                   marginBottom: 16,
                 }}
               >
-                <span style={{ width: 24, height: 1, background: C.charcoal, display: 'inline-block' }} />
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.orange, display: 'inline-block' }} />
                 Common questions
               </div>
               <h2
                 style={{
                   fontSize: 'clamp(24px, 3vw, 36px)',
                   fontWeight: 300,
-                  letterSpacing: '-1px',
-                  color: C.orange,
+                  letterSpacing: '-1.2px',
+                  color: C.ink,
                   marginBottom: 40,
                 }}
               >

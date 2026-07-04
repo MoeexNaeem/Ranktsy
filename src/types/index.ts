@@ -4,6 +4,7 @@ export interface IUser {
   name: string
   email: string
   password: string
+  role: 'user' | 'admin'
   plan: 'free' | 'grow' | 'scale'
   isVerified: boolean
   etsyShopId?: string
@@ -17,6 +18,7 @@ export interface AuthUser {
   id: string
   name: string
   email: string
+  role: 'user' | 'admin'
   plan: 'free' | 'grow' | 'scale'
   isVerified: boolean
   etsyShopId?: string

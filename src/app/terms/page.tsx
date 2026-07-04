@@ -128,53 +128,44 @@ export default function TermsPage() {
   return (
     <>
       <Navbar />
-      <main style={{ background: C.snow, minHeight: '100vh' }}>
+      <main style={{ background: C.paper, minHeight: '100vh' }}>
 
         {/* ── Header ── */}
         <div
           style={{
-            background: C.charcoal,
-            padding: '100px 48px 72px',
+            background: C.canvas,
+            padding: '150px 40px 56px',
             position: 'relative',
             overflow: 'hidden',
+            borderBottom: `1px solid ${C.hair}`,
           }}
         >
-          <div
-            aria-hidden
-            style={{
-              position: 'absolute',
-              inset: 0,
-              backgroundImage:
-                'linear-gradient(rgba(255,96,8,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(255,96,8,0.10) 1px, transparent 1px)',
-              backgroundSize: '40px 40px',
-              pointerEvents: 'none',
-            }}
-          />
           <div style={{ maxWidth: 1200, margin: '0 auto', position: 'relative' }}>
             <div
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 8,
-                fontSize: 11,
+                fontSize: 11.5,
+                fontWeight: 500,
                 fontFamily: "'IBM Plex Mono', monospace",
                 textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-                color: C.orange,
-                marginBottom: 20,
+                letterSpacing: '0.09em',
+                color: '#3a4444',
+                marginBottom: 22,
               }}
             >
-              <span style={{ width: 24, height: 1, background: C.orangeFaint, display: 'inline-block' }} />
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.orange, display: 'inline-block' }} />
               Legal
             </div>
             <h1
               style={{
-                fontSize: 'clamp(32px, 5vw, 56px)',
+                fontSize: 'clamp(36px, 5vw, 56px)',
                 fontWeight: 300,
-                letterSpacing: '-1.5px',
-                color: '#FFFFFF',
-                lineHeight: 1.05,
-                marginBottom: 20,
+                letterSpacing: '-1.6px',
+                color: C.ink,
+                lineHeight: 1.04,
+                marginBottom: 18,
               }}
             >
               Terms of Service
@@ -183,7 +174,7 @@ export default function TermsPage() {
               style={{
                 fontSize: 13,
                 fontFamily: "'IBM Plex Mono', monospace",
-                color: C.charcoalMid,
+                color: '#808080',
                 letterSpacing: '0.02em',
               }}
             >
@@ -209,9 +200,9 @@ export default function TermsPage() {
             style={{
               position: 'sticky',
               top: 32,
-              background: C.warmGray,
+              background: C.bone,
               padding: '28px 24px',
-              borderRadius: 2,
+              borderRadius: 8,
             }}
           >
             <p
@@ -291,10 +282,10 @@ export default function TermsPage() {
                     style={{
                       fontFamily: "'IBM Plex Mono', monospace",
                       fontSize: 11,
-                      color: C.orange,
-                      background: C.charcoal,
+                      color: C.ink,
+                      background: C.bone,
                       padding: '4px 8px',
-                      borderRadius: 2,
+                      borderRadius: 4,
                       letterSpacing: '0.04em',
                     }}
                   >
@@ -304,7 +295,7 @@ export default function TermsPage() {
                     style={{
                       fontSize: 22,
                       fontWeight: 500,
-                      color: C.orange,
+                      color: C.ink,
                       letterSpacing: '-0.4px',
                     }}
                   >
@@ -333,8 +324,8 @@ export default function TermsPage() {
                           gap: 14,
                           marginBottom: 12,
                           padding: '16px 20px',
-                          background: C.warmGray,
-                          borderRadius: 2,
+                          background: C.bone,
+                          borderRadius: 8,
                           borderLeft: `3px solid ${C.orange}`,
                         }}
                       >
@@ -363,7 +354,7 @@ export default function TermsPage() {
                       padding: '20px 24px',
                       background: '#FFF4EE',
                       border: '1px solid rgba(255,122,46,0.10)',
-                      borderRadius: 2,
+                      borderRadius: 8,
                     }}
                   >
                     <p
@@ -386,7 +377,7 @@ export default function TermsPage() {
                       marginTop: 20,
                       padding: '24px 28px',
                       background: C.charcoal,
-                      borderRadius: 2,
+                      borderRadius: 8,
                       display: 'flex',
                       flexDirection: 'column',
                       gap: 12,

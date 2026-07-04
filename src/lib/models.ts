@@ -6,6 +6,7 @@ export interface IUserDoc extends Document {
   name: string
   email: string
   password: string
+  role: 'user' | 'admin'
   plan: 'free' | 'grow' | 'scale'
   isVerified: boolean
   etsyShopId?: string
@@ -21,6 +22,7 @@ const UserSchema = new Schema<IUserDoc>({
   name:             { type: String, required: true, trim: true, maxlength: 60 },
   email:            { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
   password:         { type: String, required: true, select: false }, // never returned by default
+  role:             { type: String, enum: ['user','admin'], default: 'user' },
   plan:             { type: String, enum: ['free','grow','scale'], default: 'free' },
   isVerified:       { type: Boolean, default: false },
   etsyShopId:       { type: String },

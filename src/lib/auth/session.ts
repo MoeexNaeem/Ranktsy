@@ -1,5 +1,6 @@
 import { verifyAccessToken, verifyRefreshToken, signAccessToken, signRefreshToken } from './jwt'
 import { getAccessToken, getRefreshToken, setAuthCookies } from './cookies'
+import { resolveRole } from './roles'
 import { connectDB } from '@/lib/db'
 import { User } from '@/lib/models'
 import type { AuthUser } from '@/types'
@@ -33,6 +34,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       id:         dbUser._id.toString(),
       name:       dbUser.name,
       email:      dbUser.email,
+      role:       resolveRole(dbUser.email, dbUser.role),
       plan:       dbUser.plan,
       isVerified: dbUser.isVerified,
       etsyShopId: dbUser.etsyShopId,

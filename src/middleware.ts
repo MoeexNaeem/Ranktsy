@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyAccessToken, verifyRefreshToken } from '@/lib/auth/jwt'
 import { ACCESS_TOKEN_NAME, REFRESH_TOKEN_NAME } from '@/lib/auth/cookies'
 
-const PROTECTED = ['/dashboard', '/dashboard/keywords', '/dashboard/listings', '/dashboard/competitors', '/dashboard/analytics', '/dashboard/trends', '/dashboard/tools']
+const PROTECTED = ['/dashboard', '/profile', '/admin']
 const AUTH_ONLY = ['/login', '/register', '/forgot-password', '/reset-password'] // redirect if already logged in
 
 export async function middleware(req: NextRequest) {
@@ -45,6 +45,8 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     '/dashboard/:path*',
+    '/profile/:path*',
+    '/admin/:path*',
     '/login',
     '/register',
     '/forgot-password',
