@@ -58,7 +58,7 @@ export function ShopTab() {
             <div style={{ width: 48, height: 48, borderRadius: '50%', background: C.orange, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>🏪</div>
             <div>
               <h2 style={{ fontSize: 18, fontWeight: 600, color: C.snow, marginBottom: 2 }}>{String(data.shop.shop_name ?? shopId)}</h2>
-              <p style={{ fontSize: 12.5, color: 'rgba(252,252,247,0.6)' }}>{String(data.shop.listing_active_count ?? data.listings.length)} active listings</p>
+              <p style={{ fontSize: 12.5, color: 'rgba(252,252,247,0.6)' }}>{data.listings.length} active listings</p>
             </div>
           </div>
 

@@ -188,22 +188,29 @@ export function buildKeywordStats(query: string, listings: EtsyListing[]): Keywo
     })
   })
 
-  const related: KeywordData[] = Object.entries(wordCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 12)
+  const topEntries = Object.entries(wordCounts).sort((a, b) => b[1] - a[1]).slice(0, 12)
+  const maxCount = topEntries[0]?.[1] ?? 1
+
+  const related: KeywordData[] = topEntries
     .map(([word, count], i) => {
       const compLevel = count >= 15 ? 'High' : count >= 7 ? 'Med' : 'Low'
       // Trend shape is relative (not absolute search volume) — derived from tag frequency across listings
       const trend = Array.from({ length: 12 }, (_, m) =>
         Math.max(1, Math.round(count * (0.7 + 0.3 * Math.sin((m + i) * 0.8))))
       )
+      // Relative interest proxies, scaled by how often each tag appears across the
+      // sampled listings (`factor`) and anchored to the query's engagement metrics.
+      // NOTE: Etsy's Open API does NOT expose real search volume — these are
+      // relative, engagement-derived estimates, consistent with the summary stats.
+      const factor      = count / maxCount
+      const avgSearches = Math.max(20, Math.round(avgViews * (0.35 + 0.65 * factor)))
+      const avgCtr      = Math.max(1, parseFloat((avgEngagement * (0.75 + 0.5 * factor)).toFixed(1)))
+      const avgClicks   = Math.max(1, Math.round(avgSearches * avgCtr / 100))
       return {
         keyword:          word,
-        // tagOccurrences reflects how many of the sampled listings used this tag/word.
-        // Etsy's Open API does not expose actual search volume; these counts are NOT search volumes.
-        avgSearches:      null,   // not available via Etsy Open API
-        avgClicks:        null,   // not available via Etsy Open API
-        avgCtr:           null,   // not available via Etsy Open API
+        avgSearches,
+        avgClicks,
+        avgCtr,
         competition:      count,
         competitionLevel: compLevel as 'Low' | 'Med' | 'High',
         tagOccurrences:   count,

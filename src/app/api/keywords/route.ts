@@ -18,9 +18,14 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
 
   const key = cacheKey('keyword', query)
 
+  // Older cached entries stored null Search/Clicks/CTR for related keywords.
+  // Treat those as stale so they rebuild with the new engagement-derived proxies.
+  const isStale = (d?: KeywordSearchResponse) =>
+    !!d && Array.isArray(d.related) && d.related.length > 0 && d.related[0].avgSearches == null
+
   // L1: in-memory
   const memHit = memCache.get<KeywordSearchResponse>(key)
-  if (memHit) return NextResponse.json({ success: true, data: memHit, cached: true })
+  if (memHit && !isStale(memHit)) return NextResponse.json({ success: true, data: memHit, cached: true })
 
   // L2: MongoDB
   try {
@@ -28,8 +33,10 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
     const dbHit = await KeywordCache.findOne({ keyword: query }).lean()
     if (dbHit) {
       const data = dbHit.data as KeywordSearchResponse
-      memCache.set(key, data, CACHE_TTL.KEYWORD)
-      return NextResponse.json({ success: true, data, cached: true })
+      if (!isStale(data)) {
+        memCache.set(key, data, CACHE_TTL.KEYWORD)
+        return NextResponse.json({ success: true, data, cached: true })
+      }
     }
   } catch (e) { console.error('[Keywords] DB lookup:', e) }
 
