@@ -38,7 +38,7 @@ export function Hero() {
 
   return (
     <section style={{ background: C.canvas, padding: '150px 40px 96px' }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: '1.08fr 1fr', gap: 72, alignItems: 'start' }}>
+      <div className="rsplit" style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: '1.08fr 1fr', gap: 72, alignItems: 'start' }}>
 
         {/* ── Left: editorial headline ─────────────────────────── */}
         <Entrance style={{ paddingTop: 8 }}>

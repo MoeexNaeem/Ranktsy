@@ -84,7 +84,7 @@ export function AdminDashboard() {
       </div>
 
       {stats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
+        <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
           <StatCard label="Total users" value={formatNumber(stats.total)} accent={C.ink} />
           <StatCard label="Admins" value={formatNumber(stats.admins)} accent={C.orange} />
           <StatCard label="Verified" value={formatNumber(stats.verified)} accent={C.ink} />

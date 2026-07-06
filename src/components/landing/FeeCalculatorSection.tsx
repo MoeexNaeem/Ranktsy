@@ -93,7 +93,7 @@ export function FeeCalculatorSection() {
           Estimate Etsy&apos;s listing, transaction, and payment-processing fees — and see exactly what you keep.
         </p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.05fr', gap: 16, alignItems: 'start' }}>
+        <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1.05fr', gap: 16, alignItems: 'start' }}>
           {/* Inputs */}
           <div style={{ background: C.paper, border: `1px solid ${C.hairInk}`, borderRadius: 8, padding: '24px' }}>
             <h3 style={{ fontSize: 15, fontWeight: 500, color: C.ink, marginBottom: 16, letterSpacing: '-0.3px' }}>Order details</h3>

@@ -97,7 +97,7 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
+              <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
                 {/* Account details */}
                 <Card pad="20px">
                   <h3 style={{ fontSize: 15, fontWeight: 500, color: C.ink, marginBottom: 8 }}>Account details</h3>

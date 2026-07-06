@@ -46,7 +46,42 @@ canvas { display: block; }
 button { font-family: inherit; }
 input  { font-family: inherit; }
 
-/* ─── Responsive ─────────────────────────────────────────────────────────────── */
+/* ─── Responsive (mobile & tablet). Desktop keeps its inline styles because ──── */
+/* these rules only apply below the breakpoints. Hook classes override the       */
+/* inline grid/layout on small screens via !important.                           */
+img { max-width: 100%; }
+
+/* Tablet ≤ 1024px */
+@media (max-width: 1024px) {
+  .rgrid-4 { grid-template-columns: repeat(2, 1fr) !important; }
+  .rgrid-3 { grid-template-columns: repeat(2, 1fr) !important; }
+  .rsplit  { grid-template-columns: 1fr !important; }
+}
+
+/* Dashboard collapses to an icon rail ≤ 900px */
 @media (max-width: 900px) {
-  nav { padding: 16px 24px !important; }
+  .rdash-aside   { width: 60px !important; }
+  .rdash-aside .rlabel { display: none !important; }
+  .rdash-aside a, .rdash-aside button { justify-content: center !important; padding-left: 0 !important; padding-right: 0 !important; }
+  .rdash-usercard { display: none !important; }
+  .rdash-content, .rdash-topbar, .rdash-footer { padding-left: 16px !important; padding-right: 16px !important; }
+  .rnav-links { display: none !important; }
+  nav .rnav-inner { padding-left: 20px !important; padding-right: 20px !important; }
+}
+
+/* Phone ≤ 640px */
+@media (max-width: 640px) {
+  .rgrid-4, .rgrid-3, .rgrid-2 { grid-template-columns: 1fr !important; }
+  section { padding-left: 20px !important; padding-right: 20px !important; }
+  main.rpage { padding-left: 20px !important; padding-right: 20px !important; }
+  .rhide-sm { display: none !important; }
+  .rstack-sm { flex-direction: column !important; align-items: flex-start !important; }
+  .rfull-sm { width: 100% !important; max-width: 100% !important; }
+  h1 { letter-spacing: -1px !important; }
+}
+
+/* Wide dashboard tables scroll horizontally instead of squishing ≤ 760px */
+@media (max-width: 760px) {
+  .rtable-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .rtable-wrap > * { min-width: 560px; }
 }

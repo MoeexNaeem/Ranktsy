@@ -49,7 +49,7 @@ export function CompetitorsTab() {
 
       {sorted.length > 0 && !isLoading && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+          <div className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
             <StatCard label="Total Competitors" value={sorted.length.toString()} accent={C.ink} />
             <StatCard label="Avg. Views" value={formatNumber(Math.round(sorted.reduce((s, l) => s + (l.views ?? 0), 0) / sorted.length))} accent={C.orange} />
             <StatCard label="Avg. Favorites" value={formatNumber(Math.round(sorted.reduce((s, l) => s + (l.num_favorers ?? 0), 0) / sorted.length))} accent={C.ink} />

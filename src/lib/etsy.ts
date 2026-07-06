@@ -141,6 +141,43 @@ export async function searchEtsyListings(query: string, limit = 25): Promise<Ets
   return (await searchEtsyListingsPaged(query, limit, 0)).listings
 }
 
+// Etsy seller taxonomy (category tree) — public, key-only. Flattened to a
+// searchable list with each node's full category path.
+export interface TaxonomyItem { id: number; name: string; fullPath: string; level: number }
+export async function getSellerTaxonomy(): Promise<TaxonomyItem[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = await etsyFetch<{ results: any[] }>('/seller-taxonomy/nodes')
+  const flat: TaxonomyItem[] = []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const walk = (nodes: any[], trail: string[]) => {
+    for (const n of nodes ?? []) {
+      const path = [...trail, String(n.name)]
+      flat.push({ id: Number(n.id), name: String(n.name), fullPath: path.join(' › '), level: path.length })
+      if (n.children?.length) walk(n.children, path)
+    }
+  }
+  walk(data.results ?? [], [])
+  return flat
+}
+
+// Rank check — scans the top `scan` (max 100) active listings for a keyword
+// (Etsy relevance order) and returns the positions where the given shop's
+// listings appear. Uses only the official search endpoint; no scraping.
+export async function checkKeywordRank(query: string, shopId: number, scan = 100): Promise<{
+  scanned: number; totalResults: number; matches: { position: number; listing_id: number; title: string; url: string }[]
+}> {
+  const limit = Math.min(Math.max(scan, 1), 100)
+  const data = await etsyFetch<{ count?: number; results: Record<string, unknown>[] }>('/listings/active', {
+    keywords: query, limit, offset: 0, sort_on: 'score',
+  } as Record<string, string | number>)
+  const results = data.results ?? []
+  const matches = results
+    .map((r, i) => ({ position: i + 1, listing_id: Number(r.listing_id ?? 0), title: String(r.title ?? ''), url: String(r.url ?? ''), shop_id: Number(r.shop_id ?? 0) }))
+    .filter(r => r.shop_id === shopId)
+    .map(({ position, listing_id, title, url }) => ({ position, listing_id, title, url }))
+  return { scanned: results.length, totalResults: Number(data.count ?? 0), matches }
+}
+
 // Fetch a single active listing by id (title, tags, description, price…) and
 // enrich it with images. Used by the Listing Audit tool.
 export async function getListingById(id: number): Promise<EtsyListing | null> {

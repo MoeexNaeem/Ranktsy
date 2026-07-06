@@ -43,14 +43,14 @@ export function KeywordsTab() {
       <SearchBar value={input} onChange={setInput} onSubmit={search} placeholder="Search any Etsy keyword…" />
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+      <div className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
         {isLoading || !stats
           ? [0, 1, 2].map(i => <Skel key={i} />)
           : stats.map(s => <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} accent={s.color} pct={s.pct} />)}
       </div>
 
       {/* Charts */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 12 }}>
+      <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 12 }}>
         <Card>
           <SectionTitle right={tr ? <PlatformToggle active={plats} onChange={setPlats} /> : undefined}>Search Trend (12 months)</SectionTitle>
           {tr ? <TrendChart data={tr.trends} activePlatforms={plats} /> : <Skel h={112} />}

@@ -71,7 +71,7 @@ export function ListingsTab() {
       <SearchBar value={search} onChange={setSearch} onSubmit={go} placeholder="Search Etsy listings…" />
 
       {isLoading && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+        <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="shimmer" style={{ height: 268, borderRadius: 8, background: '#e8e7e2' }} />
           ))}
@@ -83,7 +83,7 @@ export function ListingsTab() {
           <p style={{ fontSize: 12, color: '#808080', fontFamily: MONO }}>
             {formatNumber(total)} results for &ldquo;{query}&rdquo; · page {page} of {formatNumber(pageCount)}
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, opacity: isFetching ? 0.55 : 1, transition: 'opacity 0.15s' }}>
+          <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, opacity: isFetching ? 0.55 : 1, transition: 'opacity 0.15s' }}>
             {listings.map(l => <ListingCard key={l.listing_id} listing={l} />)}
           </div>
           <Pagination page={page} pageCount={pageCount} loading={isFetching}

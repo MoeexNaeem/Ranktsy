@@ -63,7 +63,7 @@ export function ShopTab() {
           </div>
 
           {/* Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+          <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
             <StatCard label="Active Listings" value={String(data.listings.length)} accent={C.charcoal} />
             <StatCard label="Total Views" value={formatNumber(totalViews)} accent={C.orange} />
             <StatCard label="Total Favorites" value={formatNumber(totalFavs)} accent={C.charcoal} />

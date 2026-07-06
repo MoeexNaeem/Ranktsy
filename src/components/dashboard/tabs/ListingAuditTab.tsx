@@ -106,7 +106,7 @@ export function ListingAuditTab() {
       {audit && listing && !isLoading && (
         <>
           {/* Score + preview */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 12 }}>
+          <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 12 }}>
             <Card pad="22px">
               <p style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>SEO Score</p>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>

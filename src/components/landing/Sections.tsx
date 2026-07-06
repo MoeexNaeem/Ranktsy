@@ -102,7 +102,7 @@ export function Features() {
           From keyword research to competitor tracking, Ranktsy is your complete
           Etsy analytics toolkit.
         </p>
-        <RevealGroup style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
+        <RevealGroup className="rgrid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
           {FEATURES.map((f, i) => (
             <RevealItem
               key={f.title}
@@ -165,7 +165,7 @@ export function HowItWorks() {
         <p style={{ fontSize: 18, color: "#3a4444", lineHeight: 1.5, letterSpacing: "-0.14px", maxWidth: 500, marginBottom: 56 }}>
           Ranktsy turns complex Etsy data into clear, actionable insights.
         </p>
-        <RevealGroup style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 28 }}>
+        <RevealGroup className="rgrid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 28 }}>
           {steps.map((s) => (
             <RevealItem key={s.n} style={{ borderTop: `1px solid ${C.hairInk}`, paddingTop: 18 }}>
               <div style={{ fontSize: 40, fontWeight: 300, fontFamily: "'IBM Plex Mono',monospace", color: C.orange, letterSpacing: "-2px", marginBottom: 14, lineHeight: 1 }}>
@@ -202,7 +202,7 @@ export function Pricing() {
 export function AboutContactTeaser() {
   return (
     <section style={{ padding: '96px 40px', background: C.paper }}>
-      <Reveal style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <Reveal className="rsplit" style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         {/* About card */}
         <a
           href="/about"
@@ -319,7 +319,7 @@ export function Footer() {
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
 
         {/* Brand + link columns */}
-        <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr 1fr", gap: 48, paddingBottom: 44, borderBottom: `1px solid ${C.hair}` }}>
+        <div className="rgrid-4" style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr 1fr", gap: 48, paddingBottom: 44, borderBottom: `1px solid ${C.hair}` }}>
           <div>
             <img src="/website_logo.png" alt="Ranktsy" style={{ width: 132, height: 44, objectFit: "contain", display: "block", marginBottom: 18 }} />
             <p style={{ fontSize: 15, color: "#3a4444", lineHeight: 1.55, letterSpacing: "-0.1px", maxWidth: 300, marginBottom: 20 }}>

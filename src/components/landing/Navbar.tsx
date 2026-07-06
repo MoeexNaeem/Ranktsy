@@ -73,7 +73,7 @@ export function Navbar() {
 
       {/* Main nav */}
       <nav style={S.nav}>
-        <div style={S.inner}>
+        <div className="rnav-inner" style={S.inner}>
           {/* Left: logo */}
           <Link href="/" style={S.logoWrap}>
             <Image src="/website_logo.png" alt="Ranktsy — Etsy SEO Tools" width={44} height={38} style={{ objectFit: 'contain', display: 'block' }} priority />
@@ -81,7 +81,7 @@ export function Navbar() {
           </Link>
 
           {/* Center: links */}
-          <ul style={S.links}>
+          <ul className="rnav-links" style={S.links}>
             {isHome && (
               <li style={{ position: 'relative' }}
                 onMouseEnter={() => setOpenDrop(true)}

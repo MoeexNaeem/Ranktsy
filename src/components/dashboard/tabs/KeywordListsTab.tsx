@@ -68,7 +68,7 @@ export function KeywordListsTab() {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16, alignItems: 'start' }}>
+    <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16, alignItems: 'start' }}>
       {/* Lists column */}
       <Card pad="16px">
         <SectionTitle>Your lists</SectionTitle>

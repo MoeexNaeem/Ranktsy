@@ -103,7 +103,7 @@ export function FeeCalculatorTab() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.05fr', gap: 12, alignItems: 'start' }}>
+      <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1.05fr', gap: 12, alignItems: 'start' }}>
 
         {/* ── Inputs ────────────────────────────────────────────── */}
         <Card pad="18px 18px 20px">
