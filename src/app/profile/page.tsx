@@ -5,27 +5,27 @@ import { Navbar } from '@/components/landing/Navbar'
 import { Card } from '@/components/dashboard/kit'
 import { C } from '@/utils'
 
-const MONO = "'IBM Plex Mono',monospace"
+const MONO = "'General Sans',monospace"
 
 interface Profile {
   name: string; email: string; role: 'user' | 'admin'; plan: string
   isVerified: boolean; etsyShopId: string | null; savedKeywords: number; searches: number; createdAt: string | null
 }
 
-const label: React.CSSProperties = { display: 'block', fontSize: 11, fontFamily: MONO, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#3a4444', marginBottom: 8 }
+const label: React.CSSProperties = { display: 'block', fontSize: 11, fontFamily: MONO, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6E6E64', marginBottom: 8 }
 const input: React.CSSProperties = { width: '100%', background: C.canvas, border: `1px solid ${C.hair}`, borderRadius: 8, padding: '11px 14px', fontSize: 14, fontFamily: 'inherit', outline: 'none', color: '#1a1a1a', boxSizing: 'border-box' }
-const btn: React.CSSProperties = { background: C.orange, color: '#fff', border: 'none', borderRadius: 1000, padding: '11px 22px', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }
+const btn: React.CSSProperties = { background: C.orange, color: '#fff', border: 'none', borderRadius: 28, padding: '11px 22px', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }
 const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : '—'
 
 function Pill({ children, tone = 'neutral' }: { children: React.ReactNode; tone?: 'neutral' | 'orange' | 'green' }) {
   const map = { neutral: { bg: C.bone, c: C.ink }, orange: { bg: C.orangeFaint, c: C.orange }, green: { bg: C.successBg, c: C.success } }[tone]
-  return <span style={{ fontSize: 11, fontFamily: MONO, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', background: map.bg, color: map.c, padding: '3px 10px', borderRadius: 100 }}>{children}</span>
+  return <span style={{ fontSize: 11, fontFamily: MONO, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em', background: map.bg, color: map.c, padding: '3px 10px', borderRadius: 100 }}>{children}</span>
 }
 
 function Row({ k, v }: { k: string; v: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 0', borderBottom: `1px solid ${C.hair}` }}>
-      <span style={{ fontSize: 13, color: '#3a4444' }}>{k}</span>
+      <span style={{ fontSize: 13, color: '#6E6E64' }}>{k}</span>
       <span style={{ fontSize: 13, fontWeight: 500, color: C.ink, fontFamily: MONO }}>{v}</span>
     </div>
   )
@@ -65,33 +65,33 @@ export default function ProfilePage() {
   return (
     <>
       <Navbar />
-      <main style={{ background: C.canvas, minHeight: '100vh', padding: '150px 40px 96px' }}>
+      <main className="rpage" style={{ background: C.canvas, minHeight: '100vh', padding: '150px 40px 96px' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 11.5, fontWeight: 500, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#3a4444', marginBottom: 18 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 11.5, fontWeight: 500, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#6E6E64', marginBottom: 18 }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.orange, display: 'inline-block' }} /> Your account
           </div>
 
           {loading ? (
             <div className="shimmer" style={{ height: 320, borderRadius: 8, background: '#e8e7e2' }} />
           ) : !p ? (
-            <p style={{ color: '#3a4444' }}>Couldn&apos;t load your profile. Please <Link href="/login" style={{ color: C.orange }}>log in</Link> again.</p>
+            <p style={{ color: '#6E6E64' }}>Couldn&apos;t load your profile. Please <Link href="/login" style={{ color: C.orange }}>log in</Link> again.</p>
           ) : (
             <>
               {/* Identity header */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 28 }}>
-                <div style={{ width: 64, height: 64, borderRadius: '50%', background: C.orange, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 700, flexShrink: 0 }}>
+              <div className="rstack-sm" style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 28 }}>
+                <div style={{ width: 64, height: 64, borderRadius: '50%', background: C.orange, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 500, flexShrink: 0 }}>
                   {p.name.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <h1 style={{ fontSize: 'clamp(26px,3vw,34px)', fontWeight: 300, color: C.ink, letterSpacing: '-1px', lineHeight: 1.1 }}>{p.name}</h1>
-                  <p style={{ fontSize: 14, color: '#3a4444', marginTop: 4, marginBottom: 8 }}>{p.email}</p>
+                  <h1 style={{ fontSize: 'clamp(26px,3vw,34px)', fontWeight: 500, color: C.ink, letterSpacing: '-0.03em', lineHeight: 1.1 }}>{p.name}</h1>
+                  <p style={{ fontSize: 14, color: '#6E6E64', marginTop: 4, marginBottom: 8 }}>{p.email}</p>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <Pill tone="orange">{p.plan} plan</Pill>
                     {p.role === 'admin' && <Pill tone="green">Admin</Pill>}
                     <Pill tone={p.isVerified ? 'green' : 'neutral'}>{p.isVerified ? 'Verified' : 'Unverified'}</Pill>
                   </div>
                 </div>
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
+                <div className="rfull-sm rwrap-sm" style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
                   {p.role === 'admin' && <Link href="/admin" style={{ ...btn, background: C.ink, textDecoration: 'none' }}>Admin →</Link>}
                   <Link href="/dashboard" style={{ ...btn, background: 'transparent', color: C.ink, border: `1px solid ${C.hairInk}`, textDecoration: 'none' }}>Dashboard →</Link>
                 </div>
@@ -108,7 +108,7 @@ export default function ProfilePage() {
                   <Row k="Etsy shop" v={p.etsyShopId ?? 'Not linked'} />
                   <Row k="Keyword searches" v={p.searches} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 0' }}>
-                    <span style={{ fontSize: 13, color: '#3a4444' }}>Saved keywords</span>
+                    <span style={{ fontSize: 13, color: '#6E6E64' }}>Saved keywords</span>
                     <span style={{ fontSize: 13, fontWeight: 500, color: C.ink, fontFamily: MONO }}>{p.savedKeywords}</span>
                   </div>
                 </Card>

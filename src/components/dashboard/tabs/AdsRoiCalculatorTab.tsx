@@ -10,7 +10,7 @@ function Field({ label, value, onChange, prefix, suffix }: {
 }) {
   return (
     <label style={{ display: 'block' }}>
-      <span style={{ display: 'block', fontSize: 11, fontFamily: MONO, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#3a4444', marginBottom: 8 }}>{label}</span>
+      <span style={{ display: 'block', fontSize: 11, fontFamily: MONO, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6E6E64', marginBottom: 8 }}>{label}</span>
       <div style={{ display: 'flex', alignItems: 'center', background: C.canvas, border: `1px solid ${C.hair}`, borderRadius: 8, overflow: 'hidden' }}>
         {prefix && <span style={{ padding: '0 2px 0 12px', fontSize: 13, color: '#808080', fontFamily: MONO }}>{prefix}</span>}
         <input type="number" min="0" step="any" inputMode="decimal" value={value} placeholder="0"
@@ -75,11 +75,11 @@ export function AdsRoiCalculatorTab() {
           <div style={{ background: r.roi >= 0 ? C.successBg : C.dangerBg, borderRadius: 8, padding: '20px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
             <div>
               <p style={{ fontSize: 11, fontFamily: MONO, color: roiAccent, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Return on ad spend</p>
-              <p style={{ fontSize: 34, fontWeight: 700, color: roiAccent, letterSpacing: '-1px', lineHeight: 1.05 }}>{r.roas.toFixed(2)}×</p>
+              <p style={{ fontSize: 34, fontWeight: 500, color: roiAccent, letterSpacing: '-1px', lineHeight: 1.05 }}>{r.roas.toFixed(2)}×</p>
             </div>
             <div style={{ textAlign: 'right' }}>
               <p style={{ fontSize: 11, fontFamily: MONO, color: roiAccent, textTransform: 'uppercase', letterSpacing: '0.06em' }}>ROI</p>
-              <p style={{ fontSize: 26, fontWeight: 700, color: roiAccent, letterSpacing: '-0.5px' }}>{r.roi >= 0 ? '+' : ''}{r.roi.toFixed(0)}%</p>
+              <p style={{ fontSize: 26, fontWeight: 500, color: roiAccent, letterSpacing: '-0.5px' }}>{r.roi >= 0 ? '+' : ''}{r.roi.toFixed(0)}%</p>
             </div>
           </div>
           <div className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>

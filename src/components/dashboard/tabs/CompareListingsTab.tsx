@@ -77,16 +77,16 @@ export function CompareListingsTab() {
       {isError && <ErrorBox>One of the listings couldn&apos;t be loaded. Check the URLs/IDs.</ErrorBox>}
 
       {data && !isLoading && (
-        <div style={{ ...Card, background: C.paper, border: `1px solid ${C.hairInk}`, borderRadius: 8, overflow: 'hidden' }}>
+        <div className="rtable" style={{ ...Card, background: C.paper, border: `1px solid ${C.hairInk}`, borderRadius: 8, overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 1fr', gap: 12, padding: '16px', background: C.bone, borderBottom: `1px solid ${C.hairInk}` }}>
             <span style={{ fontSize: 10, fontFamily: MONO, color: '#808080', textTransform: 'uppercase', alignSelf: 'center' }}>Metric</span>
             <Head l={data.a} /><Head l={data.b} />
           </div>
           {rows.map((r, i) => (
             <div key={r.label} style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 1fr', gap: 12, padding: '11px 16px', borderBottom: i < rows.length - 1 ? `1px solid ${C.hair}` : 'none', alignItems: 'center' }}>
-              <span style={{ fontSize: 12.5, color: '#3a4444' }}>{r.label}</span>
-              <span style={{ fontSize: 13, fontFamily: MONO, fontWeight: r.winner === 'a' ? 700 : 500, color: r.winner === 'a' ? C.success : C.ink }}>{r.a}{r.winner === 'a' && ' ▲'}</span>
-              <span style={{ fontSize: 13, fontFamily: MONO, fontWeight: r.winner === 'b' ? 700 : 500, color: r.winner === 'b' ? C.success : C.ink }}>{r.b}{r.winner === 'b' && ' ▲'}</span>
+              <span style={{ fontSize: 12.5, color: '#6E6E64' }}>{r.label}</span>
+              <span style={{ fontSize: 13, fontFamily: MONO, fontWeight: r.winner === 'a' ? 500 : 400, color: r.winner === 'a' ? C.success : C.ink }}>{r.a}{r.winner === 'a' && ' ▲'}</span>
+              <span style={{ fontSize: 13, fontFamily: MONO, fontWeight: r.winner === 'b' ? 500 : 400, color: r.winner === 'b' ? C.success : C.ink }}>{r.b}{r.winner === 'b' && ' ▲'}</span>
             </div>
           ))}
         </div>

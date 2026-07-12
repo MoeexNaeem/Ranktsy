@@ -54,8 +54,8 @@ function Row({ label, value, cur, strong, accent }: {
 }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: `1px solid ${C.cardBorder}` }}>
-      <span style={{ fontSize: strong ? 12.5 : 12, fontWeight: strong ? 600 : 400, color: strong ? C.charcoal : C.inkSoft }}>{label}</span>
-      <span style={{ fontSize: strong ? 13 : 12.5, fontWeight: strong ? 700 : 500, fontFamily: MONO, color: accent ?? (strong ? C.charcoal : C.inkSoft) }}>
+      <span style={{ fontSize: strong ? 12.5 : 12, fontWeight: strong ? 500 : 400, color: strong ? C.charcoal : C.inkSoft }}>{label}</span>
+      <span style={{ fontSize: strong ? 13 : 12.5, fontWeight: strong ? 500 : 400, fontFamily: MONO, color: accent ?? (strong ? C.charcoal : C.inkSoft) }}>
         {value < 0 ? '-' : ''}{cur}{Math.abs(value).toFixed(2)}
       </span>
     </div>
@@ -167,7 +167,7 @@ export function FeeCalculatorTab() {
             </div>
             <div style={{ textAlign: 'right' }}>
               <p style={{ fontSize: 11, fontFamily: MONO, color: netAccent, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Profit margin</p>
-              <p style={{ fontSize: 24, fontWeight: 700, color: netAccent, letterSpacing: '-0.5px' }}>{r.margin.toFixed(1)}%</p>
+              <p style={{ fontSize: 24, fontWeight: 500, color: netAccent, letterSpacing: '-0.5px' }}>{r.margin.toFixed(1)}%</p>
             </div>
           </div>
 
@@ -180,7 +180,7 @@ export function FeeCalculatorTab() {
               </p>
             </div>
             <button onClick={() => setPrice(r.breakEven.toFixed(2))}
-              style={{ flexShrink: 0, background: C.card, color: C.orange, border: `1px solid ${C.orange}`, borderRadius: 8, padding: '8px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
+              style={{ flexShrink: 0, background: C.card, color: C.orange, border: `1px solid ${C.orange}`, borderRadius: 8, padding: '8px 14px', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
               onMouseEnter={e => { e.currentTarget.style.background = C.orange; e.currentTarget.style.color = '#fff' }}
               onMouseLeave={e => { e.currentTarget.style.background = C.card; e.currentTarget.style.color = C.orange }}>
               Apply

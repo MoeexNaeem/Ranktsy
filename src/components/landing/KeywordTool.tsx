@@ -20,15 +20,15 @@ export function KeywordTool() {
   }, [addR])
 
   return (
-    <section id="keywords" style={{ padding: '96px 40px', background: C.canvas }}>
+    <section id="keywords" style={{ padding: '120px 40px', background: C.canvas }}>
       <Reveal style={{ maxWidth: 1200, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, fontWeight: 500, fontFamily:"'IBM Plex Mono',monospace", textTransform: 'uppercase' as const, letterSpacing: '0.09em', color: C.ink, marginBottom: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, fontWeight: 500, fontFamily:"'General Sans',monospace", textTransform: 'uppercase' as const, letterSpacing: '0.09em', color: C.ink, marginBottom: 18 }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.orange, display: 'inline-block' }} />Keyword Tool
         </div>
-        <h2 style={{ fontSize: 'clamp(30px,4vw,46px)', fontWeight: 300, letterSpacing: '-1.2px', color: C.ink, lineHeight: 1.08, marginBottom: 16, maxWidth: 720 }}>
+        <h2 style={{ fontSize: 'clamp(34px,4.6vw,56px)', fontWeight: 500, letterSpacing: '-0.03em', color: C.ink, lineHeight: 1.0, marginBottom: 16, maxWidth: 760 }}>
           Try it live — search any keyword.
         </h2>
-        <p style={{ fontSize: 18, color: '#3a4444', lineHeight: 1.5, letterSpacing: '-0.14px', maxWidth: 500, marginBottom: 48 }}>
+        <p style={{ fontSize: 18, color: '#6E6E64', lineHeight: 1.5, letterSpacing: '-0.14px', maxWidth: 500, marginBottom: 48 }}>
           Enter any product keyword to see live Etsy analytics. (Demo data shown — connect your Etsy shop for real stats.)
         </p>
 
@@ -43,7 +43,7 @@ export function KeywordTool() {
               onBlur={e=>(e.currentTarget.style.borderColor=C.hair)}
             />
             <button onClick={go}
-              style={{ background: C.orange, border: 'none', color: '#fff', padding: '14px 30px', borderRadius: 1000, fontSize: 14.5, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'opacity 0.2s' }}
+              style={{ background: C.orange, border: 'none', color: '#fff', padding: '14px 30px', borderRadius: 28, fontSize: 14.5, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'opacity 0.2s' }}
               onMouseEnter={e=>(e.currentTarget.style.opacity='0.88')}
               onMouseLeave={e=>(e.currentTarget.style.opacity='1')}>
               Search keywords →
@@ -70,7 +70,7 @@ export function KeywordTool() {
             <div>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
                 <p style={{ fontSize:15, fontWeight:500, color:C.charcoal }}>Keywords related to &ldquo;{data.query}&rdquo;</p>
-                <span style={{ fontSize:12, color:'#b3b3b3', fontFamily:"'IBM Plex Mono',monospace" }}>{data.related.length} keywords found</span>
+                <span style={{ fontSize:12, color:'#b3b3b3', fontFamily:"'General Sans',monospace" }}>{data.related.length} keywords found</span>
               </div>
               <div style={{ background: C.paper, borderRadius: 8, overflow: 'hidden', border: `1px solid ${C.hair}` }}>
                 <KeywordTable rows={data.related} />
@@ -86,7 +86,7 @@ export function KeywordTool() {
                 {SUGG.map(s => (
                   <button key={s}
                     onClick={()=>{ if(ref.current) ref.current.value=s; setQ(s); addR(s) }}
-                    style={{ fontSize: 12.5, fontFamily:"'IBM Plex Mono',monospace", color: C.orange, background: 'transparent', border: `1px solid ${C.orange}`, padding: '5px 14px', borderRadius: 100, cursor: 'pointer', transition: 'all 0.15s' }}
+                    style={{ fontSize: 12.5, fontFamily:"'General Sans',monospace", color: C.orange, background: 'transparent', border: `1px solid ${C.orange}`, padding: '5px 14px', borderRadius: 100, cursor: 'pointer', transition: 'all 0.15s' }}
                     onMouseEnter={e=>{ e.currentTarget.style.background=C.orange; e.currentTarget.style.color='#fff' }}
                     onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.color=C.orange }}>
                     {s}

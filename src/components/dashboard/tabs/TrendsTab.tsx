@@ -35,7 +35,7 @@ export function TrendsTab() {
         <div style={{ background: C.orange, borderRadius: 10, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 18 }}>📈</span>
           <div>
-            <p style={{ fontSize: 13, fontWeight: 700, color: C.snow }}>Peak season: {peakMonth}</p>
+            <p style={{ fontSize: 13, fontWeight: 500, color: C.snow }}>Peak season: {peakMonth}</p>
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.92)' }}>Etsy searches for &ldquo;{query}&rdquo; peak in {peakMonth}. Start preparing listings 4–6 weeks earlier.</p>
           </div>
         </div>
@@ -68,7 +68,7 @@ export function TrendsTab() {
                     <div key={t.platform}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                         <span style={{ fontSize: 12, fontFamily: MONO, color: C.inkSoft, textTransform: 'capitalize' }}>{t.platform}</span>
-                        <span style={{ fontSize: 12, fontFamily: MONO, color: colors[t.platform], fontWeight: 600 }}>{pct}%</span>
+                        <span style={{ fontSize: 12, fontFamily: MONO, color: colors[t.platform], fontWeight: 500 }}>{pct}%</span>
                       </div>
                       <div style={{ height: 5, background: '#EEEDE8', borderRadius: 999, overflow: 'hidden' }}>
                         <div style={{ height: '100%', width: `${pct}%`, background: colors[t.platform], borderRadius: 999, transition: 'width 0.6s' }} />

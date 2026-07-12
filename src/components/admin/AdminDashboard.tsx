@@ -62,9 +62,9 @@ export function AdminDashboard() {
   }, [])
 
   const shell = (children: React.ReactNode) => (
-    <main style={{ background: C.canvas, minHeight: '100vh', padding: '150px 40px 96px' }}>
+    <main className="rpage" style={{ background: C.canvas, minHeight: '100vh', padding: '150px 40px 96px' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 11.5, fontWeight: 500, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#3a4444', marginBottom: 18 }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 11.5, fontWeight: 500, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#6E6E64', marginBottom: 18 }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.orange, display: 'inline-block' }} /> Admin
         </div>
         {children}
@@ -79,7 +79,7 @@ export function AdminDashboard() {
   return shell(
     <>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
-        <h1 style={{ fontSize: 'clamp(28px,3.5vw,42px)', fontWeight: 300, color: C.ink, letterSpacing: '-1.2px', lineHeight: 1.05 }}>User management</h1>
+        <h1 style={{ fontSize: 'clamp(30px,3.8vw,46px)', fontWeight: 500, color: C.ink, letterSpacing: '-0.03em', lineHeight: 1.02 }}>User management</h1>
         <Link href="/dashboard" style={{ fontSize: 13, color: C.ink, textDecoration: 'underline', textUnderlineOffset: 4 }}>← Back to dashboard</Link>
       </div>
 
@@ -93,7 +93,7 @@ export function AdminDashboard() {
       )}
 
       <SectionTitle right={err ? <span style={{ fontSize: 12, color: C.danger }}>{err}</span> : <span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>{users.length} users</span>}>All users</SectionTitle>
-      <div style={tableCard}>
+      <div className="rtable" style={tableCard}>
         <div style={tableHead(GRID)}>
           {['User', 'Role', 'Plan', 'Joined', 'Activity', ''].map((h, i) => <span key={i} style={th}>{h}</span>)}
         </div>

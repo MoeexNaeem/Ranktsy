@@ -1,42 +1,50 @@
 export const C = {
-  // ── Brand palette ──────────────────────────────────────────
-  orange:      '#FF6008',        // primary CTA / accents
+  // ── Brand palette — ONLY orange #FB5E09, dark #3D3E3B, parchment #F5F5EB ─
+  orange:      '#FB5E09',        // primary action / CTA — the single chromatic charge
   orangeLight: '#FF7A2E',        // hover state
-  orangeFaint: 'rgba(255,96,8,0.10)', // soft backgrounds
-  charcoal:    '#3C3C3C',        // primary text / dark surfaces
-  charcoalMid: '#5A5A5A',        // secondary text
-  charcoalSoft:'rgba(60,60,60,0.08)', // borders / dividers
+  orangeFaint: 'rgba(251,94,9,0.10)', // soft orange wash
+  lime:        '#FB5E09',        // (no lime allowed) → aliased to orange as a safety net
+  limeFaint:   'rgba(251,94,9,0.14)', // → orange wash
+  softLime:    '#FCE7D8',        // → soft orange tile
 
-  // ── Neutrals ───────────────────────────────────────────────
-  snow:        '#FFFFFF',        // pure white
-  offWhite:    '#F8F7F5',        // page background
-  warmGray:    '#F0EFED',        // card backgrounds / sections
-  lightGray:   '#E5E4E2',        // borders
-  ghostGray:   '#B0B0B0',        // placeholder / disabled text
-  overlay:     '#666666',        // muted body text
+  charcoal:    '#3D3E3B',        // dark island / footer / dark surfaces (brand dark)
+  charcoalMid: '#6E6E64',        // graphite — secondary text
+  charcoalSoft:'rgba(61,62,59,0.07)', // faint dividers
+  deepCharcoal:'#3D3E3B',        // inverted surface
 
-  // ── eRank-style surfaces (dense data-tool look) ────────────
-  bg:          '#F6F5F2',        // app background
+  // ── Neutrals (Perk parchment stack) ────────────────────────
+  snow:        '#FFFFFF',        // pure white — highest surface / card fills
+  offWhite:    '#F5F5EB',        // warm parchment page background (exact Perk)
+  warmGray:    '#ECEBE1',        // tinted section surface
+  lightGray:   '#D2D2C8',        // ash borders
+  ghostGray:   '#919183',        // stone — placeholder / faint
+  overlay:     '#6E6E64',        // graphite — muted body text
+
+  // ── Data-tool surfaces (parchment) ─────────────────────────
+  bg:          '#F5F5EB',        // app background — parchment
   card:        '#FFFFFF',        // card / table surface
-  cardBorder:  '#EBE9E4',        // card + row borders
-  headerBg:    '#FAF9F6',        // table header strip
-  rowHover:    '#F7F6F2',        // table row hover
-  inkSoft:     '#5A5A55',        // table body text
-  inkFaint:    '#9A9A93',        // labels / captions
+  cardBorder:  '#E2E0D4',        // faint card + row borders
+  headerBg:    '#F5F5EB',        // table header strip — parchment
+  rowHover:    '#F5F5EB',        // table row hover
+  inkSoft:     '#6E6E64',        // table body text — graphite
+  inkFaint:    '#919183',        // labels / captions — stone
 
-  // ── Semantic status (competition / difficulty) ─────────────
-  success:     '#1E9E6A',  successBg: 'rgba(30,158,106,0.12)',   // Low competition = good
-  warn:        '#B9791A',  warnBg:    'rgba(232,160,40,0.16)',   // Medium
+  // ── Semantic status (NO green — neutral "good", amber/red kept) ────
+  success:     '#3D3E3B',  successBg: 'rgba(61,62,59,0.09)',     // Low competition = good → neutral ink
+  warn:        '#C07A12',  warnBg:    'rgba(232,160,40,0.16)',   // Medium
   danger:      '#CF463A',  dangerBg:  'rgba(207,70,58,0.12)',    // High competition = hard
 
-  // ── Huddle editorial language (flat, hairline, paper) ──────
+  // ── Editorial language (flat, borderless, tonal contrast) ──
   paper:       '#FFFFFF',        // page canvas / card base
-  canvas:      '#F7F6F1',        // warm paper background
-  bone:        '#ECEBE4',        // secondary tinted surface
-  softOrange:  '#FBEADD',        // soft orange category tile
-  hair:        '#DBD9D1',        // soft editorial hairline (dividers)
-  hairInk:     '#2C2B27',        // crisp near-black hairline (Huddle card outline)
-  ink:         '#1A1A18',        // display headline / high-contrast text
+  canvas:      '#F5F5EB',        // warm parchment background
+  bone:        '#ECEBE1',        // secondary tinted surface
+  softOrange:  '#FCE7D8',        // soft orange category tile
+  hair:        '#D2D2C8',        // ash hairline (dividers) — Perk warm gray
+  hairInk:     '#D2D2C8',        // ash card hairline (Perk: no crisp outlines)
+  ash:         '#D2D2C8',        // Perk ash — borders / dividers
+  graphite:    '#6E6E64',        // Perk graphite — muted copy
+  stone:       '#919183',        // Perk stone — faint strokes
+  ink:         '#3D3E3B',        // brand dark — headlines & body text
 } as const
 
 // Contrast guide (avoids the dark-text-on-orange readability bug):

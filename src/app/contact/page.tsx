@@ -98,10 +98,10 @@ export default function ContactPage() {
                 gap: 8,
                 fontSize: 11.5,
                 fontWeight: 500,
-                fontFamily: "'IBM Plex Mono', monospace",
+                fontFamily: "'General Sans', monospace",
                 textTransform: 'uppercase',
                 letterSpacing: '0.09em',
-                color: '#3a4444',
+                color: '#6E6E64',
                 marginBottom: 22,
               }}
             >
@@ -110,11 +110,11 @@ export default function ContactPage() {
             </div>
             <h1
               style={{
-                fontSize: 'clamp(40px, 5.4vw, 64px)',
-                fontWeight: 300,
-                letterSpacing: '-2px',
+                fontSize: 'clamp(44px, 6vw, 80px)',
+                fontWeight: 500,
+                letterSpacing: '-0.03em',
                 color: C.ink,
-                lineHeight: 1.04,
+                lineHeight: 0.95,
                 marginBottom: 22,
               }}
             >
@@ -123,7 +123,7 @@ export default function ContactPage() {
             <p
               style={{
                 fontSize: 18,
-                color: '#3a4444',
+                color: '#6E6E64',
                 lineHeight: 1.6,
                 letterSpacing: '-0.14px',
                 maxWidth: 500,
@@ -137,6 +137,7 @@ export default function ContactPage() {
         {/* ── Channels ── */}
         <div style={{ background: C.bone, padding: '56px 40px' }}>
           <div
+            className="rgrid-3"
             style={{
               maxWidth: 1200,
               margin: '0 auto',
@@ -152,8 +153,8 @@ export default function ContactPage() {
                 style={{
                   background: C.paper,
                   border: `1px solid ${C.hairInk}`,
-                  borderRadius: 8,
-                  padding: '28px',
+                  borderRadius: 22,
+                  padding: '30px',
                   textDecoration: 'none',
                   display: 'block',
                   transition: 'transform 0.18s',
@@ -165,7 +166,7 @@ export default function ContactPage() {
                 <p
                   style={{
                     fontSize: 11,
-                    fontFamily: "'IBM Plex Mono', monospace",
+                    fontFamily: "'General Sans', monospace",
                     color: '#808080',
                     textTransform: 'uppercase',
                     letterSpacing: '0.07em',
@@ -185,7 +186,7 @@ export default function ContactPage() {
                 >
                   {ch.value}
                 </p>
-                <p style={{ fontSize: 14, color: '#3a4444', lineHeight: 1.55 }}>{ch.desc}</p>
+                <p style={{ fontSize: 14, color: '#6E6E64', lineHeight: 1.55 }}>{ch.desc}</p>
               </a>
             ))}
           </div>
@@ -194,6 +195,7 @@ export default function ContactPage() {
         {/* ── Form + FAQ ── */}
         <div style={{ padding: '72px 48px' }}>
           <div
+            className="rsplit"
             style={{
               maxWidth: 1200,
               margin: '0 auto',
@@ -211,7 +213,7 @@ export default function ContactPage() {
                   alignItems: 'center',
                   gap: 8,
                   fontSize: 11,
-                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontFamily: "'General Sans', monospace",
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
                   color: C.orange,
@@ -224,7 +226,7 @@ export default function ContactPage() {
               <h2
                 style={{
                   fontSize: 'clamp(24px, 3vw, 36px)',
-                  fontWeight: 300,
+                  fontWeight: 400,
                   letterSpacing: '-1.2px',
                   color: C.ink,
                   marginBottom: 40,
@@ -237,7 +239,7 @@ export default function ContactPage() {
                 <div
                   style={{
                     background: C.orangeFaint,
-                    border: `1px solid rgba(255,96,8,0.15)`,
+                    border: `1px solid rgba(251,94,9,0.15)`,
                     borderRadius: 2,
                     padding: '40px 36px',
                     textAlign: 'center',
@@ -261,13 +263,13 @@ export default function ContactPage() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                   {/* Name + Email row */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <div className="rgrid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                     <div>
                       <label
                         style={{
                           display: 'block',
                           fontSize: 11,
-                          fontFamily: "'IBM Plex Mono', monospace",
+                          fontFamily: "'General Sans', monospace",
                           textTransform: 'uppercase',
                           letterSpacing: '0.07em',
                           color: C.charcoalMid,
@@ -291,7 +293,7 @@ export default function ContactPage() {
                         style={{
                           display: 'block',
                           fontSize: 11,
-                          fontFamily: "'IBM Plex Mono', monospace",
+                          fontFamily: "'General Sans', monospace",
                           textTransform: 'uppercase',
                           letterSpacing: '0.07em',
                           color: C.charcoalMid,
@@ -319,7 +321,7 @@ export default function ContactPage() {
                       style={{
                         display: 'block',
                         fontSize: 11,
-                        fontFamily: "'IBM Plex Mono', monospace",
+                        fontFamily: "'General Sans', monospace",
                         textTransform: 'uppercase',
                         letterSpacing: '0.07em',
                         color: C.charcoalMid,
@@ -351,7 +353,7 @@ export default function ContactPage() {
                       style={{
                         display: 'block',
                         fontSize: 11,
-                        fontFamily: "'IBM Plex Mono', monospace",
+                        fontFamily: "'General Sans', monospace",
                         textTransform: 'uppercase',
                         letterSpacing: '0.07em',
                         color: C.charcoalMid,
@@ -383,7 +385,7 @@ export default function ContactPage() {
                       border: 'none',
                       color: '#FFFFFF',
                       padding: '14px 32px',
-                      borderRadius: 1000,
+                      borderRadius: 28,
                       fontSize: 14.5,
                       fontWeight: 500,
                       cursor: 'pointer',
@@ -408,7 +410,7 @@ export default function ContactPage() {
                   alignItems: 'center',
                   gap: 8,
                   fontSize: 11,
-                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontFamily: "'General Sans', monospace",
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
                   color: C.orange,
@@ -421,7 +423,7 @@ export default function ContactPage() {
               <h2
                 style={{
                   fontSize: 'clamp(24px, 3vw, 36px)',
-                  fontWeight: 300,
+                  fontWeight: 400,
                   letterSpacing: '-1.2px',
                   color: C.ink,
                   marginBottom: 40,
@@ -518,3 +520,4 @@ export default function ContactPage() {
     </>
   )
 }
+

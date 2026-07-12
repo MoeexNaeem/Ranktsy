@@ -3,7 +3,9 @@ import { useState, useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { C, formatNumber } from '@/utils'
-import { SearchBar, StatCard, SectionTitle, ErrorBox, Pagination, tableCard, tableHead, th, tableRow, tdMono, tdTitle, TagPill, MONO } from '../kit'
+import { SearchBar, Card, StatCard, SectionTitle, ErrorBox, Pagination, tableCard, tableHead, th, tableRow, tdMono, tdTitle, TagPill, MONO } from '../kit'
+import { BubbleChart } from '@/components/charts/InsightCharts'
+import { BarChart } from '@/components/charts/BarChart'
 import type { EtsyListing } from '@/types'
 
 const GRID = '3fr 0.8fr 0.8fr 0.8fr 1.5fr'
@@ -40,6 +42,20 @@ export function CompetitorsTab() {
   const pageCount = Math.ceil(sorted.length / PER_PAGE) || 1
   const pageRows = sorted.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
+  const charts = useMemo(() => {
+    const ls = sorted.slice(0, 40)
+    const ratios = ls.map(l => (l.num_favorers ?? 0) / Math.max(l.views ?? 1, 1))
+    const maxRatio = Math.max(...ratios, 0.001)
+    const bubble = ls.map((l, i) => ({
+      x: l.views ?? 0, y: l.num_favorers ?? 0, r: 9,
+      label: l.title.slice(0, 42), color: ratios[i] >= maxRatio * 0.5 ? C.orange : C.charcoal,
+    }))
+    const tagMap = new Map<string, number>()
+    sorted.forEach(l => (l.tags ?? []).forEach(t => { const k = t.toLowerCase().trim(); if (k.length > 2) tagMap.set(k, (tagMap.get(k) ?? 0) + 1) }))
+    const tags = [...tagMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12)
+    return { bubble, tags }
+  }, [sorted])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <SearchBar value={search} onChange={setSearch} onSubmit={go} placeholder="Analyze competition for any keyword…" button="Analyze →" />
@@ -55,11 +71,24 @@ export function CompetitorsTab() {
             <StatCard label="Avg. Favorites" value={formatNumber(Math.round(sorted.reduce((s, l) => s + (l.num_favorers ?? 0), 0) / sorted.length))} accent={C.ink} />
           </div>
 
+          {/* Competitive landscape + tag analysis */}
+          <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
+            <Card>
+              <SectionTitle right={<span style={{ fontSize: 12, fontFamily: MONO, color: C.graphite }}>top 40</span>}>Competitive landscape</SectionTitle>
+              <p style={{ fontSize: 13, color: C.graphite, marginTop: -8, marginBottom: 10 }}>Each bubble is a listing — <strong style={{ color: C.orange }}>orange</strong> ones convert views to favorites best.</p>
+              <BubbleChart points={charts.bubble} xLabel="Views" yLabel="Favorites" />
+            </Card>
+            <Card>
+              <SectionTitle right={<span style={{ fontSize: 12, fontFamily: MONO, color: C.graphite }}>{sorted.length} listings</span>}>Most-used tags</SectionTitle>
+              <BarChart axis="y" height={340} highlightMax labels={charts.tags.map(t => t[0])} values={charts.tags.map(t => t[1])} />
+            </Card>
+          </div>
+
           <div>
-            <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>Top {sorted.length} by views · page {page}/{pageCount}</span>}>
+            <SectionTitle right={<span style={{ fontSize: 12, fontFamily: MONO, color: C.graphite }}>Top {sorted.length} by views · page {page}/{pageCount}</span>}>
               Top listings for &ldquo;{query}&rdquo;
             </SectionTitle>
-            <div style={tableCard}>
+            <div className="rtable" style={tableCard}>
               <div style={tableHead(GRID)}>
                 {['Title', 'Price', 'Views', 'Favorites', 'Tags'].map(h => <span key={h} style={th}>{h}</span>)}
               </div>
@@ -69,10 +98,10 @@ export function CompetitorsTab() {
                   onMouseEnter={e => (e.currentTarget.style.background = C.rowHover)}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                    <span style={{ fontSize: 10, fontFamily: MONO, color: '#bdbdb5', width: 22, flexShrink: 0 }}>#{(page - 1) * PER_PAGE + idx + 1}</span>
+                    <span style={{ fontSize: 13, fontFamily: MONO, fontWeight: 500, color: C.stone, width: 26, flexShrink: 0 }}>#{(page - 1) * PER_PAGE + idx + 1}</span>
                     <span style={tdTitle}>{l.title}</span>
                   </div>
-                  <span style={{ ...tdMono, color: C.ink, fontWeight: 600 }}>{priceStr(l)}</span>
+                  <span style={{ ...tdMono, color: C.ink, fontWeight: 500 }}>{priceStr(l)}</span>
                   <span style={tdMono}>{formatNumber(l.views ?? 0)}</span>
                   <span style={tdMono}>{formatNumber(l.num_favorers ?? 0)}</span>
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>

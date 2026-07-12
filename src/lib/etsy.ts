@@ -124,15 +124,27 @@ async function attachImages(listings: EtsyListing[]): Promise<EtsyListing[]> {
 
 // ─── Search listings ──────────────────────────────────────────────────────────
 
+// Optional advanced filters (all documented on Etsy's findAllListingsActive).
+export interface SearchOpts {
+  minPrice?: number
+  maxPrice?: number
+  sortOn?: 'score' | 'price' | 'created' | 'updated'
+  taxonomyId?: number
+}
+
 // Paged search — returns listings for the requested page plus Etsy's total match
 // count, so the UI can build server-side pagination via the Etsy `offset` param.
-export async function searchEtsyListingsPaged(query: string, limit = 24, offset = 0): Promise<{ listings: EtsyListing[]; count: number }> {
-  const data = await etsyFetch<{ count?: number; results: Record<string, unknown>[] }>('/listings/active', {
+export async function searchEtsyListingsPaged(query: string, limit = 24, offset = 0, opts: SearchOpts = {}): Promise<{ listings: EtsyListing[]; count: number }> {
+  const params: Record<string, string | number> = {
     keywords: query,
     limit:    Math.min(Math.max(limit, 1), 100),
     offset:   Math.max(0, offset),
-    sort_on:  'score',
-  } as Record<string, string | number>)
+    sort_on:  opts.sortOn ?? 'score',
+  }
+  if (opts.minPrice != null && opts.minPrice > 0) params.min_price = opts.minPrice
+  if (opts.maxPrice != null && opts.maxPrice > 0) params.max_price = opts.maxPrice
+  if (opts.taxonomyId != null && opts.taxonomyId > 0) params.taxonomy_id = opts.taxonomyId
+  const data = await etsyFetch<{ count?: number; results: Record<string, unknown>[] }>('/listings/active', params)
   const listings = await attachImages((data.results ?? []).map(mapListing))
   return { listings, count: Number(data.count ?? 0) }
 }
@@ -189,11 +201,21 @@ export async function getListingById(id: number): Promise<EtsyListing | null> {
 
 // ─── Keyword stats (derived from listing data) ────────────────────────────────
 
-export function buildKeywordStats(query: string, listings: EtsyListing[]): KeywordSearchResponse {
+// Keyword difficulty (0–100) — an ESTIMATE of how hard it is to rank, derived
+// from the real total supply of competing listings plus how strongly the
+// incumbents already engage buyers. Not an eRank-identical score; labelled as
+// an estimate in the UI.
+function difficultyScore(totalResults: number, avgEngagementPct: number): number {
+  const compFactor = Math.min(1, Math.log10(Math.max(totalResults, 1) + 1) / 6) // 10^6 listings → 1.0
+  const engFactor  = Math.min(1, avgEngagementPct / 8)                          // ~8% fav/view is very strong
+  return Math.max(1, Math.min(100, Math.round(100 * (0.7 * compFactor + 0.3 * engFactor))))
+}
+
+export function buildKeywordStats(query: string, listings: EtsyListing[], totalResults = 0): KeywordSearchResponse {
   if (!listings.length) {
     return {
       query,
-      stats: { avgSearches: 0, avgClicks: 0, avgCtr: 0, etsyCompetition: 0 },
+      stats: { avgSearches: 0, avgClicks: 0, avgCtr: 0, etsyCompetition: 0, totalResults, difficulty: 0, difficultyLabel: 'Easy', avgPrice: 0, currency: 'USD', avgFavorites: 0, googleSearches: null },
       related: [],
       listings: [],
     }
@@ -207,6 +229,14 @@ export function buildKeywordStats(query: string, listings: EtsyListing[]): Keywo
   const avgEngagement  = parseFloat((totalFavorites / Math.max(totalViews, 1) * 100).toFixed(1))
   const avgFavorites   = Math.round(avgViews * (avgEngagement / 100))
   const competition    = listings.length
+  const total          = totalResults || competition
+
+  // Median price — robust to the occasional very-high-priced outlier that skews a mean.
+  const prices    = listings.filter(l => l.price?.amount).map(l => l.price.amount / (l.price.divisor || 100)).sort((a, b) => a - b)
+  const avgPrice  = prices.length ? parseFloat((prices[Math.floor((prices.length - 1) / 2)]).toFixed(2)) : 0
+  const currency  = listings.find(l => l.price?.currency_code)?.price.currency_code ?? 'USD'
+  const difficulty = difficultyScore(total, avgEngagement)
+  const difficultyLabel: 'Easy' | 'Medium' | 'Hard' = difficulty < 34 ? 'Easy' : difficulty < 67 ? 'Medium' : 'Hard'
 
   // Derive related keywords from listing tags (official API returns real tags)
   const wordCounts: Record<string, number> = {}
@@ -225,7 +255,7 @@ export function buildKeywordStats(query: string, listings: EtsyListing[]): Keywo
     })
   })
 
-  const topEntries = Object.entries(wordCounts).sort((a, b) => b[1] - a[1]).slice(0, 12)
+  const topEntries = Object.entries(wordCounts).sort((a, b) => b[1] - a[1]).slice(0, 24)
   const maxCount = topEntries[0]?.[1] ?? 1
 
   const related: KeywordData[] = topEntries
@@ -243,6 +273,8 @@ export function buildKeywordStats(query: string, listings: EtsyListing[]): Keywo
       const avgSearches = Math.max(20, Math.round(avgViews * (0.35 + 0.65 * factor)))
       const avgCtr      = Math.max(1, parseFloat((avgEngagement * (0.75 + 0.5 * factor)).toFixed(1)))
       const avgClicks   = Math.max(1, Math.round(avgSearches * avgCtr / 100))
+      // Relative difficulty: more-saturated tags are harder to rank for.
+      const kdiff       = Math.max(5, Math.min(100, Math.round(25 + 75 * factor)))
       return {
         keyword:          word,
         avgSearches,
@@ -252,6 +284,8 @@ export function buildKeywordStats(query: string, listings: EtsyListing[]): Keywo
         competitionLevel: compLevel as 'Low' | 'Med' | 'High',
         tagOccurrences:   count,
         charCount:        word.length,
+        wordCount:        word.split(/\s+/).filter(Boolean).length,
+        difficulty:       kdiff,
         googleSearches:   null,   // not available via Etsy Open API
         trend,
       }
@@ -259,7 +293,12 @@ export function buildKeywordStats(query: string, listings: EtsyListing[]): Keywo
 
   return {
     query,
-    stats: { avgSearches: avgViews, avgClicks: avgFavorites, avgCtr: avgEngagement, etsyCompetition: competition },
+    stats: {
+      avgSearches: avgViews, avgClicks: avgFavorites, avgCtr: avgEngagement,
+      etsyCompetition: competition, totalResults: total,
+      difficulty, difficultyLabel, avgPrice, currency, avgFavorites,
+      googleSearches: null,
+    },
     related,
     listings,
     cachedAt: new Date().toISOString(),
@@ -294,6 +333,76 @@ export async function getEtsyShop(shopIdOrName: string | number): Promise<EtsySh
     listing_active_count: Number(data.listing_active_count ?? 0),
     num_favorers:         Number(data.num_favorers ?? 0),
     icon_url_fullxfull:   String(data.icon_url_fullxfull ?? ''),
+    review_count:         Number(data.review_count ?? 0),
+    review_average:       Number(data.review_average ?? 0),
+    is_vacation:          Boolean(data.is_vacation),
+    url:                  String(data.url ?? `https://www.etsy.com/shop/${encodeURIComponent(String(data.shop_name ?? ''))}`),
+  }
+}
+
+// ─── Shop reviews (public — key only) ─────────────────────────────────────────
+// GET /v3/application/shops/{shop_id}/reviews. Buyer names are not exposed by the
+// public API; we surface rating, review text, timestamp and the listing it's for.
+export interface ShopReview {
+  rating: number
+  review: string
+  language: string
+  created_timestamp: number
+  listing_id: number
+}
+export async function getShopReviews(shopIdOrName: string | number, limit = 12): Promise<ShopReview[]> {
+  const shopId = await resolveShopId(shopIdOrName)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = await etsyFetch<{ results: Record<string, any>[] }>(`/shops/${shopId}/reviews`, { limit: Math.min(Math.max(limit, 1), 100) })
+  return (data.results ?? []).map((r) => ({
+    rating:            Number(r.rating ?? 0),
+    review:            String(r.review ?? ''),
+    language:          String(r.language ?? ''),
+    created_timestamp: Number(r.created_timestamp ?? 0),
+    listing_id:        Number(r.listing_id ?? 0),
+  }))
+}
+
+// ─── Shop sections (public — key only) ────────────────────────────────────────
+// GET /v3/application/shops/{shop_id}/sections. The seller's own category tabs.
+export interface ShopSection { section_id: number; title: string; active_listing_count: number }
+export async function getShopSections(shopIdOrName: string | number): Promise<ShopSection[]> {
+  const shopId = await resolveShopId(shopIdOrName)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = await etsyFetch<{ results: Record<string, any>[] }>(`/shops/${shopId}/sections`)
+  return (data.results ?? [])
+    .map((s) => ({
+      section_id:           Number(s.shop_section_id ?? s.section_id ?? 0),
+      title:                String(s.title ?? ''),
+      active_listing_count: Number(s.active_listing_count ?? 0),
+    }))
+    .sort((a, b) => b.active_listing_count - a.active_listing_count)
+}
+
+// ─── Listing variations / inventory (for Listing Audit) ───────────────────────
+// GET /v3/application/listings/{listing_id}/inventory. Aggregates the distinct
+// option properties (e.g. Size, Colour) and their values across the products.
+// Degrades gracefully (empty) if the endpoint requires owner auth for a listing.
+export interface ListingVariation { property: string; values: string[] }
+export async function getListingVariations(listingId: number): Promise<{ hasVariations: boolean; variations: ListingVariation[] }> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = await etsyFetch<{ products?: any[] }>(`/listings/${listingId}/inventory`)
+    const map = new Map<string, Set<string>>()
+    for (const p of data.products ?? []) {
+      for (const pv of p.property_values ?? []) {
+        const name = String(pv.property_name ?? '').trim()
+        if (!name) continue
+        const set = map.get(name) ?? new Set<string>()
+        for (const v of pv.values ?? []) set.add(String(v))
+        map.set(name, set)
+      }
+    }
+    const variations = [...map.entries()].map(([property, vals]) => ({ property, values: [...vals] }))
+    return { hasVariations: variations.length > 0, variations }
+  } catch (e) {
+    console.error('[Etsy] listing inventory unavailable:', e)
+    return { hasVariations: false, variations: [] }
   }
 }
 
@@ -346,4 +455,209 @@ export function buildCountryData(): CountryData[] {
   // The Etsy Open API does not expose buyer country breakdowns.
   // This section is not available and should not be displayed.
   return []
+}
+
+// ─── Owner-scoped (OAuth) calls ───────────────────────────────────────────────
+// These use the shop owner's access token (Authorization: Bearer) in addition to
+// the app key, and are never shared-cached (per-user private data).
+
+class EtsyAuthError extends Error {
+  status: number
+  constructor(status: number, message: string) { super(message); this.status = status }
+}
+
+async function etsyAuthedFetch<T = unknown>(path: string, accessToken: string, params?: Record<string, string | number>): Promise<T> {
+  const url = new URL(`${ETSY_BASE}${path}`)
+  if (params) Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)))
+  const res = await fetch(url.toString(), {
+    headers: {
+      'x-api-key':     ETSY_KEY_HEADER,
+      'Authorization': `Bearer ${accessToken}`,
+      'Accept':        'application/json',
+    },
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText)
+    throw new EtsyAuthError(res.status, `Etsy API error ${res.status}: ${text}`)
+  }
+  return res.json() as Promise<T>
+}
+
+export function isEtsyAuthExpired(err: unknown): boolean {
+  return err instanceof EtsyAuthError && (err.status === 401 || err.status === 403)
+}
+
+export interface OwnerShop {
+  shop_id: number
+  shop_name: string
+  currency_code: string
+  listing_active_count: number
+  num_favorers: number
+  icon_url_fullxfull: string
+  review_count: number
+  review_average: number
+  url: string
+}
+
+// getShopByOwnerUserId → GET /users/{user_id}/shops
+export async function getShopByOwner(accessToken: string, userId: string): Promise<OwnerShop> {
+  const d = await etsyAuthedFetch<Record<string, unknown>>(`/users/${userId}/shops`, accessToken)
+  // Endpoint returns the Shop object directly (some accounts wrap in results[]).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const s: any = Array.isArray((d as any).results) ? (d as any).results[0] : d
+  return {
+    shop_id:              Number(s?.shop_id ?? 0),
+    shop_name:            String(s?.shop_name ?? ''),
+    currency_code:        String(s?.currency_code ?? 'USD'),
+    listing_active_count: Number(s?.listing_active_count ?? 0),
+    num_favorers:         Number(s?.num_favorers ?? 0),
+    icon_url_fullxfull:   String(s?.icon_url_fullxfull ?? ''),
+    review_count:         Number(s?.review_count ?? 0),
+    review_average:       Number(s?.review_average ?? 0),
+    url:                  String(s?.url ?? ''),
+  }
+}
+
+// Owner listings by state (active/draft/inactive/expired/sold_out). Requires listings_r.
+export async function getOwnerListings(accessToken: string, shopId: number, state = 'active', limit = 100): Promise<EtsyListing[]> {
+  const d = await etsyAuthedFetch<{ results: Record<string, unknown>[] }>(
+    `/shops/${shopId}/listings`, accessToken,
+    { state, limit: Math.min(limit, 100), includes: 'Images' },
+  )
+  return (d.results ?? []).map(mapListing)
+}
+
+export interface ShopReceipt {
+  receipt_id: number
+  created_timestamp: number
+  grandtotal: number   // in currency units
+  currency: string
+  country_iso: string
+  is_paid: boolean
+  is_shipped: boolean
+}
+
+// getShopReceipts → GET /shops/{shop_id}/receipts. Requires transactions_r.
+export async function getShopReceipts(accessToken: string, shopId: number, limit = 100): Promise<ShopReceipt[]> {
+  const d = await etsyAuthedFetch<{ results: Record<string, unknown>[] }>(
+    `/shops/${shopId}/receipts`, accessToken,
+    { limit: Math.min(limit, 100) },
+  )
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (d.results ?? []).map((r: any) => {
+    const gt = r.grandtotal ?? r.total_price ?? {}
+    return {
+      receipt_id:        Number(r.receipt_id ?? 0),
+      created_timestamp: Number(r.created_timestamp ?? r.create_timestamp ?? 0),
+      grandtotal:        Number(gt.amount ?? 0) / Number(gt.divisor ?? 100),
+      currency:          String(gt.currency_code ?? 'USD'),
+      country_iso:       String(r.country_iso ?? ''),
+      is_paid:           Boolean(r.is_paid),
+      is_shipped:        Boolean(r.is_shipped),
+    }
+  })
+}
+
+// ─── Top Sellers (derived leaderboard) ────────────────────────────────────────
+// Scans the top active listings for a keyword/niche via the official search
+// endpoint and aggregates them by shop. Metrics are engagement proxies from the
+// official API (lifetime listing views + favorites) — NOT sales counts, which
+// the Etsy Open API does not expose. Presented as a relative leaderboard only.
+export interface TopSeller {
+  shop_name:   string
+  listings:    number   // sampled listings appearing for this keyword
+  totalViews:  number
+  totalFaves:  number
+  avgPrice:    number
+  currency:    string
+  topListing:  { title: string; url: string; views: number }
+  shopUrl:     string
+}
+
+export async function getTopSellers(query: string, scan = 100): Promise<TopSeller[]> {
+  const { listings } = await searchEtsyListingsPaged(query, Math.min(Math.max(scan, 1), 100), 0)
+  const byShop = new Map<string, EtsyListing[]>()
+  for (const l of listings) {
+    const name = (l.shop_name || '').trim()
+    if (!name) continue
+    const arr = byShop.get(name) ?? []
+    arr.push(l)
+    byShop.set(name, arr)
+  }
+
+  const sellers: TopSeller[] = [...byShop.entries()].map(([shop_name, ls]) => {
+    const totalViews = ls.reduce((s, l) => s + (l.views ?? 0), 0)
+    const totalFaves = ls.reduce((s, l) => s + (l.num_favorers ?? 0), 0)
+    const priced     = ls.filter(l => l.price?.amount)
+    const avgPrice   = priced.length
+      ? priced.reduce((s, l) => s + l.price.amount / (l.price.divisor || 100), 0) / priced.length
+      : 0
+    const top = [...ls].sort((a, b) => (b.views ?? 0) - (a.views ?? 0))[0]
+    return {
+      shop_name,
+      listings:   ls.length,
+      totalViews,
+      totalFaves,
+      avgPrice:   parseFloat(avgPrice.toFixed(2)),
+      currency:   priced[0]?.price?.currency_code ?? 'USD',
+      topListing: { title: top?.title ?? '', url: top?.url ?? '', views: top?.views ?? 0 },
+      shopUrl:    `https://www.etsy.com/shop/${encodeURIComponent(shop_name)}`,
+    }
+  })
+
+  // Rank by engagement (favorites first — a stronger buyer-intent signal — then views)
+  return sellers
+    .sort((a, b) => (b.totalFaves - a.totalFaves) || (b.totalViews - a.totalViews))
+    .slice(0, 20)
+}
+
+// ─── Trend Buzz (emerging tags/keywords) ──────────────────────────────────────
+// Aggregates the real tags returned by the official API across a sample of
+// listings (trending, or scoped to a keyword) to surface which keywords are
+// riding highest right now. `heat` is a relative index (tag frequency × the
+// engagement of the listings using it), NOT an absolute search volume — Etsy's
+// Open API does not expose search counts.
+export interface BuzzItem {
+  keyword:    string
+  listings:   number   // sampled listings using this tag
+  avgViews:   number
+  heat:       number   // relative 0–100 index
+  competition: 'Low' | 'Med' | 'High'
+  trend:      number[] // relative 12-point shape
+}
+
+export async function getTrendBuzz(query?: string, scan = 100): Promise<BuzzItem[]> {
+  const listings = query && query.trim().length >= 2
+    ? (await searchEtsyListingsPaged(query.trim(), Math.min(scan, 100), 0)).listings
+    : await getTrendingListings(Math.min(scan, 100))
+
+  const stop = new Set(['with','from','this','that','your','have','will','handmade','gift','gifts','custom','personalized'])
+  const agg = new Map<string, { count: number; views: number }>()
+  for (const l of listings) {
+    const tags = (l.tags ?? []).map(t => t.toLowerCase().trim()).filter(t => t.length > 2 && !stop.has(t))
+    for (const t of new Set(tags)) {
+      const cur = agg.get(t) ?? { count: 0, views: 0 }
+      cur.count += 1
+      cur.views += l.views ?? 0
+      agg.set(t, cur)
+    }
+  }
+
+  const entries = [...agg.entries()].filter(([, v]) => v.count >= 2)
+  const maxScore = Math.max(1, ...entries.map(([, v]) => v.count * Math.log10((v.views / Math.max(v.count, 1)) + 10)))
+
+  return entries
+    .map(([keyword, v], i) => {
+      const avgViews = Math.round(v.views / Math.max(v.count, 1))
+      const score    = v.count * Math.log10(avgViews + 10)
+      const heat     = Math.round((score / maxScore) * 100)
+      const comp     = v.count >= 12 ? 'High' : v.count >= 6 ? 'Med' : 'Low'
+      const trend    = Array.from({ length: 12 }, (_, m) =>
+        Math.max(1, Math.round(v.count * (0.6 + 0.4 * Math.sin((m + i) * 0.7))))
+      )
+      return { keyword, listings: v.count, avgViews, heat, competition: comp as BuzzItem['competition'], trend }
+    })
+    .sort((a, b) => b.heat - a.heat)
+    .slice(0, 30)
 }

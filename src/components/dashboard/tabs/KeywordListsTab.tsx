@@ -79,8 +79,8 @@ export function KeywordListsTab() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {lists.map(l => (
             <div key={l.id} onClick={() => setActiveId(l.id)}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 11px', borderRadius: 8, cursor: 'pointer', background: l.id === activeId ? C.orangeFaint : 'transparent', border: `1px solid ${l.id === activeId ? 'rgba(255,96,8,0.25)' : 'transparent'}` }}>
-              <span style={{ flex: 1, fontSize: 13, fontWeight: l.id === activeId ? 600 : 400, color: l.id === activeId ? C.orange : C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</span>
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 11px', borderRadius: 8, cursor: 'pointer', background: l.id === activeId ? C.orangeFaint : 'transparent', border: `1px solid ${l.id === activeId ? 'rgba(251,94,9,0.25)' : 'transparent'}` }}>
+              <span style={{ flex: 1, fontSize: 13, fontWeight: l.id === activeId ? 500 : 400, color: l.id === activeId ? C.orange : C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</span>
               <span style={{ fontSize: 10.5, fontFamily: MONO, color: '#a3a29a' }}>{l.keywords.length}</span>
               <button onClick={e => { e.stopPropagation(); deleteList(l.id) }} title="Delete list"
                 style={{ background: 'transparent', border: 'none', color: '#b0b0a8', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
@@ -123,3 +123,4 @@ export function KeywordListsTab() {
     </div>
   )
 }
+

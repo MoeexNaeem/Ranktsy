@@ -92,7 +92,7 @@ export function TagTitleGeneratorTab() {
             <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
               {tags.map(t => (
                 <button key={t} onClick={() => navigator.clipboard?.writeText(t)} title="Click to copy"
-                  style={{ fontSize: 12.5, fontFamily: MONO, color: C.orange, background: C.orangeFaint, border: `1px solid rgba(255,96,8,0.22)`, padding: '5px 12px', borderRadius: 100, cursor: 'pointer', transition: 'all 0.15s' }}
+                  style={{ fontSize: 12.5, fontFamily: MONO, color: C.orange, background: C.orangeFaint, border: `1px solid rgba(251,94,9,0.22)`, padding: '5px 12px', borderRadius: 100, cursor: 'pointer', transition: 'all 0.15s' }}
                   onMouseEnter={e => { e.currentTarget.style.background = C.orange; e.currentTarget.style.color = '#fff' }}
                   onMouseLeave={e => { e.currentTarget.style.background = C.orangeFaint; e.currentTarget.style.color = C.orange }}>
                   {t}
@@ -112,3 +112,4 @@ export function TagTitleGeneratorTab() {
     </div>
   )
 }
+

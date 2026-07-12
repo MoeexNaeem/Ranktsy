@@ -43,6 +43,8 @@ export interface KeywordData {
   competitionLevel: 'Low' | 'Med' | 'High'
   tagOccurrences: number
   charCount: number
+  wordCount: number
+  difficulty: number           // relative keyword-difficulty score 0–100 (estimate)
   googleSearches: number | null
   trend: number[]
 }
@@ -51,7 +53,14 @@ export interface KeywordStats {
   avgSearches: number
   avgClicks: number
   avgCtr: number
-  etsyCompetition: number
+  etsyCompetition: number       // sampled listings used to derive the stats
+  totalResults: number          // real total active Etsy listings for the keyword
+  difficulty: number            // keyword difficulty 0–100 (estimate)
+  difficultyLabel: 'Easy' | 'Medium' | 'Hard'
+  avgPrice: number
+  currency: string
+  avgFavorites: number
+  googleSearches: number | null   // real Google monthly volume (null unless Google Ads configured)
 }
 
 export interface KeywordSearchResponse {
@@ -85,6 +94,10 @@ export interface EtsyShop {
   listing_active_count: number
   num_favorers: number
   icon_url_fullxfull?: string
+  review_count?: number
+  review_average?: number
+  is_vacation?: boolean
+  url?: string
 }
 
 export interface EtsyShopAnalytics {

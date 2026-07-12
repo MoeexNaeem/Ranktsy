@@ -15,7 +15,7 @@ export const CountryChart = memo(function CountryChart({ data }:{ data:CountryDa
   const options = useMemo<ChartOptions<'doughnut'>>(() => ({
     responsive: true, maintainAspectRatio: false, cutout: '65%',
     plugins: {
-      legend: { display:true, position:'right', labels:{ font:{ size:10, family:"'IBM Plex Mono',monospace" }, color:'#666', boxWidth:8, boxHeight:8, padding:8 } },
+      legend: { display:true, position:'right', labels:{ font:{ size:10, family:"'General Sans',monospace" }, color:'#666', boxWidth:8, boxHeight:8, padding:8 } },
     },
   }), [])
 

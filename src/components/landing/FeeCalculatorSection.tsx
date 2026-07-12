@@ -7,7 +7,7 @@ import { Reveal } from './Reveal'
  * Public Etsy Fee Calculator — landing section (Huddle-styled).
  * Same fee model as the dashboard tool. Estimates only; Etsy sets actual rates.
  */
-const MONO = "'IBM Plex Mono',monospace"
+const MONO = "'General Sans',monospace"
 const LISTING_FEE = 0.20
 const TRANSACTION_RATE = 0.065
 const OFFSITE_ADS_RATE = 0.15
@@ -28,7 +28,7 @@ function Field({ label, value, onChange, prefix, placeholder }: {
 }) {
   return (
     <label style={{ display: 'block' }}>
-      <span style={{ display: 'block', fontSize: 11, fontFamily: MONO, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#3a4444', marginBottom: 8 }}>{label}</span>
+      <span style={{ display: 'block', fontSize: 11, fontFamily: MONO, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6E6E64', marginBottom: 8 }}>{label}</span>
       <div style={{ display: 'flex', alignItems: 'center', background: C.paper, border: `1px solid ${C.hair}`, borderRadius: 8, overflow: 'hidden' }}>
         {prefix && <span style={{ padding: '0 2px 0 12px', fontSize: 13, color: '#808080', fontFamily: MONO, flexShrink: 0 }}>{prefix}</span>}
         <input type="number" min="0" step="0.01" inputMode="decimal" value={value} placeholder={placeholder ?? '0.00'}
@@ -42,8 +42,8 @@ function Field({ label, value, onChange, prefix, placeholder }: {
 function Row({ label, value, cur, strong, accent }: { label: string; value: number; cur: string; strong?: boolean; accent?: string }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: `1px solid ${C.hair}` }}>
-      <span style={{ fontSize: strong ? 13 : 12.5, fontWeight: strong ? 600 : 400, color: strong ? C.ink : '#3a4444' }}>{label}</span>
-      <span style={{ fontSize: strong ? 13.5 : 13, fontWeight: strong ? 700 : 500, fontFamily: MONO, color: accent ?? (strong ? C.ink : '#3a4444') }}>
+      <span style={{ fontSize: strong ? 13 : 12.5, fontWeight: strong ? 500 : 400, color: strong ? C.ink : '#6E6E64' }}>{label}</span>
+      <span style={{ fontSize: strong ? 13.5 : 13, fontWeight: strong ? 500 : 400, fontFamily: MONO, color: accent ?? (strong ? C.ink : '#6E6E64') }}>
         {value < 0 ? '-' : ''}{cur}{Math.abs(value).toFixed(2)}
       </span>
     </div>
@@ -82,14 +82,14 @@ export function FeeCalculatorSection() {
   return (
     <section id="fee-calculator" style={{ padding: '150px 40px 96px', background: C.canvas, minHeight: '100vh' }}>
       <Reveal style={{ maxWidth: 1200, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, fontWeight: 500, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#3a4444', marginBottom: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, fontWeight: 500, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#6E6E64', marginBottom: 18 }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.orange, display: 'inline-block' }} />
           Fee Calculator
         </div>
-        <h2 style={{ fontSize: 'clamp(30px,4vw,46px)', fontWeight: 300, letterSpacing: '-1.2px', color: C.ink, lineHeight: 1.08, marginBottom: 16, maxWidth: 720 }}>
+        <h2 style={{ fontSize: 'clamp(34px,4.6vw,56px)', fontWeight: 500, letterSpacing: '-0.03em', color: C.ink, lineHeight: 1.0, marginBottom: 16, maxWidth: 760 }}>
           Know your profit before you list.
         </h2>
-        <p style={{ fontSize: 18, color: '#3a4444', lineHeight: 1.5, letterSpacing: '-0.14px', maxWidth: 520, marginBottom: 48 }}>
+        <p style={{ fontSize: 18, color: '#6E6E64', lineHeight: 1.5, letterSpacing: '-0.14px', maxWidth: 520, marginBottom: 48 }}>
           Estimate Etsy&apos;s listing, transaction, and payment-processing fees — and see exactly what you keep.
         </p>
 
@@ -107,7 +107,7 @@ export function FeeCalculatorSection() {
                 <Field label="Quantity" value={qty} onChange={setQty} placeholder="1" />
               </div>
               <label style={{ display: 'block' }}>
-                <span style={{ display: 'block', fontSize: 11, fontFamily: MONO, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#3a4444', marginBottom: 8 }}>Region</span>
+                <span style={{ display: 'block', fontSize: 11, fontFamily: MONO, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6E6E64', marginBottom: 8 }}>Region</span>
                 <select value={region} onChange={e => setRegion(e.target.value)}
                   style={{ width: '100%', background: C.paper, border: `1px solid ${C.hair}`, borderRadius: 8, padding: '11px 12px', fontSize: 13, fontFamily: 'inherit', color: '#1a1a1a', outline: 'none', cursor: 'pointer' }}>
                   {Object.entries(PROCESSING).map(([k, v]) => <option key={k} value={k}>{v.label} — {(v.rate * 100).toFixed(0)}% + {v.cur}{v.flat.toFixed(2)}</option>)}
@@ -127,21 +127,21 @@ export function FeeCalculatorSection() {
           <div style={{ background: C.paper, border: `1px solid ${C.hairInk}`, borderRadius: 8, padding: '24px' }}>
             <h3 style={{ fontSize: 15, fontWeight: 500, color: C.ink, marginBottom: 16, letterSpacing: '-0.3px' }}>Fee breakdown</h3>
             <Row label="Revenue (item + shipping)" value={r.revenue} cur={cur} strong />
-            <Row label="Listing fee" value={-r.listingFee} cur={cur} accent="#3a4444" />
-            <Row label="Transaction fee (6.5%)" value={-r.transactionFee} cur={cur} accent="#3a4444" />
-            <Row label={`Payment processing (${(proc.rate * 100).toFixed(0)}% + ${cur}${proc.flat.toFixed(2)})`} value={-r.processingFee} cur={cur} accent="#3a4444" />
-            {r.adsFee > 0 && <Row label="Offsite Ads (15%)" value={-r.adsFee} cur={cur} accent="#3a4444" />}
+            <Row label="Listing fee" value={-r.listingFee} cur={cur} accent="#6E6E64" />
+            <Row label="Transaction fee (6.5%)" value={-r.transactionFee} cur={cur} accent="#6E6E64" />
+            <Row label={`Payment processing (${(proc.rate * 100).toFixed(0)}% + ${cur}${proc.flat.toFixed(2)})`} value={-r.processingFee} cur={cur} accent="#6E6E64" />
+            {r.adsFee > 0 && <Row label="Offsite Ads (15%)" value={-r.adsFee} cur={cur} accent="#6E6E64" />}
             <Row label="Total Etsy fees" value={-r.totalFees} cur={cur} strong accent={C.danger} />
-            {r.itemCostTotal > 0 && <Row label="Your item cost" value={-r.itemCostTotal} cur={cur} accent="#3a4444" />}
+            {r.itemCostTotal > 0 && <Row label="Your item cost" value={-r.itemCostTotal} cur={cur} accent="#6E6E64" />}
 
             <div style={{ marginTop: 14, background: r.net >= 0 ? C.successBg : C.dangerBg, borderRadius: 8, padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
               <div>
                 <p style={{ fontSize: 11, fontFamily: MONO, color: netAccent, textTransform: 'uppercase', letterSpacing: '0.06em' }}>You keep</p>
-                <p style={{ fontSize: 30, fontWeight: 700, color: netAccent, letterSpacing: '-1px', lineHeight: 1.05 }}>{r.net < 0 ? '-' : ''}{cur}{Math.abs(r.net).toFixed(2)}</p>
+                <p style={{ fontSize: 30, fontWeight: 500, color: netAccent, letterSpacing: '-1px', lineHeight: 1.05 }}>{r.net < 0 ? '-' : ''}{cur}{Math.abs(r.net).toFixed(2)}</p>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <p style={{ fontSize: 11, fontFamily: MONO, color: netAccent, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Margin</p>
-                <p style={{ fontSize: 24, fontWeight: 700, color: netAccent, letterSpacing: '-0.5px' }}>{r.margin.toFixed(1)}%</p>
+                <p style={{ fontSize: 24, fontWeight: 500, color: netAccent, letterSpacing: '-0.5px' }}>{r.margin.toFixed(1)}%</p>
               </div>
             </div>
             <p style={{ fontSize: 12, color: '#808080', marginTop: 12, lineHeight: 1.5 }}>

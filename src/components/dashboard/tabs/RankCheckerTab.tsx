@@ -63,14 +63,14 @@ export function RankCheckerTab() {
         <SectionTitle>Where does your shop rank?</SectionTitle>
         <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div>
-            <label style={{ display: 'block', fontSize: 11, fontFamily: MONO, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#3a4444', marginBottom: 8 }}>Your shop (name or ID)</label>
+            <label style={{ display: 'block', fontSize: 11, fontFamily: MONO, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6E6E64', marginBottom: 8 }}>Your shop (name or ID)</label>
             <input value={shop} onChange={e => setShop(e.target.value)} placeholder="e.g. CrochetArtPK"
-              style={{ width: '100%', background: C.canvas, border: `1px solid ${C.hair}`, borderRadius: 100, padding: '10px 16px', fontSize: 13.5, fontFamily: 'inherit', outline: 'none', color: '#1a1a1a', boxSizing: 'border-box' }} />
+              style={{ width: '100%', background: C.canvas, border: `1px solid ${C.ash}`, borderRadius: 100, padding: '12px 16px', fontSize: 15, fontFamily: 'inherit', outline: 'none', color: C.ink, boxSizing: 'border-box' }} />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 11, fontFamily: MONO, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#3a4444', marginBottom: 8 }}>Keywords ({MAX} max, one per line)</label>
+            <label style={{ display: 'block', fontSize: 11, fontFamily: MONO, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6E6E64', marginBottom: 8 }}>Keywords ({MAX} max, one per line)</label>
             <textarea value={kwText} onChange={e => setKwText(e.target.value)} rows={3} placeholder={'crochet cardigan\nbaby crochet pattern'}
-              style={{ width: '100%', background: C.canvas, border: `1px solid ${C.hair}`, borderRadius: 8, padding: '10px 14px', fontSize: 13, fontFamily: MONO, outline: 'none', color: '#1a1a1a', resize: 'vertical', boxSizing: 'border-box', lineHeight: 1.5 }} />
+              style={{ width: '100%', background: C.canvas, border: `1px solid ${C.ash}`, borderRadius: 12, padding: '12px 14px', fontSize: 14.5, fontFamily: MONO, outline: 'none', color: C.ink, resize: 'vertical', boxSizing: 'border-box', lineHeight: 1.5 }} />
           </div>
         </div>
         <button onClick={go} disabled={loading} style={{ ...primaryBtn, opacity: loading ? 0.7 : 1 }}>
@@ -83,8 +83,8 @@ export function RankCheckerTab() {
 
       {rows && !loading && (
         <div>
-          <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>{ranked}/{rows.length} keywords ranking in top 100</span>}>Rankings</SectionTitle>
-          <div style={tableCard}>
+          <SectionTitle right={<span style={{ fontSize: 12, fontFamily: MONO, color: C.graphite }}>{ranked}/{rows.length} keywords ranking in top 100</span>}>Rankings</SectionTitle>
+          <div className="rtable" style={tableCard}>
             <div style={tableHead(GRID)}>
               {['Keyword', 'Best rank', 'Top ranking listing', 'Total results'].map(h => <span key={h} style={th}>{h}</span>)}
             </div>
@@ -93,15 +93,15 @@ export function RankCheckerTab() {
               return (
                 <div key={r.keyword} style={tableRow(GRID)}>
                   <span style={tdTitle}>{r.keyword}</span>
-                  <span style={{ display: 'inline-flex', width: 'fit-content', padding: '2px 11px', borderRadius: 100, fontSize: 11, fontWeight: 600, background: tone.bg, color: tone.color }}>{r.error ? 'error' : tone.label}</span>
-                  {r.url ? <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ ...tdTitle, color: C.ink, textDecoration: 'none' }}>{r.listing}</a> : <span style={{ ...tdMono, color: '#a3a29a' }}>—</span>}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, width: 'fit-content', padding: '4px 13px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: tone.bg, color: tone.color }}>{r.error ? 'error' : tone.label}</span>
+                  {r.url ? <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ ...tdTitle, color: C.ink, textDecoration: 'none' }}>{r.listing}</a> : <span style={{ ...tdMono, color: C.stone }}>—</span>}
                   <span style={tdMono}>{formatNumber(r.total)}</span>
                 </div>
               )
             })}
           </div>
-          <p style={{ fontSize: 12, color: '#808080', marginTop: 12, lineHeight: 1.5 }}>
-            Rankings scan the top 100 listings in Etsy&apos;s relevance order (roughly the first two pages). Actual buyer results can vary by location and personalization.
+          <p style={{ fontSize: 13, color: C.graphite, marginTop: 12, lineHeight: 1.55 }}>
+            Rankings scan the top 100 listings in Etsy&apos;s relevance order (roughly the first two pages) via the official Etsy search API. Actual buyer results can vary by location and personalization.
           </p>
         </div>
       )}

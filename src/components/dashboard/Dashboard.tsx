@@ -76,8 +76,8 @@ export function Dashboard() {
               <button onClick={search} style={{ background:C.charcoal, border:'none', color:C.snow, padding:'0 13px', fontSize:11.5, fontWeight:500, cursor:'pointer', fontFamily:'inherit' }}>Search</button>
             </div>
             <div style={{ marginLeft:'auto', display:'flex', gap:8, alignItems:'center' }}>
-              <span style={{ fontSize:10.5, background:C.orange, color:C.snow, padding:'3px 10px', borderRadius:999, fontFamily:"'IBM Plex Mono',monospace" }}>Etsy US</span>
-              <span style={{ fontSize:10, color:'#bbb', fontFamily:"'IBM Plex Mono',monospace" }}>Live data</span>
+              <span style={{ fontSize:10.5, background:C.orange, color:C.snow, padding:'3px 10px', borderRadius:999, fontFamily:"'General Sans',monospace" }}>Etsy US</span>
+              <span style={{ fontSize:10, color:'#bbb', fontFamily:"'General Sans',monospace" }}>Live data</span>
             </div>
           </div>
 
@@ -97,8 +97,8 @@ export function Dashboard() {
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:9 }}>
                   {isLoading||!stats ? [0,1,2].map(i=><Skel key={i} h={74} />) : stats.map(s=>(
                     <div key={s.label} style={{ background:C.warmGray, borderRadius:10, padding:'11px 13px' }}>
-                      <p style={{ fontSize:9.5, fontFamily:"'IBM Plex Mono',monospace", color:'#999', textTransform:'uppercase' as const, letterSpacing:'0.05em', marginBottom:4 }}>{s.label}</p>
-                      <p style={{ fontSize:20, fontWeight:600, color:s.color, letterSpacing:'-0.5px' }}>{s.value}</p>
+                      <p style={{ fontSize:9.5, fontFamily:"'General Sans',monospace", color:'#999', textTransform:'uppercase' as const, letterSpacing:'0.05em', marginBottom:4 }}>{s.label}</p>
+                      <p style={{ fontSize:20, fontWeight:500, color:s.color, letterSpacing:'-0.5px' }}>{s.value}</p>
                       <p style={{ fontSize:10.5, color:'#bbb', marginTop:2 }}>{s.sub}</p>
                       <div style={{ height:3, background:'rgba(0,0,0,0.07)', borderRadius:999, marginTop:7, overflow:'hidden' }}>
                         <div style={{ height:'100%', width:`${s.pct}%`, background:s.color, borderRadius:999, transition:'width 0.7s ease' }} />

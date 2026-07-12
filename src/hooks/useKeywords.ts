@@ -50,3 +50,35 @@ export function useTrends(query: string) {
     staleTime: 1000 * 60 * 60, // 1 hour
   })
 }
+
+// ─── useTopSellers ────────────────────────────────────────────────────────────
+import type { TopSeller, BuzzItem } from '@/lib/etsy'
+
+export function useTopSellers(query: string) {
+  return useQuery({
+    queryKey:  ['top-sellers', query.toLowerCase().trim()] as const,
+    queryFn:   async ({ signal }) => {
+      const { data } = await api.get<ApiResponse<TopSeller[]>>(`/etsy/top-sellers?q=${encodeURIComponent(query)}`, { signal })
+      if (!data.success || !data.data) throw new Error(data.error ?? 'Failed to load top sellers')
+      return data.data
+    },
+    enabled:   query.trim().length >= 2,
+    staleTime: 1000 * 60 * 30,
+    placeholderData: (prev) => prev,
+  })
+}
+
+// ─── useTrendBuzz ─────────────────────────────────────────────────────────────
+// Empty query = featured/trending buzz across Etsy.
+export function useTrendBuzz(query: string) {
+  return useQuery({
+    queryKey:  ['trend-buzz', query.toLowerCase().trim()] as const,
+    queryFn:   async ({ signal }) => {
+      const { data } = await api.get<ApiResponse<BuzzItem[]>>(`/etsy/trend-buzz?q=${encodeURIComponent(query)}`, { signal })
+      if (!data.success || !data.data) throw new Error(data.error ?? 'Failed to load trend buzz')
+      return data.data
+    },
+    staleTime: 1000 * 60 * 30,
+    placeholderData: (prev) => prev,
+  })
+}

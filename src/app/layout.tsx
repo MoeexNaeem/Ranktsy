@@ -10,20 +10,21 @@ export const metadata: Metadata = {
   openGraph:   { title: 'Ranktsy', description: 'Keyword research for Etsy sellers.', type: 'website' },
   robots:      { index: true, follow: true },
 }
-export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#FF6008' }
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#FB5E09' }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet" />
+        {/* General Sans (Fontshare) — closest free match to Perk's OTSono geometric grotesk */}
+        <link rel="preconnect" href="https://api.fontshare.com" crossOrigin="" />
+        <link rel="preconnect" href="https://cdn.fontshare.com" crossOrigin="" />
+        <link href="https://api.fontshare.com/v2/css?f=general-sans@400,500,600,700&display=swap" rel="stylesheet" />
       </head>
       <body>
         <Providers>
           {children}
-          <Toaster position="bottom-right" toastOptions={{ style: { background: '#3C3C3C', color: '#FFFFFF', borderRadius: 999, fontSize: 13, fontFamily: 'Inter, sans-serif' } }} />
+          <Toaster position="bottom-right" toastOptions={{ style: { background: '#3D3E3B', color: '#FFFFFF', borderRadius: 999, fontSize: 13, fontFamily: 'General Sans, sans-serif' } }} />
         </Providers>
       </body>
     </html>

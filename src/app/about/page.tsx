@@ -57,10 +57,10 @@ export default function AboutPage() {
                 gap: 8,
                 fontSize: 11.5,
                 fontWeight: 500,
-                fontFamily: "'IBM Plex Mono', monospace",
+                fontFamily: "'General Sans', monospace",
                 textTransform: 'uppercase',
                 letterSpacing: '0.09em',
-                color: '#3a4444',
+                color: '#6E6E64',
                 marginBottom: 22,
               }}
             >
@@ -70,7 +70,7 @@ export default function AboutPage() {
             <h1
               style={{
                 fontSize: 'clamp(40px, 5.4vw, 64px)',
-                fontWeight: 300,
+                fontWeight: 500,
                 letterSpacing: '-2px',
                 color: C.ink,
                 lineHeight: 1.04,
@@ -85,7 +85,7 @@ export default function AboutPage() {
             <p
               style={{
                 fontSize: 18,
-                color: '#3a4444',
+                color: '#6E6E64',
                 lineHeight: 1.6,
                 letterSpacing: '-0.14px',
                 maxWidth: 560,
@@ -99,6 +99,7 @@ export default function AboutPage() {
         {/* ── Stats Strip ── */}
         <div style={{ background: C.orangeFaint, padding: '32px 48px' }}>
           <div
+            className="rgrid-4"
             style={{
               maxWidth: 1200,
               margin: '0 auto',
@@ -119,7 +120,7 @@ export default function AboutPage() {
                 <div
                   style={{
                     fontSize: 'clamp(24px, 3vw, 36px)',
-                    fontWeight: 300,
+                    fontWeight: 500,
                     color: C.orange,
                     letterSpacing: '-1.5px',
                     marginBottom: 4,
@@ -130,7 +131,7 @@ export default function AboutPage() {
                 <div
                   style={{
                     fontSize: 12,
-                    fontFamily: "'IBM Plex Mono', monospace",
+                    fontFamily: "'General Sans', monospace",
                     color: C.charcoalMid,
                     textTransform: 'uppercase',
                     letterSpacing: '0.06em',
@@ -146,6 +147,7 @@ export default function AboutPage() {
         {/* ── Mission ── */}
         <div style={{ padding: '80px 48px', background: C.snow }}>
           <div
+            className="rsplit"
             style={{
               maxWidth: 1200,
               margin: '0 auto',
@@ -162,7 +164,7 @@ export default function AboutPage() {
                   alignItems: 'center',
                   gap: 8,
                   fontSize: 11,
-                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontFamily: "'General Sans', monospace",
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
                   color: C.orange,
@@ -175,7 +177,7 @@ export default function AboutPage() {
               <h2
                 style={{
                   fontSize: 'clamp(28px, 3.5vw, 40px)',
-                  fontWeight: 300,
+                  fontWeight: 500,
                   letterSpacing: '-1.2px',
                   color: C.ink,
                   lineHeight: 1.08,
@@ -228,10 +230,10 @@ export default function AboutPage() {
                 gap: 8,
                 fontSize: 11.5,
                 fontWeight: 500,
-                fontFamily: "'IBM Plex Mono', monospace",
+                fontFamily: "'General Sans', monospace",
                 textTransform: 'uppercase',
                 letterSpacing: '0.09em',
-                color: '#3a4444',
+                color: '#6E6E64',
                 marginBottom: 18,
               }}
             >
@@ -241,7 +243,7 @@ export default function AboutPage() {
             <h2
               style={{
                 fontSize: 'clamp(28px, 3.5vw, 40px)',
-                fontWeight: 300,
+                fontWeight: 500,
                 letterSpacing: '-1.2px',
                 color: C.ink,
                 lineHeight: 1.08,
@@ -261,15 +263,15 @@ export default function AboutPage() {
             >
               They show up in every product decision we make.
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+            <div className="rgrid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
               {VALUES.map((v) => (
                 <div
                   key={v.title}
                   style={{
                     background: C.paper,
                     border: `1px solid ${C.hairInk}`,
-                    borderRadius: 8,
-                    padding: '32px 30px',
+                    borderRadius: 24,
+                    padding: '34px 32px',
                     cursor: 'default',
                     transition: 'transform 0.18s',
                   }}
@@ -288,7 +290,7 @@ export default function AboutPage() {
                   >
                     {v.title}
                   </h3>
-                  <p style={{ fontSize: 15, color: '#3a4444', lineHeight: 1.6, letterSpacing: '-0.1px' }}>{v.desc}</p>
+                  <p style={{ fontSize: 15, color: '#6E6E64', lineHeight: 1.6, letterSpacing: '-0.1px' }}>{v.desc}</p>
                 </div>
               ))}
             </div>
@@ -305,10 +307,10 @@ export default function AboutPage() {
                 gap: 8,
                 fontSize: 11.5,
                 fontWeight: 500,
-                fontFamily: "'IBM Plex Mono', monospace",
+                fontFamily: "'General Sans', monospace",
                 textTransform: 'uppercase',
                 letterSpacing: '0.09em',
-                color: '#3a4444',
+                color: '#6E6E64',
                 marginBottom: 18,
               }}
             >
@@ -318,7 +320,7 @@ export default function AboutPage() {
             <h2
               style={{
                 fontSize: 'clamp(30px, 4vw, 46px)',
-                fontWeight: 300,
+                fontWeight: 500,
                 letterSpacing: '-1.2px',
                 color: C.ink,
                 lineHeight: 1.08,
@@ -328,13 +330,13 @@ export default function AboutPage() {
             >
               An independent team, building in the open.
             </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, maxWidth: 900 }}>
-              <p style={{ fontSize: 16, color: '#3a4444', lineHeight: 1.7, letterSpacing: '-0.1px' }}>
+            <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, maxWidth: 900 }}>
+              <p style={{ fontSize: 16, color: '#6E6E64', lineHeight: 1.7, letterSpacing: '-0.1px' }}>
                 Ranktsy is built by a small, independent team of Etsy sellers and engineers. We&apos;re not backed by a
                 private-equity firm with misaligned incentives, and we&apos;re not affiliated with Etsy — that independence
                 is exactly what lets us give you objective, unbiased market intelligence.
               </p>
-              <p style={{ fontSize: 16, color: '#3a4444', lineHeight: 1.7, letterSpacing: '-0.1px' }}>
+              <p style={{ fontSize: 16, color: '#6E6E64', lineHeight: 1.7, letterSpacing: '-0.1px' }}>
                 We&apos;re in beta and building in the open — shipping improvements every week and reading every piece of
                 feedback. Our business grows only when our sellers grow, and that keeps us honest.
               </p>
@@ -346,18 +348,18 @@ export default function AboutPage() {
         <div style={{ background: C.canvas, padding: '40px 40px 96px' }}>
           <div style={{ maxWidth: 1200, margin: '0 auto' }}>
             <div style={{ background: C.charcoal, border: `1px solid ${C.hairInk}`, borderRadius: 40, padding: '72px 48px', textAlign: 'center' }}>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginBottom: 20, fontSize: 11.5, fontFamily: "'IBM Plex Mono',monospace", fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(252,252,247,0.6)' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginBottom: 20, fontSize: 11.5, fontFamily: "'General Sans',monospace", fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(252,252,247,0.6)' }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.orange, display: 'inline-block' }} />
                 Get started
               </div>
-              <h2 style={{ fontSize: 'clamp(32px, 4.4vw, 52px)', fontWeight: 300, color: '#FFFFFF', letterSpacing: '-1.6px', lineHeight: 1.05, marginBottom: 18 }}>
+              <h2 style={{ fontSize: 'clamp(32px, 4.4vw, 52px)', fontWeight: 500, color: '#FFFFFF', letterSpacing: '-0.03em', lineHeight: 1.02, marginBottom: 18 }}>
                 Ready to grow your Etsy shop?
               </h2>
               <p style={{ fontSize: 18, color: 'rgba(252,252,247,0.6)', marginBottom: 40, letterSpacing: '-0.14px' }}>
                 Start using real Etsy data to rank higher and sell more.
               </p>
               <div style={{ display: 'flex', gap: 26, justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
-                <a href="/register" style={{ background: C.orange, color: '#fff', textDecoration: 'none', padding: '15px 32px', borderRadius: 1000, fontSize: 16, fontWeight: 500, letterSpacing: '-0.01em', transition: 'opacity 0.18s' }}
+                <a href="/register" style={{ background: C.orange, color: '#fff', textDecoration: 'none', padding: '15px 32px', borderRadius: 28, fontSize: 16, fontWeight: 500, letterSpacing: '-0.01em', transition: 'opacity 0.18s' }}
                   onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.88')}
                   onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}>
                   Start free

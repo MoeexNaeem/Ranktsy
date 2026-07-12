@@ -116,10 +116,10 @@ export default function PrivacyPage() {
                 gap: 8,
                 fontSize: 11.5,
                 fontWeight: 500,
-                fontFamily: "'IBM Plex Mono', monospace",
+                fontFamily: "'General Sans', monospace",
                 textTransform: 'uppercase',
                 letterSpacing: '0.09em',
-                color: '#3a4444',
+                color: '#6E6E64',
                 marginBottom: 22,
               }}
             >
@@ -128,11 +128,11 @@ export default function PrivacyPage() {
             </div>
             <h1
               style={{
-                fontSize: 'clamp(36px, 5vw, 56px)',
-                fontWeight: 300,
-                letterSpacing: '-1.6px',
+                fontSize: 'clamp(40px, 5.4vw, 64px)',
+                fontWeight: 500,
+                letterSpacing: '-0.03em',
                 color: C.ink,
-                lineHeight: 1.04,
+                lineHeight: 0.98,
                 marginBottom: 18,
               }}
             >
@@ -141,7 +141,7 @@ export default function PrivacyPage() {
             <p
               style={{
                 fontSize: 13,
-                fontFamily: "'IBM Plex Mono', monospace",
+                fontFamily: "'General Sans', monospace",
                 color: '#808080',
                 letterSpacing: '0.02em',
               }}
@@ -152,7 +152,7 @@ export default function PrivacyPage() {
         </div>
 
         {/* ── Body ── */}
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '64px 48px', display: 'grid', gridTemplateColumns: '1fr 2.4fr', gap: 64, alignItems: 'start' }}>
+        <div className="rsplit rpad-sm" style={{ maxWidth: 1200, margin: '0 auto', padding: '64px 48px', display: 'grid', gridTemplateColumns: '1fr 2.4fr', gap: 64, alignItems: 'start' }}>
 
           {/* Sticky TOC */}
           <nav
@@ -167,7 +167,7 @@ export default function PrivacyPage() {
             <p
               style={{
                 fontSize: 10,
-                fontFamily: "'IBM Plex Mono', monospace",
+                fontFamily: "'General Sans', monospace",
                 textTransform: 'uppercase',
                 letterSpacing: '0.1em',
                 color: C.charcoalMid,
@@ -196,7 +196,7 @@ export default function PrivacyPage() {
               >
                 <span
                   style={{
-                    fontFamily: "'IBM Plex Mono', monospace",
+                    fontFamily: "'General Sans', monospace",
                     fontSize: 10,
                     color: C.charcoalMid,
                     flexShrink: 0,
@@ -245,7 +245,7 @@ export default function PrivacyPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
                   <span
                     style={{
-                      fontFamily: "'IBM Plex Mono', monospace",
+                      fontFamily: "'General Sans', monospace",
                       fontSize: 11,
                       color: C.ink,
                       background: C.bone,
@@ -290,7 +290,7 @@ export default function PrivacyPage() {
                         <span style={{ flexShrink: 0, marginTop: 3, color: C.orange, fontSize: 10 }}>▸</span>
                         <p style={{ fontSize: 14, color: '#444', lineHeight: 1.7, margin: 0 }}>
                           {b.label && (
-                            <strong style={{ color: C.orange, fontWeight: 600 }}>{b.label}: </strong>
+                            <strong style={{ color: C.orange, fontWeight: 500 }}>{b.label}: </strong>
                           )}
                           {b.text}
                         </p>
@@ -315,7 +315,7 @@ export default function PrivacyPage() {
                       borderRadius: 8,
                     }}
                   >
-                    <p style={{ fontSize: 13, color: '#3C3C3C', lineHeight: 1.7, margin: 0, fontFamily: "'IBM Plex Mono', monospace" }}>
+                    <p style={{ fontSize: 13, color: '#3D3E3B', lineHeight: 1.7, margin: 0, fontFamily: "'General Sans', monospace" }}>
                       ⚠ Important Disclaimer: The term &apos;Etsy&apos; is a trademark of Etsy, Inc. This
                       application uses the Etsy API but is not endorsed or certified by Etsy, Inc.
                     </p>
@@ -343,7 +343,7 @@ export default function PrivacyPage() {
                         color: C.orange,
                         textDecoration: 'none',
                         fontSize: 14,
-                        fontFamily: "'IBM Plex Mono', monospace",
+                        fontFamily: "'General Sans', monospace",
                       }}
                     >
                       <span style={{ opacity: 0.6, fontSize: 12 }}>EMAIL</span>
@@ -358,7 +358,7 @@ export default function PrivacyPage() {
                         color: C.orange,
                         textDecoration: 'none',
                         fontSize: 14,
-                        fontFamily: "'IBM Plex Mono', monospace",
+                        fontFamily: "'General Sans', monospace",
                       }}
                     >
                       <span style={{ opacity: 0.6, fontSize: 12 }}>WEB</span>

@@ -55,22 +55,22 @@ export function CalendarTab() {
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                   <h3 style={{ fontSize: 16, fontWeight: 500, color: C.ink }}>{e.name}</h3>
-                  {e.prepping && <span style={{ fontSize: 10, fontFamily: MONO, fontWeight: 600, textTransform: 'uppercase', color: C.orange, background: C.orangeFaint, padding: '2px 9px', borderRadius: 100 }}>Prep now</span>}
+                  {e.prepping && <span style={{ fontSize: 10, fontFamily: MONO, fontWeight: 500, textTransform: 'uppercase', color: C.orange, background: C.orangeFaint, padding: '2px 9px', borderRadius: 100 }}>Prep now</span>}
                 </div>
-                <p style={{ fontSize: 12.5, color: '#3a4444', marginBottom: 12, fontFamily: MONO }}>
+                <p style={{ fontSize: 12.5, color: '#6E6E64', marginBottom: 12, fontFamily: MONO }}>
                   {fmt(e.date)} · in {e.daysUntil} day{e.daysUntil === 1 ? '' : 's'} · refresh listings by <strong style={{ color: e.prepping ? C.orange : C.ink }}>{fmtShort(e.prepBy)}</strong>
                 </p>
                 <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
                   {e.themes.map(t => (
                     <button key={t} onClick={() => navigator.clipboard?.writeText(t)} title="Click to copy"
-                      style={{ fontSize: 11.5, fontFamily: MONO, color: C.orange, background: C.orangeFaint, border: `1px solid rgba(255,96,8,0.2)`, padding: '4px 11px', borderRadius: 100, cursor: 'pointer' }}>
+                      style={{ fontSize: 11.5, fontFamily: MONO, color: C.orange, background: C.orangeFaint, border: `1px solid rgba(251,94,9,0.2)`, padding: '4px 11px', borderRadius: 100, cursor: 'pointer' }}>
                       {t}
                     </button>
                   ))}
                 </div>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <p style={{ fontSize: 30, fontWeight: 300, color: i < 3 ? C.orange : C.ink, letterSpacing: '-1px', lineHeight: 1 }}>{e.daysUntil}</p>
+                <p style={{ fontSize: 30, fontWeight: 400, color: i < 3 ? C.orange : C.ink, letterSpacing: '-1px', lineHeight: 1 }}>{e.daysUntil}</p>
                 <p style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080', textTransform: 'uppercase' }}>days</p>
               </div>
             </div>
@@ -79,10 +79,11 @@ export function CalendarTab() {
       </div>
 
       <Card pad="16px">
-        <p style={{ fontSize: 12.5, color: '#3a4444', lineHeight: 1.6 }}>
+        <p style={{ fontSize: 12.5, color: '#6E6E64', lineHeight: 1.6 }}>
           <strong style={{ color: C.ink }}>Shipping tip:</strong> for December holidays, most carriers&apos; last standard-shipping dates fall around <strong>Dec 15–19</strong> (US/UK/EU/CA/AU). Add a shop-wide &ldquo;order by&rdquo; note and consider upgraded shipping options in early December.
         </p>
       </Card>
     </div>
   )
 }
+

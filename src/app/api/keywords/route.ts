@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
 import { KeywordCache, KeywordHistory } from '@/lib/models'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
-import { searchEtsyListings, buildKeywordStats, buildTrendData, buildCountryData } from '@/lib/etsy'
+import { searchEtsyListingsPaged, buildKeywordStats } from '@/lib/etsy'
+import { googleKeywordMetrics, isGoogleAdsConfigured } from '@/lib/google-ads'
 import { getCurrentUser } from '@/lib/auth/session'
 import type { ApiResponse, KeywordSearchResponse } from '@/types'
 
@@ -16,12 +17,14 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
     return NextResponse.json({ success: false, error: 'Query must be at least 2 characters' }, { status: 400 })
   }
 
-  const key = cacheKey('keyword', query)
+  // v3: added keyword difficulty, total competition, tag/char/word + Google volume.
+  const key = cacheKey('keyword', 'v3', query)
 
-  // Older cached entries stored null Search/Clicks/CTR for related keywords.
-  // Treat those as stale so they rebuild with the new engagement-derived proxies.
+  // Rebuild entries missing the newer fields, and — once Google Ads is configured —
+  // entries that were cached before Google data was available.
   const isStale = (d?: KeywordSearchResponse) =>
-    !!d && Array.isArray(d.related) && d.related.length > 0 && d.related[0].avgSearches == null
+    !!d && (d.stats?.difficulty == null || d.stats?.totalResults == null ||
+            (isGoogleAdsConfigured() && d.stats?.googleSearches == null))
 
   // L1: in-memory
   const memHit = memCache.get<KeywordSearchResponse>(key)
@@ -43,8 +46,17 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
   // L3: Real Etsy API
   let data: KeywordSearchResponse
   try {
-    const listings = await searchEtsyListings(query, 25)
-    data = buildKeywordStats(query, listings)
+    const { listings, count } = await searchEtsyListingsPaged(query, 50, 0)
+    data = buildKeywordStats(query, listings, count)
+
+    // Enrich with real Google monthly search volume when Google Ads is configured.
+    if (isGoogleAdsConfigured()) {
+      const metrics = await googleKeywordMetrics([query, ...data.related.map(r => r.keyword)])
+      if (metrics.size) {
+        data.stats.googleSearches = metrics.get(query)?.searches ?? null
+        data.related = data.related.map(r => ({ ...r, googleSearches: metrics.get(r.keyword.toLowerCase())?.searches ?? null }))
+      }
+    }
   } catch (err) {
     console.error('[Keywords] Etsy API error:', err)
     return NextResponse.json({ success: false, error: 'Failed to fetch keyword data from Etsy. Check your ETSY_API_KEY.' }, { status: 502 })

@@ -53,10 +53,10 @@ function AuthFormInner({ type, email: initEmail, onNext }: { type: FormType; ema
 
   const S = {
     wrap:  { minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:C.canvas, padding:24 } as const,
-    card:  { background:C.paper, borderRadius:8, padding:'44px 40px', width:'100%', maxWidth:440, border:`1px solid ${C.hairInk}` } as const,
-    label: { display:'block', fontSize:11, fontFamily:"'IBM Plex Mono',monospace", fontWeight:500, textTransform:'uppercase' as const, letterSpacing:'0.07em', color:'#3a4444', marginBottom:8 } as const,
+    card:  { background:C.paper, borderRadius:24, padding:'44px 40px', width:'100%', maxWidth:440, border:`1px solid ${C.hairInk}` } as const,
+    label: { display:'block', fontSize:11, fontFamily:"'General Sans',monospace", fontWeight:500, textTransform:'uppercase' as const, letterSpacing:'0.07em', color:'#6E6E64', marginBottom:8 } as const,
     input: { width:'100%', border:`1px solid ${C.hair}`, borderRadius:8, padding:'12px 14px', fontSize:14, fontFamily:'inherit', outline:'none', background:C.canvas, color:'#1a1a1a', transition:'border-color 0.15s', boxSizing:'border-box' } as const,
-    btn:   { width:'100%', background: C.orange, color:'#fff', border:'none', borderRadius:1000, padding:'14px', fontSize:15, fontWeight:500, cursor:'pointer', fontFamily:'inherit', marginTop:24, transition:'opacity 0.18s', letterSpacing:'-0.01em' } as const,
+    btn:   { width:'100%', background: C.orange, color:'#fff', border:'none', borderRadius:28, padding:'14px', fontSize:15, fontWeight:500, cursor:'pointer', fontFamily:'inherit', marginTop:24, transition:'opacity 0.18s', letterSpacing:'-0.01em' } as const,
     link:  { color:C.ink, fontSize:13.5, textDecoration:'none', fontWeight:500 } as const,
   }
 
@@ -64,13 +64,13 @@ function AuthFormInner({ type, email: initEmail, onNext }: { type: FormType; ema
     <div style={S.wrap}>
       <div style={S.card}>
         <Link href="/" style={{ display:'inline-flex', alignItems:'center', gap:8, marginBottom:32, textDecoration:'none' }}>
-          <span style={{ display:'inline-flex', alignItems:'center', gap:7, fontSize:11, fontFamily:"'IBM Plex Mono',monospace", fontWeight:500, textTransform:'uppercase', letterSpacing:'0.09em', color:'#3a4444' }}>
+          <span style={{ display:'inline-flex', alignItems:'center', gap:7, fontSize:11, fontFamily:"'General Sans',monospace", fontWeight:500, textTransform:'uppercase', letterSpacing:'0.09em', color:'#6E6E64' }}>
             <span style={{ width:6, height:6, borderRadius:'50%', background:C.orange, display:'inline-block' }} />
             Ranktsy
           </span>
         </Link>
-        <h1 style={{ fontSize:29, fontWeight:300, color:C.ink, letterSpacing:'-0.8px', marginBottom:8, lineHeight:1.1 }}>{TITLES[type]}</h1>
-        <p style={{ fontSize:15, color:'#3a4444', marginBottom:30, lineHeight:1.5, letterSpacing:'-0.1px' }}>{SUBTITLES[type]}</p>
+        <h1 style={{ fontSize:32, fontWeight:500, color:C.ink, letterSpacing:'-0.03em', marginBottom:8, lineHeight:1.05 }}>{TITLES[type]}</h1>
+        <p style={{ fontSize:15, color:'#6E6E64', marginBottom:30, lineHeight:1.5, letterSpacing:'-0.1px' }}>{SUBTITLES[type]}</p>
 
         {success  && <div style={{ background:C.orange, color:C.snow, borderRadius:10, padding:'12px 16px', fontSize:13.5, marginBottom:16 }}>✓ {success}</div>}
         {errors._ && <div style={{ background:'#fff0f0', color:'#c00', borderRadius:10, padding:'12px 16px', fontSize:13.5, marginBottom:16 }}>⚠ {errors._}</div>}
@@ -107,7 +107,7 @@ export interface AuthFormProps { type: FormType; email?: string; onNext?: (email
 
 export function AuthForm(props: AuthFormProps) {
   return (
-    <Suspense fallback={<div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:C.canvas }}><div className="shimmer" style={{ width:440, height:520, borderRadius:8, background:'#e8e7e2' }} /></div>}>
+    <Suspense fallback={<div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:C.canvas }}><div className="shimmer" style={{ width:440, height:520, borderRadius:24, background:'#e8e7e2' }} /></div>}>
       <AuthFormInner {...props} />
     </Suspense>
   )

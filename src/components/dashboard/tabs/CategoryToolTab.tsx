@@ -45,14 +45,14 @@ export function CategoryToolTab() {
           {filtered.length === 0 ? (
             <EmptyState icon="🗂️" title="No categories match" sub="Try a broader term" />
           ) : (
-            <div style={tableCard}>
+            <div className="rtable" style={tableCard}>
               <div style={tableHead(GRID)}>
                 {['Category', 'Full path', 'ID'].map(h => <span key={h} style={th}>{h}</span>)}
               </div>
               {filtered.map(c => (
                 <div key={c.id} style={tableRow(GRID)}>
                   <span style={{ fontSize: 13, fontWeight: 500, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
-                  <span style={{ fontSize: 12, color: '#3a4444', fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.fullPath}</span>
+                  <span style={{ fontSize: 12, color: '#6E6E64', fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.fullPath}</span>
                   <button onClick={() => navigator.clipboard?.writeText(String(c.id))} title="Copy taxonomy ID" style={{ ...tdMono, background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, color: C.orange }}>{c.id}</button>
                 </div>
               ))}

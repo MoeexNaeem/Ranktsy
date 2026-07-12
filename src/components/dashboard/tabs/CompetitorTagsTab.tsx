@@ -38,44 +38,43 @@ export function CompetitorTagsTab() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <SearchBar value={input} onChange={setInput} onSubmit={go} placeholder="Competitor shop name or ID…" button="Extract tags →" maxWidth={460} />
+      <SearchBar value={input} onChange={setInput} onSubmit={go} placeholder="Shop name or ID…" button="Analyze →" maxWidth={460} />
 
       {isLoading && <div className="shimmer" style={{ height: 360, borderRadius: 8, background: '#e8e7e2' }} />}
       {isError && <ErrorBox>Shop not found. Check the name or ID and try again.</ErrorBox>}
 
       {tags.length > 0 && !isLoading && (
         <>
-          <Card pad="14px 16px">
-            <p style={{ fontSize: 13, color: C.ink }}>
+          <Card pad="16px 18px">
+            <p style={{ fontSize: 14.5, color: C.ink }}>
               <strong>{String(data?.shop.shop_name ?? shop)}</strong> uses <strong>{tags.length}</strong> unique tags across {data?.listings.length} listings.
             </p>
           </Card>
           <div>
-            <SectionTitle right={<button onClick={() => navigator.clipboard?.writeText(tags.slice(0, 13).map(t => t.tag).join(', '))} style={{ fontSize: 12, fontFamily: MONO, color: C.orange, background: 'transparent', border: `1px solid ${C.orange}`, padding: '4px 12px', borderRadius: 100, cursor: 'pointer' }}>Copy top 13</button>}>
-              Tags ranked by usage
+            <SectionTitle right={<span style={{ fontSize: 12, fontFamily: MONO, color: C.graphite }}>{tags.length} tags · ranked by usage</span>}>
+              Tag performance
             </SectionTitle>
-            <div style={tableCard}>
+            <div className="rtable" style={tableCard}>
               <div style={tableHead(GRID)}>
                 {['Tag', 'Used', 'Avg Views', 'Avg Favs'].map(h => <span key={h} style={th}>{h}</span>)}
               </div>
               {tags.map(t => (
                 <div key={t.tag} style={tableRow(GRID)}>
-                  <button onClick={() => navigator.clipboard?.writeText(t.tag)} title="Click to copy"
-                    style={{ fontSize: 12.5, fontFamily: MONO, color: C.ink, background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.tag}</button>
+                  <span style={{ fontSize: 14.5, fontFamily: MONO, fontWeight: 500, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.tag}</span>
                   <span style={tdMono}>{t.count}×</span>
                   <span style={tdMono}>{formatNumber(t.avgViews)}</span>
                   <span style={tdMono}>{formatNumber(t.avgFavs)}</span>
                 </div>
               ))}
             </div>
-            <p style={{ fontSize: 12, color: '#808080', marginTop: 12, lineHeight: 1.5 }}>
-              Tags are pulled from the shop&apos;s active listings via the official Etsy API. Click any tag to copy it.
+            <p style={{ fontSize: 13, color: C.graphite, marginTop: 12, lineHeight: 1.55 }}>
+              For market research — see which tags a shop uses across its active listings and how those tags correlate with views &amp; favorites. Tags come from the official Etsy API. Always write your own tags that genuinely describe your product.
             </p>
           </div>
         </>
       )}
 
-      {!shop && !isLoading && <EmptyState icon="🔖" title="See any shop's tags" sub="Enter a competitor's shop to extract and rank the tags they use" />}
+      {!shop && !isLoading && <EmptyState icon="🔖" title="Analyze a shop's tags" sub="See which tags a shop uses across its listings and how they perform — for niche research" />}
     </div>
   )
 }

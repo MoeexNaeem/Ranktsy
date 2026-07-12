@@ -3,20 +3,24 @@
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #F8F7F5;
-  color: #3C3C3C;
+  /* General Sans — closest free match to Perk's OTSono geometric grotesk */
+  font-family: 'General Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #F5F5EB;
+  color: #3D3E3B;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  letter-spacing: -0.01em;
 }
 
 a { color: inherit; }
 
+::selection { background: #FB5E09; color: #fff; }
+
 /* ─── Scrollbar ─────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar       { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #FF6008; border-radius: 9999px; opacity: 0.5; }
+::-webkit-scrollbar-thumb { background: #FB5E09; border-radius: 9999px; opacity: 0.5; }
 
 /* ─── Animations ────────────────────────────────────────────────────────────── */
 @keyframes fadeUp {
@@ -46,42 +50,123 @@ canvas { display: block; }
 button { font-family: inherit; }
 input  { font-family: inherit; }
 
-/* ─── Responsive (mobile & tablet). Desktop keeps its inline styles because ──── */
-/* these rules only apply below the breakpoints. Hook classes override the       */
-/* inline grid/layout on small screens via !important.                           */
-img { max-width: 100%; }
+/* ─── Responsive layer ────────────────────────────────────────────────────────
+   Desktop is untouched: every rule below lives inside a max-width media query
+   (or, for the mobile-only chrome like the dashboard drawer button, is hidden by
+   default and only revealed inside a media query). Hook classes override the
+   components' inline grid/layout on small screens via !important. Nothing here
+   changes the ≥1025px desktop presentation.
+   ──────────────────────────────────────────────────────────────────────────── */
+img  { max-width: 100%; }
+svg  { max-width: 100%; }
 
-/* Tablet ≤ 1024px */
+/* Mobile-only chrome — hidden on desktop, shown inside the drawer media query. */
+.rdash-burger  { display: none; }
+.rdash-overlay { display: none; }
+
+/* Hero floating tag-cloud */
+@keyframes heroFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-13px); }
+}
+.float-card { animation: heroFloat var(--dur, 4s) ease-in-out infinite; animation-delay: var(--delay, 0s); will-change: transform; }
+/* Hidden on small screens (too cramped to scatter). */
+@media (max-width: 900px) {
+  .hero-tags { display: none !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .float-card { animation: none; }
+}
+
+/* ── Tablet ≤ 1024px ─────────────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
   .rgrid-4 { grid-template-columns: repeat(2, 1fr) !important; }
   .rgrid-3 { grid-template-columns: repeat(2, 1fr) !important; }
   .rsplit  { grid-template-columns: 1fr !important; }
 }
 
-/* Dashboard collapses to an icon rail ≤ 900px */
+/* ── Dashboard sidebar → off-canvas drawer ≤ 900px ───────────────────────────── */
 @media (max-width: 900px) {
-  .rdash-aside   { width: 60px !important; }
-  .rdash-aside .rlabel { display: none !important; }
-  .rdash-aside a, .rdash-aside button { justify-content: center !important; padding-left: 0 !important; padding-right: 0 !important; }
-  .rdash-usercard { display: none !important; }
-  .rdash-content, .rdash-topbar, .rdash-footer { padding-left: 16px !important; padding-right: 16px !important; }
+  /* Lift the sidebar out of flow so the main column takes the full width. */
+  .rdash-aside {
+    position: fixed !important;
+    top: 0 !important; left: 0; bottom: 0;
+    height: 100dvh !important;
+    width: 250px !important;
+    max-width: 82vw;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 200;
+    box-shadow: 0 12px 40px rgba(20, 20, 20, 0.18);
+  }
+  .rdash-aside.rdash-open { transform: translateX(0); }
+
+  /* Dimmed backdrop behind the open drawer. */
+  .rdash-overlay {
+    display: block;
+    position: fixed; inset: 0; z-index: 150;
+    background: rgba(20, 20, 20, 0.42);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.28s ease;
+  }
+  .rdash-overlay.rdash-open { opacity: 1; pointer-events: auto; }
+
+  /* The hamburger toggle appears in the top bar. */
+  .rdash-burger {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px; flex-shrink: 0;
+    border: 1px solid #E9E6DE; border-radius: 9px;
+    background: #fff; color: #2A2A2A; cursor: pointer; padding: 0;
+    margin-right: 12px;
+  }
+
+  .rdash-content, .rdash-topbar, .rdash-footer {
+    padding-left: 18px !important; padding-right: 18px !important;
+  }
+
+  /* Landing nav: hide the centre links (they live in the footer + mobile menu). */
   .rnav-links { display: none !important; }
-  nav .rnav-inner { padding-left: 20px !important; padding-right: 20px !important; }
+  nav .rnav-inner { padding-left: 20px !important; padding-right: 20px !important; grid-template-columns: 1fr auto !important; }
+  .rnav-cta { gap: 14px !important; }
 }
 
-/* Phone ≤ 640px */
+/* ── Wide grids scroll horizontally instead of squishing ≤ 820px ─────────────── */
+/* !important beats the inline `overflow:hidden` on the table card. */
+@media (max-width: 820px) {
+  .rtable { overflow-x: auto !important; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+  .rtable > * { min-width: 620px; }
+}
+
+/* ── Phone ≤ 640px ───────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
   .rgrid-4, .rgrid-3, .rgrid-2 { grid-template-columns: 1fr !important; }
+
   section { padding-left: 20px !important; padding-right: 20px !important; }
-  main.rpage { padding-left: 20px !important; padding-right: 20px !important; }
-  .rhide-sm { display: none !important; }
+  main.rpage { padding-top: 118px !important; padding-left: 18px !important; padding-right: 18px !important; }
+
+  .rhide-sm  { display: none !important; }
   .rstack-sm { flex-direction: column !important; align-items: flex-start !important; }
-  .rfull-sm { width: 100% !important; max-width: 100% !important; }
+  .rstack-sm > * { max-width: 100%; }
+  .rfull-sm  { width: 100% !important; max-width: 100% !important; margin-left: 0 !important; }
+  .rwrap-sm  { flex-wrap: wrap !important; }
+
+  /* Dashboard top bar: drop the description + live badge so the title/avatar fit. */
+  .rdash-desc, .rdash-badge { display: none !important; }
+  .rdash-topbar { padding-top: 12px !important; padding-bottom: 12px !important; }
+  .rdash-topbar h1 { font-size: 17px !important; }
+  .rsectitle { flex-wrap: wrap !important; gap: 6px 12px !important; }
+
+  /* Marketing / legal pages: tame the generous inner padding on narrow screens. */
+  .rpad-sm { padding-left: 22px !important; padding-right: 22px !important; }
+
+  /* Announcement strip: wrap + shrink so it never gets clipped at the edges. */
+  .rnav-strip { flex-wrap: wrap !important; text-align: center; font-size: 11px !important; padding: 6px 14px !important; line-height: 1.4; }
+
   h1 { letter-spacing: -1px !important; }
 }
 
-/* Wide dashboard tables scroll horizontally instead of squishing ≤ 760px */
-@media (max-width: 760px) {
-  .rtable-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .rtable-wrap > * { min-width: 560px; }
+/* ── Small phone ≤ 420px ─────────────────────────────────────────────────────── */
+@media (max-width: 420px) {
+  main.rpage { padding-left: 14px !important; padding-right: 14px !important; }
+  .rdash-content, .rdash-topbar, .rdash-footer { padding-left: 14px !important; padding-right: 14px !important; }
 }

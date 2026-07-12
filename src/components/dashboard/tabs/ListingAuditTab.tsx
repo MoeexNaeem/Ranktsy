@@ -20,7 +20,7 @@ function extractId(input: string): number | null {
 
 interface Check { label: string; status: Status; detail: string }
 
-function auditListing(l: EtsyListing): { checks: Check[]; score: number } {
+function auditListing(l: EtsyListing, hasVariations = false): { checks: Check[]; score: number } {
   const titleLen = l.title.length
   const titleWords = l.title.trim().split(/\s+/).filter(Boolean).length
   const tags = l.tags ?? []
@@ -29,6 +29,11 @@ function auditListing(l: EtsyListing): { checks: Check[]; score: number } {
   const imgs = l.images?.length ?? 0
 
   const checks: Check[] = [
+    {
+      label: 'Product options',
+      status: hasVariations ? 'pass' : 'warn',
+      detail: hasVariations ? 'Offers variations (size/colour/etc.) — buyers get choice in one listing.' : 'No variations found — options like size or colour can lift conversions.',
+    },
     {
       label: 'Title length',
       status: titleLen >= 70 && titleLen <= 140 ? 'pass' : titleLen >= 40 ? 'warn' : 'fail',
@@ -74,16 +79,24 @@ export function ListingAuditTab() {
   const [id, setId] = useState<number | null>(null)
   const [badInput, setBadInput] = useState(false)
 
-  const { data: listing, isLoading, isError } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['listing-audit', id],
     queryFn: async () => {
-      const { data } = await axios.get(`/api/etsy/listing?id=${id}`)
-      return data.data as EtsyListing
+      const [lRes, vRes] = await Promise.all([
+        axios.get(`/api/etsy/listing?id=${id}`),
+        axios.get(`/api/etsy/variations?id=${id}`).catch(() => ({ data: { data: { hasVariations: false, variations: [] } } })),
+      ])
+      return {
+        listing: lRes.data.data as EtsyListing,
+        variations: (vRes.data.data ?? { hasVariations: false, variations: [] }) as { hasVariations: boolean; variations: { property: string; values: string[] }[] },
+      }
     },
     enabled: !!id,
     staleTime: 1000 * 60 * 30,
     retry: false,
   })
+  const listing = data?.listing
+  const variations = data?.variations
 
   const go = useCallback(() => {
     const parsed = extractId(input.trim())
@@ -91,7 +104,7 @@ export function ListingAuditTab() {
     setBadInput(false); setId(parsed)
   }, [input])
 
-  const audit = useMemo(() => (listing ? auditListing(listing) : null), [listing])
+  const audit = useMemo(() => (listing ? auditListing(listing, variations?.hasVariations) : null), [listing, variations])
   const scoreTone = audit ? (audit.score >= 80 ? C.success : audit.score >= 55 ? C.warn : C.danger) : C.ink
   const scoreLabel = audit ? (audit.score >= 80 ? 'Excellent' : audit.score >= 55 ? 'Good — room to improve' : 'Needs work') : ''
 
@@ -108,12 +121,12 @@ export function ListingAuditTab() {
           {/* Score + preview */}
           <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 12 }}>
             <Card pad="22px">
-              <p style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>SEO Score</p>
+              <p style={{ fontSize: 12, fontFamily: MONO, fontWeight: 500, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>SEO Score</p>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                <span style={{ fontSize: 52, fontWeight: 300, color: scoreTone, letterSpacing: '-2px', lineHeight: 1 }}>{audit.score}</span>
-                <span style={{ fontSize: 18, color: '#a3a29a', fontFamily: MONO }}>/100</span>
+                <span style={{ fontSize: 58, fontWeight: 500, color: scoreTone, letterSpacing: '-0.03em', lineHeight: 1 }}>{audit.score}</span>
+                <span style={{ fontSize: 20, color: C.stone, fontFamily: MONO }}>/100</span>
               </div>
-              <p style={{ fontSize: 13, fontWeight: 500, color: scoreTone, marginTop: 8 }}>{scoreLabel}</p>
+              <p style={{ fontSize: 14, fontWeight: 500, color: scoreTone, marginTop: 10 }}>{scoreLabel}</p>
               <div style={{ height: 6, background: C.bone, borderRadius: 999, marginTop: 14, overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${audit.score}%`, background: scoreTone, borderRadius: 999, transition: 'width 0.6s ease' }} />
               </div>
@@ -142,16 +155,37 @@ export function ListingAuditTab() {
                 const t = TONE[c.status]
                 return (
                   <div key={c.label} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '13px 16px', borderBottom: i < audit.checks.length - 1 ? `1px solid ${C.hair}` : 'none' }}>
-                    <span style={{ width: 20, height: 20, borderRadius: '50%', background: t.bg, color: t.color, fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>{t.icon}</span>
+                    <span style={{ width: 20, height: 20, borderRadius: '50%', background: t.bg, color: t.color, fontSize: 11, fontWeight: 500, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>{t.icon}</span>
                     <div>
-                      <p style={{ fontSize: 13.5, fontWeight: 500, color: C.ink }}>{c.label}</p>
-                      <p style={{ fontSize: 12.5, color: '#3a4444', marginTop: 2, lineHeight: 1.45 }}>{c.detail}</p>
+                      <p style={{ fontSize: 15, fontWeight: 500, color: C.ink }}>{c.label}</p>
+                      <p style={{ fontSize: 13.5, color: C.graphite, marginTop: 3, lineHeight: 1.45 }}>{c.detail}</p>
                     </div>
                   </div>
                 )
               })}
             </Card>
           </div>
+
+          {/* Product variations */}
+          {variations && variations.variations.length > 0 && (
+            <div>
+              <SectionTitle right={<span style={{ fontSize: 12, fontFamily: MONO, color: C.graphite }}>{variations.variations.length} option{variations.variations.length === 1 ? '' : 's'}</span>}>Product variations</SectionTitle>
+              <Card>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {variations.variations.map(v => (
+                    <div key={v.property}>
+                      <p style={{ fontSize: 12.5, fontFamily: MONO, fontWeight: 600, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 9 }}>{v.property} · {v.values.length}</p>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {v.values.slice(0, 40).map(val => (
+                          <span key={val} style={{ fontSize: 13.5, background: C.bone, color: C.ink, padding: '5px 13px', borderRadius: 100 }}>{val}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </div>
+          )}
         </>
       )}
 

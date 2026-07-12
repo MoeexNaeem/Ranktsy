@@ -59,7 +59,7 @@ export function TagOptimizerTab() {
       {tagAnalysis.length > 0 && !isLoading && (
         <>
           <div style={{ background: C.orange, borderRadius: 10, padding: '13px 16px' }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: C.snow, marginBottom: 3 }}>
+            <p style={{ fontSize: 13, fontWeight: 500, color: C.snow, marginBottom: 3 }}>
               Top {tagAnalysis.length} tags from {listings?.length} listings for &ldquo;{query}&rdquo;
             </p>
             <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.92)' }}>
@@ -73,7 +73,7 @@ export function TagOptimizerTab() {
             <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
               {tagAnalysis.slice(0, 13).map(t => (
                 <button key={t.tag} onClick={() => navigator.clipboard?.writeText(t.tag)} title="Click to copy"
-                  style={{ fontSize: 12, fontFamily: MONO, color: C.orange, background: C.orangeFaint, border: `1px solid rgba(255,96,8,0.22)`, padding: '5px 12px', borderRadius: 999, cursor: 'pointer', transition: 'all 0.15s' }}
+                  style={{ fontSize: 12, fontFamily: MONO, color: C.orange, background: C.orangeFaint, border: `1px solid rgba(251,94,9,0.22)`, padding: '5px 12px', borderRadius: 999, cursor: 'pointer', transition: 'all 0.15s' }}
                   onMouseEnter={e => { e.currentTarget.style.background = C.orange; e.currentTarget.style.color = '#fff' }}
                   onMouseLeave={e => { e.currentTarget.style.background = C.orangeFaint; e.currentTarget.style.color = C.orange }}>
                   {t.tag}
@@ -83,14 +83,14 @@ export function TagOptimizerTab() {
           </Card>
 
           {/* Full analysis */}
-          <div style={tableCard}>
+          <div className="rtable" style={tableCard}>
             <div style={tableHead(GRID)}>
               {['Tag', 'Used', 'Avg Views', 'Avg Favs', 'Score'].map(h => <span key={h} style={th}>{h}</span>)}
             </div>
             {tagAnalysis.map((t, i) => (
               <div key={t.tag} style={tableRow(GRID)}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                  {i < 13 && <span style={{ fontSize: 8, background: C.orange, color: C.snow, padding: '1px 6px', borderRadius: 999, fontFamily: MONO, fontWeight: 700, flexShrink: 0 }}>✓</span>}
+                  {i < 13 && <span style={{ fontSize: 8, background: C.orange, color: C.snow, padding: '1px 6px', borderRadius: 999, fontFamily: MONO, fontWeight: 500, flexShrink: 0 }}>✓</span>}
                   <span style={{ fontSize: 12.5, color: '#1a1a1a', fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.tag}</span>
                 </div>
                 <span style={tdMono}>{t.count}x</span>
@@ -100,7 +100,7 @@ export function TagOptimizerTab() {
                   <div style={{ flex: 1, height: 5, background: '#EEEDE8', borderRadius: 999, overflow: 'hidden' }}>
                     <div style={{ height: '100%', width: `${(t.score / maxScore) * 100}%`, background: C.orange, borderRadius: 999 }} />
                   </div>
-                  <span style={{ ...tdMono, color: C.orange, width: 30, fontWeight: 600 }}>{t.score}</span>
+                  <span style={{ ...tdMono, color: C.orange, width: 30, fontWeight: 500 }}>{t.score}</span>
                 </div>
               </div>
             ))}
@@ -114,3 +114,4 @@ export function TagOptimizerTab() {
     </div>
   )
 }
+

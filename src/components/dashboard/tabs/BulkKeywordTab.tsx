@@ -67,7 +67,7 @@ export function BulkKeywordTab() {
       {rows && rows.length > 0 && !isLoading && (
         <div>
           <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>sorted by lowest competition</span>}>Results</SectionTitle>
-          <div style={tableCard}>
+          <div className="rtable" style={tableCard}>
             <div style={tableHead(GRID)}>
               {['Keyword', 'Listings', 'Avg Views', 'Avg Favs', 'Competition'].map(h => <span key={h} style={th}>{h}</span>)}
             </div>
