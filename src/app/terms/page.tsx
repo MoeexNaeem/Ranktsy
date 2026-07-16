@@ -78,7 +78,7 @@ const sections = [
     bullets: [
       { label: 'Data Source', text: 'All Etsy data displayed in Rankkw is retrieved via the official Etsy Open API v3. The API provides listing-level data (titles, tags, views, favorites, prices, images) for active public listings. It does not expose raw search volume, click data, or buyer country breakdowns — any engagement metrics shown are derived from listing view/favorite counts as relative proxies only.' },
       { label: 'Data Scope', text: 'We access only publicly available listing data (titles, tags, views, images, prices). We do not access private seller data without explicit OAuth consent.' },
-      { label: 'No Affiliation', text: 'Rankkw is an independent application. "Etsy" is a trademark of Etsy, Inc. This app uses the Etsy API but is not endorsed or certified by Etsy, Inc.' },
+      { label: 'No Affiliation', text: 'Rankkw is an independent application. "Etsy" is a trademark of Etsy, Inc. This application uses the Etsy API but is not endorsed or certified by Etsy, Inc.' },
     ],
   },
   {
@@ -367,7 +367,7 @@ export default function TermsPage() {
                         fontFamily: "'General Sans', monospace",
                       }}
                     >
-                      ⚠ Important Disclaimer: The term &apos;Etsy&apos; is a trademark of Etsy, Inc. This application uses the Etsy API but is not endorsed or certified by Etsy, Inc. Use of Etsy&apos;s API is subject to Etsy&apos;s own Terms of Use, and users of Rankkw who connect their Etsy shops remain bound by Etsy&apos;s policies.
+                      Important Disclaimer: The term &apos;Etsy&apos; is a trademark of Etsy, Inc. This application uses the Etsy API but is not endorsed or certified by Etsy, Inc. Use of Etsy&apos;s API is subject to Etsy&apos;s own Terms of Use, and users of Rankkw who connect their Etsy shops remain bound by Etsy&apos;s policies.
                     </p>
                   </div>
                 )}

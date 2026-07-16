@@ -35,7 +35,10 @@ export default function ProfilePage() {
   const [p, setP] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [name, setName] = useState('')
-  const [nameMsg, setNameMsg] = useState('')
+  // {ok,text} rather than a string: success used to be inferred from the text
+  // starting with a "✓" glyph, which coupled state logic to display copy (and to
+  // a character General Sans doesn't even carry). Mirrors pwdMsg below.
+  const [nameMsg, setNameMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [cur, setCur] = useState(''); const [nw, setNw] = useState('')
   const [pwdMsg, setPwdMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
@@ -49,15 +52,17 @@ export default function ProfilePage() {
   const saveName = useCallback(async () => {
     const r = await fetch('/api/auth/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
     const d = await r.json()
-    setNameMsg(d.success ? '✓ Saved' : (d.errors?.name || d.error || 'Failed'))
+    setNameMsg(d.success
+      ? { ok: true, text: 'Saved' }
+      : { ok: false, text: d.errors?.name || d.error || 'Failed' })
     if (d.success) setP(pp => pp ? { ...pp, name } : pp)
-    setTimeout(() => setNameMsg(''), 2500)
+    setTimeout(() => setNameMsg(null), 2500)
   }, [name])
 
   const changePwd = useCallback(async () => {
     const r = await fetch('/api/auth/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword: cur, newPassword: nw }) })
     const d = await r.json()
-    if (d.success) { setPwdMsg({ ok: true, text: '✓ Password updated' }); setCur(''); setNw('') }
+    if (d.success) { setPwdMsg({ ok: true, text: 'Password updated' }); setCur(''); setNw('') }
     else setPwdMsg({ ok: false, text: d.errors?.currentPassword || d.errors?.newPassword || d.error || 'Failed' })
     setTimeout(() => setPwdMsg(null), 3500)
   }, [cur, nw])
@@ -121,7 +126,7 @@ export default function ProfilePage() {
                     <input value={name} onChange={e => setName(e.target.value)} style={input} maxLength={60} />
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14 }}>
                       <button onClick={saveName} style={btn}>Save</button>
-                      {nameMsg && <span style={{ fontSize: 12.5, color: nameMsg.startsWith('✓') ? C.success : C.danger }}>{nameMsg}</span>}
+                      {nameMsg && <span style={{ fontSize: 12.5, color: nameMsg.ok ? C.success : C.danger }}>{nameMsg.text}</span>}
                     </div>
                   </Card>
 

@@ -316,7 +316,7 @@ export default function PrivacyPage() {
                     }}
                   >
                     <p style={{ fontSize: 13, color: '#3D3E3B', lineHeight: 1.7, margin: 0, fontFamily: "'General Sans', monospace" }}>
-                      ⚠ Important Disclaimer: The term &apos;Etsy&apos; is a trademark of Etsy, Inc. This
+                      Important Disclaimer: The term &apos;Etsy&apos; is a trademark of Etsy, Inc. This
                       application uses the Etsy API but is not endorsed or certified by Etsy, Inc.
                     </p>
                   </div>

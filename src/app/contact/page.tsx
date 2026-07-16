@@ -3,24 +3,25 @@ import { useState } from 'react'
 import { Navbar } from '@/components/landing/Navbar'
 import { Footer } from '@/components/landing/Sections'
 import { C } from '@/utils'
+import { Icon } from '@/components/ui/Icon'
 
 const CONTACT_CHANNELS = [
   {
-    icon: '📧',
+    icon: 'mail' as const,
     label: 'General Inquiries',
     value: 'hello@rankkw.com',
     href: 'mailto:hello@rankkw.com',
     desc: 'For general questions, partnerships, and press.',
   },
   {
-    icon: '🛠️',
+    icon: 'tool' as const,
     label: 'Technical Support',
     value: 'support@rankkw.com',
     href: 'mailto:support@rankkw.com',
     desc: 'Having trouble with the platform? We respond within 24 hours.',
   },
   {
-    icon: '💼',
+    icon: 'briefcase' as const,
     label: 'Business & Billing',
     value: 'billing@rankkw.com',
     href: 'mailto:billing@rankkw.com',
@@ -162,7 +163,7 @@ export default function ContactPage() {
                 onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
                 onMouseLeave={(e) => (e.currentTarget.style.transform = 'none')}
               >
-                <div style={{ fontSize: 22, marginBottom: 16 }}>{ch.icon}</div>
+                <Icon name={ch.icon} size={22} color={C.ink} style={{ marginBottom: 16 }} />
                 <p
                   style={{
                     fontSize: 11,
@@ -245,7 +246,7 @@ export default function ContactPage() {
                     textAlign: 'center',
                   }}
                 >
-                  <div style={{ fontSize: 36, marginBottom: 16 }}>✅</div>
+                  <Icon name='check' size={36} color={C.orange} strokeWidth={2} style={{ marginBottom: 16, margin: '0 auto 16px' }} />
                   <h3
                     style={{
                       fontSize: 20,
@@ -506,7 +507,7 @@ export default function ContactPage() {
                   gap: 14,
                 }}
               >
-                <span style={{ fontSize: 20, flexShrink: 0 }}>⚡</span>
+                <Icon name='bolt' size={18} color={C.orange} style={{ flexShrink: 0, marginTop: 2 }} />
                 <p style={{ fontSize: 13, color: C.orange, lineHeight: 1.6, margin: 0 }}>
                   <strong>Typical response time:</strong> We reply to most messages within 24 hours on business days. Premium plan users get priority support.
                 </p>

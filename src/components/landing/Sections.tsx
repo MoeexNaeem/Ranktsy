@@ -5,6 +5,25 @@ import { Reveal, RevealGroup, RevealItem } from "./Reveal";
 
 const SANS = "'General Sans',sans-serif";
 
+/* ─── Card icon ────────────────────────────────────────────────────────────────
+   Emoji were used here originally, but the site sets `font-family: 'General Sans'`
+   and that face carries no emoji glyphs — on real devices they fell back to a
+   blank tofu box (visible in the contact card on iOS). Inline SVG renders
+   identically everywhere, inherits colour, and matches the icon set the
+   dashboard already uses. */
+function CardIcon({ children, color }: { children: React.ReactNode; color: string }) {
+  return (
+    <svg
+      width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color}
+      strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"
+      aria-hidden="true" focusable="false"
+      style={{ display: 'block', marginBottom: 18 }}
+    >
+      {children}
+    </svg>
+  );
+}
+
 /* ─── Shared label ─────────────────────────────────────────────────────────── */
 export function SectionTag({
   children,
@@ -46,37 +65,37 @@ export function SectionTag({
   );
 }
 
-/* ─── Features ─────────────────────────────────────────────────────────────── */
+/* ─── Features ─────────────────────────────────────────────────────────────────
+   Copy here must describe only what the official Etsy API actually returns.
+   It previously advertised "avg. searches, clicks, and CTR" and "smart tag
+   recommendations based on real search data" — Etsy publishes no search-volume
+   or click data at all, so those promised numbers we cannot legally obtain, and
+   claiming them invites the obvious question of where we got them.
+   The `icon` emoji were dead data (the cards render a numbered index) and are gone. */
 const FEATURES = [
   {
-    icon: "🔍",
     title: "Keyword Research",
-    desc: "Discover high-volume, low-competition keywords that drive traffic to your listings. Get avg. searches, clicks, and CTR data.",
+    desc: "Find low-competition keywords worth targeting. Every figure is measured live from the official Etsy API: the real number of competing listings, plus the views and favorites the listings ranking for it actually earn.",
   },
   {
-    icon: "📈",
-    title: "Search Trend Analysis",
-    desc: "Track keyword trends derived from Etsy listing data. Know when buyer interest peaks for your products using signals available through the official Etsy API.",
-  },
-  {
-    icon: "🌍",
-    title: "Market Insights",
-    desc: "Analyze competition levels and tag usage patterns across active Etsy listings to identify market gaps and opportunities.",
-  },
-  {
-    icon: "🏆",
     title: "Competition Analysis",
-    desc: "Analyze top-performing listings. Understand what tags, titles, and descriptions your competitors are using to win.",
+    desc: "See the true count of active listings for any exact keyword, and how strongly the incumbents convert views into favorites — so you know what you're up against before you list.",
   },
   {
-    icon: "🏷️",
+    title: "Market Insights",
+    desc: "Analyze tag usage, category mix, price distribution and listing age across the live listings ranking for a keyword, to spot gaps competitors have left open.",
+  },
+  {
+    title: "Top Sellers & Real Sales",
+    desc: "Rank the leading shops in any niche by their real lifetime sales — Etsy's own transaction count — alongside reviews, rating, country and year opened.",
+  },
+  {
     title: "Tag Optimizer",
-    desc: "Get smart tag recommendations based on real search data. Maximize your 13-tag allowance with proven performers.",
+    desc: "Score your 13 tags against the tags the listings ranking for your keyword actually use, taken straight from the Etsy API — not generic advice.",
   },
   {
-    icon: "📊",
     title: "Shop Analytics",
-    desc: "Connect your Etsy shop to track views, favorites, sales, and revenue trends. All in one clean, actionable dashboard.",
+    desc: "Connect your Etsy shop to see your own views, favorites, orders, revenue and buyer geography, read from your Etsy receipts with your consent.",
   },
 ];
 
@@ -144,7 +163,9 @@ export function HowItWorks() {
     {
       n: "02",
       title: "Analyze the data",
-      desc: "Review search volumes, click-through rates, competition levels, and trend charts.",
+      // Etsy publishes no search volume and no click data, so this used to promise
+      // "search volumes, click-through rates" we could never honestly supply.
+      desc: "Review the real number of competing listings, how well they engage buyers, their prices, tags and age.",
     },
     {
       n: "03",
@@ -218,7 +239,11 @@ export function AboutContactTeaser() {
           onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
           onMouseLeave={e => (e.currentTarget.style.transform = 'none')}
         >
-          <div style={{ fontSize: 22, marginBottom: 18 }}>🌱</div>
+          {/* SVG, not an emoji: 'General Sans' carries no emoji glyph, so these
+              rendered as a blank tofu box on real devices. */}
+          <CardIcon color={C.ink}>
+            <path d="M12 21c0-6 3-9 8-10-1 6-4 9-8 10z" /><path d="M12 21c0-5-2-8-6-9 1 5 3 8 6 9z" /><line x1="12" y1="21" x2="12" y2="14" />
+          </CardIcon>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 7, marginBottom: 12,
             fontSize: 11, fontFamily: "'General Sans', monospace", fontWeight: 500,
@@ -251,7 +276,9 @@ export function AboutContactTeaser() {
           onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
           onMouseLeave={e => (e.currentTarget.style.transform = 'none')}
         >
-          <div style={{ fontSize: 22, marginBottom: 18 }}>✉️</div>
+          <CardIcon color={C.snow}>
+            <rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-10 6L2 7" />
+          </CardIcon>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 7, marginBottom: 12,
             fontSize: 11, fontFamily: "'General Sans', monospace", fontWeight: 500,

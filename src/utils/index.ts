@@ -1,3 +1,13 @@
+/**
+ * How long snapshot history is kept, in days (~13 months).
+ *
+ * Lives here rather than in lib/models so the Methodology page — a client
+ * component — can quote the real number without importing mongoose. The TTL
+ * index in lib/models reads this, so the number the public page states and the
+ * number the database enforces cannot drift apart.
+ */
+export const SNAPSHOT_RETENTION_DAYS = 400
+
 export const C = {
   // ── Brand palette — ONLY orange #FB5E09, dark #3D3E3B, parchment #F5F5EB ─
   orange:      '#FB5E09',        // primary action / CTA — the single chromatic charge

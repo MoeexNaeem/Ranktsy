@@ -2,25 +2,26 @@
 import { Navbar } from '@/components/landing/Navbar'
 import { Footer } from '@/components/landing/Sections'
 import { C } from '@/utils'
+import { Icon } from '@/components/ui/Icon'
 
 const VALUES = [
   {
-    icon: '🔍',
+    icon: 'search' as const,
     title: 'Radical Transparency',
     desc: 'We show real data — no inflated numbers, no misleading metrics. What you see is what actually happens on Etsy.',
   },
   {
-    icon: '🌱',
+    icon: 'sprout' as const,
     title: 'Seller-First',
     desc: 'Every feature is designed for Etsy sellers, not for us. We constantly ask: does this help someone sell more?',
   },
   {
-    icon: '⚡',
+    icon: 'bolt' as const,
     title: 'Speed of Insight',
     desc: 'We believe the gap between data and decision should be seconds, not hours. Speed is a feature.',
   },
   {
-    icon: '🤝',
+    icon: 'handshake' as const,
     title: 'Independent & Honest',
     desc: 'We\'re not affiliated with Etsy. That independence lets us give you objective, unbiased market intelligence.',
   },
@@ -278,7 +279,7 @@ export default function AboutPage() {
                   onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
                   onMouseLeave={(e) => (e.currentTarget.style.transform = 'none')}
                 >
-                  <div style={{ fontSize: 24, marginBottom: 18 }}>{v.icon}</div>
+                  <Icon name={v.icon} size={24} color={C.ink} style={{ marginBottom: 18 }} />
                   <h3
                     style={{
                       fontSize: 21,

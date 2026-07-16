@@ -1,4 +1,5 @@
 import mongoose, { Schema, model, models, type Document } from 'mongoose'
+import { SNAPSHOT_RETENTION_DAYS } from '@/utils'
 import type {
   IKeywordCache, IKeywordHistory, IOTP,
   IShopSnapshot, IListingSnapshot, ITrackedShop,
@@ -65,11 +66,23 @@ const KeywordHistorySchema = new Schema<IKeywordHistory>({
 
 KeywordHistorySchema.index({ userId: 1, searchedAt: -1 })
 
+/**
+ * Retention for snapshot history: ~13 months.
+ *
+ * Long enough to show a full year of seasonality plus a like-for-like comparison
+ * against the same month last year; short enough to be a real, enforced limit
+ * rather than "we keep Etsy data forever". Etsy's caching rule (6h listings /
+ * 24h other) governs re-displaying their content AS CURRENT — which we never do:
+ * every current figure is fetched live, and a snapshot is only ever rendered as a
+ * dated historical measurement. This bound keeps that distinction honest.
+ */
+const SNAPSHOT_TTL_SECONDS = SNAPSHOT_RETENTION_DAYS * 24 * 60 * 60
+
 // ─── Shop Snapshot ─────────────────────────────────────────────────────────────
 // One row per shop per UTC day. This is the ONLY source of sales history — Etsy
 // gives a lifetime total with no series and no backfill, so a day not captured
-// is a day lost forever. Deliberately NOT TTL-indexed on a short window: the
-// whole point is long-run history. Trimmed at ~400 days.
+// is a day lost forever. Not TTL'd on a short window (that would defeat the
+// point) but genuinely capped at SNAPSHOT_RETENTION_DAYS via the index below.
 const ShopSnapshotSchema = new Schema<IShopSnapshot>({
   shopId:         { type: Number, required: true, index: true },
   shopName:       { type: String, required: true, trim: true },
@@ -87,6 +100,8 @@ const ShopSnapshotSchema = new Schema<IShopSnapshot>({
 // on every shop read can't produce duplicate rows.
 ShopSnapshotSchema.index({ shopId: 1, day: 1 }, { unique: true })
 ShopSnapshotSchema.index({ shopId: 1, capturedAt: -1 })
+// Enforces the retention bound in the database rather than in a comment.
+ShopSnapshotSchema.index({ capturedAt: 1 }, { expireAfterSeconds: SNAPSHOT_TTL_SECONDS })
 
 // ─── Listing Snapshot ──────────────────────────────────────────────────────────
 // Powers "Changes" — what a competitor edited (title/tags/price), which Etsy's
@@ -105,6 +120,9 @@ const ListingSnapshotSchema = new Schema<IListingSnapshot>({
 }, { timestamps: false })
 
 ListingSnapshotSchema.index({ listingId: 1, day: 1 }, { unique: true })
+// Same enforced retention bound as ShopSnapshot. This one holds actual Etsy
+// listing CONTENT (title/tags/price), so capping it matters more, not less.
+ListingSnapshotSchema.index({ capturedAt: 1 }, { expireAfterSeconds: SNAPSHOT_TTL_SECONDS })
 ListingSnapshotSchema.index({ listingId: 1, capturedAt: -1 })
 
 // ─── Tracked Shop ──────────────────────────────────────────────────────────────
