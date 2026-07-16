@@ -77,7 +77,7 @@ export function Navbar() {
           {/* Left: logo */}
           <Link href="/" style={S.logoWrap}>
             <Image src="/website_logo.png" alt="Rankkw — Etsy SEO Tools" width={44} height={38} style={{ objectFit: 'contain', display: 'block' }} priority />
-            <span style={S.beta}>Betas</span>
+            <span style={S.beta}>Beta</span>
           </Link>
 
           {/* Center: links */}
