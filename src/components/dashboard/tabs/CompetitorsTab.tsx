@@ -2,18 +2,21 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
-import { C, formatNumber } from '@/utils'
+import { C, D, formatNumber } from '@/utils'
 import { SearchBar, Card, StatCard, SectionTitle, ErrorBox, Pagination, tableCard, tableHead, th, tableRow, tdMono, tdTitle, TagPill, MONO } from '../kit'
 import { BubbleChart } from '@/components/charts/InsightCharts'
 import { BarChart } from '@/components/charts/BarChart'
 import type { EtsyListing } from '@/types'
 
-const GRID = '3fr 0.8fr 0.8fr 0.8fr 1.5fr'
+const GRID = '2.6fr 1fr 0.85fr 0.75fr 0.8fr 1.3fr'
 const FETCH = 48        // fetched once from Etsy
 const PER_PAGE = 12     // paginated client-side
 
 function priceStr(l: EtsyListing) {
   if (!l.price?.amount) return '—'
+  // Currency code shown explicitly: a keyword search returns listings priced in
+  // many currencies with no FX rate, so a bare number would invite comparing
+  // 410,000 VND against $410.
   return `${l.price.currency_code} ${(l.price.amount / (l.price.divisor || 100)).toFixed(2)}`
 }
 
@@ -90,24 +93,34 @@ export function CompetitorsTab() {
             </SectionTitle>
             <div className="rtable" style={tableCard}>
               <div style={tableHead(GRID)}>
-                {['Title', 'Price', 'Views', 'Favorites', 'Tags'].map(h => <span key={h} style={th}>{h}</span>)}
+                {['Title', 'Shop', 'Price', 'Views', 'Favorites', 'Tags'].map(h => <span key={h} style={th}>{h}</span>)}
               </div>
               {pageRows.map((l, idx) => (
-                <a key={l.listing_id} href={l.url} target="_blank" rel="noopener noreferrer"
-                  style={{ ...tableRow(GRID), textDecoration: 'none', transition: 'background 0.12s' }}
+                <div key={l.listing_id}
+                  style={{ ...tableRow(GRID), transition: 'background 0.12s' }}
                   onMouseEnter={e => (e.currentTarget.style.background = C.rowHover)}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                     <span style={{ fontSize: 13, fontFamily: MONO, fontWeight: 500, color: C.stone, width: 26, flexShrink: 0 }}>#{(page - 1) * PER_PAGE + idx + 1}</span>
-                    <span style={tdTitle}>{l.title}</span>
+                    <a href={l.url} target="_blank" rel="noopener noreferrer" style={{ ...tdTitle, textDecoration: 'none' }}
+                      onMouseEnter={e => (e.currentTarget.style.color = C.orange)}
+                      onMouseLeave={e => (e.currentTarget.style.color = C.ink)}>{l.title}</a>
                   </div>
+                  {/* Who you're actually up against — the obvious next question,
+                      and the jump-off point into Shop Analytics. */}
+                  {l.shop_name ? (
+                    <a href={`https://www.etsy.com/shop/${encodeURIComponent(l.shop_name)}`} target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: 13.5, color: C.graphite, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      onMouseEnter={e => (e.currentTarget.style.color = C.orange)}
+                      onMouseLeave={e => (e.currentTarget.style.color = C.graphite)}>{l.shop_name}</a>
+                  ) : <span style={{ fontSize: 13.5, color: C.stone }}>—</span>}
                   <span style={{ ...tdMono, color: C.ink, fontWeight: 500 }}>{priceStr(l)}</span>
-                  <span style={tdMono}>{formatNumber(l.views ?? 0)}</span>
-                  <span style={tdMono}>{formatNumber(l.num_favorers ?? 0)}</span>
+                  <span style={{ ...tdMono, color: '#2E6DB4' }}>{formatNumber(l.views ?? 0)}</span>
+                  <span style={{ ...tdMono, color: D.hard }}>{formatNumber(l.num_favorers ?? 0)}</span>
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                     {(l.tags ?? []).slice(0, 3).map(tag => <TagPill key={tag}>{tag}</TagPill>)}
                   </div>
-                </a>
+                </div>
               ))}
             </div>
             <Pagination page={page} pageCount={pageCount} onChange={setPage} />

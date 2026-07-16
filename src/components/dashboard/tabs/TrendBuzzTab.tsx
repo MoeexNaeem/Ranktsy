@@ -7,10 +7,10 @@ import {
   Card, SearchBar, SectionTitle, ErrorBox, Loading, EmptyState,
   CompBadge, tableCard, tableHead, th, tableRow, MONO,
 } from '../kit'
-import { C, formatNumber } from '@/utils'
+import { C, D, formatNumber } from '@/utils'
 import type { BuzzItem } from '@/lib/etsy'
 
-const GRID = '2fr 0.8fr 0.9fr 1fr 0.9fr'
+const GRID = '2fr 0.7fr 0.8fr 0.8fr 1fr 0.7fr 0.9fr'
 
 export function TrendBuzzTab() {
   const [input, setInput] = useState('')
@@ -51,10 +51,11 @@ export function TrendBuzzTab() {
               highlightMax />
           </Card>
 
-          {/* Full table with sparklines */}
+          {/* Full table — every column a real Etsy measurement. The old
+              "Momentum" sparkline was a sine wave keyed to the row index. */}
           <div className="rtable" style={tableCard}>
             <div style={tableHead(GRID)}>
-              {['Keyword', 'Listings', 'Avg Views', 'Momentum', 'Heat'].map(h => <span key={h} style={th}>{h}</span>)}
+              {['Keyword', 'Listings', 'Avg Views', 'Avg Favs', 'Listings / month', 'Median age', 'Heat'].map(h => <span key={h} style={th}>{h}</span>)}
             </div>
             {data.map((b: BuzzItem) => (
               <div key={b.keyword} style={tableRow(GRID)}>
@@ -63,8 +64,14 @@ export function TrendBuzzTab() {
                   <CompBadge level={b.competition} />
                 </div>
                 <span style={{ fontSize: 11.5, fontFamily: MONO, color: '#6E6E64' }}>{b.listings}</span>
-                <span style={{ fontSize: 11.5, fontFamily: MONO, color: '#6E6E64' }}>{formatNumber(b.avgViews)}</span>
-                <MiniTrend data={b.trend} />
+                <span style={{ fontSize: 11.5, fontFamily: MONO, color: '#2E6DB4' }}>{formatNumber(b.avgViews)}</span>
+                <span style={{ fontSize: 11.5, fontFamily: MONO, color: D.hard }}>{formatNumber(b.avgFavorites)}</span>
+                <MiniTrend data={b.listingsByMonth} title={`${b.keyword} — listings created per calendar month (Jan→Dec)`} />
+                {/* Young listings carrying a tag is the real "emerging" signal. */}
+                <span title={b.medianAgeDays != null ? 'Median age of the listings using this tag' : 'No creation dates available'}
+                  style={{ fontSize: 11.5, fontFamily: MONO, color: b.medianAgeDays == null ? C.stone : b.medianAgeDays < 90 ? D.good : b.medianAgeDays < 365 ? D.mid : C.graphite }}>
+                  {b.medianAgeDays == null ? '—' : b.medianAgeDays >= 365 ? `${(b.medianAgeDays / 365).toFixed(1)}y` : `${b.medianAgeDays}d`}
+                </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ flex: 1, height: 5, background: '#EEEDE8', borderRadius: 999, overflow: 'hidden', minWidth: 40 }}>
                     <div style={{ height: '100%', width: `${b.heat}%`, background: C.orange, borderRadius: 999 }} />
@@ -74,6 +81,13 @@ export function TrendBuzzTab() {
               </div>
             ))}
           </div>
+
+          <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6 }}>
+            Listings, views, favourites and creation dates are real Etsy fields. <strong>Heat</strong> is a relative
+            0–100 index over those measurements (how many sampled listings carry the tag × how well they engage) — it is
+            not a search volume; Etsy publishes none. <strong>Median age</strong> is the real age of the listings using
+            the tag: young listings on a busy tag is what &ldquo;emerging&rdquo; actually looks like.
+          </p>
         </>
       )}
     </div>

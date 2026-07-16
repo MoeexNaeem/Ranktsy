@@ -1,4 +1,4 @@
-# 🌱 Ranktsy — Etsy Keyword Research & Analytics
+# 🌱 Rankkw — Etsy Keyword Research & Analytics
 
 A full-stack Next.js application to help Etsy sellers analyze search trends, optimize listings, and track shop performance — powered by the **official Etsy Open API v3**.
 
@@ -65,7 +65,7 @@ npm run type-check   # TypeScript (zero errors guaranteed)
 
 ### Get an Etsy API Key
 1. Register at https://www.etsy.com/developers/register
-2. Create an application describing how Ranktsy uses the API
+2. Create an application describing how Rankkw uses the API
 3. Copy your API key → paste into `ETSY_API_KEY` in `.env.local`
 
 ### MongoDB (Atlas)
@@ -115,4 +115,4 @@ Add `MONGODB_URI` and `ETSY_API_KEY` in Vercel → Settings → Environment Vari
 
 ---
 
-*Ranktsy is not affiliated with Etsy, Inc.*
+*Rankkw is not affiliated with Etsy, Inc.*

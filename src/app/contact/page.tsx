@@ -8,22 +8,22 @@ const CONTACT_CHANNELS = [
   {
     icon: '📧',
     label: 'General Inquiries',
-    value: 'hello@ranksty.com',
-    href: 'mailto:hello@ranksty.com',
+    value: 'hello@rankkw.com',
+    href: 'mailto:hello@rankkw.com',
     desc: 'For general questions, partnerships, and press.',
   },
   {
     icon: '🛠️',
     label: 'Technical Support',
-    value: 'support@ranksty.com',
-    href: 'mailto:support@ranksty.com',
+    value: 'support@rankkw.com',
+    href: 'mailto:support@rankkw.com',
     desc: 'Having trouble with the platform? We respond within 24 hours.',
   },
   {
     icon: '💼',
     label: 'Business & Billing',
-    value: 'billing@ranksty.com',
-    href: 'mailto:billing@ranksty.com',
+    value: 'billing@rankkw.com',
+    href: 'mailto:billing@rankkw.com',
     desc: 'Questions about your subscription, invoices, or enterprise plans.',
   },
 ]
@@ -34,8 +34,8 @@ const FAQS = [
     a: 'We aim to respond to all inquiries within 24 hours on business days. Technical support tickets usually get a first response within a few hours.',
   },
   {
-    q: 'Is Ranktsy officially affiliated with Etsy?',
-    a: "No. Ranktsy is an independent analytics tool. The term 'Etsy' is a trademark of Etsy, Inc. We are not endorsed, certified, or affiliated with Etsy, Inc. in any way.",
+    q: 'Is Rankkw officially affiliated with Etsy?',
+    a: "No. Rankkw is an independent analytics tool. The term 'Etsy' is a trademark of Etsy, Inc. We are not endorsed, certified, or affiliated with Etsy, Inc. in any way.",
   },
   {
     q: 'Do you offer a free trial?',

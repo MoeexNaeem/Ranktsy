@@ -36,13 +36,16 @@ export function Dashboard() {
 
   const search = useCallback(()=>{ const q=input.trim(); if(q.length<2)return; setQuery(q); addR(q) },[input,addR])
 
+  // Real Etsy measurements only. "Avg. Searches"/"Avg. Clicks" are gone: Etsy
+  // publishes no search volume and no clicks — those cards showed listing views
+  // and favourites under borrowed names.
   const stats = useMemo(()=>{
     if(!kw) return null
-    const {avgSearches,avgClicks,avgCtr} = kw.stats
+    const {avgViews,avgFavorites,favPerView,totalResults} = kw.stats
     return [
-      {label:'Avg. Searches',value:formatNumber(avgSearches),sub:'per month',pct:Math.min((avgSearches/80000)*100,100),color:C.charcoal},
-      {label:'Avg. Clicks',  value:formatNumber(avgClicks),  sub:'per month',pct:Math.min((avgClicks/60000)*100,100),  color:C.orangeLight},
-      {label:'Avg. CTR',     value:formatPercent(avgCtr),    sub:'click-through',pct:avgCtr,                          color:C.charcoal},
+      {label:'Competition',   value:formatNumber(totalResults),sub:'live listings',pct:Math.min(kw.stats.difficulty,100),color:C.charcoal},
+      {label:'Avg. Views',    value:formatNumber(avgViews),    sub:'top listings', pct:Math.min((avgViews/20000)*100,100),color:C.orangeLight},
+      {label:'Avg. Favorites',value:formatNumber(avgFavorites),sub:`${formatPercent(favPerView)} of views`,pct:Math.min(favPerView*12,100),color:C.charcoal},
     ]
   },[kw])
 
@@ -112,9 +115,15 @@ export function Dashboard() {
                   <div style={{ background:C.warmGray, borderRadius:10, padding:'11px 13px' }}>
                     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:9 }}>
                       <p style={{ fontSize:11, fontWeight:500, color:C.charcoal }}>Search Trend</p>
-                      {tr && <PlatformToggle active={plats} onChange={setPlats} />}
+                      {tr?.trends?.length ? <PlatformToggle active={plats} onChange={setPlats} /> : null}
                     </div>
-                    {tr ? <TrendChart data={tr.trends} activePlatforms={plats} /> : <Skel h={108} />}
+                    {/* Empty when Google isn't connected — Etsy publishes no
+                        volume series, and the old fallback curve was fabricated. */}
+                    {!tr ? <Skel h={108} />
+                      : tr.trends?.length ? <TrendChart data={tr.trends} activePlatforms={plats} />
+                      : <p style={{ fontSize:11, color:C.charcoalMid, lineHeight:1.5, padding:'28px 4px', textAlign:'center' }}>
+                          Etsy publishes no search-volume history.<br />Connect Google Ads for a real trend line.
+                        </p>}
                   </div>
                   <div style={{ background:C.warmGray, borderRadius:10, padding:'11px 13px' }}>
                     <p style={{ fontSize:11, fontWeight:500, color:C.charcoal, marginBottom:9 }}>Searchers by Country</p>

@@ -15,7 +15,7 @@ const FIELDS: Record<FormType, Field[]> = {
   reset:        [{ name:'password',label:'New Password',type:'password',placeholder:'Min 8 chars, 1 uppercase, 1 number' },{ name:'confirmPassword',label:'Confirm Password',type:'password',placeholder:'Repeat new password' }],
 }
 const TITLES:    Record<FormType,string> = { login:'Welcome back', register:'Create your account', forgot:'Forgot password', 'verify-otp':'Enter your OTP', reset:'Set new password' }
-const SUBTITLES: Record<FormType,string> = { login:'Log in to your Ranktsy dashboard', register:'Start growing your Etsy shop with data', forgot:"We'll send a 6-digit code to your email", 'verify-otp':'Check your inbox for the code we sent', reset:'Choose a strong new password' }
+const SUBTITLES: Record<FormType,string> = { login:'Log in to your Rankkw dashboard', register:'Start growing your Etsy shop with data', forgot:"We'll send a 6-digit code to your email", 'verify-otp':'Check your inbox for the code we sent', reset:'Choose a strong new password' }
 const BUTTONS:   Record<FormType,string> = { login:'Log in →', register:'Create account →', forgot:'Send reset code →', 'verify-otp':'Verify code →', reset:'Reset password →' }
 const ENDPOINTS: Record<FormType,string> = { login:'/api/auth/login', register:'/api/auth/register', forgot:'/api/auth/forgot-password', 'verify-otp':'/api/auth/verify-otp', reset:'/api/auth/reset-password' }
 
@@ -66,7 +66,7 @@ function AuthFormInner({ type, email: initEmail, onNext }: { type: FormType; ema
         <Link href="/" style={{ display:'inline-flex', alignItems:'center', gap:8, marginBottom:32, textDecoration:'none' }}>
           <span style={{ display:'inline-flex', alignItems:'center', gap:7, fontSize:11, fontFamily:"'General Sans',monospace", fontWeight:500, textTransform:'uppercase', letterSpacing:'0.09em', color:'#6E6E64' }}>
             <span style={{ width:6, height:6, borderRadius:'50%', background:C.orange, display:'inline-block' }} />
-            Ranktsy
+            Rankkw
           </span>
         </Link>
         <h1 style={{ fontSize:32, fontWeight:500, color:C.ink, letterSpacing:'-0.03em', marginBottom:8, lineHeight:1.05 }}>{TITLES[type]}</h1>

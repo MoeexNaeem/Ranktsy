@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { C } from '@/utils'
 import { SearchBar, Card, SectionTitle, ErrorBox, Loading, EmptyState, TagPill, MONO } from '../kit'
-import type { EtsyListing } from '@/types'
+import type { EtsyListing, ListingBenchmark } from '@/types'
 
 type Status = 'pass' | 'warn' | 'fail'
 const TONE: Record<Status, { color: string; bg: string; icon: string }> = {
@@ -20,7 +20,57 @@ function extractId(input: string): number | null {
 
 interface Check { label: string; status: Status; detail: string }
 
-function auditListing(l: EtsyListing, hasVariations = false): { checks: Check[]; score: number } {
+/**
+ * Checks that only exist because we know the niche.
+ *
+ * Generic advice ("use all 13 tags") is true of every listing on Etsy and so
+ * tells you nothing about whether you can win THIS search. These compare against
+ * the real medians of the listings you're actually up against.
+ */
+function benchmarkChecks(l: EtsyListing, b?: ListingBenchmark): Check[] {
+  if (!b?.enoughData) return []
+  const out: Check[] = []
+  const imgs = l.images?.length ?? 0
+  const tags = (l.tags ?? []).length
+
+  if (b.medianImages != null) {
+    out.push({
+      label: 'Photos vs rivals',
+      status: imgs >= b.medianImages ? 'pass' : imgs >= b.medianImages - 2 ? 'warn' : 'fail',
+      detail: `You have ${imgs}; the median listing for “${b.niche}” has ${b.medianImages}.`,
+    })
+  }
+  if (b.medianTags != null) {
+    out.push({
+      label: 'Tags vs rivals',
+      status: tags >= b.medianTags ? 'pass' : 'warn',
+      detail: `You use ${tags}; rivals for “${b.niche}” median ${b.medianTags}.`,
+    })
+  }
+  if (b.medianPrice != null && b.priceComparable && l.price?.amount) {
+    const yours = l.price.amount / (l.price.divisor || 100)
+    const pct = b.yourPricePercentile ?? 50
+    const ratio = yours / b.medianPrice
+    out.push({
+      label: 'Price position',
+      // Neither extreme is inherently wrong — but being 2× the median without
+      // knowing it is.
+      status: ratio > 2 || ratio < 0.5 ? 'warn' : 'pass',
+      detail: `${b.currency} ${yours.toFixed(2)} vs a niche median of ${b.currency} ${b.medianPrice.toFixed(2)} — pricier than ${pct}% of ${b.priceSample} rivals.`,
+    })
+  }
+  if (b.yourFavoritesPercentile != null) {
+    const pct = b.yourFavoritesPercentile
+    out.push({
+      label: 'Buyer pull vs rivals',
+      status: pct >= 60 ? 'pass' : pct >= 30 ? 'warn' : 'fail',
+      detail: `More favorited than ${pct}% of the top ${b.sample} listings for “${b.niche}”.`,
+    })
+  }
+  return out
+}
+
+function auditListing(l: EtsyListing, hasVariations = false, b?: ListingBenchmark): { checks: Check[]; score: number } {
   const titleLen = l.title.length
   const titleWords = l.title.trim().split(/\s+/).filter(Boolean).length
   const tags = l.tags ?? []
@@ -65,8 +115,9 @@ function auditListing(l: EtsyListing, hasVariations = false): { checks: Check[];
       detail: `${imgs} / 10 photos — more angles lift click-through & trust.`,
     },
   ]
-  const score = Math.round((checks.reduce((s, c) => s + (c.status === 'pass' ? 2 : c.status === 'warn' ? 1 : 0), 0) / (checks.length * 2)) * 100)
-  return { checks, score }
+  const all = [...checks, ...benchmarkChecks(l, b)]
+  const score = Math.round((all.reduce((s, c) => s + (c.status === 'pass' ? 2 : c.status === 'warn' ? 1 : 0), 0) / (all.length * 2)) * 100)
+  return { checks: all, score }
 }
 
 function priceStr(l: EtsyListing) {
@@ -82,13 +133,16 @@ export function ListingAuditTab() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['listing-audit', id],
     queryFn: async () => {
-      const [lRes, vRes] = await Promise.all([
+      const [lRes, vRes, bRes] = await Promise.all([
         axios.get(`/api/etsy/listing?id=${id}`),
         axios.get(`/api/etsy/variations?id=${id}`).catch(() => ({ data: { data: { hasVariations: false, variations: [] } } })),
+        // Benchmarking is a bonus signal — a failure here must not sink the audit.
+        axios.get(`/api/etsy/benchmark?id=${id}`).catch(() => ({ data: { data: undefined } })),
       ])
       return {
         listing: lRes.data.data as EtsyListing,
         variations: (vRes.data.data ?? { hasVariations: false, variations: [] }) as { hasVariations: boolean; variations: { property: string; values: string[] }[] },
+        benchmark: bRes.data.data as ListingBenchmark | undefined,
       }
     },
     enabled: !!id,
@@ -97,6 +151,7 @@ export function ListingAuditTab() {
   })
   const listing = data?.listing
   const variations = data?.variations
+  const benchmark = data?.benchmark
 
   const go = useCallback(() => {
     const parsed = extractId(input.trim())
@@ -104,7 +159,9 @@ export function ListingAuditTab() {
     setBadInput(false); setId(parsed)
   }, [input])
 
-  const audit = useMemo(() => (listing ? auditListing(listing, variations?.hasVariations) : null), [listing, variations])
+  const audit = useMemo(
+    () => (listing ? auditListing(listing, variations?.hasVariations, benchmark) : null),
+    [listing, variations, benchmark])
   const scoreTone = audit ? (audit.score >= 80 ? C.success : audit.score >= 55 ? C.warn : C.danger) : C.ink
   const scoreLabel = audit ? (audit.score >= 80 ? 'Excellent' : audit.score >= 55 ? 'Good — room to improve' : 'Needs work') : ''
 

@@ -28,22 +28,28 @@ export function KeywordTool() {
         <h2 style={{ fontSize: 'clamp(34px,4.6vw,56px)', fontWeight: 500, letterSpacing: '-0.03em', color: C.ink, lineHeight: 1.0, marginBottom: 16, maxWidth: 760 }}>
           Try it live — search any keyword.
         </h2>
-        <p style={{ fontSize: 18, color: '#6E6E64', lineHeight: 1.5, letterSpacing: '-0.14px', maxWidth: 500, marginBottom: 48 }}>
-          Enter any product keyword to see live Etsy analytics. (Demo data shown — connect your Etsy shop for real stats.)
+        {/* This tool calls the same live Etsy API the dashboard does — it never
+            showed demo data. The old copy said it did, which is both untrue and
+            the worst possible claim to make to an Etsy API reviewer. */}
+        <p style={{ fontSize: 18, color: '#6E6E64', lineHeight: 1.5, letterSpacing: '-0.14px', maxWidth: 520, marginBottom: 48 }}>
+          Enter any product keyword for real numbers measured live from the official Etsy API — no sign-up, no demo data.
         </p>
 
-        <div style={{ background: C.paper, border: `1px solid ${C.hairInk}`, borderRadius: 24, padding: 28 }}>
-          {/* Input row */}
-          <div style={{ display: 'flex', gap: 12, marginBottom: 28 }}>
-            <input ref={ref} type="text" className="kw-input"
+        <div className="rpad-card" style={{ background: C.paper, border: `1px solid ${C.hairInk}`, borderRadius: 24, padding: 28 }}>
+          {/* Input row. `minWidth: 0` on the input is load-bearing: a flex item
+              defaults to min-width:auto and so refuses to shrink below its
+              placeholder's intrinsic width, which pushed this row (and with it the
+              whole page's scroll width) past the viewport on phones. */}
+          <div className="rstack-sm" style={{ display: 'flex', gap: 12, marginBottom: 28 }}>
+            <input ref={ref} type="text" className="kw-input rfull-sm"
               placeholder="e.g. handmade candles, silver ring, boho jewelry..."
               onKeyDown={e=>e.key==='Enter'&&go()}
-              style={{ flex: 1, padding: '14px 18px', border: `1px solid ${C.hair}`, borderRadius: 100, fontSize: 15, fontFamily: 'inherit', background: C.canvas, outline: 'none', color: '#000', transition: 'border-color 0.2s' }}
+              style={{ flex: 1, minWidth: 0, padding: '14px 18px', border: `1px solid ${C.hair}`, borderRadius: 100, fontSize: 15, fontFamily: 'inherit', background: C.canvas, outline: 'none', color: '#000', transition: 'border-color 0.2s' }}
               onFocus={e=>(e.currentTarget.style.borderColor=C.ink)}
               onBlur={e=>(e.currentTarget.style.borderColor=C.hair)}
             />
-            <button onClick={go}
-              style={{ background: C.orange, border: 'none', color: '#fff', padding: '14px 30px', borderRadius: 28, fontSize: 14.5, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'opacity 0.2s' }}
+            <button onClick={go} className="rfull-sm"
+              style={{ background: C.orange, border: 'none', color: '#fff', padding: '14px 30px', borderRadius: 28, fontSize: 14.5, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0, transition: 'opacity 0.2s' }}
               onMouseEnter={e=>(e.currentTarget.style.opacity='0.88')}
               onMouseLeave={e=>(e.currentTarget.style.opacity='1')}>
               Search keywords →

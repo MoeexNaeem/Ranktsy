@@ -30,8 +30,11 @@ const OverviewTab          = dynamic(() => import('./tabs/OverviewTab').then(m =
 const CategoryReportTab    = dynamic(() => import('./tabs/CategoryReportTab').then(m => ({ default: m.CategoryReportTab })), { ssr: false })
 const AIListingHelperTab   = dynamic(() => import('./tabs/AIListingHelperTab').then(m => ({ default: m.AIListingHelperTab })), { ssr: false })
 const MyShopTab            = dynamic(() => import('./tabs/MyShopTab').then(m => ({ default: m.MyShopTab })), { ssr: false })
+const CompetitorSalesTab   = dynamic(() => import('./tabs/CompetitorSalesTab').then(m => ({ default: m.CompetitorSalesTab })), { ssr: false })
+const SalesMapTab          = dynamic(() => import('./tabs/SalesMapTab').then(m => ({ default: m.SalesMapTab })), { ssr: false })
+const DeliveryStatusTab    = dynamic(() => import('./tabs/DeliveryStatusTab').then(m => ({ default: m.DeliveryStatusTab })), { ssr: false })
 
-type TabId = 'overview' | 'myshop' | 'keywords' | 'listings' | 'competitors' | 'trends' | 'buzz' | 'monthly' | 'topsellers' | 'catreport' | 'bulk' | 'rank' | 'shop' | 'tags' | 'aihelper' | 'ctags' | 'generator' | 'audit' | 'compare' | 'spell' | 'fees' | 'adsroi' | 'category' | 'calendar' | 'lists'
+type TabId = 'overview' | 'myshop' | 'keywords' | 'listings' | 'competitors' | 'compsales' | 'trends' | 'buzz' | 'monthly' | 'topsellers' | 'catreport' | 'bulk' | 'rank' | 'shop' | 'salesmap' | 'delivery' | 'tags' | 'aihelper' | 'ctags' | 'generator' | 'audit' | 'compare' | 'spell' | 'fees' | 'adsroi' | 'category' | 'calendar' | 'lists'
 
 const ICON = (d: React.ReactNode) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
 
@@ -56,12 +59,20 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; description: stri
     icon: ICON(<><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></>) },
   { id: 'catreport',   label: 'Category Report',group: 'Research',    description: 'Market snapshot for a niche',
     icon: ICON(<><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="4" width="3" height="14"/></>) },
+  { id: 'compsales',   label: 'Competitor Sales',group: 'Research',  description: 'Real sales & daily velocity',
+    icon: ICON(<><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></>) },
   { id: 'bulk',        label: 'Bulk Keywords', group: 'Research',    description: 'Compare keywords in bulk',
     icon: ICON(<><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></>) },
   { id: 'rank',        label: 'Rank Checker',  group: 'Research',    description: 'Find where your shop ranks',
     icon: ICON(<><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></>) },
   { id: 'shop',        label: 'Shop Analytics',group: 'Optimize',    description: 'Analyze any Etsy shop',
     icon: ICON(<><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></>) },
+  // Own-shop tools — these read your Etsy receipts over OAuth, which is the only
+  // place Etsy exposes buyer country and fulfilment state.
+  { id: 'salesmap',    label: 'Sales Map',     group: 'Shop Insights', description: 'Where your buyers are',
+    icon: ICON(<><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></>) },
+  { id: 'delivery',    label: 'Delivery Status',group: 'Shop Insights', description: 'Orders awaiting shipment',
+    icon: ICON(<><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></>) },
   { id: 'tags',        label: 'Tag Optimizer', group: 'Optimize',    description: 'Find best-performing tags',
     icon: ICON(<><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></>) },
   { id: 'generator',   label: 'Tag & Title Gen',group: 'Optimize',   description: 'Generate tags & titles',
@@ -88,15 +99,18 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; description: stri
     icon: ICON(<><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></>) },
 ]
 
-const GROUPS = ['Home', 'Research', 'Optimize', 'Tools']
+const GROUPS = ['Home', 'Research', 'Shop Insights', 'Optimize', 'Tools']
 
 function TabContent({ active, onNavigate }: { active: TabId; onNavigate: (id: TabId) => void }) {
   const map: Record<TabId, React.ReactNode> = {
     overview:    <OverviewTab onNavigate={(id) => onNavigate(id as TabId)} />,
     myshop:      <MyShopTab />,
-    keywords:    <KeywordsTab />,
+    keywords:    <KeywordsTab onNavigate={(id) => onNavigate(id as TabId)} />,
     listings:    <ListingsTab />,
     competitors: <CompetitorsTab />,
+    compsales:   <CompetitorSalesTab />,
+    salesmap:    <SalesMapTab />,
+    delivery:    <DeliveryStatusTab />,
     trends:      <TrendsTab />,
     buzz:        <TrendBuzzTab />,
     monthly:     <MonthlyTrendsTab />,
@@ -157,7 +171,7 @@ export function DashboardLayout() {
         {/* Logo */}
         <div style={{ padding: '20px 22px 16px', borderBottom: `1px solid ${C.ash}` }}>
           <Link href="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-            <img src="/website_logo.png" alt="Ranktsy" style={{ width: 128, height: 42, objectFit: 'contain', display: 'block' }} />
+            <img src="/website_logo.png" alt="Rankkw" style={{ width: 128, height: 42, objectFit: 'contain', display: 'block' }} />
           </Link>
         </div>
 

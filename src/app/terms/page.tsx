@@ -8,16 +8,16 @@ const sections = [
     number: '01',
     title: 'Acceptance of Terms',
     content:
-      'By accessing or using Ranktsy ("the Service," "our platform," "we," or "us"), you agree to be bound by these Terms of Service and all applicable laws and regulations. If you do not agree with any part of these terms, you may not access or use the Service. These Terms apply to all visitors, users, and others who access or use the Service.',
+      'By accessing or using Rankkw ("the Service," "our platform," "we," or "us"), you agree to be bound by these Terms of Service and all applicable laws and regulations. If you do not agree with any part of these terms, you may not access or use the Service. These Terms apply to all visitors, users, and others who access or use the Service.',
     bullets: [],
   },
   {
     number: '02',
     title: 'Description of Service',
     content:
-      'Ranktsy is an independent keyword research and analytics platform designed to help Etsy sellers analyze search trends, optimize listings, and track shop performance. The Service includes:',
+      'Rankkw is an independent keyword research and analytics platform designed to help Etsy sellers analyze search trends, optimize listings, and track shop performance. The Service includes:',
     bullets: [
-      { label: 'Keyword Research', text: 'Analysis of search volumes, click-through rates, and competition metrics across marketplace platforms.' },
+      { label: 'Keyword Research', text: 'Analysis of live Etsy listing competition, engagement and pricing. Etsy publishes no search-volume or click data; where we show search volume it comes from Google, and where a figure is an estimate the app says so. See our Methodology page for exactly what is measured and what we deliberately don’t show.' },
       { label: 'Trend Analytics', text: 'Relative trend data derived from Etsy listing view signals to identify peak buyer interest periods. Note: Etsy\'s Open API does not expose raw search volume counts.' },
       { label: 'Competition Analysis', text: 'Insights into competing listings, tags, and titles within Etsy\'s marketplace.' },
       { label: 'Tag Optimizer', text: 'Data-backed tag recommendations to maximize listing visibility within Etsy\'s 13-tag allowance.' },
@@ -39,7 +39,7 @@ const sections = [
   {
     number: '04',
     title: 'Service Access & Beta Period',
-    content: 'Ranktsy is currently in beta and available free of charge. During this period:',
+    content: 'Rankkw is currently in beta and available free of charge. During this period:',
     bullets: [
       { label: 'Free Access', text: 'All features are available at no cost while we are in beta. No credit card is required.' },
       { label: 'Future Pricing', text: 'We may introduce paid subscription tiers in the future. Existing users will receive at least 30 days\' notice before any billing begins.' },
@@ -63,7 +63,7 @@ const sections = [
     number: '06',
     title: 'Intellectual Property',
     content:
-      'The Service and its original content, features, and functionality are and will remain the exclusive property of Ranktsy and its licensors. Our trademarks and trade dress may not be used in connection with any product or service without prior written consent.',
+      'The Service and its original content, features, and functionality are and will remain the exclusive property of Rankkw and its licensors. Our trademarks and trade dress may not be used in connection with any product or service without prior written consent.',
     bullets: [
       { label: 'Your Content', text: 'You retain ownership of any data or content you upload to the Service. By using the Service, you grant us a limited license to process that data solely to provide you with the features of the Service.' },
       { label: 'Third-Party Data', text: 'Marketplace data and trend metrics are sourced from publicly available APIs and databases. Such data remains the property of their respective owners.' },
@@ -73,26 +73,26 @@ const sections = [
     number: '07',
     title: 'Third-Party Services & Disclaimer',
     content:
-      'Ranktsy uses the official Etsy Open API v3 (https://openapi.etsy.com) to retrieve publicly available marketplace data, such as active listing details, shop information, and product search results. We do not use scraping, unofficial endpoints, or any third-party data proxy services to access Etsy data.',
+      'Rankkw uses the official Etsy Open API v3 (https://openapi.etsy.com) to retrieve publicly available marketplace data, such as active listing details, shop information, and product search results. We do not use scraping, unofficial endpoints, or any third-party data proxy services to access Etsy data.',
     disclaimer: true,
     bullets: [
-      { label: 'Data Source', text: 'All Etsy data displayed in Ranktsy is retrieved via the official Etsy Open API v3. The API provides listing-level data (titles, tags, views, favorites, prices, images) for active public listings. It does not expose raw search volume, click data, or buyer country breakdowns — any engagement metrics shown are derived from listing view/favorite counts as relative proxies only.' },
+      { label: 'Data Source', text: 'All Etsy data displayed in Rankkw is retrieved via the official Etsy Open API v3. The API provides listing-level data (titles, tags, views, favorites, prices, images) for active public listings. It does not expose raw search volume, click data, or buyer country breakdowns — any engagement metrics shown are derived from listing view/favorite counts as relative proxies only.' },
       { label: 'Data Scope', text: 'We access only publicly available listing data (titles, tags, views, images, prices). We do not access private seller data without explicit OAuth consent.' },
-      { label: 'No Affiliation', text: 'Ranktsy is an independent application. "Etsy" is a trademark of Etsy, Inc. This app uses the Etsy API but is not endorsed or certified by Etsy, Inc.' },
+      { label: 'No Affiliation', text: 'Rankkw is an independent application. "Etsy" is a trademark of Etsy, Inc. This app uses the Etsy API but is not endorsed or certified by Etsy, Inc.' },
     ],
   },
   {
     number: '08',
     title: 'Limitation of Liability',
     content:
-      'To the maximum extent permitted by applicable law, Ranktsy shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or business opportunities, resulting from:',
+      'To the maximum extent permitted by applicable law, Rankkw shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or business opportunities, resulting from:',
     bullets: [
       { label: '', text: 'Your use of or inability to use the Service.' },
       { label: '', text: 'Inaccuracies in keyword data, trend metrics, or analytics provided by the Service.' },
       { label: '', text: 'Changes to Etsy\'s platform, algorithm, or API that affect the accuracy of our data.' },
       { label: '', text: 'Unauthorized access to or alteration of your data.' },
     ],
-    footer: 'Our total liability to you for any claim arising out of or relating to these Terms or the Service shall not exceed the amount paid by you to Ranktsy in the 12 months preceding the claim.',
+    footer: 'Our total liability to you for any claim arising out of or relating to these Terms or the Service shall not exceed the amount paid by you to Rankkw in the 12 months preceding the claim.',
   },
   {
     number: '09',
@@ -264,7 +264,7 @@ export default function TermsPage() {
                 paddingLeft: 20,
               }}
             >
-              Welcome to Ranktsy. These Terms of Service govern your access to and use of our platform, including all features, tools, and analytics services. Please read these terms carefully before using the Service. By using Ranktsy, you confirm that you are at least 18 years old and have the legal authority to agree to these terms.
+              Welcome to Rankkw. These Terms of Service govern your access to and use of our platform, including all features, tools, and analytics services. Please read these terms carefully before using the Service. By using Rankkw, you confirm that you are at least 18 years old and have the legal authority to agree to these terms.
             </p>
 
             {sections.map((s, i) => (
@@ -367,7 +367,7 @@ export default function TermsPage() {
                         fontFamily: "'General Sans', monospace",
                       }}
                     >
-                      ⚠ Important Disclaimer: The term &apos;Etsy&apos; is a trademark of Etsy, Inc. This application uses the Etsy API but is not endorsed or certified by Etsy, Inc. Use of Etsy&apos;s API is subject to Etsy&apos;s own Terms of Use, and users of Ranktsy who connect their Etsy shops remain bound by Etsy&apos;s policies.
+                      ⚠ Important Disclaimer: The term &apos;Etsy&apos; is a trademark of Etsy, Inc. This application uses the Etsy API but is not endorsed or certified by Etsy, Inc. Use of Etsy&apos;s API is subject to Etsy&apos;s own Terms of Use, and users of Rankkw who connect their Etsy shops remain bound by Etsy&apos;s policies.
                     </p>
                   </div>
                 )}
@@ -385,7 +385,7 @@ export default function TermsPage() {
                     }}
                   >
                     <a
-                      href="mailto:legal@ranksty.com"
+                      href="mailto:legal@rankkw.com"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -397,10 +397,10 @@ export default function TermsPage() {
                       }}
                     >
                       <span style={{ opacity: 0.6, fontSize: 12 }}>EMAIL</span>
-                      legal@ranksty.com
+                      legal@rankkw.com
                     </a>
                     <a
-                      href="https://ranksty.com/contact"
+                      href="https://rankkw.com/contact"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -412,7 +412,7 @@ export default function TermsPage() {
                       }}
                     >
                       <span style={{ opacity: 0.6, fontSize: 12 }}>WEB</span>
-                      ranksty.com/contact
+                      rankkw.com/contact
                     </a>
                   </div>
                 )}

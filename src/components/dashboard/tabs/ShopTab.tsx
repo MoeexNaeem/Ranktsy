@@ -2,9 +2,10 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
-import { C, formatNumber } from '@/utils'
+import { C, D, flag, formatNumber } from '@/utils'
 import { Card, SearchBar, StatCard, SectionTitle, ErrorBox, EmptyState, tableCard, tableHead, th, tableRow, tdMono, tdTitle, MONO } from '../kit'
 import { BarChart } from '@/components/charts/BarChart'
+import { VelocityPanel } from '../keyword/VelocityPanel'
 import type { EtsyListing } from '@/types'
 import type { ShopReview, ShopSection } from '@/lib/etsy'
 
@@ -58,6 +59,20 @@ export function ShopTab() {
   const activeCount = Number(shop.listing_active_count ?? data?.listings.length ?? 0)
   const cur         = symOf((data?.listings.find(l => l.price?.currency_code)?.price.currency_code))
   const totalViews  = data?.listings.reduce((s, l) => s + (l.views ?? 0), 0) ?? 0
+
+  // Real figures off the shop record — Etsy's transaction_sold_count is the
+  // shop's actual lifetime sales, not a proxy.
+  const sales      = shop.sales != null ? Number(shop.sales) : null
+  const countryIso = shop.countryIso ? String(shop.countryIso) : null
+  const yearOpened = shop.yearOpened != null ? Number(shop.yearOpened) : null
+  const onVacation = Boolean(shop.is_vacation)
+  const age        = yearOpened ? new Date().getFullYear() - yearOpened : null
+  // Sales per active listing — how hard each listing works. Useful, and only
+  // computable now that real sales are available.
+  const salesPerListing = sales != null && activeCount > 0 ? sales / activeCount : null
+
+  // Prices within one shop share a currency, so a mean is safe here (unlike a
+  // cross-shop search, which mixes currencies with no FX rate).
   const avgPrice    = data?.listings.length
     ? data.listings.reduce((s, l) => s + (l.price?.amount ?? 0) / (l.price?.divisor || 100), 0) / data.listings.length
     : 0
@@ -95,17 +110,35 @@ export function ShopTab() {
                   </span>
                 )}
                 <span style={{ fontSize: 13.5, color: 'rgba(245,245,235,0.6)' }}>{formatNumber(activeCount)} active listings · {formatNumber(shopFavs)} admirers</span>
+                {countryIso && <span style={{ fontSize: 13.5, color: 'rgba(245,245,235,0.75)' }}>{flag(countryIso)} {countryIso}</span>}
+                {yearOpened && (
+                  <span style={{ fontSize: 13.5, color: 'rgba(245,245,235,0.6)' }}>
+                    since {yearOpened}{age ? ` · ${age} yr${age === 1 ? '' : 's'}` : ''}
+                  </span>
+                )}
+                {onVacation && (
+                  <span style={{ fontSize: 11.5, fontFamily: MONO, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', background: D.midBg, color: D.mid, padding: '3px 10px', borderRadius: 100 }}>On vacation</span>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Stats */}
+          {/* Stats — sales leads, because it's the only figure that measures the
+              business rather than the storefront. */}
           <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
-            <StatCard label="Active Listings" value={formatNumber(activeCount)} accent={C.ink} />
-            <StatCard label="Shop Rating" value={reviewCount > 0 ? `${reviewAvg.toFixed(1)}★` : '—'} accent={C.orange} sub={reviewCount > 0 ? `${formatNumber(reviewCount)} reviews` : 'no reviews yet'} />
-            <StatCard label="Shop Admirers" value={formatNumber(shopFavs)} accent={C.ink} />
-            <StatCard label="Avg. Price" value={avgPrice > 0 ? `${cur}${avgPrice.toFixed(2)}` : '—'} accent={C.ink} sub={`sampled · ${formatNumber(totalViews)} views`} />
+            <StatCard label="Lifetime Sales" value={sales != null ? formatNumber(sales) : '—'} accent={D.good}
+              sub={sales != null ? 'real · transaction_sold_count' : 'not published for this shop'} />
+            <StatCard label="Shop Rating" value={reviewCount > 0 ? `${reviewAvg.toFixed(2)}★` : '—'}
+              accent={reviewAvg >= 4.8 ? D.good : reviewAvg >= 4.5 ? D.mid : reviewCount > 0 ? D.hard : C.stone}
+              sub={reviewCount > 0 ? `${formatNumber(reviewCount)} reviews` : 'no reviews yet'} />
+            <StatCard label="Active Listings" value={formatNumber(activeCount)} accent="#2E6DB4"
+              sub={salesPerListing != null ? `${salesPerListing.toFixed(0)} sales per listing` : undefined} />
+            <StatCard label="Shop Admirers" value={formatNumber(shopFavs)} accent={C.ink}
+              sub={avgPrice > 0 ? `avg price ${cur}${avgPrice.toFixed(2)}` : `${formatNumber(totalViews)} views sampled`} />
           </div>
+
+          {/* Sales velocity — only real if we have history. See lib/snapshots.ts. */}
+          <VelocityPanel shopId={Number(shop.shop_id ?? 0)} shopName={String(shop.shop_name ?? '')} />
 
           {/* Sections + reviews */}
           {(data.sections?.length > 0 || data.reviews?.length > 0) && (

@@ -10,11 +10,11 @@ const transporter = nodemailer.createTransport({
   },
 })
 
-const FROM = `"Ranktsy" <${process.env.SMTP_USER ?? 'noreply@seedrank.app'}>`
+const FROM = `"Rankkw" <${process.env.SMTP_USER ?? 'noreply@rankkw.com'}>`
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
 export async function sendOtpEmail(email: string, otp: string, type: 'reset' | 'verify') {
-  const subject = type === 'reset' ? 'Reset your Ranktsy password' : 'Verify your Ranktsy account'
+  const subject = type === 'reset' ? 'Reset your Rankkw password' : 'Verify your Rankkw account'
   const action  = type === 'reset' ? 'reset your password' : 'verify your account'
 
   await transporter.sendMail({
@@ -31,7 +31,7 @@ export async function sendOtpEmail(email: string, otp: string, type: 'reset' | '
       <table width="480" cellpadding="0" cellspacing="0" style="background:#F6F4EC;border-radius:16px;overflow:hidden;border:1px solid rgba(0,0,0,0.08)">
         <!-- Header -->
         <tr><td style="background:#3D3E3B;padding:28px 40px;text-align:center">
-          <div style="font-size:22px;font-weight:600;color:#F6F4EC;letter-spacing:-0.5px">🌱 Ranktsy</div>
+          <div style="font-size:22px;font-weight:600;color:#F6F4EC;letter-spacing:-0.5px">🌱 Rankkw</div>
         </td></tr>
         <!-- Body -->
         <tr><td style="padding:40px">
@@ -50,7 +50,7 @@ export async function sendOtpEmail(email: string, otp: string, type: 'reset' | '
         <!-- Footer -->
         <tr><td style="padding:20px 40px;border-top:1px solid rgba(0,0,0,0.06);text-align:center">
           <p style="font-size:11px;color:#bbb;margin:0;font-family:monospace">
-            © 2026 Ranktsy. Not affiliated with Etsy, Inc.
+            © 2026 Rankkw. Not affiliated with Etsy, Inc.
           </p>
         </td></tr>
       </table>
@@ -65,12 +65,12 @@ export async function sendWelcomeEmail(email: string, name: string) {
   await transporter.sendMail({
     from:    FROM,
     to:      email,
-    subject: `Welcome to Ranktsy, ${name}! 🌱`,
+    subject: `Welcome to Rankkw, ${name}! 🌱`,
     html: `
 <!DOCTYPE html><html><body style="font-family:'Inter',-apple-system,sans-serif;background:#EEEBE1;padding:40px 20px;margin:0">
 <table width="480" cellpadding="0" cellspacing="0" style="margin:0 auto;background:#F6F4EC;border-radius:16px;overflow:hidden;border:1px solid rgba(0,0,0,0.08)">
   <tr><td style="background:#3D3E3B;padding:28px 40px;text-align:center">
-    <div style="font-size:22px;font-weight:600;color:#F6F4EC">🌱 Ranktsy</div>
+    <div style="font-size:22px;font-weight:600;color:#F6F4EC">🌱 Rankkw</div>
   </td></tr>
   <tr><td style="padding:40px">
     <h1 style="font-size:22px;font-weight:400;color:#3D3E3B;margin:0 0 12px">Welcome, ${name}!</h1>

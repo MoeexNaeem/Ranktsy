@@ -76,7 +76,7 @@ export function Navbar() {
         <div className="rnav-inner" style={S.inner}>
           {/* Left: logo */}
           <Link href="/" style={S.logoWrap}>
-            <Image src="/website_logo.png" alt="Ranktsy — Etsy SEO Tools" width={44} height={38} style={{ objectFit: 'contain', display: 'block' }} priority />
+            <Image src="/website_logo.png" alt="Rankkw — Etsy SEO Tools" width={44} height={38} style={{ objectFit: 'contain', display: 'block' }} priority />
             <span style={S.beta}>Beta</span>
           </Link>
 

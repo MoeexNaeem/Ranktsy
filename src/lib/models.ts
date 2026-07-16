@@ -1,5 +1,8 @@
 import mongoose, { Schema, model, models, type Document } from 'mongoose'
-import type { IKeywordCache, IKeywordHistory, IOTP } from '@/types'
+import type {
+  IKeywordCache, IKeywordHistory, IOTP,
+  IShopSnapshot, IListingSnapshot, ITrackedShop,
+} from '@/types'
 
 // ─── User ─────────────────────────────────────────────────────────────────────
 export interface IUserDoc extends Document {
@@ -62,7 +65,62 @@ const KeywordHistorySchema = new Schema<IKeywordHistory>({
 
 KeywordHistorySchema.index({ userId: 1, searchedAt: -1 })
 
+// ─── Shop Snapshot ─────────────────────────────────────────────────────────────
+// One row per shop per UTC day. This is the ONLY source of sales history — Etsy
+// gives a lifetime total with no series and no backfill, so a day not captured
+// is a day lost forever. Deliberately NOT TTL-indexed on a short window: the
+// whole point is long-run history. Trimmed at ~400 days.
+const ShopSnapshotSchema = new Schema<IShopSnapshot>({
+  shopId:         { type: Number, required: true, index: true },
+  shopName:       { type: String, required: true, trim: true },
+  day:            { type: String, required: true },   // YYYY-MM-DD (UTC)
+  sales:          { type: Number, default: null },
+  favorers:       { type: Number, default: null },
+  reviewCount:    { type: Number, default: null },
+  reviewAverage:  { type: Number, default: null },
+  activeListings: { type: Number, default: null },
+  isVacation:     { type: Boolean, default: false },
+  capturedAt:     { type: Date, default: Date.now },
+}, { timestamps: false })
+
+// Unique per shop per day — makes capture idempotent, so recording opportunistically
+// on every shop read can't produce duplicate rows.
+ShopSnapshotSchema.index({ shopId: 1, day: 1 }, { unique: true })
+ShopSnapshotSchema.index({ shopId: 1, capturedAt: -1 })
+
+// ─── Listing Snapshot ──────────────────────────────────────────────────────────
+// Powers "Changes" — what a competitor edited (title/tags/price), which Etsy's
+// last_modified_timestamp flags but never describes.
+const ListingSnapshotSchema = new Schema<IListingSnapshot>({
+  listingId:  { type: Number, required: true, index: true },
+  shopId:     { type: Number, required: true, index: true },
+  day:        { type: String, required: true },
+  title:      { type: String, default: '' },
+  tags:       { type: [String], default: [] },
+  price:      { type: Number, default: 0 },
+  currency:   { type: String, default: 'USD' },
+  views:      { type: Number, default: 0 },
+  favorers:   { type: Number, default: 0 },
+  capturedAt: { type: Date, default: Date.now },
+}, { timestamps: false })
+
+ListingSnapshotSchema.index({ listingId: 1, day: 1 }, { unique: true })
+ListingSnapshotSchema.index({ listingId: 1, capturedAt: -1 })
+
+// ─── Tracked Shop ──────────────────────────────────────────────────────────────
+// Shops a user has starred for guaranteed daily capture by the cron route.
+const TrackedShopSchema = new Schema<ITrackedShop>({
+  userId:   { type: String, required: true, index: true },
+  shopId:   { type: Number, required: true },
+  shopName: { type: String, required: true, trim: true },
+}, { timestamps: true })
+
+TrackedShopSchema.index({ userId: 1, shopId: 1 }, { unique: true })
+
 export const User          = models.User          ?? model<IUserDoc>('User', UserSchema)
+export const ShopSnapshot    = models.ShopSnapshot    ?? model<IShopSnapshot>('ShopSnapshot', ShopSnapshotSchema)
+export const ListingSnapshot = models.ListingSnapshot ?? model<IListingSnapshot>('ListingSnapshot', ListingSnapshotSchema)
+export const TrackedShop     = models.TrackedShop     ?? model<ITrackedShop>('TrackedShop', TrackedShopSchema)
 export const OTP           = models.OTP           ?? model<IOTP>('OTP', OTPSchema)
 export const KeywordCache  = models.KeywordCache  ?? model<IKeywordCache>('KeywordCache', KeywordCacheSchema)
 export const KeywordHistory= models.KeywordHistory?? model<IKeywordHistory>('KeywordHistory', KeywordHistorySchema)

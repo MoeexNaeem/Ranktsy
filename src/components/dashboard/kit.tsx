@@ -4,7 +4,7 @@
  * Bigger type, higher contrast, colorful stat/chart accents. Orange brand.
  */
 import React from 'react'
-import { C } from '@/utils'
+import { C, compColor } from '@/utils'
 
 export const MONO = "'General Sans', sans-serif"
 
@@ -79,17 +79,14 @@ export function StatCard({ label, value, sub, accent = C.ink, pct }: {
   )
 }
 
-// ─── Competition / difficulty badge (warm heat scale — no green) ────────────
-const COMP: Record<string, { bg: string; color: string }> = {
-  Low:  { bg: 'rgba(61,62,59,0.08)',  color: C.ink },
-  Med:  { bg: C.warnBg,               color: C.warn },
-  High: { bg: C.dangerBg,             color: C.danger },
-}
+// ─── Competition / difficulty badge ─────────────────────────────────────────
+// Green→amber→red: this is a data signal, so it uses the `D` data palette, not
+// the brand's no-green chrome rule. Low competition is good news → green.
 export function CompBadge({ level }: { level: 'Low' | 'Med' | 'High' }) {
-  const s = COMP[level] ?? COMP.Med
+  const { fg, bg } = compColor(level)
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 13px', borderRadius: 100, fontSize: 12.5, fontWeight: 600, background: s.bg, color: s.color, width: 'fit-content' }}>
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.color }} />
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 13px', borderRadius: 100, fontSize: 12.5, fontWeight: 600, background: bg, color: fg, width: 'fit-content' }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: fg }} />
       {level}
     </span>
   )

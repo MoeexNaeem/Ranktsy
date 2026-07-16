@@ -37,6 +37,6 @@ export const useAppStore = create<AppState>()(
         })),
       clearRecentSearches: () => set({ recentSearches: [] }),
     }),
-    { name: 'Ranktsy' }
+    { name: 'Rankkw' }
   )
 )

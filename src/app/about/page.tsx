@@ -91,7 +91,7 @@ export default function AboutPage() {
                 maxWidth: 560,
               }}
             >
-              Ranktsy was born out of frustration. We spent years selling on Etsy, manually tracking keywords in spreadsheets, guessing what buyers were searching for. There had to be a better way.
+              Rankkw was born out of frustration. We spent years selling on Etsy, manually tracking keywords in spreadsheets, guessing what buyers were searching for. There had to be a better way.
             </p>
           </div>
         </div>
@@ -205,7 +205,7 @@ export default function AboutPage() {
                   marginBottom: 20,
                 }}
               >
-                Ranktsy puts professional-grade keyword intelligence in the hands of independent creators — the people who make Etsy what it is. We analyze real listing data via the official Etsy Open API so you can focus on what you do best: making great products.
+                Rankkw puts professional-grade keyword intelligence in the hands of independent creators — the people who make Etsy what it is. We analyze real listing data via the official Etsy Open API so you can focus on what you do best: making great products.
               </p>
               <p
                 style={{
@@ -332,7 +332,7 @@ export default function AboutPage() {
             </h2>
             <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, maxWidth: 900 }}>
               <p style={{ fontSize: 16, color: '#6E6E64', lineHeight: 1.7, letterSpacing: '-0.1px' }}>
-                Ranktsy is built by a small, independent team of Etsy sellers and engineers. We&apos;re not backed by a
+                Rankkw is built by a small, independent team of Etsy sellers and engineers. We&apos;re not backed by a
                 private-equity firm with misaligned incentives, and we&apos;re not affiliated with Etsy — that independence
                 is exactly what lets us give you objective, unbiased market intelligence.
               </p>

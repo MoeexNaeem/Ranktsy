@@ -20,13 +20,29 @@ const OFFICIAL: { field: string; source: string }[] = [
   { field: 'Your own sales, orders & receipts (with your consent)', source: 'GET /shops/{id}/receipts · OAuth' },
 ]
 
-// ── Metrics we DERIVE (clearly-labelled estimates, not official Etsy numbers) ──
+// ── Metrics we DERIVE — computed FROM the real fields above, never invented ────
+// Anything Etsy doesn't publish is absent from the product rather than estimated
+// into existence. The list of what's missing is deliberately public: see NOT_SHOWN.
 const DERIVED: { metric: string; how: string }[] = [
-  { metric: 'Avg. searches / clicks / CTR', how: 'Relative engagement proxies computed from real listing views & favorites across the sampled listings. Etsy does not expose search volume, so these are directional estimates — never presented as official counts.' },
-  { metric: 'Keyword Difficulty (KD)', how: 'A 0–100 estimate combining the real total supply of competing listings with how strongly the incumbents engage buyers.' },
-  { metric: 'Search-trend shape (12 months)', how: 'A relative seasonality curve derived from listing view data. It shows relative interest over time, not absolute monthly search numbers.' },
-  { metric: 'Trend Buzz / “heat”', how: 'A 0–100 relative index from how frequently a tag appears across live listings, weighted by those listings’ engagement.' },
-  { metric: 'Competition Low / Med / High', how: 'A band derived from the real count of active listings and tag saturation.' },
+  { metric: 'Keyword Difficulty (KD)', how: 'A 0–100 estimate combining two real measurements: the true total of competing live listings, and how strongly the incumbents convert views into favorites. Labelled an estimate everywhere it appears.' },
+  { metric: 'Favorites per view', how: 'A plain ratio of two real Etsy fields — num_favorers ÷ views — across the listings ranking for a keyword. It is a save rate, not a click-through rate; Etsy exposes no click data.' },
+  { metric: 'Listings created per month', how: 'A calendar-month histogram built from each listing’s real creation timestamp. It shows when sellers list, which is not the same as when buyers search — and we say so wherever it appears.' },
+  { metric: 'Trend Buzz “heat”', how: 'A 0–100 relative index over real inputs: how many sampled live listings carry a tag, weighted by those listings’ engagement. An index, never a search volume.' },
+  { metric: 'Competition Low / Med / High', how: 'A band over the real count of active listings for that exact keyword, from its own live Etsy search.' },
+  { metric: 'Sales velocity (units/day)', how: 'Etsy publishes only a lifetime sales total. We snapshot it daily and difference consecutive days. Before two days of history exist we show “tracking started” — never a zero.' },
+]
+
+// ── What we DON'T show, because Etsy doesn't publish it ───────────────────────
+// Being explicit about the gaps is the point: a missing number is honest, a
+// plausible one is not.
+const NOT_SHOWN: { metric: string; why: string }[] = [
+  { metric: 'Etsy search volume / “avg. searches”', why: 'The Etsy Open API exposes no search-volume data of any kind. We previously derived a figure from listing views; it is gone. Real Google search volume appears instead when Google Ads is connected.' },
+  { metric: 'Clicks & click-through rate', why: 'Etsy publishes no click data for listings you don’t own. Any CTR figure would be a guess.' },
+  { metric: 'Etsy search seasonality', why: 'No search history exists in the API. We show real Google monthly volume when available, and otherwise when competing listings were created — labelled as seller behaviour, not buyer demand.' },
+  { metric: 'Per-listing sales', why: 'Listings expose quantity (stock on hand), never units sold. Sales are published per shop only, so they cannot be attributed to a keyword or a single listing.' },
+  { metric: 'Buyer geography for other shops', why: 'Buyer country appears only on your own order receipts, under your own OAuth consent. There is no public equivalent for a competitor.' },
+  { metric: 'Shop traffic & visit sources', why: 'No public endpoint exists for page visits or traffic sources.' },
+  { metric: 'Processing / dispatch times', why: 'The fields exist in the API but return null on every public search result we have tested. The panel stays hidden rather than showing an empty chart.' },
 ]
 
 function Badge({ children, tone }: { children: string; tone: 'api' | 'est' }) {
@@ -71,7 +87,7 @@ export default function MethodologyPage() {
         {/* Body */}
         <div className="rpad-sm" style={{ maxWidth: 1000, margin: '0 auto', padding: '64px 40px 96px' }}>
           <p style={{ fontSize: 17, color: C.ink, lineHeight: 1.75, marginBottom: 52, borderLeft: `3px solid ${C.orange}`, paddingLeft: 20 }}>
-            Ranktsy uses <strong>only</strong> the official <a href="https://developers.etsy.com" target="_blank" rel="noopener noreferrer" style={{ color: C.orange, textDecoration: 'underline', textUnderlineOffset: 3 }}>Etsy Open API v3</a>.
+            Rankkw uses <strong>only</strong> the official <a href="https://developers.etsy.com" target="_blank" rel="noopener noreferrer" style={{ color: C.orange, textDecoration: 'underline', textUnderlineOffset: 3 }}>Etsy Open API v3</a>.
             No scraping, no unofficial endpoints, no third-party data proxies. Some fields are shown exactly as Etsy returns them;
             other figures are <strong>estimates we derive</strong> from that data — and we always label them as such.
           </p>
@@ -93,19 +109,38 @@ export default function MethodologyPage() {
             </div>
           </Section>
 
-          <Section title="Metrics we estimate">
+          <Section title="Metrics we compute">
             <p style={{ fontSize: 15.5, color: C.graphite, lineHeight: 1.6, marginBottom: 22 }}>
-              Etsy&apos;s Open API does <strong>not</strong> expose search volume, click data, or buyer geography. Where sellers expect those,
-              we compute transparent, directional estimates from the real engagement data above — clearly marked as estimates in the app (e.g. &ldquo;· est.&rdquo;).
+              Everything below is calculated <strong>from the real Etsy fields above</strong> — no invented coefficients,
+              no modelled curves. Where a figure is an estimate rather than a measurement, it says so in the app itself.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {DERIVED.map(d => (
                 <div key={d.metric} style={{ border: `1px solid ${C.ash}`, borderRadius: 16, padding: '20px 22px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 9 }}>
-                    <Badge tone="est">Estimate</Badge>
+                    <Badge tone="est">Computed</Badge>
                     <span style={{ fontSize: 16.5, fontWeight: 500, color: C.ink }}>{d.metric}</span>
                   </div>
                   <p style={{ fontSize: 15, color: C.graphite, lineHeight: 1.6 }}>{d.how}</p>
+                </div>
+              ))}
+            </div>
+          </Section>
+
+          <Section title="What we deliberately don’t show">
+            <p style={{ fontSize: 15.5, color: C.graphite, lineHeight: 1.6, marginBottom: 22 }}>
+              Etsy publishes no search volume, no click data and no history. Rather than estimate those into existence,
+              Rankkw leaves them out and tells you why. A missing number is honest; a plausible one that happens to be
+              wrong is the thing that costs you money.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {NOT_SHOWN.map(d => (
+                <div key={d.metric} style={{ border: `1px dashed ${C.ash}`, borderRadius: 16, padding: '20px 22px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 9 }}>
+                    <Badge tone="est">Not shown</Badge>
+                    <span style={{ fontSize: 16.5, fontWeight: 500, color: C.ink }}>{d.metric}</span>
+                  </div>
+                  <p style={{ fontSize: 15, color: C.graphite, lineHeight: 1.6 }}>{d.why}</p>
                 </div>
               ))}
             </div>

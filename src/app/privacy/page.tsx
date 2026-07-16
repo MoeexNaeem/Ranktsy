@@ -11,7 +11,7 @@ const sections = [
     bullets: [
       {
         label: 'Account Data',
-        text: 'When you register on Ranktsy, we may collect personal identifiers such as your name, email address, and account credentials.',
+        text: 'When you register on Rankkw, we may collect personal identifiers such as your name, email address, and account credentials.',
       },
       {
         label: 'Payment Information',
@@ -41,7 +41,7 @@ const sections = [
     bullets: [
       {
         label: 'Third-Party APIs',
-        text: 'Ranktsy utilizes official application programming interfaces (APIs) from platforms like Etsy to fetch public marketplace metrics and trend analytics.',
+        text: 'Rankkw utilizes official application programming interfaces (APIs) from platforms like Etsy to fetch public marketplace metrics and trend analytics.',
       },
       {
         label: 'Service Providers',
@@ -73,7 +73,7 @@ const sections = [
   {
     number: '06',
     title: 'Third-Party Trademarks and Disclaimers',
-    content: 'Ranktsy is an independent analytics tool.',
+    content: 'Rankkw is an independent analytics tool.',
     disclaimer: true,
     bullets: [],
   },
@@ -222,11 +222,11 @@ export default function PrivacyPage() {
                 paddingLeft: 20,
               }}
             >
-              Welcome to Ranktsy ("we," "our," or "us"). We are committed to protecting your privacy
+              Welcome to Rankkw ("we," "our," or "us"). We are committed to protecting your privacy
               and ensuring a transparent relationship with our users. This Privacy Policy explains how
               we collect, use, disclose, and safeguard your information when you visit our website at{' '}
-              <a href="https://ranktsy.com" style={{ color: C.orange, textDecoration: 'underline' }}>
-                ranktsy.com
+              <a href="https://rankkw.com" style={{ color: C.orange, textDecoration: 'underline' }}>
+                rankkw.com
               </a>
               .
             </p>
@@ -335,7 +335,7 @@ export default function PrivacyPage() {
                     }}
                   >
                     <a
-                      href="mailto:support@ranktsy.com"
+                      href="mailto:support@rankkw.com"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -347,10 +347,10 @@ export default function PrivacyPage() {
                       }}
                     >
                       <span style={{ opacity: 0.6, fontSize: 12 }}>EMAIL</span>
-                      support@ranktsy.com
+                      support@rankkw.com
                     </a>
                     <a
-                      href="https://ranktsy.com"
+                      href="https://rankkw.com"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -362,7 +362,7 @@ export default function PrivacyPage() {
                       }}
                     >
                       <span style={{ opacity: 0.6, fontSize: 12 }}>WEB</span>
-                      ranktsy.com
+                      rankkw.com
                     </a>
                   </div>
                 )}

@@ -159,6 +159,13 @@ svg  { max-width: 100%; }
   /* Marketing / legal pages: tame the generous inner padding on narrow screens. */
   .rpad-sm { padding-left: 22px !important; padding-right: 22px !important; }
 
+  /* Panels whose desktop padding (28px+) eats too much of a phone's width. */
+  .rpad-card { padding: 16px !important; }
+
+  /* A stacked row's children should fill the column, not sit at content width —
+     .rstack-sm sets align-items:flex-start, which otherwise shrink-wraps them. */
+  .rstack-sm > .rfull-sm { width: 100% !important; }
+
   /* Announcement strip: wrap + shrink so it never gets clipped at the edges. */
   .rnav-strip { flex-wrap: wrap !important; text-align: center; font-size: 11px !important; padding: 6px 14px !important; line-height: 1.4; }
 

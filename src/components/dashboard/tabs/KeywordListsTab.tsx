@@ -2,19 +2,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { C } from '@/utils'
 import { Card, SectionTitle, EmptyState, primaryBtn, MONO } from '../kit'
-
-const STORAGE_KEY = 'ranktsy:keyword-lists'
-interface KList { id: string; name: string; keywords: string[] }
+import { loadLists, saveLists, type KList } from '@/lib/keyword-lists'
 
 const inputStyle: React.CSSProperties = {
   flex: 1, background: C.canvas, border: `1px solid ${C.hair}`, borderRadius: 100,
   padding: '10px 16px', fontSize: 13.5, fontFamily: 'inherit', outline: 'none', color: '#1a1a1a', minWidth: 0,
 }
 const smallBtn: React.CSSProperties = { ...primaryBtn, height: 38, padding: '0 18px', fontSize: 13 }
-
-function loadLists(): KList[] {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') } catch { return [] }
-}
 
 export function KeywordListsTab() {
   const [lists, setLists] = useState<KList[]>([])
@@ -27,7 +21,9 @@ export function KeywordListsTab() {
     const l = loadLists()
     setLists(l); setActiveId(l[0]?.id ?? ''); setHydrated(true)
   }, [])
-  useEffect(() => { if (hydrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(lists)) }, [lists, hydrated])
+  // saveLists (not a raw setItem) so the star controls elsewhere hear the change
+  // and re-render — a raw write fires no same-tab event.
+  useEffect(() => { if (hydrated) saveLists(lists) }, [lists, hydrated])
 
   const active = lists.find(l => l.id === activeId)
 

@@ -101,7 +101,7 @@ export function Features() {
             Everything you need to rank higher on Etsy search.
           </h2>
           <p style={{ fontSize: 18, color: "#6E6E64", lineHeight: 1.5, letterSpacing: "-0.14px", maxWidth: 500, marginBottom: 56 }}>
-            From keyword research to competitor tracking, Ranktsy is your complete
+            From keyword research to competitor tracking, Rankkw is your complete
             Etsy analytics toolkit.
           </p>
         </Reveal>
@@ -139,7 +139,7 @@ export function HowItWorks() {
     {
       n: "01",
       title: "Enter a keyword",
-      desc: "Type any product idea or keyword into Ranktsy's search bar to begin your research.",
+      desc: "Type any product idea or keyword into Rankkw's search bar to begin your research.",
     },
     {
       n: "02",
@@ -166,7 +166,7 @@ export function HowItWorks() {
             From search to sale in four steps.
           </h2>
           <p style={{ fontSize: 18, color: "#6E6E64", lineHeight: 1.5, letterSpacing: "-0.14px", maxWidth: 500, marginBottom: 56 }}>
-            Ranktsy turns complex Etsy data into clear, actionable insights.
+            Rankkw turns complex Etsy data into clear, actionable insights.
           </p>
         </Reveal>
         <RevealGroup className="rgrid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 28 }}>
@@ -234,7 +234,7 @@ export function AboutContactTeaser() {
             Built by Etsy sellers,<br />for Etsy sellers.
           </h3>
           <p style={{ fontSize: 15, color: '#6E6E64', lineHeight: 1.6, letterSpacing: '-0.1px', marginBottom: 24 }}>
-            We spent years selling on Etsy, manually tracking keywords in spreadsheets. Ranktsy is the tool we always wished existed.
+            We spent years selling on Etsy, manually tracking keywords in spreadsheets. Rankkw is the tool we always wished existed.
           </p>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 500, color: C.orange }}>
             Read our story →
@@ -323,7 +323,7 @@ export function Footer() {
         {/* Brand + link columns */}
         <div className="rgrid-4" style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr 1fr", gap: 48, paddingBottom: 48, borderBottom: `1px solid rgba(245,245,235,0.14)` }}>
           <div>
-            <img src="/website_logo.png" alt="Ranktsy" style={{ width: 132, height: 44, objectFit: "contain", display: "block", marginBottom: 20, filter: "brightness(0) invert(1)" }} />
+            <img src="/website_logo.png" alt="Rankkw" style={{ width: 132, height: 44, objectFit: "contain", display: "block", marginBottom: 20, filter: "brightness(0) invert(1)" }} />
             <p style={{ fontSize: 15, color: dim, lineHeight: 1.55, maxWidth: 300, marginBottom: 22 }}>
               Data-driven keyword research and analytics for Etsy sellers. Grow smarter, not harder.
             </p>
@@ -351,7 +351,7 @@ export function Footer() {
 
         {/* Bottom bar */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, paddingTop: 26 }}>
-          <p style={{ fontSize: 12.5, color: dim, margin: 0 }}>© 2026 Ranktsy. All rights reserved.</p>
+          <p style={{ fontSize: 12.5, color: dim, margin: 0 }}>© 2026 Rankkw. All rights reserved.</p>
           <div style={{ display: "flex", gap: 22 }}>
             {[["Privacy", "/privacy"], ["Terms", "/terms"], ["Methodology", "/methodology"], ["Contact", "/contact"]].map(([l, h]) => (
               <a key={l} href={h} style={{ fontSize: 12.5, color: dim, textDecoration: "none" }}

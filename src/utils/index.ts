@@ -52,6 +52,52 @@ export const C = {
 //   • C.charcoal background → always use C.snow (white) text
 //   • C.orangeFaint / warmGray / snow backgrounds → use C.charcoal text
 
+// ─── D — DATA palette ────────────────────────────────────────────────────────
+// Deliberately separate from `C` (brand). The brand's "no green" rule governs
+// chrome — nav, buttons, hero, CTA, footer. Data signals are the exception: a
+// real green→amber→red scale reads faster than a monochrome one, so stats, KD
+// scores, competition badges and charts use these.
+//
+// Rule: never use D.* for chrome, never use C.orange as a data signal.
+export const D = {
+  good:      '#1F8A4C',  goodBg:   'rgba(31,138,76,0.11)',   goodSoft:  '#DCEFE3',  // easy / low competition
+  fair:      '#4E9A3F',  fairBg:   'rgba(78,154,63,0.11)',                          // easy-ish
+  mid:       '#C08A12',  midBg:    'rgba(224,160,40,0.15)',   midSoft:   '#F7E9C9',  // medium
+  warm:      '#D9702B',  warmBg:   'rgba(217,112,43,0.13)',                          // hard-ish
+  hard:      '#CF463A',  hardBg:   'rgba(207,70,58,0.12)',    hardSoft:  '#F7DCD9',  // hard / high competition
+  neutral:   '#6E6E64',  neutralBg:'rgba(110,110,100,0.10)',                         // no data
+
+  // Categorical series — for multi-series charts (tags, categories, marketplaces).
+  // Ordered for maximum adjacent contrast.
+  series: ['#1F8A4C', '#2E6DB4', '#C08A12', '#CF463A', '#7A4FB5', '#0F9A9A', '#D9702B', '#6E6E64'] as const,
+} as const
+
+/** Keyword-difficulty / competition heat: 0 = easy (green) → 100 = hard (red). */
+export function heatColor(score: number): string {
+  if (score < 20) return D.good
+  if (score < 40) return D.fair
+  if (score < 60) return D.mid
+  if (score < 80) return D.warm
+  return D.hard
+}
+
+/**
+ * ISO-3166 alpha-2 → flag emoji, by offsetting each letter into the Unicode
+ * regional-indicator block. Derived rather than mapped, so it covers every
+ * country Etsy can return — a hardcoded map silently drops the ones it misses.
+ */
+export function flag(iso: string | null | undefined): string {
+  if (!iso || !/^[A-Za-z]{2}$/.test(iso)) return ''
+  return String.fromCodePoint(...[...iso.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65))
+}
+
+/** Competition level → {fg,bg}. Low is genuinely good news, so it reads green. */
+export function compColor(level: 'Low' | 'Med' | 'High'): { fg: string; bg: string } {
+  if (level === 'Low')  return { fg: D.good, bg: D.goodBg }
+  if (level === 'High') return { fg: D.hard, bg: D.hardBg }
+  return { fg: D.mid, bg: D.midBg }
+}
+
 export function formatNumber(n: number | null): string {
   if (n === null || n === undefined) return '—'
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
