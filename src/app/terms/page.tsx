@@ -18,7 +18,7 @@ const sections = [
       'Rankkw is an independent keyword research and analytics platform designed to help Etsy sellers analyze search trends, optimize listings, and track shop performance. The Service includes:',
     bullets: [
       { label: 'Keyword Research', text: 'Analysis of live Etsy listing competition, engagement and pricing. Etsy publishes no search-volume or click data; where we show search volume it comes from Google, and where a figure is an estimate the app says so. See our Methodology page for exactly what is measured and what we deliberately don’t show.' },
-      { label: 'Trend Analytics', text: 'Relative trend data derived from Etsy listing view signals to identify peak buyer interest periods. Note: Etsy\'s Open API does not expose raw search volume counts.' },
+      { label: 'Trend Analytics', text: 'Etsy publishes no search volume and no search history, so we show no Etsy demand curve. Where seasonality is shown it is real Google Ads monthly volume, or the real month each competing listing was created — labelled as seller behaviour, not buyer demand. Note: Etsy\'s Open API does not expose raw search volume counts.' },
       { label: 'Competition Analysis', text: 'Insights into competing listings, tags, and titles within Etsy\'s marketplace.' },
       { label: 'Tag Optimizer', text: 'Data-backed tag recommendations to maximize listing visibility within Etsy\'s 13-tag allowance.' },
       { label: 'Shop Analytics', text: 'Optional integration to track your connected shop\'s views, favorites, and revenue trends.' },
@@ -76,7 +76,7 @@ const sections = [
       'Rankkw uses the official Etsy Open API v3 (https://openapi.etsy.com) to retrieve publicly available marketplace data, such as active listing details, shop information, and product search results. We do not use scraping, unofficial endpoints, or any third-party data proxy services to access Etsy data.',
     disclaimer: true,
     bullets: [
-      { label: 'Data Source', text: 'All Etsy data displayed in Rankkw is retrieved via the official Etsy Open API v3. The API provides listing-level data (titles, tags, views, favorites, prices, images) for active public listings. It does not expose raw search volume, click data, or buyer country breakdowns — any engagement metrics shown are derived from listing view/favorite counts as relative proxies only.' },
+      { label: 'Data Source', text: 'All Etsy data displayed in Rankkw is retrieved via the official Etsy Open API v3. The API provides listing-level data (titles, tags, views, favorites, prices, images) for active public listings. It does not expose search volume, click data, or buyer country breakdowns; the engagement figures we show are the view and favorite counts returned by the API, and their ratio.' },
       { label: 'Data Scope', text: 'We access only publicly available listing data (titles, tags, views, images, prices). We do not access private seller data without explicit OAuth consent.' },
       { label: 'No Affiliation', text: 'Rankkw is an independent application. "Etsy" is a trademark of Etsy, Inc. This application uses the Etsy API but is not endorsed or certified by Etsy, Inc.' },
     ],
@@ -385,7 +385,7 @@ export default function TermsPage() {
                     }}
                   >
                     <a
-                      href="mailto:legal@rankkw.com"
+                      href="mailto:support@rankkw.com"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -397,7 +397,7 @@ export default function TermsPage() {
                       }}
                     >
                       <span style={{ opacity: 0.6, fontSize: 12 }}>EMAIL</span>
-                      legal@rankkw.com
+                      support@rankkw.com
                     </a>
                     <a
                       href="https://rankkw.com/contact"

@@ -4,28 +4,45 @@ import { Navbar } from '@/components/landing/Navbar'
 import { Footer } from '@/components/landing/Sections'
 import { C } from '@/utils'
 import { Icon } from '@/components/ui/Icon'
+import { SocialRow } from '@/components/ui/Social'
 
-const CONTACT_CHANNELS = [
+/**
+ * One inbox, one phone, one address — all real and monitored.
+ *
+ * There used to be hello@ / support@ / billing@. Only support@ exists, so the
+ * other two silently bounced: worse than listing nothing, and a live contact
+ * route is something Etsy's API review actually looks for.
+ *
+ * `href` is optional — the postal address isn't a link, and inventing a maps URL
+ * for it would just be a guess.
+ */
+const CONTACT_CHANNELS: {
+  icon: 'mail' | 'phone' | 'pin'
+  label: string
+  value: string
+  href?: string
+  desc: string
+}[] = [
   {
-    icon: 'mail' as const,
-    label: 'General Inquiries',
-    value: 'hello@rankkw.com',
-    href: 'mailto:hello@rankkw.com',
-    desc: 'For general questions, partnerships, and press.',
-  },
-  {
-    icon: 'tool' as const,
-    label: 'Technical Support',
+    icon: 'mail',
+    label: 'Email',
     value: 'support@rankkw.com',
     href: 'mailto:support@rankkw.com',
-    desc: 'Having trouble with the platform? We respond within 24 hours.',
+    desc: 'Support, billing, partnerships and press — everything reaches the same inbox. We reply within 24 hours on business days.',
   },
   {
-    icon: 'briefcase' as const,
-    label: 'Business & Billing',
-    value: 'billing@rankkw.com',
-    href: 'mailto:billing@rankkw.com',
-    desc: 'Questions about your subscription, invoices, or enterprise plans.',
+    icon: 'phone',
+    label: 'Phone',
+    value: '0329 7890000',
+    // tel: needs the international form or it won't dial from outside Pakistan.
+    href: 'tel:+923297890000',
+    desc: 'Pakistan Standard Time, business hours. Dial +92 329 7890000 from abroad.',
+  },
+  {
+    icon: 'pin',
+    label: 'Office',
+    value: 'Bahawalpur, Pakistan',
+    desc: 'Riaz Colony, Street No. 1, Bahawalpur, Punjab, Pakistan.',
   },
 ]
 
@@ -147,10 +164,16 @@ export default function ContactPage() {
               gap: 16,
             }}
           >
-            {CONTACT_CHANNELS.map((ch) => (
-              <a
+            {CONTACT_CHANNELS.map((ch) => {
+              // The address card has no href. Rendering it as an <a> anyway would
+              // give a link that looks clickable and goes nowhere, so it becomes a
+              // plain div and drops the lift-on-hover affordance with it.
+              const Tag = (ch.href ? 'a' : 'div') as 'a' | 'div'
+              const interactive = Boolean(ch.href)
+              return (
+              <Tag
                 key={ch.label}
-                href={ch.href}
+                {...(ch.href ? { href: ch.href } : {})}
                 style={{
                   background: C.paper,
                   border: `1px solid ${C.hairInk}`,
@@ -160,8 +183,8 @@ export default function ContactPage() {
                   display: 'block',
                   transition: 'transform 0.18s',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
-                onMouseLeave={(e) => (e.currentTarget.style.transform = 'none')}
+                onMouseEnter={(e) => { if (interactive) e.currentTarget.style.transform = 'translateY(-2px)' }}
+                onMouseLeave={(e) => { if (interactive) e.currentTarget.style.transform = 'none' }}
               >
                 <Icon name={ch.icon} size={22} color={C.ink} style={{ marginBottom: 16 }} />
                 <p
@@ -188,8 +211,37 @@ export default function ContactPage() {
                   {ch.value}
                 </p>
                 <p style={{ fontSize: 14, color: '#6E6E64', lineHeight: 1.55 }}>{ch.desc}</p>
-              </a>
-            ))}
+              </Tag>
+              )
+            })}
+          </div>
+
+          {/* Social — a fourth way to reach us, but not a support channel, so it
+              sits below the cards rather than becoming one of them. */}
+          <div
+            className="rstack-sm"
+            style={{
+              maxWidth: 1100,
+              margin: '32px auto 0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 18,
+              flexWrap: 'wrap',
+            }}
+          >
+            <p
+              style={{
+                fontSize: 11,
+                fontFamily: "'General Sans', monospace",
+                color: '#808080',
+                textTransform: 'uppercase',
+                letterSpacing: '0.07em',
+                margin: 0,
+              }}
+            >
+              Follow Rankkw
+            </p>
+            <SocialRow color="#6E6E64" hoverColor={C.orange} size={19} gap={16} />
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { C } from "@/utils";
+import { SocialRow } from "@/components/ui/Social";
 import { Reveal, RevealGroup, RevealItem } from "./Reveal";
 
 const SANS = "'General Sans',sans-serif";
@@ -354,10 +355,11 @@ export function Footer() {
             <p style={{ fontSize: 15, color: dim, lineHeight: 1.55, maxWidth: 300, marginBottom: 22 }}>
               Data-driven keyword research and analytics for Etsy sellers. Grow smarter, not harder.
             </p>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 11, fontFamily: SANS, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.1em", color: C.ash }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 11, fontFamily: SANS, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.1em", color: C.ash, marginBottom: 26 }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.orange, display: "inline-block" }} />
               Built on the official Etsy Open API v3
             </div>
+            <SocialRow color={dim} hoverColor="#fff" />
           </div>
           {cols.map((c) => (
             <div key={c.t}>
