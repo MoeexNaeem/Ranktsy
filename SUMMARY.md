@@ -1,6 +1,6 @@
 # Rankkw — Session Handoff
 
-_Last updated: 2026-07-16. Read this first, then the memory files it points to._
+_Last updated: 2026-07-20. Read this first, then the memory files it points to._
 
 Rankkw is an **Etsy SEO & analytics tool** (Next.js 16, App Router, React 19, MongoDB/Mongoose, TanStack Query, Zustand). It competes with eRank / EtsyHunt. The dashboard has **29 tabs**.
 
@@ -64,15 +64,18 @@ Also fixed: Google Ads was pinned to sunset API **v18** (404s) → now **v20** d
 
 ---
 
-## ▶ NEXT BATCH TO BUILD (the user has approved this)
+## ✅ BUILT 2026-07-20: AI Improvement Suggestions + One-Click Optimization
 
-**Build the Gemini group next — specifically this pair, which the user explicitly asked for:**
+The approved pair is done and verified live: **the audit finds the gaps → Gemini writes the fixes.**
 
-> **AI Improvement Suggestions + One-Click Optimization.** These stack directly on the Listing Audit and Keyword Gap already built: **the audit finds the gaps → Gemini writes the fixes.** i.e. feed the real audit findings + the real missing tags from Keyword Gap into Gemini, and have it produce a prioritised, ready-to-paste set of improvements (rewritten title, the exact tags to add, a tightened description). One-Click Optimization is the same flow with an "apply everything" output.
+- **`/api/ai/optimize`** (POST) — takes `{ listingId, keyword?, findings }`. Re-fetches the real listing, reuses `/api/keywords/gap`'s memCache scan key (`gap:v1:scan:<kw>`) to compute the measured missing high-adoption tags server-side, then asks Gemini (schema-forced JSON) for: a summary, a prioritised suggestion list (each `issue` restates a real finding with its real numbers), and a complete rewrite (title ≤140, exactly 13 tags ≤20 chars, description). Post-processing computes `tagsToAdd`/`tagsToRemove` vs the listing's current tags. **Rule-based fallback** when the key is missing or 429'd: suggestions = the audit findings themselves; tag set = the seller's own tags topped up with the measured gap tags; keeps the seller's own copy. `ai: true/false` flags which path ran.
+- **`AiOptimizePanel`** (`src/components/dashboard/listing/AiOptimizePanel.tsx`) — renders under the Listing Audit checklist. Keyword input pre-filled from the listing's first multi-word tag; sends the tab's real `audit.checks` as findings. Output: AI/RULE-BASED badge, grounding line ("top 100 live listings for …"), priority-chipped fixes, and the One-Click card (title + 13 tags with NEW markers + drops list + description, per-section and copy-full-listing buttons, review-before-publishing note).
+- Compliance held: Gemini writes copy only; every number in its input/output was measured first (tag adoption %s from the live scan, char counts from the real listing).
+- Verified end-to-end against live Etsy data (listing 4368996555, keywords "ceramic mug" and "custom pet mug" — both scanned 100 live listings; Gemini returned valid 13-tag rewrites within caps).
 
-This is the highest-value next step because the hard part (the real analysis) already exists — Gemini just turns it into actions. Keep it compliant: Gemini rewrites _copy_ from _real findings_; it must not invent any numbers.
+## ▶ Remaining buildable-but-deferred features
 
-Other buildable-but-deferred features (need OAuth / snapshot history / infra, so they'd show empty states today): Bulk Listing Audit, Keyword Cannibalization (both need shop OAuth), Competitor Change Tracker (needs days of snapshot history — backend `getListingChanges` already exists), PDF SEO Report, Trend Alerts, Chrome Extension. See the feature-map artifact for the full 50-item breakdown (23 live · 11 Gemini-ready · 9 buildable · 7 blocked-by-fake-data).
+These need OAuth / snapshot history / infra, so they'd show empty states today: Bulk Listing Audit, Keyword Cannibalization (both need shop OAuth), Competitor Change Tracker (needs days of snapshot history — backend `getListingChanges` already exists), PDF SEO Report, Trend Alerts, Chrome Extension. See the feature-map artifact for the full 50-item breakdown (23 live · 11 Gemini-ready · 9 buildable · 7 blocked-by-fake-data).
 
 ---
 

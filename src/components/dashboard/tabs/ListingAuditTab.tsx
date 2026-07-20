@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { C } from '@/utils'
 import { SearchBar, Card, SectionTitle, ErrorBox, Loading, EmptyState, TagPill, MONO } from '../kit'
+import { AiOptimizePanel } from '../listing/AiOptimizePanel'
 import type { EtsyListing, ListingBenchmark } from '@/types'
 
 type Status = 'pass' | 'warn' | 'fail'
@@ -259,6 +260,10 @@ export function ListingAuditTab() {
               })}
             </Card>
           </div>
+
+          {/* AI Improvement Suggestions + One-Click Optimization — the audit
+              finds the gaps, Gemini writes the fixes. */}
+          <AiOptimizePanel listing={listing} findings={audit.checks} />
 
           {/* Product variations */}
           {variations && variations.variations.length > 0 && (
