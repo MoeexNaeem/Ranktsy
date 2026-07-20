@@ -341,7 +341,7 @@ export function Footer() {
   const cols = [
     { t: "Product",  l: [["Keyword Tool", "/#keywords"], ["Features", "/#features"], ["Dashboard", "/dashboard"]] as [string, string][] },
     { t: "Company",  l: [["About", "/about"], ["Contact", "/contact"]] as [string, string][] },
-    { t: "Legal",    l: [["Privacy Policy", "/privacy"], ["Terms", "/terms"], ["Data & Methodology", "/methodology"]] as [string, string][] },
+    { t: "Legal",    l: [["Privacy Policy", "/privacy"], ["Terms", "/terms"], ["Service Policy", "/service-policy"], ["Refund & Return Policy", "/refund-policy"], ["Data & Methodology", "/methodology"]] as [string, string][] },
   ];
   const dim = "rgba(245,245,235,0.62)";
   return (
@@ -382,7 +382,7 @@ export function Footer() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, paddingTop: 26 }}>
           <p style={{ fontSize: 12.5, color: dim, margin: 0 }}>© 2026 Rankkw. All rights reserved.</p>
           <div style={{ display: "flex", gap: 22 }}>
-            {[["Privacy", "/privacy"], ["Terms", "/terms"], ["Methodology", "/methodology"], ["Contact", "/contact"]].map(([l, h]) => (
+            {[["Privacy", "/privacy"], ["Terms", "/terms"], ["Service Policy", "/service-policy"], ["Refund Policy", "/refund-policy"], ["Methodology", "/methodology"], ["Contact", "/contact"]].map(([l, h]) => (
               <a key={l} href={h} style={{ fontSize: 12.5, color: dim, textDecoration: "none" }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
                 onMouseLeave={(e) => (e.currentTarget.style.color = dim)}>{l}</a>

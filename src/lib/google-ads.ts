@@ -14,7 +14,16 @@
  *   GOOGLE_ADS_API_VERSION           ← defaults to v18; bump if Google sunsets it
  */
 
-const V = process.env.GOOGLE_ADS_API_VERSION || 'v18'
+/**
+ * Google sunsets Ads API versions roughly yearly, and a sunset version returns
+ * 404 for every call — verified 2026-07-16: v18 and v19 are both dead, v20+
+ * still route. The old default here was v18, so this integration would have
+ * failed on the very first request even with perfect credentials.
+ *
+ * Override with GOOGLE_ADS_API_VERSION when Google retires this one; the error
+ * thrown below names the variable so the fix is obvious from the logs.
+ */
+const V = process.env.GOOGLE_ADS_API_VERSION || 'v20'
 const digits = (s?: string) => (s ?? '').replace(/\D/g, '')
 
 export function isGoogleAdsConfigured(): boolean {
@@ -92,7 +101,18 @@ async function historicalMetrics(keywords: string[], geoId: string): Promise<Map
       cache: 'no-store',
     },
   )
-  if (!res.ok) throw new Error(`Google Ads API ${res.status}: ${await res.text().catch(() => '')}`)
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    // A sunset API version 404s on every endpoint. Without this the symptom is a
+    // bare "404" and it looks like a bad customer id or a broken URL.
+    if (res.status === 404) {
+      throw new Error(
+        `Google Ads API ${V} returned 404 — that version has almost certainly been sunset. ` +
+        `Set GOOGLE_ADS_API_VERSION to a current one (see https://developers.google.com/google-ads/api/docs/sunset-dates). Body: ${body.slice(0, 200)}`,
+      )
+    }
+    throw new Error(`Google Ads API ${res.status}: ${body}`)
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const j = await res.json() as { results?: any[] }

@@ -33,8 +33,9 @@ const MyShopTab            = dynamic(() => import('./tabs/MyShopTab').then(m => 
 const CompetitorSalesTab   = dynamic(() => import('./tabs/CompetitorSalesTab').then(m => ({ default: m.CompetitorSalesTab })), { ssr: false })
 const SalesMapTab          = dynamic(() => import('./tabs/SalesMapTab').then(m => ({ default: m.SalesMapTab })), { ssr: false })
 const DeliveryStatusTab    = dynamic(() => import('./tabs/DeliveryStatusTab').then(m => ({ default: m.DeliveryStatusTab })), { ssr: false })
+const KeywordGapTab        = dynamic(() => import('./tabs/KeywordGapTab').then(m => ({ default: m.KeywordGapTab })), { ssr: false })
 
-type TabId = 'overview' | 'myshop' | 'keywords' | 'listings' | 'competitors' | 'compsales' | 'trends' | 'buzz' | 'monthly' | 'topsellers' | 'catreport' | 'bulk' | 'rank' | 'shop' | 'salesmap' | 'delivery' | 'tags' | 'aihelper' | 'ctags' | 'generator' | 'audit' | 'compare' | 'spell' | 'fees' | 'adsroi' | 'category' | 'calendar' | 'lists'
+type TabId = 'overview' | 'myshop' | 'keywords' | 'gap' | 'listings' | 'competitors' | 'compsales' | 'trends' | 'buzz' | 'monthly' | 'topsellers' | 'catreport' | 'bulk' | 'rank' | 'shop' | 'salesmap' | 'delivery' | 'tags' | 'aihelper' | 'ctags' | 'generator' | 'audit' | 'compare' | 'spell' | 'fees' | 'adsroi' | 'category' | 'calendar' | 'lists'
 
 const ICON = (d: React.ReactNode) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
 
@@ -61,6 +62,8 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; description: stri
     icon: ICON(<><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="4" width="3" height="14"/></>) },
   { id: 'compsales',   label: 'Competitor Sales',group: 'Research',  description: 'Real sales & daily velocity',
     icon: ICON(<><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></>) },
+  { id: 'gap',         label: 'Keyword Gap',   group: 'Research',    description: 'Find the hidden keywords you\'re missing',
+    icon: ICON(<><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></>) },
   { id: 'bulk',        label: 'Bulk Keywords', group: 'Research',    description: 'Compare keywords in bulk',
     icon: ICON(<><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></>) },
   { id: 'rank',        label: 'Rank Checker',  group: 'Research',    description: 'Find where your shop ranks',
@@ -106,6 +109,7 @@ function TabContent({ active, onNavigate }: { active: TabId; onNavigate: (id: Ta
     overview:    <OverviewTab onNavigate={(id) => onNavigate(id as TabId)} />,
     myshop:      <MyShopTab />,
     keywords:    <KeywordsTab onNavigate={(id) => onNavigate(id as TabId)} />,
+    gap:         <KeywordGapTab />,
     listings:    <ListingsTab />,
     competitors: <CompetitorsTab />,
     compsales:   <CompetitorSalesTab />,

@@ -132,6 +132,7 @@ export const KeywordTable = memo(function KeywordTable({
   const [filter, setFilter]   = useState('')
   const [match, setMatch]     = useState<Match>('default')
   const [tagsOnly, setTagsOnly] = useState(false)
+  const [longTail, setLongTail] = useState(false)   // 3+ word phrases only
   const [hidden, setHidden]   = useState<Set<string>>(new Set(DEFAULT_HIDDEN))
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
@@ -154,6 +155,8 @@ export const KeywordTable = memo(function KeywordTable({
     let base = rows
     if (f) base = base.filter(r => r.keyword.toLowerCase().includes(f))
     if (tagsOnly) base = base.filter(r => r.tagOccurrences > 0)
+    // Long-tail = 3+ words: more specific, lower competition, higher buyer intent.
+    if (longTail) base = base.filter(r => r.keyword.trim().split(/\s+/).length >= 3)
 
     if (q) {
       if (match === 'exact')  base = base.filter(r => r.keyword.toLowerCase() === q)
@@ -172,7 +175,7 @@ export const KeywordTable = memo(function KeywordTable({
       if (bv == null) return -1
       return dir * (av - bv)
     })
-  }, [rows, filter, sortKey, sortDir, match, tagsOnly, query])
+  }, [rows, filter, sortKey, sortDir, match, tagsOnly, longTail, query])
 
   const allSelected = view.length > 0 && view.every(r => selected.has(r.keyword))
   const someSelected = view.some(r => selected.has(r.keyword))
@@ -241,6 +244,7 @@ export const KeywordTable = memo(function KeywordTable({
         </Popover>
 
         <Toggle on={tagsOnly} onChange={setTagsOnly} label="Show tags only" />
+        <Toggle on={longTail} onChange={setLongTail} label="Long-tail only" />
 
         {/* Column picker */}
         <Popover label="Columns" width={210}>
@@ -290,7 +294,7 @@ export const KeywordTable = memo(function KeywordTable({
           <div style={{ padding: '44px 20px', textAlign: 'center' }}>
             <p style={{ fontSize: 15, color: C.ink, fontWeight: 500 }}>No keywords match</p>
             <p style={{ fontSize: 13.5, color: C.graphite, marginTop: 5 }}>
-              {tagsOnly ? 'Try turning off “Show tags only”' : match !== 'default' ? `Try a broader match than “${MATCH_LABEL[match]}”` : 'Try clearing the filter'}
+              {longTail ? 'No 3+ word phrases here — try turning off “Long-tail only”' : tagsOnly ? 'Try turning off “Show tags only”' : match !== 'default' ? `Try a broader match than “${MATCH_LABEL[match]}”` : 'Try clearing the filter'}
             </p>
           </div>
         ) : view.map(row => (

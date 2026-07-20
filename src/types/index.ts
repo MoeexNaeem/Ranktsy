@@ -191,6 +191,67 @@ export interface ListingBenchmark {
   priceComparable?: boolean
 }
 
+// ─── Keyword Gap Analysis (features "Hidden Keyword Finder" + "Keyword Gap") ──
+// Every field is measured from the live listings that rank for the keyword — the
+// tags/title-words winners use, and (optionally) which of them your own listing
+// is missing. No estimation: adoption is a real count, engagement is real views.
+export interface GapTag {
+  tag: string
+  used: number          // how many of the sampled top listings carry this tag
+  usedPct: number       // as a % of the sample
+  avgViews: number      // mean views of the listings using it — real
+  yoursMissing: boolean // true when a target listing was given and lacks this tag
+}
+
+export interface GapWord {
+  word: string
+  inTitles: number      // how many top titles contain it
+  inTitlesPct: number
+  yoursMissing: boolean
+}
+
+export interface KeywordGap {
+  query: string
+  sampled: number               // listings analysed
+  totalResults: number          // real Etsy-wide total for the keyword
+  hasTarget: boolean            // did the caller supply their own listing to compare?
+  targetTitle: string | null
+  targetTagCount: number | null // your listing's tag count (of 13)
+  tags: GapTag[]
+  titleWords: GapWord[]
+  /** Missing high-value tags — the actionable shortlist. Empty when no target given. */
+  topMissingTags: GapTag[]
+}
+
+// ─── AI Improvement Suggestions + One-Click Optimization ──────────────────────
+// Gemini turns the REAL audit findings + REAL keyword-gap tags into fixes.
+// The AI writes copy only — every issue it cites comes from a measured finding.
+export interface AiSuggestion {
+  priority: 'high' | 'medium' | 'low'
+  area: string      // which part of the listing (Title / Tags / Description / Photos…)
+  issue: string     // the real audit finding this addresses
+  action: string    // the concrete fix, ready to act on
+}
+
+export interface AiOptimization {
+  /** True when Gemini wrote the copy; false = rule-based fallback (no key / rate-limited). */
+  ai: boolean
+  summary: string
+  suggestions: AiSuggestion[]
+  /** One-Click Optimization output — a complete, ready-to-paste listing. */
+  title: string
+  tags: string[]              // the full recommended 13-tag set
+  tagsToAdd: string[]         // tags in the new set your listing doesn't have yet
+  tagsToRemove: string[]      // current tags the new set drops
+  description: string
+  /** What the rewrite was grounded in — all real, measured numbers. */
+  grounding: {
+    keyword: string
+    sampled: number                              // live listings scanned (0 = scan unavailable)
+    missingTags: { tag: string; usedPct: number }[]  // high-adoption tags you lack
+  }
+}
+
 export interface KeywordSearchResponse {
   query: string
   stats: KeywordStats

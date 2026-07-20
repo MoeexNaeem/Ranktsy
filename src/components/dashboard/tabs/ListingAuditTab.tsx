@@ -70,6 +70,43 @@ function benchmarkChecks(l: EtsyListing, b?: ListingBenchmark): Check[] {
   return out
 }
 
+/**
+ * Tag-hygiene checks — real, computed from the listing's own 13 tags. These
+ * catch the mistakes that quietly waste tag slots: duplicates, near-duplicates,
+ * and tags over Etsy's 20-character limit (which Etsy truncates).
+ */
+function tagHygieneChecks(l: EtsyListing): Check[] {
+  const tags = (l.tags ?? []).map(t => t.trim()).filter(Boolean)
+  if (!tags.length) return []
+  const out: Check[] = []
+
+  // Exact duplicates (case-insensitive) — each one is a wasted slot.
+  const seen = new Map<string, number>()
+  for (const t of tags) seen.set(t.toLowerCase(), (seen.get(t.toLowerCase()) ?? 0) + 1)
+  const dupes = [...seen.entries()].filter(([, c]) => c > 1).map(([t]) => t)
+  out.push({
+    label: 'Duplicate tags',
+    status: dupes.length ? 'fail' : 'pass',
+    detail: dupes.length
+      ? `${dupes.length} duplicate tag${dupes.length === 1 ? '' : 's'} (${dupes.slice(0, 3).join(', ')}) — each repeat wastes one of your 13 slots.`
+      : 'No duplicate tags — every slot is a distinct phrase.',
+  })
+
+  // Over-length tags — Etsy caps tags at 20 chars and truncates the rest.
+  const tooLong = tags.filter(t => t.length > 20)
+  if (tooLong.length) {
+    out.push({
+      label: 'Tag length',
+      status: 'warn',
+      detail: `${tooLong.length} tag${tooLong.length === 1 ? '' : 's'} over 20 characters — Etsy truncates these (e.g. “${tooLong[0]}”).`,
+    })
+  }
+
+  // NOTE: long-tail / multi-word coverage is already scored by the base audit
+  // ("Long-tail tags"), so it's deliberately not repeated here.
+  return out
+}
+
 function auditListing(l: EtsyListing, hasVariations = false, b?: ListingBenchmark): { checks: Check[]; score: number } {
   const titleLen = l.title.length
   const titleWords = l.title.trim().split(/\s+/).filter(Boolean).length
@@ -115,7 +152,7 @@ function auditListing(l: EtsyListing, hasVariations = false, b?: ListingBenchmar
       detail: `${imgs} / 10 photos — more angles lift click-through & trust.`,
     },
   ]
-  const all = [...checks, ...benchmarkChecks(l, b)]
+  const all = [...checks, ...tagHygieneChecks(l), ...benchmarkChecks(l, b)]
   const score = Math.round((all.reduce((s, c) => s + (c.status === 'pass' ? 2 : c.status === 'warn' ? 1 : 0), 0) / (all.length * 2)) * 100)
   return { checks: all, score }
 }

@@ -6,6 +6,7 @@ import { C, D, flag, formatNumber } from '@/utils'
 import { Card, SearchBar, StatCard, SectionTitle, ErrorBox, EmptyState, tableCard, tableHead, th, tableRow, tdMono, tdTitle, MONO } from '../kit'
 import { BarChart } from '@/components/charts/BarChart'
 import { VelocityPanel } from '../keyword/VelocityPanel'
+import { ShopHealthPanel } from '../keyword/ShopHealthPanel'
 import type { EtsyListing } from '@/types'
 import type { ShopReview, ShopSection } from '@/lib/etsy'
 
@@ -137,8 +138,11 @@ export function ShopTab() {
               sub={avgPrice > 0 ? `avg price ${cur}${avgPrice.toFixed(2)}` : `${formatNumber(totalViews)} views sampled`} />
           </div>
 
-          {/* Sales velocity — only real if we have history. See lib/snapshots.ts. */}
-          <VelocityPanel shopId={Number(shop.shop_id ?? 0)} shopName={String(shop.shop_name ?? '')} />
+          {/* Health score + velocity side by side. */}
+          <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 12, alignItems: 'start' }}>
+            <ShopHealthPanel input={{ reviewAvg, reviewCount, activeListings: activeCount, sales, salesPerListing, yearOpened, onVacation }} />
+            <VelocityPanel shopId={Number(shop.shop_id ?? 0)} shopName={String(shop.shop_name ?? '')} />
+          </div>
 
           {/* Sections + reviews */}
           {(data.sections?.length > 0 || data.reviews?.length > 0) && (

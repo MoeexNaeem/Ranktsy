@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
 import { searchEtsyListings } from '@/lib/etsy'
+import { geminiJSON, isGeminiConfigured } from '@/lib/gemini'
 
 export const runtime = 'nodejs'
 
@@ -8,14 +8,14 @@ export const runtime = 'nodejs'
  * AI Listing Helper — generates an SEO-optimized Etsy title, 13 tags, and a
  * description for a product.
  *
- * • If ANTHROPIC_API_KEY is set, it uses Claude (structured JSON output) grounded
- *   in the real tags of the top live Etsy listings for the seed keyword.
- * • If no key is set yet, it falls back to a rule-based generator built from the
- *   same live Etsy tag data — so the tool is useful immediately and upgrades to
- *   full AI the moment a key is added. No behaviour change is needed in the UI.
+ * • If a Gemini key is set, Gemini writes the copy, GROUNDED in the real tags of
+ *   the top live Etsy listings for the seed keyword — the model is given the
+ *   actual competing tags/titles and told to work from them. It writes copy; it
+ *   never invents analytics.
+ * • With no key it falls back to a rule-based generator built from the same live
+ *   Etsy tag data — so the tool is useful immediately and upgrades to full AI the
+ *   moment a key is added. The UI needs no change either way.
  */
-
-const MODEL = process.env.AI_MODEL || 'claude-opus-4-8'
 
 interface ListingResult {
   titles:      string[]
@@ -80,22 +80,21 @@ function fallbackResult(seed: string, details: string, tagPool: string[]): Listi
   return { titles, tags, description, altText: cap(joinUntil([seedL, ...tagPool], ' ', 120)), ai: false }
 }
 
-// ─── Claude-powered generation ────────────────────────────────────────────────
-async function aiResult(seed: string, details: string, ctx: { tags: string[]; sampleTitles: string[] }): Promise<ListingResult> {
-  const client = new Anthropic()
+// ─── Gemini-powered generation (grounded in real Etsy tags) ───────────────────
+// Enforce Etsy's hard caps in the schema itself so the model can't hand back an
+// invalid listing: titles ≤140, exactly 13 tags ≤20 chars each.
+const LISTING_SCHEMA = {
+  type: 'object',
+  properties: {
+    titles:      { type: 'array', items: { type: 'string', maxLength: 140 }, minItems: 3, maxItems: 3 },
+    tags:        { type: 'array', items: { type: 'string', maxLength: 20 }, minItems: 13, maxItems: 13 },
+    description: { type: 'string' },
+    altText:     { type: 'string', maxLength: 120 },
+  },
+  required: ['titles', 'tags', 'description', 'altText'],
+} as const
 
-  const schema = {
-    type: 'object',
-    additionalProperties: false,
-    properties: {
-      titles:      { type: 'array', items: { type: 'string' } },
-      tags:        { type: 'array', items: { type: 'string' } },
-      description: { type: 'string' },
-      altText:     { type: 'string' },
-    },
-    required: ['titles', 'tags', 'description', 'altText'],
-  }
-
+async function aiResult(seed: string, details: string, ctx: { tags: string[]; sampleTitles: string[] }): Promise<ListingResult | null> {
   const prompt =
     `You are an expert Etsy SEO copywriter. Write an optimized listing for this product.\n\n` +
     `Product: ${seed}\n` +
@@ -105,25 +104,24 @@ async function aiResult(seed: string, details: string, ctx: { tags: string[]; sa
     `\nRules:\n` +
     `- titles: 3 distinct title options, each a complete Etsy title, MAX 140 characters, front-load the most-searched keywords.\n` +
     `- tags: exactly 13 tags, each MAX 20 characters, multi-word long-tail phrases, no single-letter/numeric-only tags, no duplicates, no '#'.\n` +
-    `- description: 90–160 words, scannable, buyer-focused, with a short intro line then bullet points, then a natural keyword line.\n` +
-    `- altText: one concise image alt-text line, MAX 120 chars.\n` +
-    `Return only the JSON.`
+    `- description: 90–160 words, scannable, buyer-focused: a short intro line, then bullet points, then a natural keyword line.\n` +
+    `- altText: one concise image alt-text line, MAX 120 chars.`
 
-  const res = await client.messages.create({
-    model: MODEL,
-    max_tokens: 1500,
-    output_config: { effort: 'low', format: { type: 'json_schema', schema } },
-    messages: [{ role: 'user', content: prompt }],
+  const parsed = await geminiJSON<Omit<ListingResult, 'ai'>>({
+    prompt,
+    schema: LISTING_SCHEMA,
+    system: 'You write Etsy listing copy grounded in the real competing tags provided. Never invent statistics.',
+    temperature: 0.8,
+    maxOutputTokens: 2048,
   })
+  if (!parsed) return null   // model failed / unconfigured → caller uses fallback
 
-  const text = res.content.find(b => b.type === 'text')
-  const raw = text && 'text' in text ? text.text : '{}'
-  const parsed = JSON.parse(raw) as Omit<ListingResult, 'ai'>
+  // Belt and braces: re-clamp to Etsy's caps even though the schema requested them.
   return {
-    titles:      (parsed.titles ?? []).slice(0, 3),
-    tags:        (parsed.tags ?? []).slice(0, 13),
+    titles:      (parsed.titles ?? []).map(t => t.slice(0, 140)).slice(0, 3),
+    tags:        (parsed.tags ?? []).map(t => t.toLowerCase().trim().slice(0, 20)).filter(Boolean).slice(0, 13),
     description: parsed.description ?? '',
-    altText:     parsed.altText ?? '',
+    altText:     (parsed.altText ?? '').slice(0, 120),
     ai:          true,
   }
 }
@@ -139,21 +137,15 @@ export async function POST(req: NextRequest) {
   try {
     const ctx = await liveTagContext(seed)
 
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return NextResponse.json({ success: true, data: fallbackResult(seed, details, ctx.tags) })
-    }
-
-    try {
+    // No key, or the model failed/rate-limited (geminiJSON returns null) → the
+    // rule-based generator still gives a useful, real-tag-grounded result.
+    if (isGeminiConfigured()) {
       const data = await aiResult(seed, details, ctx)
-      // Guard against an empty AI payload — fall back rather than returning nothing.
-      if (!data.tags.length && !data.titles.length) {
-        return NextResponse.json({ success: true, data: fallbackResult(seed, details, ctx.tags) })
+      if (data && (data.tags.length || data.titles.length)) {
+        return NextResponse.json({ success: true, data })
       }
-      return NextResponse.json({ success: true, data })
-    } catch (aiErr) {
-      console.error('[AI Listing] Claude call failed, using fallback:', aiErr)
-      return NextResponse.json({ success: true, data: fallbackResult(seed, details, ctx.tags) })
     }
+    return NextResponse.json({ success: true, data: fallbackResult(seed, details, ctx.tags) })
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Generation failed'
     return NextResponse.json({ success: false, error: msg }, { status: 502 })
