@@ -10,8 +10,10 @@ import {
   SearchBar, Card, SectionTitle, ErrorBox, Loading, EmptyState,
   tableCard, tableHead, th, tableRow, MONO,
 } from '../kit'
+import { AiInsights } from '../AiInsights'
 import { C, D, flag, formatNumber } from '@/utils'
 import type { TopSeller } from '@/lib/etsy'
+import type { AiFact } from '@/types'
 
 const CUR: Record<string, string> = { USD: '$', GBP: '£', EUR: '€', CAD: 'C$', AUD: 'A$' }
 const sym = (c?: string) => CUR[c ?? 'USD'] ?? (c ? c + ' ' : '$')
@@ -95,6 +97,22 @@ export function TopSellersTab() {
         : 0,
     }
   }, [view])
+
+  // Real facts for the AI competitive read — every figure from official shop records.
+  const aiFacts = useMemo<AiFact[]>(() => {
+    if (!view.length) return []
+    const f: AiFact[] = [
+      { label: 'Shops competing', value: formatNumber(totals.shops), hint: `in "${query}"` },
+      { label: 'Combined lifetime sales', value: formatNumber(totals.totalSales), hint: 'these shops, shop-wide' },
+      { label: 'Median shop sales', value: formatNumber(totals.medianSales), hint: 'typical competitor' },
+    ]
+    view.filter(s => s.sales != null).slice(0, 3).forEach((s, i) => f.push({
+      label: `Leader ${i + 1}`,
+      value: s.shop_name,
+      hint: `${formatNumber(s.sales as number)} lifetime sales, ${s.listings} listings in this niche${s.reviewAverage ? `, ${s.reviewAverage.toFixed(1)}★` : ''}`,
+    }))
+    return f
+  }, [view, totals, query])
 
   const exportCsv = useCallback(() => {
     const csv = toCsv(
@@ -204,6 +222,16 @@ export function TopSellersTab() {
               <BubbleChart points={bubble} xLabel="Total views" yLabel="Total favorites" />
             </Card>
           </div>
+
+          {/* AI read of the competitive landscape. */}
+          {aiFacts.length >= 2 && (
+            <AiInsights
+              tool="Top Sellers"
+              subject={query}
+              facts={aiFacts}
+              notes="Sales are each shop's real lifetime total (transaction_sold_count) — shop-wide, not niche-specific, so a generalist can rank high off one matching listing. 'Listings in this niche' shows who actually specialises. Interpret whether the niche is dominated by specialists or generalists and how a new seller can compete."
+            />
+          )}
 
           {/* Toolbar */}
           <div className="rwrap-sm" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: C.bone, padding: 10, borderRadius: 14 }}>

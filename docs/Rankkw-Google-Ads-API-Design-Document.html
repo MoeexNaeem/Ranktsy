@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rankkw — Google Ads API Tool Design Document</title>
+<style>*,*::before,*::after{box-sizing:border-box}body{margin:0}</style>
+</head>
+<body>
+<title>Rankkw — Google Ads API Tool Design Document</title>
+
+<style>
+  :root {
+    --orange:#FB5E09; --ink:#3D3E3B; --parchment:#F5F5EB; --bone:#ECEBE1;
+    --ash:#D2D2C8; --graphite:#6E6E64; --stone:#919183;
+    --good:#1F8A4C; --good-bg:rgba(31,138,76,.12);
+    --blue:#2E6DB4;  --blue-bg:rgba(46,109,180,.12);
+    --mid:#B07C10;   --mid-bg:rgba(224,160,40,.16);
+
+    --bg:var(--parchment); --surface:#FFFFFF; --surface-2:var(--bone);
+    --text:var(--ink); --text-dim:var(--graphite); --text-faint:var(--stone); --rule:var(--ash);
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --measure:70ch;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#24251F; --surface:#2D2E27; --surface-2:#383930;
+      --text:#EDECE2; --text-dim:#A8A79A; --text-faint:#7E7D72; --rule:#45463C;
+      --orange:#FF7A2E;
+      --good:#4FB87A; --good-bg:rgba(79,184,122,.15);
+      --blue:#6BA4E0;  --blue-bg:rgba(107,164,224,.15);
+      --mid:#E0A028;   --mid-bg:rgba(224,160,40,.16);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#24251F; --surface:#2D2E27; --surface-2:#383930;
+    --text:#EDECE2; --text-dim:#A8A79A; --text-faint:#7E7D72; --rule:#45463C;
+    --orange:#FF7A2E;
+    --good:#4FB87A; --good-bg:rgba(79,184,122,.15);
+    --blue:#6BA4E0; --blue-bg:rgba(107,164,224,.15);
+    --mid:#E0A028; --mid-bg:rgba(224,160,40,.16);
+  }
+  :root[data-theme="light"] {
+    --bg:#F5F5EB; --surface:#FFFFFF; --surface-2:#ECEBE1;
+    --text:#3D3E3B; --text-dim:#6E6E64; --text-faint:#919183; --rule:#D2D2C8;
+    --orange:#FB5E09;
+    --good:#1F8A4C; --good-bg:rgba(31,138,76,.12);
+    --blue:#2E6DB4; --blue-bg:rgba(46,109,180,.12);
+    --mid:#B07C10; --mid-bg:rgba(224,160,40,.16);
+  }
+
+  * { box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:var(--sans); font-size:15.5px; line-height:1.65; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:920px; margin:0 auto; padding:0 22px 90px; }
+
+  /* Document masthead */
+  .masthead { border-bottom:2px solid var(--ink); padding:44px 0 22px; margin-bottom:36px; display:flex; flex-direction:column; gap:14px; }
+  .doclabel { font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.16em; color:var(--orange); font-weight:600; }
+  h1 { font-size:clamp(26px,3.6vw,38px); font-weight:500; letter-spacing:-.03em; line-height:1.1; text-wrap:balance; margin:0; }
+  .docmeta { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px 26px; margin-top:6px; }
+  .docmeta div { display:flex; flex-direction:column; gap:2px; }
+  .docmeta .k { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.09em; color:var(--text-faint); }
+  .docmeta .v { font-size:13.5px; color:var(--text); }
+
+  /* Numbered sections — this IS a sequential spec, so numbers carry meaning */
+  section { margin-bottom:40px; counter-increment:sec; }
+  h2 { font-size:20px; font-weight:500; letter-spacing:-.02em; margin:0 0 14px; display:flex; align-items:baseline; gap:12px; }
+  h2::before { content:counter(sec,decimal-leading-zero); font-family:var(--mono); font-size:13px; color:var(--orange); font-weight:600; }
+  body { counter-reset:sec; }
+  h3 { font-size:15px; font-weight:600; letter-spacing:-.01em; margin:22px 0 8px; }
+  p { margin:0 0 13px; max-width:var(--measure); }
+  .lead { font-size:16.5px; color:var(--text-dim); }
+
+  ul,ol { margin:0 0 13px; padding-left:20px; max-width:var(--measure); }
+  li { margin:6px 0; }
+  li::marker { color:var(--orange); }
+  strong { font-weight:600; }
+
+  code { font-family:var(--mono); font-size:12.5px; background:var(--surface-2); padding:1px 6px; border-radius:4px; word-break:break-word; }
+  .pre { background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:16px 18px; font-family:var(--mono); font-size:12.5px; line-height:1.7; overflow-x:auto; white-space:pre; margin:0 0 14px; }
+  .pre .c { color:var(--text-faint); }
+  .pre .k { color:var(--orange); }
+
+  /* Callouts */
+  .box { border:1px solid var(--rule); border-radius:12px; padding:18px 20px; margin:0 0 14px; background:var(--surface); }
+  .box.good { border-left:3px solid var(--good); }
+  .box.info { border-left:3px solid var(--blue); }
+  .box.note { border-left:3px solid var(--mid); }
+  .box p:last-child { margin-bottom:0; }
+  .box .h { font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; margin-bottom:7px; }
+  .box.good .h { color:var(--good); } .box.info .h { color:var(--blue); } .box.note .h { color:var(--mid); }
+
+  /* Tables */
+  .scroller { overflow-x:auto; border:1px solid var(--rule); border-radius:11px; margin:0 0 14px; }
+  table { border-collapse:collapse; width:100%; min-width:520px; }
+  th { text-align:left; font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); padding:11px 15px; background:var(--surface-2); border-bottom:1px solid var(--rule); font-weight:500; }
+  td { padding:11px 15px; border-bottom:1px solid var(--rule); font-size:13.5px; vertical-align:top; }
+  tr:last-child td { border-bottom:none; }
+  td.mono { font-family:var(--mono); font-size:12.5px; }
+
+  .chip { display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; padding:2px 8px; border-radius:100px; }
+  .chip.read { color:var(--good); background:var(--good-bg); }
+  .chip.no { color:var(--text-faint); background:var(--surface-2); }
+
+  /* Flow diagram */
+  .flow { display:flex; flex-wrap:wrap; align-items:stretch; gap:8px; margin:4px 0 14px; }
+  .flow .step { flex:1 1 120px; background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:3px; min-width:0; }
+  .flow .step .n { font-family:var(--mono); font-size:10px; color:var(--orange); }
+  .flow .step .t { font-size:12.5px; font-weight:500; }
+  .flow .step .d { font-size:11.5px; color:var(--text-dim); line-height:1.4; }
+  .flow .arrow { align-self:center; color:var(--text-faint); font-size:16px; }
+
+  footer { border-top:1px solid var(--rule); padding-top:20px; margin-top:20px; color:var(--text-faint); font-size:12.5px; }
+  a { color:var(--orange); }
+
+  @media (max-width:600px) {
+    .wrap { padding:0 15px 60px; }
+    .masthead { padding:32px 0 18px; }
+    .flow .arrow { display:none; }
+  }
+  @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
+
+  /* Print → Save as PDF: force the light theme, tighten margins, and keep
+     sections, tables and callouts from splitting across a page break. */
+  @media print {
+    :root {
+      --bg:#FFFFFF; --surface:#FFFFFF; --surface-2:#F3F2EC;
+      --text:#26261F; --text-dim:#4A4A42; --text-faint:#6E6E64; --rule:#CFCEC4; --orange:#C4490A;
+    }
+    body { background:#fff; font-size:11pt; }
+    .wrap { max-width:none; padding:0; }
+    .masthead { padding:0 0 14px; }
+    section { break-inside:avoid; page-break-inside:avoid; }
+    h2 { break-after:avoid; }
+    .box, .scroller, table, .flow, .pre { break-inside:avoid; page-break-inside:avoid; }
+    a { color:inherit; text-decoration:none; }
+    footer { break-inside:avoid; }
+  }
+</style>
+
+<div class="wrap">
+
+  <div class="masthead">
+    <span class="doclabel">Google Ads API · Access Application · Tool Design Document</span>
+    <h1>Rankkw — how the tool uses the Google Ads API</h1>
+    <div class="docmeta">
+      <div><span class="k">Tool</span><span class="v">Rankkw (rankkw.com)</span></div>
+      <div><span class="k">Category</span><span class="v">Keyword research / SEO analytics</span></div>
+      <div><span class="k">Access requested</span><span class="v">Basic access</span></div>
+      <div><span class="k">API surface used</span><span class="v">1 read-only method</span></div>
+      <div><span class="k">Manages ad accounts?</span><span class="v">No</span></div>
+      <div><span class="k">Document date</span><span class="v">16 July 2026</span></div>
+    </div>
+  </div>
+
+  <section>
+    <h2>Summary</h2>
+    <p class="lead">
+      Rankkw is a keyword-research and SEO analytics tool for online sellers. It uses the Google Ads API for exactly
+      one purpose: to read <strong>historical keyword search volume</strong> from Keyword Planner and show it to a seller
+      researching what to make and how to title it. It does not create, edit, or manage advertising campaigns of any
+      kind.
+    </p>
+    <div class="box good">
+      <div class="h">Why this is a low-risk integration</div>
+      <p>
+        The entire integration is a <strong>single read-only call</strong> — <code>generateKeywordHistoricalMetrics</code>
+        — against the tool operator's own account. No mutate operations, no campaign or budget access, no management of
+        third-party ad accounts, and no write access of any kind. The scope requested is the minimum the feature needs.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>What the tool does</h2>
+    <p>
+      Sellers on marketplaces such as Etsy get no search-volume data from those marketplaces. Rankkw fills that gap:
+      a seller types a product keyword (e.g. <em>&ldquo;ceramic coffee mug&rdquo;</em>) and sees how many people
+      actually search for it each month, how that demand moves across the year, and roughly where the searchers are.
+      That helps them decide which products and keywords are worth their time before they invest in making and listing
+      an item.
+    </p>
+    <p>
+      All other data in Rankkw comes from the seller's marketplace API. The Google Ads API contributes precisely three
+      things, each clearly labelled in the interface as sourced from Google:
+    </p>
+    <ul>
+      <li><strong>Average monthly search volume</strong> for a keyword.</li>
+      <li><strong>A 12-month trend line</strong> of that volume, to reveal seasonality.</li>
+      <li><strong>A rough country split</strong> for a keyword, across a small fixed set of markets.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Users</h2>
+    <p>
+      The users are independent online sellers and small shops doing product and keyword research. They authenticate to
+      Rankkw with their own Rankkw account. They <strong>do not</strong> connect a Google Ads account and never see the
+      Google Ads API directly — the keyword-volume lookups run server-side against the tool operator's single developer
+      account. From the user's side, Google data simply appears as an extra column and chart alongside their marketplace
+      research.
+    </p>
+  </section>
+
+  <section>
+    <h2>API services and methods called</h2>
+    <p>The integration uses one service and one method. Nothing else in the Google Ads API is called.</p>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Service</th><th>Method</th><th>Access</th><th>Purpose in Rankkw</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="mono">KeywordPlanIdeaService</td>
+            <td class="mono">generateKeyword&#8203;HistoricalMetrics</td>
+            <td><span class="chip read">Read</span></td>
+            <td>Fetch average monthly searches, competition level, and the 12-month monthly volume series for a set of keywords in one geo target.</td>
+          </tr>
+          <tr>
+            <td class="mono" colspan="2">— any mutate / campaign / budget / account-management method —</td>
+            <td><span class="chip no">Not used</span></td>
+            <td>The tool performs no write operations and manages no ad accounts.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>API call design</h2>
+    <p>
+      Rankkw calls the REST interface directly (no client library). A short-lived OAuth access token is minted from a
+      stored refresh token and cached in memory for its lifetime (~55 minutes) to avoid re-minting on every request.
+      The request body targets one geo and the Google Search network:
+    </p>
+    <div class="pre"><span class="c">POST</span> https://googleads.googleapis.com/<span class="k">v20</span>/customers/{customerId}:generateKeywordHistoricalMetrics
+
+<span class="c"># headers</span>
+Authorization:     Bearer {short-lived access token}
+developer-token:   {developer token}
+login-customer-id: {manager (MCC) id, when the query account sits under one}
+
+<span class="c"># body</span>
+{
+  "keywords":           ["ceramic coffee mug", "handmade mug", ...],  <span class="c"># up to 1000</span>
+  "geoTargetConstants": ["geoTargetConstants/2840"],                  <span class="c"># e.g. US</span>
+  "keywordPlanNetwork": "GOOGLE_SEARCH",
+  "language":           "languageConstants/1000"                      <span class="c"># English</span>
+}</div>
+    <p>
+      From the response, only three fields per keyword are read and displayed: <code>avgMonthlySearches</code>,
+      <code>competition</code>, and <code>monthlySearchVolumes</code> (the 12-month series). The geo set is a small fixed
+      list — United States, United Kingdom, Canada, Australia, Germany, France — used both for single-geo lookups and,
+      for the country split, one lookup per market that is then normalised to percentages.
+    </p>
+  </section>
+
+  <section>
+    <h2>Where the data appears (Required Minimum Functionality)</h2>
+    <p>
+      Google keyword data is shown inside a genuine, functional product — not re-exported raw. It surfaces in three
+      places, each labelled as Google-sourced:
+    </p>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Surface</th><th>What it shows</th></tr></thead>
+        <tbody>
+          <tr><td>Keyword Tool</td><td>A &ldquo;Google Searches&rdquo; column beside each researched keyword — the real average monthly volume.</td></tr>
+          <tr><td>Monthly Trends</td><td>The 12-month search-volume curve, with the peak month highlighted so sellers list ahead of demand.</td></tr>
+          <tr><td>Searchers by Country</td><td>The normalised country split for a keyword across the six supported markets.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Around this Google data, Rankkw provides substantial independent functionality — keyword difficulty, competition
+      analysis, listing audits, tag research, shop analytics — so the Google Ads data enhances a full tool rather than
+      being the whole product.
+    </p>
+  </section>
+
+  <section>
+    <h2>Data handling &amp; compliance</h2>
+    <ul>
+      <li><strong>No long-term storage of Google data.</strong> Keyword-metric responses are held only in a short-lived server cache to serve a request quickly, then discarded. Google data is never resold, exported in bulk, or offered as a standalone data feed.</li>
+      <li><strong>Always attributed.</strong> Every figure derived from the Google Ads API is labelled in the UI as sourced from Google, and is never presented as marketplace data.</li>
+      <li><strong>No blending that misrepresents source.</strong> Google search volume and marketplace metrics are shown side by side but kept visually distinct and separately labelled.</li>
+      <li><strong>Graceful, honest degradation.</strong> When the API is unavailable or unconfigured, the relevant fields show &ldquo;&mdash;&rdquo; rather than an estimated or fabricated number. Rankkw&rsquo;s guiding rule is that no displayed number is invented.</li>
+      <li><strong>Credentials are server-side only</strong> and never exposed to the browser. Users do not supply Google credentials.</li>
+      <li><strong>Version resilience.</strong> The API version is configurable; the tool detects a sunset version (HTTP 404) and surfaces an actionable error rather than failing silently.</li>
+    </ul>
+    <div class="box info">
+      <div class="h">Request volume</div>
+      <p>
+        Lookups are triggered by an individual seller's on-demand keyword research and are cached, so call volume scales
+        with active research sessions, not with a crawl. Basic access limits comfortably cover this usage. We do not
+        batch-harvest the keyword corpus.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Access level requested, and why</h2>
+    <p>
+      <strong>Basic access.</strong> The tool needs real (non-test) Keyword Planner volume to be useful — test accounts
+      return no live data. Usage is read-only, on-demand, cached, and limited to a single method, which fits within
+      Basic access limits. We are not requesting Standard access: we do not manage client ad accounts and have no need
+      for the higher operation volumes that tier is intended for.
+    </p>
+    <div class="flow">
+      <div class="step"><span class="n">1</span><span class="t">Seller researches a keyword</span><span class="d">In the Rankkw dashboard.</span></div>
+      <span class="arrow">→</span>
+      <div class="step"><span class="n">2</span><span class="t">Server checks cache</span><span class="d">Recent result served without an API call.</span></div>
+      <span class="arrow">→</span>
+      <div class="step"><span class="n">3</span><span class="t">One read call</span><span class="d">generateKeywordHistoricalMetrics, if not cached.</span></div>
+      <span class="arrow">→</span>
+      <div class="step"><span class="n">4</span><span class="t">Displayed &amp; labelled</span><span class="d">Volume, trend, country — marked Google-sourced.</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Company &amp; contact</h2>
+    <div class="scroller">
+      <table>
+        <tbody>
+          <tr><td class="mono">Tool / website</td><td>Rankkw — https://rankkw.com</td></tr>
+          <tr><td class="mono">Nature</td><td>Independent SEO &amp; analytics tool for online marketplace sellers</td></tr>
+          <tr><td class="mono">Contact email</td><td>support@rankkw.com</td></tr>
+          <tr><td class="mono">Phone</td><td>+92 329 7890000</td></tr>
+          <tr><td class="mono">Address</td><td>Riaz Colony, Street No. 1, Bahawalpur, Punjab, Pakistan</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note" style="font-size:13.5px;color:var(--text-dim)">
+      Rankkw is not affiliated with, endorsed by, or certified by Google. &ldquo;Google Ads&rdquo; and &ldquo;Keyword
+      Planner&rdquo; are trademarks of Google LLC, used here only to describe the integration.
+    </p>
+  </section>
+
+  <footer>
+    <p>
+      This document describes the Google Ads API integration exactly as implemented in Rankkw&rsquo;s codebase
+      (<code>src/lib/google-ads.ts</code>): one read-only method, six geo targets, server-side credentials, cached
+      responses, no mutate operations, no third-party account management. Prepared to accompany a Google Ads API Basic
+      access application.
+    </p>
+  </footer>
+
+</div>
+
+</body>
+</html>

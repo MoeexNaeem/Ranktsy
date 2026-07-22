@@ -5,8 +5,9 @@ import axios from 'axios'
 import { VelocityPanel } from '../keyword/VelocityPanel'
 import { ctrlBtn } from '../controls'
 import { Card, SearchBar, SectionTitle, ErrorBox, EmptyState, MONO } from '../kit'
+import { AiInsights } from '../AiInsights'
 import { C, D, flag, formatNumber } from '@/utils'
-import type { ApiResponse, EtsyShop } from '@/types'
+import type { ApiResponse, EtsyShop, AiFact } from '@/types'
 
 interface Tracked { shopId: number; shopName: string }
 
@@ -82,6 +83,17 @@ export function CompetitorSalesTab() {
 
   const isTracked = !!(shop && tracked?.some(t => t.shopId === shop.shop_id))
 
+  // Real competitor-shop facts for the AI read.
+  const aiFacts: AiFact[] = []
+  if (shop) {
+    if (shop.sales != null) aiFacts.push({ label: 'Lifetime sales', value: formatNumber(shop.sales), hint: 'real transaction_sold_count' })
+    if (shop.review_count) aiFacts.push({ label: 'Rating', value: `${(shop.review_average ?? 0).toFixed(2)}★`, hint: `${formatNumber(shop.review_count)} reviews` })
+    aiFacts.push({ label: 'Active listings', value: formatNumber(shop.listing_active_count) })
+    if (shop.sales != null && shop.listing_active_count > 0) aiFacts.push({ label: 'Sales per listing', value: (shop.sales / shop.listing_active_count).toFixed(1) })
+    if (shop.yearOpened) aiFacts.push({ label: 'Years open', value: `${new Date().getFullYear() - shop.yearOpened}`, hint: `since ${shop.yearOpened}` })
+    if (shop.countryIso) aiFacts.push({ label: 'Country', value: shop.countryIso })
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
@@ -155,6 +167,15 @@ export function CompetitorSalesTab() {
           </div>
 
           <VelocityPanel shopId={shop.shop_id} shopName={shop.shop_name} />
+
+          {aiFacts.length >= 2 && (
+            <AiInsights
+              tool="Competitor Sales"
+              subject={shop.shop_name}
+              facts={aiFacts}
+              notes="Figures are from the competitor's real Etsy shop record (transaction_sold_count is genuine lifetime sales; Etsy publishes no daily history — that only builds once the shop is tracked). Interpret the competitor's scale, maturity and efficiency, and how a seller can compete against them."
+            />
+          )}
 
           {!isTracked && (
             <div style={{ display: 'flex', gap: 11, padding: '13px 17px', background: D.midBg, borderRadius: 12, alignItems: 'flex-start' }}>

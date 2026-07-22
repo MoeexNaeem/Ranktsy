@@ -112,7 +112,8 @@ async function aiResult(seed: string, details: string, ctx: { tags: string[]; sa
     schema: LISTING_SCHEMA,
     system: 'You write Etsy listing copy grounded in the real competing tags provided. Never invent statistics.',
     temperature: 0.8,
-    maxOutputTokens: 2048,
+    // Headroom for the model's default thinking + the full JSON (see gemini.ts).
+    maxOutputTokens: 4096,
   })
   if (!parsed) return null   // model failed / unconfigured → caller uses fallback
 

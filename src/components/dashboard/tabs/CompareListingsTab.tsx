@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { C, formatNumber } from '@/utils'
 import { Card, SectionTitle, ErrorBox, Loading, EmptyState, primaryBtn, MONO } from '../kit'
-import type { EtsyListing } from '@/types'
+import { AiInsights } from '../AiInsights'
+import type { EtsyListing, AiFact } from '@/types'
 
 const extractId = (s: string) => { const m = s.match(/listing\/(\d+)/) || s.match(/(\d{6,})/); return m ? parseInt(m[1], 10) : null }
 const priceOf = (l: EtsyListing) => l.price?.amount ? l.price.amount / (l.price.divisor || 100) : 0
@@ -54,6 +55,20 @@ export function CompareListingsTab() {
     })
   }, [data])
 
+  // One rich fact per listing — Gemini calls the winner and prescribes fixes.
+  const aiFacts = useMemo<AiFact[]>(() => {
+    if (!data) return []
+    const describe = (l: EtsyListing) => {
+      const m = metrics(l)
+      const cur = l.price?.currency_code ?? 'USD'
+      return `${formatNumber(m.Views)} views, ${formatNumber(m.Favorites)} favs, ${m['Engagement %']}% engagement, ${m.Tags}/13 tags, ${m['Title length']}-char title, ${m.Description}-char description, ${m.Photos} photos, ${cur} ${m.Price.toFixed(2)}`
+    }
+    return [
+      { label: 'Listing A', value: data.a.title.slice(0, 50), hint: describe(data.a) },
+      { label: 'Listing B', value: data.b.title.slice(0, 50), hint: describe(data.b) },
+    ]
+  }, [data])
+
   const Head = ({ l }: { l: EtsyListing }) => (
     <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
       {l.images?.[0]?.url_570xN && <img src={l.images[0].url_570xN} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 6, flexShrink: 0, border: `1px solid ${C.hair}` }} />}
@@ -90,6 +105,15 @@ export function CompareListingsTab() {
             </div>
           ))}
         </div>
+      )}
+
+      {data && !isLoading && aiFacts.length >= 2 && (
+        <AiInsights
+          tool="Compare Listings"
+          subject="Listing A vs Listing B"
+          facts={aiFacts}
+          notes="Two real Etsy listings compared. Views/favorites are lifetime; engagement is favorites ÷ views. More tags (up to 13), photos, description length and a fuller title generally help SEO/conversion. Call which listing is stronger overall and why, then give specific fixes for the weaker one."
+        />
       )}
 
       {!ids && !isLoading && <EmptyState icon="⚖️" title="Compare two listings" sub="Paste two listing URLs to see which performs better and why" />}

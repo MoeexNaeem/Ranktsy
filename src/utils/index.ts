@@ -82,6 +82,46 @@ export const D = {
   series: ['#1F8A4C', '#2E6DB4', '#C08A12', '#CF463A', '#7A4FB5', '#0F9A9A', '#D9702B', '#6E6E64'] as const,
 } as const
 
+// ─── Per-tool ACCENT system ──────────────────────────────────────────────────
+// The brand's single-orange chrome read as monotone across 29 tools. Each tool
+// now carries its own identity hue, drawn from one curated, professional ramp
+// (Tailwind-600-class hues — all ≥3:1 on white, harmonious as a set). The hue
+// drives the nav item, the tab header chip, and — via the `--accent` CSS var set
+// on the dashboard content wrapper — the shared kit (stat cards, section dots,
+// primary buttons, search bars) on every tab, with orange as the fallback.
+//
+// Kept separate from `C` (brand chrome) and `D` (data signals): an accent names
+// a *tool*, never a data value. Never map a metric onto an accent.
+export const ACCENT = {
+  indigo:  '#4F46E5',
+  blue:    '#2563EB',
+  sky:     '#0EA5E9',
+  cyan:    '#0891B2',
+  teal:    '#0D9488',
+  emerald: '#059669',
+  green:   '#16A34A',
+  amber:   '#D97706',
+  orange:  '#EA580C',
+  rose:    '#E11D48',
+  red:     '#DC2626',
+  pink:    '#DB2777',
+  fuchsia: '#C026D3',
+  purple:  '#9333EA',
+  violet:  '#7C3AED',
+  slate:   '#5B6472',
+} as const
+
+export type AccentName = keyof typeof ACCENT
+
+/** #RRGGBB (+ optional alpha) → rgba() string. For computed soft tints/rings. */
+export function withAlpha(hex: string, alpha: number): string {
+  const h = hex.replace('#', '')
+  const r = parseInt(h.slice(0, 2), 16)
+  const g = parseInt(h.slice(2, 4), 16)
+  const b = parseInt(h.slice(4, 6), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
 /** Keyword-difficulty / competition heat: 0 = easy (green) → 100 = hard (red). */
 export function heatColor(score: number): string {
   if (score < 20) return D.good

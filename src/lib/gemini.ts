@@ -61,10 +61,15 @@ export async function geminiGenerate(opts: GenerateOpts): Promise<string | null>
     contents: [{ role: 'user', parts: [{ text: opts.prompt }] }],
     generationConfig: {
       temperature: opts.temperature ?? 0.7,
-      maxOutputTokens: opts.maxOutputTokens ?? 2048,
-      // thinkingBudget 0 = no reasoning tokens, so the whole budget reaches the
-      // JSON. Without this, structured output truncates mid-string.
-      thinkingConfig: { thinkingBudget: opts.think ? -1 : 0 },
+      // Headroom matters: `gemini-flash-latest` now resolves to a model that
+      // ALWAYS spends some thinking tokens before the output (and REJECTS
+      // thinkingBudget:0 with a 400 — see below), so the budget must cover the
+      // thinking AND the full JSON or structured output truncates mid-string.
+      maxOutputTokens: opts.maxOutputTokens ?? 4096,
+      // Only send thinkingConfig to request MORE reasoning (dynamic). We must
+      // never send thinkingBudget:0 — the current model 400s on it
+      // ("INVALID_ARGUMENT"). Omitting it lets the model use its default.
+      ...(opts.think ? { thinkingConfig: { thinkingBudget: -1 } } : {}),
       ...(opts.schema
         ? { responseMimeType: 'application/json', responseSchema: opts.schema }
         : {}),

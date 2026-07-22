@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { C } from '@/utils'
 import { Card, SearchBar, SectionTitle, EmptyState, tableCard, tableHead, th, tableRow, tdMono, MONO } from '../kit'
-import type { EtsyListing } from '@/types'
+import { AiInsights } from '../AiInsights'
+import type { EtsyListing, AiFact } from '@/types'
 
 const GRID = '2fr 0.6fr 0.9fr 0.8fr 2fr'
 
@@ -49,6 +50,18 @@ export function TagOptimizerTab() {
   }, [listings])
 
   const maxScore = useMemo(() => Math.max(...tagAnalysis.map(t => t.score), 1), [tagAnalysis])
+
+  // Real facts for the AI tag-strategy read.
+  const aiFacts = useMemo<AiFact[]>(() => {
+    if (!tagAnalysis.length) return []
+    const f: AiFact[] = [{ label: 'Tags analysed', value: String(tagAnalysis.length), hint: `from ${listings?.length ?? 0} listings for "${query}"` }]
+    tagAnalysis.slice(0, 8).forEach(t => f.push({
+      label: t.tag,
+      value: `${t.avgViews.toLocaleString()} avg views`,
+      hint: `used ${t.count}×, ${t.avgFavs} avg favorites`,
+    }))
+    return f
+  }, [tagAnalysis, listings, query])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -105,6 +118,16 @@ export function TagOptimizerTab() {
               </div>
             ))}
           </div>
+
+          {/* AI tag-strategy read. */}
+          {aiFacts.length >= 2 && (
+            <AiInsights
+              tool="Tag Optimizer"
+              subject={query}
+              facts={aiFacts}
+              notes="Each tag is ranked by the average views of the listings using it (real Etsy figures) — high avg views on a tag signals it's associated with discoverable listings, not proof of causation. Recommend a balanced 13-tag strategy (mix of broad + long-tail), explain which tags are strongest and why, and remind the seller to use tags that genuinely describe their product."
+            />
+          )}
         </>
       )}
 

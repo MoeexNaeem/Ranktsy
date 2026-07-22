@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
-import { searchEtsyListingsPaged, buildTrendData, buildCountryData, buildListingSupplyByMonth } from '@/lib/etsy'
+import { searchEtsyListingsPaged, buildTrendData, buildCountryData, buildListingSupplyByMonth, buildListingMarketStats } from '@/lib/etsy'
 import { googleKeywordMetrics, googleCountryBreakdown, isGoogleAdsConfigured } from '@/lib/google-ads'
 import type { TrendData, TrendPoint, CountryData } from '@/types'
 
@@ -31,6 +31,8 @@ export async function GET(req: NextRequest) {
     const trends: TrendData[] = buildTrendData()
     let countries: CountryData[] = buildCountryData()
     const supplyByMonth = buildListingSupplyByMonth(listings)
+    // Real market detail measured from the same 100-listing sample.
+    const market = buildListingMarketStats(listings)
 
     let googleAvailable = false
     if (isGoogleAdsConfigured()) {
@@ -58,6 +60,7 @@ export async function GET(req: NextRequest) {
       trends,
       countries,
       supplyByMonth,
+      market,
       googleAvailable,
       // Stated explicitly so the UI never has to guess why a series is missing.
       note: googleAvailable

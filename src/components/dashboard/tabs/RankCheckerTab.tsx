@@ -1,8 +1,10 @@
 'use client'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import axios from 'axios'
 import { C, formatNumber } from '@/utils'
 import { Card, SectionTitle, ErrorBox, Loading, EmptyState, tableCard, tableHead, th, tableRow, tdMono, tdTitle, primaryBtn, MONO } from '../kit'
+import { AiInsights } from '../AiInsights'
+import type { AiFact } from '@/types'
 
 const GRID = '1.6fr 0.9fr 2fr 0.9fr'
 const MAX = 10
@@ -57,6 +59,18 @@ export function RankCheckerTab() {
 
   const ranked = rows?.filter(r => r.best != null).length ?? 0
 
+  // Real facts for the AI ranking read — positions are measured from live Etsy search.
+  const aiFacts = useMemo<AiFact[]>(() => {
+    if (!rows?.length) return []
+    const f: AiFact[] = [{ label: 'Keywords checked', value: String(rows.length), hint: `${ranked} rank in Etsy's top 100` }]
+    rows.slice(0, 10).forEach(r => f.push({
+      label: r.keyword,
+      value: r.best != null ? `#${r.best}` : 'not in top 100',
+      hint: `${formatNumber(r.total)} total competing listings`,
+    }))
+    return f
+  }, [rows, ranked])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Card pad="18px">
@@ -103,6 +117,16 @@ export function RankCheckerTab() {
           <p style={{ fontSize: 13, color: C.graphite, marginTop: 12, lineHeight: 1.55 }}>
             Rankings scan the top 100 listings in Etsy&apos;s relevance order (roughly the first two pages) via the official Etsy search API. Actual buyer results can vary by location and personalization.
           </p>
+
+          {/* AI read of the ranking profile. */}
+          {aiFacts.length >= 2 && (
+            <AiInsights
+              tool="Rank Checker"
+              subject={shop.trim() || 'your shop'}
+              facts={aiFacts}
+              notes="Positions are the shop's best rank within Etsy's top-100 relevance results for each keyword (lower is better; 'not in top 100' means unranked). Total competing listings shows how contested each keyword is. Interpret which keywords the shop is winning, which are close and worth pushing, and which are too contested — with a prioritised action plan."
+            />
+          )}
         </div>
       )}
 

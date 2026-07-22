@@ -252,6 +252,55 @@ export interface AiOptimization {
   }
 }
 
+// ─── Reusable AI Insights (Gemini interprets REAL measured facts) ─────────────
+// The generic engine behind every tool's "AI analysis" panel: a tool hands it a
+// list of already-measured facts (from the Etsy/Google APIs) and Gemini turns
+// them into a narrative read + actions. Gemini never produces the numbers — it
+// only interprets the ones passed in — so [[no-fabricated-data-rule]] holds.
+export interface AiFact {
+  label: string
+  value: string            // pre-formatted, real (e.g. "$24.00", "8.1%", "March")
+  hint?: string            // optional context for the model (e.g. "median of 100 listings")
+}
+
+export type InsightTone = 'positive' | 'watch' | 'neutral'
+
+export interface AiInsight {
+  title: string
+  detail: string
+  tone: InsightTone
+}
+
+export interface AiInsightsResult {
+  ai: boolean              // true = Gemini wrote it; false = rule-based fallback
+  headline: string         // one-line takeaway
+  insights: AiInsight[]    // the detailed read, each grounded in the facts
+  actions: string[]        // concrete next steps
+}
+
+// ─── Real market stats derived from a live listing sample ─────────────────────
+// Everything here is measured from the listings Etsy returned — no modelling.
+// Prices are scoped to the sample's dominant currency (Etsy gives no FX rate).
+export interface ListingMarketStats {
+  sample: number                 // listings measured
+  currency: string
+  priceMin: number
+  priceMax: number
+  priceMedian: number
+  priceP25: number
+  priceP75: number
+  priceBands: { band: string; count: number }[]  // histogram
+  viewsMedian: number
+  viewsMax: number
+  favMedian: number
+  favTotal: number
+  engagementPct: number          // median favorites/views, as %
+  uniqueShops: number
+  ageMonthsMedian: number | null // median listing age in months (null if no timestamps)
+  topTags: { tag: string; pct: number }[]         // adoption across the sample
+  topListings: { title: string; url: string; price: number | null; views: number; favorites: number }[]
+}
+
 export interface KeywordSearchResponse {
   query: string
   stats: KeywordStats

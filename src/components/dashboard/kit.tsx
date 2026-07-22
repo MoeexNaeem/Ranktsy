@@ -21,20 +21,25 @@ export function Card({ children, style, pad = 22 }: {
   return <div style={{ ...cardStyle, padding: pad, ...style }}>{children}</div>
 }
 
-export function SectionTitle({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
+export function SectionTitle({ children, right, dot = true }: { children: React.ReactNode; right?: React.ReactNode; dot?: boolean }) {
   return (
-    <div className="rsectitle" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-      <h3 style={{ fontSize: 19, fontWeight: 500, color: C.ink, letterSpacing: '-0.02em' }}>{children}</h3>
+    <div className="rsectitle" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12 }}>
+      <h3 style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 19, fontWeight: 600, color: C.ink, letterSpacing: '-0.02em' }}>
+        {dot && <span style={{ width: 7, height: 7, borderRadius: 2, background: 'var(--accent, #FB5E09)', flexShrink: 0 }} />}
+        {children}
+      </h3>
       {right}
     </div>
   )
 }
 
-// ─── Primary button (rounded — orange) ──────────────────────────────────────
+// ─── Primary button (rounded) ───────────────────────────────────────────────
+// Fills with the active tool's accent (set as `--accent` on the dashboard
+// content wrapper); falls back to brand orange anywhere the var isn't set.
 export const primaryBtn: React.CSSProperties = {
-  background: C.orange, color: '#fff', border: 'none', height: 46, padding: '0 26px',
+  background: 'var(--accent, #FB5E09)', color: '#fff', border: 'none', height: 46, padding: '0 26px',
   borderRadius: 28, fontSize: 15, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
-  whiteSpace: 'nowrap', transition: 'opacity 0.15s', letterSpacing: '-0.01em',
+  whiteSpace: 'nowrap', transition: 'opacity 0.15s, background 0.2s', letterSpacing: '-0.01em',
 }
 
 // ─── Search bar ─────────────────────────────────────────────────────────────
@@ -45,7 +50,7 @@ export function SearchBar({ value, onChange, onSubmit, placeholder, button = 'Se
   return (
     <div style={{ display: 'flex', gap: 12 }}>
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: C.paper, borderRadius: 100, border: `1px solid ${C.ash}`, maxWidth, overflow: 'hidden' }}>
-        <span style={{ display: 'flex', paddingLeft: 18, color: C.graphite }}>
+        <span style={{ display: 'flex', paddingLeft: 18, color: 'var(--accent, #FB5E09)' }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
         </span>
         <input value={value} onChange={e => onChange(e.target.value)} onKeyDown={e => e.key === 'Enter' && onSubmit()}
@@ -62,20 +67,30 @@ export function SearchBar({ value, onChange, onSubmit, placeholder, button = 'Se
 }
 
 // ─── Stat card ──────────────────────────────────────────────────────────────
-export function StatCard({ label, value, sub, accent = C.ink, pct }: {
-  label: string; value: string; sub?: string; accent?: string; pct?: number
+// `accent` colours the value, the progress fill and the top cap. It defaults to
+// the active tool's hue (`--accent`), so a tab's stat row reads in that tool's
+// colour; pass an explicit colour for a semantic stat (e.g. C.danger).
+export function StatCard({ label, value, sub, accent = 'var(--accent, #FB5E09)', pct, icon }: {
+  label: string; value: string; sub?: string; accent?: string; pct?: number; icon?: React.ReactNode
 }) {
   return (
-    <Card pad="20px 22px">
-      <p style={{ fontSize: 12, fontFamily: MONO, fontWeight: 500, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>{label}</p>
-      <p style={{ fontSize: 36, fontWeight: 500, color: accent, letterSpacing: '-0.03em', lineHeight: 1 }}>{value}</p>
+    <div style={{ ...cardStyle, position: 'relative', padding: '18px 22px 20px', overflow: 'hidden' }}>
+      {/* Accent cap — a thin coloured strip across the card top */}
+      <span style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: accent }} />
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
+        <p style={{ fontSize: 12, fontFamily: MONO, fontWeight: 500, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</p>
+        {icon && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, background: 'var(--accent-soft, rgba(251,94,9,0.10))', color: accent, flexShrink: 0, marginTop: -2 }}>{icon}</span>
+        )}
+      </div>
+      <p style={{ fontSize: 36, fontWeight: 600, color: accent, letterSpacing: '-0.03em', lineHeight: 1 }}>{value}</p>
       {sub && <p style={{ fontSize: 13, color: C.graphite, marginTop: 7 }}>{sub}</p>}
       {typeof pct === 'number' && (
         <div style={{ height: 7, background: C.bone, borderRadius: 999, marginTop: 14, overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${Math.max(0, Math.min(pct, 100))}%`, background: accent, borderRadius: 999, transition: 'width 0.7s ease' }} />
         </div>
       )}
-    </Card>
+    </div>
   )
 }
 

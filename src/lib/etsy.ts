@@ -15,6 +15,7 @@ import type {
   EtsyListing, EtsyShop, KeywordData,
   KeywordSearchResponse, TrendData, CountryData,
   SearchAnalysis, NearMatch, TagCloudItem, CategoryItem, PriceBucket, ProcessingBucket, AgeBucket,
+  ListingMarketStats,
 } from '@/types'
 
 const ETSY_API_KEY       = process.env.ETSY_API_KEY ?? ''
@@ -1031,6 +1032,104 @@ export function buildTrendData(): TrendData[] {
  * so it's a genuine planning signal as long as it's labelled for what it is and
  * never dressed up as search volume.
  */
+/**
+ * Rich market snapshot measured from a live listing sample — the real detail
+ * behind the deeper tool views. Every field is computed from what Etsy returned
+ * (price/views/num_favorers/tags/created_timestamp/shop_name); nothing is
+ * modelled. Prices are scoped to the dominant currency (Etsy gives no FX rate),
+ * so a mixed set never compares e.g. VND to USD.
+ */
+export function buildListingMarketStats(listings: EtsyListing[]): ListingMarketStats | null {
+  if (!listings.length) return null
+  const quantile = (sorted: number[], q: number): number => {
+    if (!sorted.length) return 0
+    const i = Math.min(sorted.length - 1, Math.max(0, Math.floor((sorted.length - 1) * q)))
+    return sorted[i]
+  }
+
+  const { currency, prices } = dominantCurrencyPrices(listings)   // already sorted asc
+  const priceMedian = prices.length ? quantile(prices, 0.5) : 0
+  const priceP25 = prices.length ? quantile(prices, 0.25) : 0
+  const priceP75 = prices.length ? quantile(prices, 0.75) : 0
+  const priceMin = prices.length ? prices[0] : 0
+  const priceMax = prices.length ? prices[prices.length - 1] : 0
+
+  // Price histogram: 6 bands spanning min→max of the dominant-currency prices.
+  const priceBands: { band: string; count: number }[] = []
+  if (prices.length && priceMax > priceMin) {
+    const BANDS = 6
+    const step = (priceMax - priceMin) / BANDS
+    const counts = new Array(BANDS).fill(0)
+    for (const p of prices) {
+      const idx = Math.min(BANDS - 1, Math.floor((p - priceMin) / step))
+      counts[idx]++
+    }
+    for (let i = 0; i < BANDS; i++) {
+      const lo = priceMin + step * i
+      const hi = i === BANDS - 1 ? priceMax : priceMin + step * (i + 1)
+      priceBands.push({ band: `${Math.round(lo)}–${Math.round(hi)}`, count: counts[i] })
+    }
+  }
+
+  const views = listings.map(l => l.views ?? 0).sort((a, b) => a - b)
+  const favs  = listings.map(l => l.num_favorers ?? 0).sort((a, b) => a - b)
+  const viewsMedian = quantile(views, 0.5)
+  const viewsMax = views[views.length - 1] ?? 0
+  const favMedian = quantile(favs, 0.5)
+  const favTotal = favs.reduce((s, f) => s + f, 0)
+
+  // Median of per-listing favorites/views — a real engagement ratio, not CTR.
+  const engRatios = listings
+    .filter(l => (l.views ?? 0) > 0)
+    .map(l => (l.num_favorers ?? 0) / (l.views ?? 1) * 100)
+    .sort((a, b) => a - b)
+  const engagementPct = engRatios.length ? parseFloat(quantile(engRatios, 0.5).toFixed(1)) : 0
+
+  const uniqueShops = new Set(listings.map(l => l.shop_name).filter(Boolean)).size
+
+  // Median listing age in months, from real created timestamps.
+  const now = Date.now()
+  const ages = listings
+    .filter(l => l.created_timestamp)
+    .map(l => (now - (l.created_timestamp as number) * 1000) / (1000 * 60 * 60 * 24 * 30.44))
+    .sort((a, b) => a - b)
+  const ageMonthsMedian = ages.length ? parseFloat(quantile(ages, 0.5).toFixed(1)) : null
+
+  // Tag adoption across the sample.
+  const n = listings.length
+  const tagCounts = new Map<string, number>()
+  for (const l of listings) {
+    for (const t of new Set((l.tags ?? []).map(x => x.toLowerCase().trim()).filter(Boolean))) {
+      tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1)
+    }
+  }
+  const topTags = [...tagCounts.entries()]
+    .map(([tag, c]) => ({ tag, pct: Math.round((c / n) * 100) }))
+    .sort((a, b) => b.pct - a.pct)
+    .slice(0, 12)
+
+  // Top listings by real views.
+  const topListings = [...listings]
+    .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
+    .slice(0, 5)
+    .map(l => ({
+      title: decodeEntities(l.title ?? ''),
+      url: l.url,
+      price: l.price?.amount ? parseFloat((l.price.amount / (l.price.divisor || 100)).toFixed(2)) : null,
+      views: l.views ?? 0,
+      favorites: l.num_favorers ?? 0,
+    }))
+
+  return {
+    sample: n, currency,
+    priceMin: parseFloat(priceMin.toFixed(2)), priceMax: parseFloat(priceMax.toFixed(2)),
+    priceMedian: parseFloat(priceMedian.toFixed(2)),
+    priceP25: parseFloat(priceP25.toFixed(2)), priceP75: parseFloat(priceP75.toFixed(2)),
+    priceBands, viewsMedian, viewsMax, favMedian, favTotal, engagementPct,
+    uniqueShops, ageMonthsMedian, topTags, topListings,
+  }
+}
+
 export function buildListingSupplyByMonth(listings: EtsyListing[]): { month: string; value: number }[] {
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
   const counts = new Array(12).fill(0)

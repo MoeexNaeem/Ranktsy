@@ -4,10 +4,11 @@ import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { C, D, flag, formatNumber } from '@/utils'
 import { Card, SearchBar, StatCard, SectionTitle, ErrorBox, EmptyState, tableCard, tableHead, th, tableRow, tdMono, tdTitle, MONO } from '../kit'
+import { AiInsights } from '../AiInsights'
 import { BarChart } from '@/components/charts/BarChart'
 import { VelocityPanel } from '../keyword/VelocityPanel'
 import { ShopHealthPanel } from '../keyword/ShopHealthPanel'
-import type { EtsyListing } from '@/types'
+import type { EtsyListing, AiFact } from '@/types'
 import type { ShopReview, ShopSection } from '@/lib/etsy'
 
 const fmtDate = (ts: number) => ts ? new Date(ts * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''
@@ -78,6 +79,21 @@ export function ShopTab() {
     ? data.listings.reduce((s, l) => s + (l.price?.amount ?? 0) / (l.price?.divisor || 100), 0) / data.listings.length
     : 0
 
+  // Real shop-record facts for the AI SWOT read — Gemini interprets the shop's
+  // strengths/risks/opportunities; every figure below is measured, not modelled.
+  const aiFacts: AiFact[] = []
+  if (data) {
+    if (sales != null) aiFacts.push({ label: 'Lifetime sales', value: formatNumber(sales), hint: 'real transaction_sold_count' })
+    if (reviewCount > 0) aiFacts.push({ label: 'Shop rating', value: `${reviewAvg.toFixed(2)}★`, hint: `${formatNumber(reviewCount)} reviews` })
+    aiFacts.push({ label: 'Active listings', value: formatNumber(activeCount) })
+    if (salesPerListing != null) aiFacts.push({ label: 'Sales per listing', value: salesPerListing.toFixed(1), hint: 'lifetime sales ÷ active listings' })
+    aiFacts.push({ label: 'Shop admirers', value: formatNumber(shopFavs) })
+    if (avgPrice > 0) aiFacts.push({ label: 'Avg listing price', value: `${cur}${avgPrice.toFixed(2)}` })
+    if (age != null) aiFacts.push({ label: 'Years open', value: `${age}`, hint: `since ${yearOpened}` })
+    if (countryIso) aiFacts.push({ label: 'Country', value: countryIso })
+    if (onVacation) aiFacts.push({ label: 'Status', value: 'On vacation' })
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Card pad="20px">
@@ -143,6 +159,16 @@ export function ShopTab() {
             <ShopHealthPanel input={{ reviewAvg, reviewCount, activeListings: activeCount, sales, salesPerListing, yearOpened, onVacation }} />
             <VelocityPanel shopId={Number(shop.shop_id ?? 0)} shopName={String(shop.shop_name ?? '')} />
           </div>
+
+          {/* AI SWOT read of the shop, grounded in its real record. */}
+          {aiFacts.length >= 2 && (
+            <AiInsights
+              tool="Shop Analytics"
+              subject={String(shop.shop_name ?? shopId)}
+              facts={aiFacts}
+              notes="All figures are from the shop's real Etsy record — transaction_sold_count is genuine lifetime sales. Etsy exposes no per-listing sales, so 'sales per listing' is lifetime sales ÷ active listings. Interpret the shop's strengths, risks, and growth opportunities."
+            />
+          )}
 
           {/* Sections + reviews */}
           {(data.sections?.length > 0 || data.reviews?.length > 0) && (

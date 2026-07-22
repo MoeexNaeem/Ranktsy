@@ -13,9 +13,10 @@ import { SearchAnalysisPanel } from '../keyword/SearchAnalysisPanel'
 import { NearMatchesTable }    from '../keyword/NearMatchesTable'
 import { MarketplacesPanel }   from '../keyword/MarketplacesPanel'
 import { Card, SearchBar, StatCard, SectionTitle, ErrorBox, EmptyState, MONO } from '../kit'
+import { AiInsights } from '../AiInsights'
 import { StatRowSkeleton, TableSkeleton, CardSkeleton, GridSkeleton, LoadingStages, Measuring, Shimmer } from '../skeletons'
 import { C, D, heatColor, formatNumber, formatPercent } from '@/utils'
-import type { TrendPlatform, KeywordStats, EtsyListing } from '@/types'
+import type { TrendPlatform, KeywordStats, EtsyListing, AiFact } from '@/types'
 
 const CUR: Record<string, string> = { USD: '$', GBP: '£', EUR: '€', CAD: 'C$', AUD: 'A$' }
 const sym = (c?: string) => CUR[c ?? 'USD'] ?? (c ? c + ' ' : '$')
@@ -276,6 +277,29 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
     return { pts, compMix, unknown }
   }, [relatedRows])
 
+  // Real facts for the AI read — all measured by the keyword pipeline. Gemini
+  // interprets "how to win this keyword"; it never produces these numbers.
+  const aiFacts = useMemo<AiFact[]>(() => {
+    if (!kw) return []
+    const s = kw.stats
+    const f: AiFact[] = [
+      { label: 'Keyword difficulty', value: `${s.difficulty}/100`, hint: `${s.difficultyLabel} — estimate from real competition + engagement` },
+      { label: 'Competing listings', value: formatNumber(s.totalResults), hint: 'live on Etsy for this exact keyword' },
+      { label: 'Avg views (top listings)', value: formatNumber(s.avgViews), hint: 'lifetime' },
+      { label: 'Avg favorites', value: formatNumber(s.avgFavorites) },
+      { label: 'Favorites per view', value: formatPercent(s.favPerView), hint: 'real engagement ratio; ~1–3% is typical on Etsy' },
+      { label: 'Median price', value: `${sym(s.currency)}${s.avgPrice.toFixed(0)}` },
+    ]
+    if (s.googleSearches != null) f.push({ label: 'Google monthly searches', value: formatNumber(s.googleSearches), hint: 'US, real Google Ads volume' })
+    // Lowest-difficulty related ideas that still show real buyer pull = the openings.
+    relatedRows
+      .filter(r => r.difficulty != null && (r.avgFavorites ?? 0) > 0)
+      .sort((a, b) => (a.difficulty as number) - (b.difficulty as number))
+      .slice(0, 3)
+      .forEach((r, i) => f.push({ label: `Lower-competition idea ${i + 1}`, value: r.keyword, hint: `KD ${r.difficulty}, ${formatNumber(r.avgFavorites)} avg favorites` }))
+    return f
+  }, [kw, relatedRows])
+
   const counts: Partial<Record<Sub, number>> = {
     ideas:    relatedRows.length || undefined,
     near:     near.data?.length,
@@ -390,6 +414,17 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
       )}
 
       {isError && <ErrorBox>Failed to load keyword data from Etsy. Please try again.</ErrorBox>}
+
+      {/* AI read of the whole keyword picture — Gemini interprets the real
+          measured signals above into a "how to win this keyword" analysis. */}
+      {kw && aiFacts.length >= 2 && (
+        <AiInsights
+          tool="Keyword Research"
+          subject={kw.query}
+          facts={aiFacts}
+          notes="Difficulty is an estimate from real competition + engagement. Views/favorites are lifetime figures from the listings ranking for this keyword. Favorites-per-view is a real engagement ratio, not CTR. Etsy publishes no search volume; any Google figure is real Google Ads data."
+        />
+      )}
 
       {/* Sub-tabs */}
       {kw && (

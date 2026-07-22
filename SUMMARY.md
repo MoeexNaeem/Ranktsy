@@ -1,6 +1,11 @@
 # Rankkw — Session Handoff
 
-_Last updated: 2026-07-20. Read this first, then the memory files it points to._
+_Last updated: 2026-07-22. Read this first, then the memory files it points to._
+
+## ⚡ 2026-07-22 session (read first)
+- **Gemini regression FIXED (was breaking ALL AI features):** `gemini-flash-latest` now **400s on `thinkingBudget: 0`**, which had silently degraded AI Listing Helper + AI Optimize to rule-based. `lib/gemini.ts` now omits `thinkingConfig` unless `think:true` (→ budget -1) and defaults `maxOutputTokens` to **4096** (the model always thinks now and truncated JSON at 2048). All three AI routes verified `ai:true` again. See `gemini-ai-features.md`.
+- **Dashboard visual overhaul:** per-tool ACCENT color system (nav, top bar, and the whole content area recolor per tool via a `--accent` CSS var threaded through the shared kit). Icons refined (stroke 1.6, no idle tiles). See `dashboard-accent-system.md`.
+- **"Deepen every tool" initiative started:** reusable `buildListingMarketStats()` (real price/views/fav/tag/age detail from a listing sample) + generic **AI Insights engine** (`/api/ai/insights` + `<AiInsights>` — Gemini interprets real facts, never invents). **Monthly Trends** rebuilt as the eRank-class flagship. Remaining 28 tools still to deepen with the same two pieces. See `deepen-tools-initiative.md`.
 
 Rankkw is an **Etsy SEO & analytics tool** (Next.js 16, App Router, React 19, MongoDB/Mongoose, TanStack Query, Zustand). It competes with eRank / EtsyHunt. The dashboard has **29 tabs**.
 

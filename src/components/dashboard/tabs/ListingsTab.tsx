@@ -1,10 +1,11 @@
 'use client'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import axios from 'axios'
-import { C, formatNumber } from '@/utils'
-import { SearchBar, ErrorBox, Pagination, cardStyle, MONO } from '../kit'
-import type { EtsyListing } from '@/types'
+import { C, D, formatNumber } from '@/utils'
+import { SearchBar, ErrorBox, Pagination, StatCard, cardStyle, MONO } from '../kit'
+import { AiInsights } from '../AiInsights'
+import type { EtsyListing, AiFact } from '@/types'
 
 const PAGE_SIZE = 24
 
@@ -93,6 +94,39 @@ export function ListingsTab() {
   const total     = data?.count ?? 0
   const pageCount = Math.min(Math.ceil(total / PAGE_SIZE) || 1, 500)
 
+  // Turn the raw result set into a quick market read. Median price is scoped to
+  // the dominant currency (an Etsy search mixes currencies with no FX rate).
+  const summary = useMemo(() => {
+    if (!listings.length) return null
+    const byCur = new Map<string, number[]>()
+    for (const l of listings) {
+      if (!l.price?.amount) continue
+      const arr = byCur.get(l.price.currency_code) ?? []
+      arr.push(l.price.amount / (l.price.divisor || 100))
+      byCur.set(l.price.currency_code, arr)
+    }
+    const dom = [...byCur.entries()].sort((a, b) => b[1].length - a[1].length)[0]
+    const cur = dom?.[0] ?? 'USD'
+    const prices = (dom?.[1] ?? []).sort((a, b) => a - b)
+    const median = prices.length ? prices[Math.floor((prices.length - 1) / 2)] : 0
+    const avgViews = Math.round(listings.reduce((s, l) => s + (l.views ?? 0), 0) / listings.length)
+    const engR = listings.filter(l => (l.views ?? 0) > 0).map(l => (l.num_favorers ?? 0) / (l.views as number) * 100).sort((a, b) => a - b)
+    const engagementPct = engR.length ? parseFloat(engR[Math.floor((engR.length - 1) / 2)].toFixed(1)) : 0
+    const uniqueShops = new Set(listings.map(l => l.shop_name).filter(Boolean)).size
+    return { cur, median, avgViews, engagementPct, uniqueShops }
+  }, [listings])
+
+  const aiFacts = useMemo<AiFact[]>(() => {
+    if (!summary) return []
+    return [
+      { label: 'Total results on Etsy', value: formatNumber(total) },
+      { label: 'Median price (this page)', value: `${summary.cur} ${summary.median.toFixed(2)}`, hint: 'dominant currency of the sample' },
+      { label: 'Avg views', value: formatNumber(summary.avgViews), hint: 'lifetime' },
+      { label: 'Median engagement', value: `${summary.engagementPct}%`, hint: 'favorites ÷ views; ~1–3% typical' },
+      { label: 'Unique shops (this page)', value: `${summary.uniqueShops} of ${listings.length}` },
+    ]
+  }, [summary, total, listings.length])
+
   const ctrl: React.CSSProperties = { background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 100, padding: '9px 14px', fontSize: 14, fontFamily: 'inherit', color: C.ink, outline: 'none' }
 
   return (
@@ -127,11 +161,32 @@ export function ListingsTab() {
           <p style={{ fontSize: 13.5, color: C.graphite, fontFamily: MONO }}>
             {formatNumber(total)} results for &ldquo;{applied.q}&rdquo; · page {page} of {formatNumber(pageCount)}
           </p>
+
+          {/* Market read of the current results */}
+          {summary && (
+            <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+              <StatCard label="Median price" value={`${summary.cur} ${summary.median.toFixed(0)}`} accent={D.series[0]} sub="dominant currency" />
+              <StatCard label="Avg views" value={formatNumber(summary.avgViews)} accent={D.series[4]} sub={`${summary.engagementPct}% engagement`} />
+              <StatCard label="Unique shops" value={String(summary.uniqueShops)} accent={D.series[2]} sub={`of ${listings.length} shown`} />
+              <StatCard label="Total results" value={formatNumber(total)} accent={D.series[1]} sub="live on Etsy" />
+            </div>
+          )}
+
           <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, opacity: isFetching ? 0.55 : 1, transition: 'opacity 0.15s' }}>
             {listings.map(l => <ListingCard key={l.listing_id} listing={l} />)}
           </div>
           <Pagination page={page} pageCount={pageCount} loading={isFetching}
             onChange={p => setPage(p)} />
+
+          {/* AI read of the search results */}
+          {aiFacts.length >= 2 && (
+            <AiInsights
+              tool="Listings Search"
+              subject={applied.q}
+              facts={aiFacts}
+              notes="A page of live Etsy search results. Median price is scoped to the dominant currency (Etsy mixes currencies with no FX rate). Views/favorites are lifetime; engagement is favorites ÷ views. Interpret the market — pricing, demand, competition — and how a seller should position."
+            />
+          )}
         </>
       )}
     </div>

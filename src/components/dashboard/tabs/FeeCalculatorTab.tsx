@@ -2,6 +2,8 @@
 import { useMemo, useState } from 'react'
 import { C } from '@/utils'
 import { Card, MONO, SectionTitle } from '../kit'
+import { AiInsights } from '../AiInsights'
+import type { AiFact } from '@/types'
 
 /**
  * Etsy Fee Calculator — estimates Etsy's seller fees, net profit and margin.
@@ -101,6 +103,19 @@ export function FeeCalculatorTab() {
 
   const netAccent = r.net >= 0 ? C.success : C.danger
 
+  // The seller's own pricing numbers, for the AI coach. Gemini interprets them.
+  const aiFacts = useMemo<AiFact[]>(() => {
+    if (num(price) <= 0) return []
+    return [
+      { label: 'Revenue', value: `${cur}${r.revenue.toFixed(2)}`, hint: 'item + shipping' },
+      { label: 'Total Etsy fees', value: `${cur}${r.totalFees.toFixed(2)}`, hint: `${r.feePct.toFixed(1)}% of revenue` },
+      { label: 'Item cost', value: `${cur}${r.itemCostTotal.toFixed(2)}` },
+      { label: 'Net profit', value: `${r.net < 0 ? '-' : ''}${cur}${Math.abs(r.net).toFixed(2)}` },
+      { label: 'Profit margin', value: `${r.margin.toFixed(1)}%` },
+      { label: 'Break-even price', value: `${cur}${r.breakEven.toFixed(2)}` },
+    ]
+  }, [price, cur, r])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1.05fr', gap: 12, alignItems: 'start' }}>
@@ -193,6 +208,16 @@ export function FeeCalculatorTab() {
           </div>
         </Card>
       </div>
+
+      {/* AI pricing/margin coach. */}
+      {aiFacts.length >= 2 && (
+        <AiInsights
+          tool="Fee Calculator"
+          subject="this listing's pricing"
+          facts={aiFacts}
+          notes="These are the seller's OWN entered pricing figures with Etsy's standard fee schedule applied (estimates, not Etsy-published analytics). Interpret whether the margin is healthy for handmade/Etsy, how much pricing or cost headroom exists, and the risks (e.g. thin margin, fees eating too much). A healthy Etsy net margin is often 20%+ after all costs. Give concrete pricing/cost levers. Do not invent numbers."
+        />
+      )}
     </div>
   )
 }

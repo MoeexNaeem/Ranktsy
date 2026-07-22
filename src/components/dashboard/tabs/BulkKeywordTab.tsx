@@ -6,7 +6,8 @@ import { Star, ExportBtn, HeatPill, toCsv, downloadCsv } from '../controls'
 import { useFavorites } from '@/hooks/useFavorites'
 import { C, D, compColor, formatNumber } from '@/utils'
 import { Card, SectionTitle, ErrorBox, Loading, EmptyState, tableCard, tableHead, th, tableRow, tdMono, tdTitle, primaryBtn, MONO } from '../kit'
-import type { ApiResponse, BulkKeywordRow } from '@/types'
+import { AiInsights } from '../AiInsights'
+import type { ApiResponse, BulkKeywordRow, AiFact } from '@/types'
 
 const MAX = 25
 const GRID = '28px 1.7fr 1fr 0.6fr 0.75fr 0.7fr 0.8fr 0.8fr'
@@ -105,6 +106,19 @@ export function BulkKeywordTab() {
 
   const deadCount = useMemo(() => view.filter(r => r.noMarket).length, [view])
 
+  // Real per-keyword facts for the AI prioritisation read.
+  const aiFacts = useMemo<AiFact[]>(() => {
+    const live = view.filter(r => !r.noMarket && !r.error && r.competition != null)
+    if (!live.length) return []
+    const f: AiFact[] = [{ label: 'Keywords compared', value: String(view.length), hint: `${deadCount} with no market` }]
+    live.slice(0, 8).forEach(r => f.push({
+      label: r.keyword,
+      value: r.difficulty != null ? `KD ${r.difficulty}` : 'KD n/a',
+      hint: `${formatNumber(r.competition as number)} listings, ${r.avgFavorites != null ? formatNumber(r.avgFavorites) + ' avg favs' : ''}${r.favPerView != null ? `, ${r.favPerView}% favs/view` : ''}`,
+    }))
+    return f
+  }, [view, deadCount])
+
   const exportCsv = useCallback(() => {
     if (!view.length) return
     downloadCsv('bulk-keywords.csv', toCsv(
@@ -200,6 +214,16 @@ export function BulkKeywordTab() {
               set — Etsy prices listings in many currencies and publishes no exchange rate.
             </p>
           </div>
+
+          {/* AI prioritisation of the shortlist. */}
+          {aiFacts.length >= 2 && (
+            <AiInsights
+              tool="Bulk Keywords"
+              subject="this keyword shortlist"
+              facts={aiFacts}
+              notes="Each keyword's competition is a real live-listing count; KD is an estimate from supply + incumbent engagement; favs/view is a real engagement ratio (not CTR). Rank these keywords by opportunity (low competition + strong engagement = best), and say which to prioritise and which to drop. Etsy publishes no search volume."
+            />
+          )}
         </>
       )}
 

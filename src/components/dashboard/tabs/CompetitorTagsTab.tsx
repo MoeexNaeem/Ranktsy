@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { C, formatNumber } from '@/utils'
 import { SearchBar, SectionTitle, ErrorBox, EmptyState, Card, tableCard, tableHead, th, tableRow, tdMono, MONO } from '../kit'
-import type { EtsyListing } from '@/types'
+import { AiInsights } from '../AiInsights'
+import type { EtsyListing, AiFact } from '@/types'
 
 const GRID = '2.4fr 0.7fr 1fr 1fr'
 
@@ -35,6 +36,21 @@ export function CompetitorTagsTab() {
       .sort((a, b) => b[1].c - a[1].c || b[1].v - a[1].v)
       .map(([tag, d]) => ({ tag, count: d.c, avgViews: Math.round(d.v / d.c), avgFavs: Math.round(d.f / d.c) }))
   }, [data])
+
+  // Real facts for the AI tag-strategy read — every figure measured from the
+  // shop's active listings. Gemini interprets the strategy; it invents nothing.
+  const aiFacts = useMemo<AiFact[]>(() => {
+    if (!tags.length || !data) return []
+    const f: AiFact[] = [
+      { label: 'Unique tags used', value: String(tags.length), hint: `across ${data.listings.length} listings` },
+    ]
+    tags.slice(0, 6).forEach((t, i) => f.push({
+      label: `Top tag ${i + 1}`,
+      value: t.tag,
+      hint: `used ${t.count}×, ${formatNumber(t.avgViews)} avg views, ${formatNumber(t.avgFavs)} avg favorites`,
+    }))
+    return f
+  }, [tags, data])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -71,6 +87,16 @@ export function CompetitorTagsTab() {
               For market research — see which tags a shop uses across its active listings and how those tags correlate with views &amp; favorites. Tags come from the official Etsy API. Always write your own tags that genuinely describe your product.
             </p>
           </div>
+
+          {/* AI read of the shop's tag strategy. */}
+          {aiFacts.length >= 2 && (
+            <AiInsights
+              tool="Competitor Tags"
+              subject={String(data?.shop.shop_name ?? shop)}
+              facts={aiFacts}
+              notes="Tags are from the shop's active listings; avg views/favorites are the real averages of the listings carrying each tag. Interpret this shop's tag strategy — which tags correlate with the strongest engagement, how broad vs focused the strategy is, and what a competitor could learn. Advise writing original tags that describe one's own product."
+            />
+          )}
         </>
       )}
 

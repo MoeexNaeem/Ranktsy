@@ -2,6 +2,8 @@
 import { useMemo, useState } from 'react'
 import { C } from '@/utils'
 import { Card, MONO, SectionTitle } from '../kit'
+import { AiInsights } from '../AiInsights'
+import type { AiFact } from '@/types'
 
 const num = (s: string) => { const n = parseFloat(s); return Number.isFinite(n) && n > 0 ? n : 0 }
 
@@ -52,6 +54,22 @@ export function AdsRoiCalculatorTab() {
 
   const roiAccent = r.roi >= 0 ? C.success : C.danger
 
+  // The seller's own campaign figures, for the AI coach. Gemini interprets them —
+  // it doesn't invent numbers. Only meaningful once spend + clicks are entered.
+  const aiFacts = useMemo<AiFact[]>(() => {
+    if (num(spend) <= 0 || num(clicks) <= 0) return []
+    return [
+      { label: 'Ad spend', value: `$${num(spend).toFixed(2)}` },
+      { label: 'ROAS', value: `${r.roas.toFixed(2)}×`, hint: 'revenue ÷ spend; 1.0× = break-even before product/fees' },
+      { label: 'ROI', value: `${r.roi >= 0 ? '+' : ''}${r.roi.toFixed(0)}%` },
+      { label: 'Revenue', value: `$${r.revenue.toFixed(2)}` },
+      { label: 'CTR', value: `${r.ctr.toFixed(2)}%` },
+      { label: 'CPC', value: `$${r.cpc.toFixed(2)}` },
+      { label: 'Conversion rate', value: `${r.conv.toFixed(1)}%` },
+      { label: 'Cost per order', value: `$${r.cpa.toFixed(2)}` },
+    ]
+  }, [spend, clicks, r])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr', gap: 16, alignItems: 'start' }}>
@@ -95,6 +113,16 @@ export function AdsRoiCalculatorTab() {
       <p style={{ fontSize: 12, color: '#808080', lineHeight: 1.5 }}>
         A ROAS above <strong style={{ color: C.ink }}>1.0×</strong> means ads earn back more than they cost (before product/fee costs). Pair with the Fee Calculator to find your true profit-positive ROAS target.
       </p>
+
+      {/* AI coaching on the campaign. */}
+      {aiFacts.length >= 2 && (
+        <AiInsights
+          tool="Ads ROI"
+          subject="your Etsy Ads campaign"
+          facts={aiFacts}
+          notes="These are the seller's OWN entered campaign figures (not Etsy-published analytics). Judge whether the campaign is profitable and efficient — remember ROAS 1.0× is only break-even before product and Etsy fees, so the real target is higher. For context, Etsy Ads CTR is often ~0.3–1.5% and conversion ~1–3%, but judge against this campaign's own break-even. Give specific levers (CTR, conversion, CPC, AOV) to improve ROAS. Do not invent the seller's numbers."
+        />
+      )}
     </div>
   )
 }

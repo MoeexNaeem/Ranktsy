@@ -42,7 +42,7 @@ const CONTACT_CHANNELS: {
     icon: 'pin',
     label: 'Office',
     value: 'Bahawalpur, Pakistan',
-    desc: 'Riaz Colony, Street No. 1, Bahawalpur, Punjab, Pakistan.',
+    desc: 'Leaving Dol Beauty Salone, College Road, Bahawalpur, Punjab, Pakistan.',
   },
 ]
 

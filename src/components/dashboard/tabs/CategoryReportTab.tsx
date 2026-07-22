@@ -4,8 +4,9 @@ import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { BarChart } from '@/components/charts/BarChart'
 import { SearchBar, Card, StatCard, SectionTitle, ErrorBox, Loading, EmptyState, CompBadge, MONO } from '../kit'
-import { C, formatNumber } from '@/utils'
-import type { EtsyListing } from '@/types'
+import { AiInsights } from '../AiInsights'
+import { C, D, formatNumber } from '@/utils'
+import type { EtsyListing, AiFact } from '@/types'
 
 function money(l: EtsyListing): number {
   return (l.price?.amount ?? 0) / (l.price?.divisor || 100)
@@ -73,8 +74,28 @@ export function CategoryReportTab() {
 
     const samples = [...listings].sort((a, b) => (b.views ?? 0) - (a.views ?? 0)).slice(0, 6)
 
-    return { cur, median, avgViews, avgFaves, hist, labels, topTags, total, comp, samples, sampled: listings.length }
+    // Two more real signals: median engagement, and how concentrated the market is.
+    const engRatios = listings.filter(l => (l.views ?? 0) > 0).map(l => (l.num_favorers ?? 0) / (l.views as number) * 100).sort((a, b) => a - b)
+    const engagementPct = engRatios.length ? parseFloat(engRatios[Math.floor((engRatios.length - 1) / 2)].toFixed(1)) : 0
+    const uniqueShops = new Set(listings.map(l => l.shop_name).filter(Boolean)).size
+    const priceP25 = pct(0.25), priceP75 = pct(0.75)
+
+    return { cur, median, avgViews, avgFaves, hist, labels, topTags, total, comp, samples, sampled: listings.length, engagementPct, uniqueShops, priceP25, priceP75 }
   }, [data])
+
+  // Real category facts for the AI market read.
+  const aiFacts = useMemo<AiFact[]>(() => {
+    if (!report) return []
+    return [
+      { label: 'Live listings on Etsy', value: formatNumber(report.total), hint: `${report.comp} competition` },
+      { label: 'Median price', value: `${report.cur}${report.median.toFixed(0)}`, hint: `typical ${report.cur}${report.priceP25.toFixed(0)}–${report.priceP75.toFixed(0)}` },
+      { label: 'Avg views (lifetime)', value: formatNumber(report.avgViews) },
+      { label: 'Avg favorites', value: formatNumber(report.avgFaves) },
+      { label: 'Median engagement', value: `${report.engagementPct}%`, hint: 'favorites ÷ views; ~1–3% typical' },
+      { label: 'Unique shops', value: `${report.uniqueShops} of ${report.sampled}`, hint: 'market concentration' },
+      ...report.topTags.slice(0, 3).map(([t, c], i) => ({ label: `Defining tag ${i + 1}`, value: t, hint: `used by ${c} of ${report.sampled}` })),
+    ]
+  }, [report])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -94,10 +115,10 @@ export function CategoryReportTab() {
         <>
           {/* Headline stats */}
           <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
-            <StatCard label="Live listings" value={formatNumber(report.total)} accent={C.ink} sub="total on Etsy" />
-            <StatCard label="Median price" value={`${report.cur}${report.median.toFixed(0)}`} accent={C.orange} sub={`across ${report.sampled} sampled`} />
-            <StatCard label="Avg views" value={formatNumber(report.avgViews)} accent={C.ink} sub="per listing (lifetime)" />
-            <StatCard label="Competition" value={report.comp} accent={report.comp === 'Low' ? C.success : report.comp === 'High' ? C.danger : C.warn} sub="by listing supply" />
+            <StatCard label="Live listings" value={formatNumber(report.total)} accent={D.series[1]} sub="total on Etsy" />
+            <StatCard label="Median price" value={`${report.cur}${report.median.toFixed(0)}`} accent={D.series[0]} sub={`typical ${report.cur}${report.priceP25.toFixed(0)}–${report.priceP75.toFixed(0)}`} />
+            <StatCard label="Avg views" value={formatNumber(report.avgViews)} accent={D.series[4]} sub={`${report.engagementPct}% engagement`} />
+            <StatCard label="Competition" value={report.comp} accent={report.comp === 'Low' ? D.good : report.comp === 'High' ? D.hard : D.mid} sub={`${report.uniqueShops} unique shops`} />
           </div>
 
           <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
@@ -141,6 +162,16 @@ export function CategoryReportTab() {
               ))}
             </div>
           </Card>
+
+          {/* AI market-opportunity read over the real category snapshot. */}
+          {aiFacts.length >= 2 && (
+            <AiInsights
+              tool="Category Report"
+              subject={query}
+              facts={aiFacts}
+              notes="A market snapshot measured from the top live Etsy listings for this niche — prices, views, favorites and tag adoption are all real. Interpret saturation, pricing headroom, engagement, and where an opening exists. Etsy publishes no search volume."
+            />
+          )}
         </>
       )}
     </div>

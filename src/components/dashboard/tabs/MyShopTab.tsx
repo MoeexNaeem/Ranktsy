@@ -4,7 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { BarChart } from '@/components/charts/BarChart'
 import { Card, StatCard, SectionTitle, ErrorBox, Loading, MONO } from '../kit'
+import { AiInsights } from '../AiInsights'
 import { C, formatNumber } from '@/utils'
+import type { AiFact } from '@/types'
 
 const CUR: Record<string, string> = { USD: '$', GBP: '£', EUR: '€', CAD: 'C$', AUD: 'A$', NZD: 'NZ$' }
 const sym = (c?: string) => CUR[c ?? 'USD'] ?? (c ? c + ' ' : '$')
@@ -80,6 +82,18 @@ export function MyShopTab() {
   const countries = data.salesByCountry ?? []
   const listings = data.topListings ?? []
 
+  // Real facts from the connected shop, for the AI performance read.
+  const aiFacts: AiFact[] = [
+    { label: 'Recent revenue', value: `${cur}${formatNumber(sum.revenue)}`, hint: 'from latest receipts' },
+    { label: 'Orders', value: formatNumber(sum.orders), hint: 'recent receipts' },
+    { label: 'Avg order value', value: `${cur}${sum.avgOrder}` },
+    { label: 'Active listings', value: formatNumber(s.active_listings) },
+    { label: 'Rating', value: `${s.review_average?.toFixed(2) ?? '—'}★`, hint: `${formatNumber(s.review_count)} reviews` },
+    { label: 'Admirers', value: formatNumber(s.favorers) },
+  ]
+  if (countries[0]) aiFacts.push({ label: 'Top buyer country', value: countries[0].name, hint: `${cur}${formatNumber(countries[0].value)} revenue` })
+  if (listings[0]) aiFacts.push({ label: 'Top listing', value: listings[0].title.slice(0, 45), hint: `${formatNumber(listings[0].views)} views, ${formatNumber(listings[0].num_favorers)} favs` })
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Shop header */}
@@ -153,6 +167,14 @@ export function MyShopTab() {
           </div>
         </Card>
       )}
+
+      {/* AI performance read of your connected shop. */}
+      <AiInsights
+        tool="My Shop"
+        subject={s.shop_name}
+        facts={aiFacts}
+        notes="These are the seller's OWN connected-shop figures from the official Etsy API (receipts, listings, shop stats — Etsy exposes no page-traffic analytics). Interpret the shop's recent performance, best markets and listings, and give prioritised growth actions."
+      />
 
       {data.note && <p style={{ fontSize: 11.5, color: '#9a9a92', fontFamily: MONO, lineHeight: 1.6 }}>{data.note}</p>}
     </div>

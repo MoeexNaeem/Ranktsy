@@ -4,9 +4,10 @@ import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { C, D, formatNumber } from '@/utils'
 import { SearchBar, Card, StatCard, SectionTitle, ErrorBox, Pagination, tableCard, tableHead, th, tableRow, tdMono, tdTitle, TagPill, MONO } from '../kit'
+import { AiInsights } from '../AiInsights'
 import { BubbleChart } from '@/components/charts/InsightCharts'
 import { BarChart } from '@/components/charts/BarChart'
-import type { EtsyListing } from '@/types'
+import type { EtsyListing, AiFact } from '@/types'
 
 const GRID = '2.6fr 1fr 0.85fr 0.75fr 0.8fr 1.3fr'
 const FETCH = 48        // fetched once from Etsy
@@ -59,6 +60,31 @@ export function CompetitorsTab() {
     return { bubble, tags }
   }, [sorted])
 
+  // Currency-agnostic market signals (price is deliberately omitted — a cross-shop
+  // search mixes currencies with no FX rate).
+  const market = useMemo(() => {
+    if (!sorted.length) return null
+    const avgViews = Math.round(sorted.reduce((s, l) => s + (l.views ?? 0), 0) / sorted.length)
+    const avgFaves = Math.round(sorted.reduce((s, l) => s + (l.num_favorers ?? 0), 0) / sorted.length)
+    const engRatios = sorted.filter(l => (l.views ?? 0) > 0).map(l => (l.num_favorers ?? 0) / (l.views as number) * 100).sort((a, b) => a - b)
+    const engagementPct = engRatios.length ? parseFloat(engRatios[Math.floor((engRatios.length - 1) / 2)].toFixed(1)) : 0
+    const uniqueShops = new Set(sorted.map(l => l.shop_name).filter(Boolean)).size
+    return { avgViews, avgFaves, engagementPct, uniqueShops }
+  }, [sorted])
+
+  const aiFacts = useMemo<AiFact[]>(() => {
+    if (!market) return []
+    const f: AiFact[] = [
+      { label: 'Competitors sampled', value: String(sorted.length), hint: 'top listings by views' },
+      { label: 'Avg views', value: formatNumber(market.avgViews), hint: 'lifetime' },
+      { label: 'Avg favorites', value: formatNumber(market.avgFaves) },
+      { label: 'Median engagement', value: `${market.engagementPct}%`, hint: 'favorites ÷ views; ~1–3% typical' },
+      { label: 'Unique shops', value: `${market.uniqueShops} of ${sorted.length}`, hint: 'concentration' },
+    ]
+    charts.tags.slice(0, 3).forEach(([t, c], i) => f.push({ label: `Top tag ${i + 1}`, value: t, hint: `used by ${c} listings` }))
+    return f
+  }, [market, sorted.length, charts.tags])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <SearchBar value={search} onChange={setSearch} onSubmit={go} placeholder="Analyze competition for any keyword…" button="Analyze →" />
@@ -68,10 +94,11 @@ export function CompetitorsTab() {
 
       {sorted.length > 0 && !isLoading && (
         <>
-          <div className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-            <StatCard label="Total Competitors" value={sorted.length.toString()} accent={C.ink} />
-            <StatCard label="Avg. Views" value={formatNumber(Math.round(sorted.reduce((s, l) => s + (l.views ?? 0), 0) / sorted.length))} accent={C.orange} />
-            <StatCard label="Avg. Favorites" value={formatNumber(Math.round(sorted.reduce((s, l) => s + (l.num_favorers ?? 0), 0) / sorted.length))} accent={C.ink} />
+          <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+            <StatCard label="Competitors" value={sorted.length.toString()} accent={D.series[1]} sub="sampled by views" />
+            <StatCard label="Avg. Views" value={formatNumber(market?.avgViews ?? 0)} accent={D.series[4]} sub={`${market?.engagementPct ?? 0}% engagement`} />
+            <StatCard label="Avg. Favorites" value={formatNumber(market?.avgFaves ?? 0)} accent={D.series[3]} />
+            <StatCard label="Unique Shops" value={String(market?.uniqueShops ?? 0)} accent={D.series[2]} sub="market concentration" />
           </div>
 
           {/* Competitive landscape + tag analysis */}
@@ -86,6 +113,16 @@ export function CompetitorsTab() {
               <BarChart axis="y" height={340} highlightMax labels={charts.tags.map(t => t[0])} values={charts.tags.map(t => t[1])} />
             </Card>
           </div>
+
+          {/* AI read of the competitive field. */}
+          {aiFacts.length >= 2 && (
+            <AiInsights
+              tool="Competitor Analysis"
+              subject={query}
+              facts={aiFacts}
+              notes="A sample of the top listings ranking for this keyword. Views/favorites are real lifetime figures; engagement is favorites ÷ views (not CTR). Price is omitted because a cross-shop search mixes currencies. Interpret how strong the competition is, who to differentiate against, and which tags are table stakes vs openings."
+            />
+          )}
 
           <div>
             <SectionTitle right={<span style={{ fontSize: 12, fontFamily: MONO, color: C.graphite }}>Top {sorted.length} by views · page {page}/{pageCount}</span>}>

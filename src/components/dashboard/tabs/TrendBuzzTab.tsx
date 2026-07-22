@@ -7,8 +7,10 @@ import {
   Card, SearchBar, SectionTitle, ErrorBox, Loading, EmptyState,
   CompBadge, tableCard, tableHead, th, tableRow, MONO,
 } from '../kit'
+import { AiInsights } from '../AiInsights'
 import { C, D, formatNumber } from '@/utils'
 import type { BuzzItem } from '@/lib/etsy'
+import type { AiFact } from '@/types'
 
 const GRID = '2fr 0.7fr 0.8fr 0.8fr 1fr 0.7fr 0.9fr'
 
@@ -20,6 +22,16 @@ export function TrendBuzzTab() {
   const go = useCallback(() => setQuery(input.trim()), [input])
 
   const top12 = useMemo(() => (data ?? []).slice(0, 12), [data])
+
+  // Real facts for the AI read — which emerging tags are genuinely worth chasing.
+  const aiFacts = useMemo<AiFact[]>(() => {
+    const rows = (data ?? []).slice(0, 6)
+    return rows.map<AiFact>(b => ({
+      label: b.keyword,
+      value: `heat ${b.heat}`,
+      hint: `${b.competition} competition, ${formatNumber(b.avgViews)} avg views, ${b.medianAgeDays == null ? 'age n/a' : b.medianAgeDays >= 365 ? `${(b.medianAgeDays / 365).toFixed(1)}y median age` : `${b.medianAgeDays}d median age`}`,
+    }))
+  }, [data])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -88,6 +100,16 @@ export function TrendBuzzTab() {
             not a search volume; Etsy publishes none. <strong>Median age</strong> is the real age of the listings using
             the tag: young listings on a busy tag is what &ldquo;emerging&rdquo; actually looks like.
           </p>
+
+          {/* AI read: which of these emerging tags to actually chase. */}
+          {aiFacts.length >= 2 && (
+            <AiInsights
+              tool="Trend Buzz"
+              subject={query || 'Etsy-wide buzz'}
+              facts={aiFacts}
+              notes="Heat is a relative 0–100 index (tag frequency × listing engagement) — NOT search volume, which Etsy doesn't publish. A low median age on a high-heat tag is the real 'emerging' signal. Interpret which tags look like genuine early opportunities vs already-crowded, and how a seller should act."
+            />
+          )}
         </>
       )}
     </div>

@@ -177,7 +177,8 @@ async function aiResult(
     schema: OPTIMIZE_SCHEMA as unknown as Record<string, unknown>,
     system: 'You rewrite Etsy listings from real audit findings. You write copy only — every statistic you mention must come verbatim from the findings provided. Never invent numbers, materials, or product claims.',
     temperature: 0.6,
-    maxOutputTokens: 3072,
+    // Headroom for the model's default thinking + the full JSON (see gemini.ts).
+    maxOutputTokens: 4096,
   })
   if (!parsed) return null
 
