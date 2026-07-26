@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { searchEtsyListingsPaged, levelForCount, difficultyScore, dominantCurrencyPrices } from '@/lib/etsy'
 import { googleKeywordMetrics, isGoogleAdsConfigured } from '@/lib/google-ads'
+import { guardSearch } from '@/lib/searchGate'
 import type { ApiResponse, BulkKeywordRow } from '@/types'
 
 export const runtime = 'nodejs'
@@ -84,6 +85,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<B
   if (!keywords.length) {
     return NextResponse.json({ success: false, error: 'Provide at least one keyword (2+ characters).' }, { status: 400 })
   }
+
+  const gate = await guardSearch<BulkKeywordRow[]>(req)
+  if (gate) return gate
 
   try {
     // Concurrency 4: each keyword is its own Etsy search, and the shared rate

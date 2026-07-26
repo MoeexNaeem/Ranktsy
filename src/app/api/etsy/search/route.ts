@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { searchEtsyListingsPaged, type SearchOpts } from '@/lib/etsy'
+import { guardSearch } from '@/lib/searchGate'
 
 // Etsy caps offset-based paging; keep it within a sane range.
 const MAX_OFFSET = 12000
@@ -11,6 +12,9 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(Math.max(parseInt(searchParams.get('limit') ?? '24'), 1), 100)
   const offset = Math.min(Math.max(parseInt(searchParams.get('offset') ?? '0') || 0, 0), MAX_OFFSET)
   if (!q) return NextResponse.json({ success: false, error: 'Missing query' }, { status: 400 })
+
+  const gate = await guardSearch(req)
+  if (gate) return gate
 
   const sortRaw = searchParams.get('sort') ?? ''
   const opts: SearchOpts = {

@@ -206,6 +206,8 @@ export interface SearchOpts {
   minPrice?: number
   maxPrice?: number
   sortOn?: 'score' | 'price' | 'created' | 'updated'
+  /** Etsy sort direction — e.g. price 'desc' for most-expensive-first. */
+  sortOrder?: 'asc' | 'desc'
   taxonomyId?: number
   /** Skip the /listings/batch image call when the caller only needs stats. */
   skipImages?: boolean
@@ -223,6 +225,7 @@ export async function searchEtsyListingsPaged(query: string, limit = 24, offset 
   if (opts.minPrice != null && opts.minPrice > 0) params.min_price = opts.minPrice
   if (opts.maxPrice != null && opts.maxPrice > 0) params.max_price = opts.maxPrice
   if (opts.taxonomyId != null && opts.taxonomyId > 0) params.taxonomy_id = opts.taxonomyId
+  if (opts.sortOrder) params.sort_order = opts.sortOrder
   const data = await etsyFetch<{ count?: number; results: Record<string, unknown>[] }>('/listings/active', params)
   const mapped = (data.results ?? []).map(mapListing)
   const listings = opts.skipImages ? mapped : await attachImages(mapped)

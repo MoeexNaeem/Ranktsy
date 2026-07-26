@@ -6,11 +6,19 @@ import { signAccessToken, signRefreshToken } from '@/lib/auth/jwt'
 import { setAuthCookies } from '@/lib/auth/cookies'
 import { loginSchema } from '@/lib/auth/schemas'
 import { resolveRole } from '@/lib/auth/roles'
+import { verifyRecaptcha } from '@/lib/recaptcha'
 import type { ApiResponse, AuthUser } from '@/types'
 
 export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<AuthUser>>> {
   try {
     const body   = await req.json()
+
+    // Bot protection — verify the reCAPTCHA token (a no-op if keys aren't set).
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    if (!(await verifyRecaptcha(body?.captchaToken, ip))) {
+      return NextResponse.json({ success: false, errors: { _: 'Please complete the “I’m not a robot” check.' } }, { status: 400 })
+    }
+
     const parsed = loginSchema.safeParse(body)
 
     if (!parsed.success) {

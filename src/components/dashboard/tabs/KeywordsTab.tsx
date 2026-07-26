@@ -206,8 +206,11 @@ function SubTabs({ active, onChange, counts }: {
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void }) {
-  const [input, setInput] = useState('silver necklace')
-  const [query, setQuery] = useState('silver necklace')
+  // Seed from the store so a tag clicked in Hot Products (or elsewhere) lands
+  // here already researched, instead of on a fixed default.
+  const seed = useAppStore.getState().activeKeyword || 'silver necklace'
+  const [input, setInput] = useState(seed)
+  const [query, setQuery] = useState(seed)
   const [plats, setPlats] = useState<TrendPlatform[]>(['etsy', 'google'])
   const [sub, setSub]     = useState<Sub>('ideas')
 

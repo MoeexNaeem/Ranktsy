@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/session'
 import { signAccessToken, signRefreshToken } from '@/lib/auth/jwt'
 import { ACCESS_TOKEN_NAME, REFRESH_TOKEN_NAME } from '@/lib/auth/cookies'
-import { exchangeCodeForToken, getRedirectUri, userIdFromToken } from '@/lib/etsy-oauth'
+import { exchangeCodeForToken, getRedirectUri, userIdFromToken, appUrl } from '@/lib/etsy-oauth'
 import { getShopByOwner } from '@/lib/etsy'
 import { saveEtsyTokens } from '@/lib/etsy-tokens'
 import type { AuthUser } from '@/types'
@@ -11,7 +11,7 @@ export const runtime = 'nodejs'
 const IS_PROD = process.env.NODE_ENV === 'production'
 
 function back(req: NextRequest, params: string) {
-  const res = NextResponse.redirect(new URL(`/dashboard?${params}`, req.url))
+  const res = NextResponse.redirect(appUrl(`/dashboard?${params}`, req.url))
   // Always clear the short-lived PKCE cookies.
   res.cookies.delete('etsy_oauth_state')
   res.cookies.delete('etsy_oauth_verifier')
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   if (oauthError) return back(req, `etsy=denied`)
 
   const user = await getCurrentUser()
-  if (!user) return NextResponse.redirect(new URL('/login?redirect=/dashboard', req.url))
+  if (!user) return NextResponse.redirect(appUrl('/login?redirect=/dashboard', req.url))
 
   const cookieState = req.cookies.get('etsy_oauth_state')?.value
   const verifier    = req.cookies.get('etsy_oauth_verifier')?.value

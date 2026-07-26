@@ -34,11 +34,29 @@ export function randomState(): string {
   return b64url(crypto.randomBytes(24))
 }
 
+// ─── Public origin ────────────────────────────────────────────────────────────
+/**
+ * The browser-facing origin of the app. Behind a reverse proxy (nginx on the
+ * Contabo box) req.url reports the INTERNAL address (e.g. https://localhost:3001)
+ * because the proxy doesn't forward the real Host, so any redirect built from
+ * req.url would bounce the user to localhost. NEXT_PUBLIC_APP_URL is the source
+ * of truth for the real public origin; fall back to req.url only if it's unset.
+ */
+export function getAppOrigin(reqUrl: string): string {
+  const base = process.env.NEXT_PUBLIC_APP_URL || new URL(reqUrl).origin
+  return new URL(base).origin
+}
+
+/** Build an absolute URL on the public origin (safe for redirect Location headers). */
+export function appUrl(path: string, reqUrl: string): URL {
+  return new URL(path, getAppOrigin(reqUrl))
+}
+
 // ─── Redirect URI ─────────────────────────────────────────────────────────────
 export function getRedirectUri(reqUrl: string): string {
+  // Explicit override always wins.
   if (process.env.ETSY_REDIRECT_URI) return process.env.ETSY_REDIRECT_URI
-  const origin = new URL(reqUrl).origin
-  return `${origin}/api/etsy/oauth/callback`
+  return `${getAppOrigin(reqUrl)}/api/etsy/oauth/callback`
 }
 
 // ─── Authorization URL ────────────────────────────────────────────────────────

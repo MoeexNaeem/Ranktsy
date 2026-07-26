@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { searchEtsyListingsPaged, getListingById } from '@/lib/etsy'
+import { guardSearch } from '@/lib/searchGate'
 import type { ApiResponse, KeywordGap, GapTag, GapWord, EtsyListing } from '@/types'
 
 export const runtime = 'nodejs'
@@ -33,6 +34,9 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
   if (!query || query.length < 2) {
     return NextResponse.json({ success: false, error: 'Enter a keyword (2+ characters).' }, { status: 400 })
   }
+
+  const gate = await guardSearch<KeywordGap>(req)
+  if (gate) return gate
 
   // Cache the keyword scan (expensive) separately from the per-listing overlay
   // (cheap), so trying different listings against one keyword is fast.

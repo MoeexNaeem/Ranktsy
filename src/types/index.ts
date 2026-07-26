@@ -301,6 +301,34 @@ export interface ListingMarketStats {
   topListings: { title: string; url: string; price: number | null; views: number; favorites: number }[]
 }
 
+// ─── Find Hot Products (product-research database over live Etsy listings) ─────
+// Every field is measured from the Etsy API. There is NO per-listing sales or
+// revenue (Etsy doesn't publish it) — "hot" is ranked from real engagement +
+// how fast a listing accrues favorites for its age. See [[no-fabricated-data-rule]].
+export interface HotProduct {
+  listing_id: number
+  title: string
+  url: string
+  image: string | null
+  price: number | null
+  currency: string
+  views: number
+  favorites: number
+  engagementPct: number      // favorites ÷ views, real
+  favPerDay: number | null   // favorites ÷ age in days — a real "velocity" proxy
+  hotScore: number           // 0–100, from engagement + favorite-velocity (all real)
+  tags: string[]
+  shopName: string
+  createdTimestamp: number | null
+  quantity: number
+}
+
+export interface HotProductsResponse {
+  products: HotProduct[]
+  total: number              // real Etsy-wide match count for the query/filters
+  sampled: number            // how many listings were scored for this page
+}
+
 export interface KeywordSearchResponse {
   query: string
   stats: KeywordStats
@@ -481,4 +509,6 @@ export interface ApiResponse<T> {
   error?: string
   errors?: Record<string, string>
   cached?: boolean
+  /** Set by the search rate gate — the client should prompt a reCAPTCHA and retry. */
+  captchaRequired?: boolean
 }

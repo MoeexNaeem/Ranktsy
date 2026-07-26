@@ -2,10 +2,13 @@
 
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
+import { attachCaptchaInterceptor } from '@/components/security/captchaController'
 import type { ApiResponse, KeywordSearchResponse, KeywordData, NearMatch, EtsyListing } from '@/types'
 
 // ─── Axios instance (shared, avoids creating new instance per component) ──────
 const api = axios.create({ baseURL: '/api' })
+// Search-limit → captcha → retry, for keyword/trends calls made through `api`.
+attachCaptchaInterceptor(api)
 
 // ─── Query key factories (stable references for React Query cache) ─────────────
 export const queryKeys = {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/session'
-import { createPkce, randomState, buildAuthorizeUrl, getRedirectUri } from '@/lib/etsy-oauth'
+import { createPkce, randomState, buildAuthorizeUrl, getRedirectUri, appUrl } from '@/lib/etsy-oauth'
 
 export const runtime = 'nodejs'
 
@@ -10,10 +10,10 @@ const cookieOpts = { httpOnly: true, secure: IS_PROD, sameSite: 'lax' as const, 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser()
   if (!user) {
-    return NextResponse.redirect(new URL('/login?redirect=/dashboard', req.url))
+    return NextResponse.redirect(appUrl('/login?redirect=/dashboard', req.url))
   }
   if (!process.env.ETSY_API_KEY) {
-    return NextResponse.redirect(new URL('/dashboard?etsy=misconfigured', req.url))
+    return NextResponse.redirect(appUrl('/dashboard?etsy=misconfigured', req.url))
   }
 
   const { verifier, challenge } = createPkce()

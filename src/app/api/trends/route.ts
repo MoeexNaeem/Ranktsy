@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { searchEtsyListingsPaged, buildTrendData, buildCountryData, buildListingSupplyByMonth, buildListingMarketStats } from '@/lib/etsy'
 import { googleKeywordMetrics, googleCountryBreakdown, isGoogleAdsConfigured } from '@/lib/google-ads'
+import { guardSearch } from '@/lib/searchGate'
 import type { TrendData, TrendPoint, CountryData } from '@/types'
 
 export const runtime = 'nodejs'
@@ -20,6 +21,9 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const query = searchParams.get('q')?.trim().toLowerCase()
   if (!query) return NextResponse.json({ success: false, error: 'Missing query' }, { status: 400 })
+
+  const gate = await guardSearch(req)
+  if (gate) return gate
 
   const key    = cacheKey('trends', 'v3', query)
   const cached = memCache.get(key)

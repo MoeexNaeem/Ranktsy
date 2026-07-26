@@ -3,6 +3,7 @@ import { useState, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { C } from '@/utils'
+import { Recaptcha, RECAPTCHA_ENABLED } from '@/components/security/Recaptcha'
 
 type FormType = 'login' | 'register' | 'forgot' | 'verify-otp' | 'reset'
 interface Field { name: string; label: string; type: string; placeholder: string }
@@ -28,6 +29,10 @@ function AuthFormInner({ type, email: initEmail, onNext }: { type: FormType; ema
   const [errors,  setErrors]  = useState<Record<string,string>>({})
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState('')
+  const [captcha, setCaptcha] = useState('')
+
+  // Login & signup require a solved reCAPTCHA (only when keys are configured).
+  const needsCaptcha = (type === 'login' || type === 'register') && RECAPTCHA_ENABLED
 
   const set = useCallback((k: string, v: string) => {
     setValues(p => ({ ...p, [k]: v }))
@@ -39,6 +44,7 @@ function AuthFormInner({ type, email: initEmail, onNext }: { type: FormType; ema
     const body: Record<string,string> = { ...values }
     if (type === 'verify-otp' || type === 'reset') body.email = initEmail ?? ''
     if (type === 'verify-otp') body.type = 'reset'
+    if (needsCaptcha) body.captchaToken = captcha
     try {
       const res  = await fetch(ENDPOINTS[type], { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(body) })
       const json = await res.json()
@@ -49,7 +55,7 @@ function AuthFormInner({ type, email: initEmail, onNext }: { type: FormType; ema
       if (type === 'reset')      { setSuccess('Password reset! Redirecting to login...'); setTimeout(() => router.push('/login'), 2000) }
     } catch { setErrors({ _: 'Network error. Please try again.' }) }
     finally  { setLoading(false) }
-  }, [values, type, initEmail, router, redirect, onNext])
+  }, [values, type, initEmail, router, redirect, onNext, needsCaptcha, captcha])
 
   const S = {
     wrap:  { minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:C.canvas, padding:24 } as const,
@@ -88,7 +94,13 @@ function AuthFormInner({ type, email: initEmail, onNext }: { type: FormType; ema
           ))}
         </div>
 
-        <button style={{ ...S.btn, opacity:loading?0.7:1 }} onClick={submit} disabled={loading}>
+        {needsCaptcha && (
+          <div style={{ marginTop:20 }}>
+            <Recaptcha onVerify={setCaptcha} onExpire={() => setCaptcha('')} />
+          </div>
+        )}
+
+        <button style={{ ...S.btn, opacity:(loading || (needsCaptcha && !captcha))?0.7:1, cursor:(needsCaptcha && !captcha)?'not-allowed':'pointer' }} onClick={submit} disabled={loading || (needsCaptcha && !captcha)}>
           {loading ? 'Please wait...' : BUTTONS[type]}
         </button>
 
