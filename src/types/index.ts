@@ -62,6 +62,12 @@ export interface KeywordData {
   /** 0–100 estimate computed FROM real inputs (listing supply + engagement). Labelled as an estimate everywhere. */
   difficulty: number | null
   googleSearches: number | null
+  /** Google advertiser-competition band + 0–100 index. Distinct from Etsy `competition`. null unless Google Ads is configured. */
+  googleCompetition?: 'LOW' | 'MEDIUM' | 'HIGH' | 'UNSPECIFIED' | null
+  googleCompetitionIndex?: number | null
+  /** Top-of-page CPC bid range, in the Ads account currency (see KeywordStats.googleCurrency). null when absent. */
+  googleCpcLow?: number | null
+  googleCpcHigh?: number | null
   /**
    * Calendar-month histogram (Jan→Dec) of when the listings using this tag were
    * created — real, from `created_timestamp` (100% field coverage). Replaces a
@@ -85,6 +91,34 @@ export interface KeywordStats {
   currency: string
   /** Real Google monthly search volume. null unless Google Ads is configured — never faked. */
   googleSearches: number | null
+  /** Google advertiser-competition band for the exact keyword + its 0–100 index. */
+  googleCompetition?: 'LOW' | 'MEDIUM' | 'HIGH' | 'UNSPECIFIED' | null
+  googleCompetitionIndex?: number | null
+  /** Top-of-page CPC bid range in `googleCurrency`. Google returns bids only in the Ads account's own currency. */
+  googleCpcLow?: number | null
+  googleCpcHigh?: number | null
+  /** ISO code of the Ads account currency the CPC figures are in (e.g. "USD", "PKR"). null unless Google Ads is configured. */
+  googleCurrency?: string | null
+}
+
+// ─── Google Keyword Ideas (generateKeywordIdeas) ──────────────────────────────
+// Google-SUGGESTED keywords for a seed — genuine discovery, not a lookup of terms
+// we chose. Surfaces high-volume / low-competition long-tails an Etsy-tag sample
+// can't. Every metric is real Google Ads data; empty when Google Ads is unconfigured.
+export interface KeywordIdea {
+  keyword: string
+  searches: number
+  competition: 'LOW' | 'MEDIUM' | 'HIGH' | 'UNSPECIFIED'
+  competitionIndex: number | null
+  cpcLow: number | null
+  cpcHigh: number | null
+}
+
+export interface KeywordIdeasResponse {
+  seed: string
+  /** ISO code the CPC figures are in (Ads account currency). null when unknown. */
+  currency: string | null
+  ideas: KeywordIdea[]
 }
 
 // ─── Search Results Analysis (all derived from the sampled live listings) ─────
@@ -158,6 +192,10 @@ export interface BulkKeywordRow {
   charCount: number
   wordCount: number
   googleSearches: number | null
+  /** Google advertiser-competition band + CPC range (account currency). null unless Google Ads is configured. */
+  googleCompetition?: 'LOW' | 'MEDIUM' | 'HIGH' | 'UNSPECIFIED' | null
+  googleCpcLow?: number | null
+  googleCpcHigh?: number | null
   error: boolean
   /**
    * No live Etsy listings match at all. Critically NOT the same as "easy":

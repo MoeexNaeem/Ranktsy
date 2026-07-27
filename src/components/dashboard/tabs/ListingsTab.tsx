@@ -3,46 +3,12 @@ import { useState, useCallback, useMemo } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import axios from 'axios'
 import { C, D, formatNumber } from '@/utils'
-import { SearchBar, ErrorBox, Pagination, StatCard, cardStyle, MONO } from '../kit'
+import { SearchBar, ErrorBox, Pagination, StatCard, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
+import { TopListingsTable } from '../keyword/TopListingsTable'
 import type { EtsyListing, AiFact } from '@/types'
 
 const PAGE_SIZE = 24
-
-function priceStr(listing: EtsyListing): string {
-  if (!listing.price?.amount) return '—'
-  return `${listing.price.currency_code} ${(listing.price.amount / (listing.price.divisor || 100)).toFixed(2)}`
-}
-
-function ListingCard({ listing }: { listing: EtsyListing }) {
-  const img = listing.images?.[0]?.url_570xN
-  return (
-    <a href={listing.url} target="_blank" rel="noopener noreferrer"
-      style={{ ...cardStyle, display: 'block', overflow: 'hidden', textDecoration: 'none', transition: 'transform 0.15s' }}
-      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)' }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'none' }}>
-      <div style={{ height: 172, background: C.canvas, overflow: 'hidden' }}>
-        {img
-          ? <img src={img} alt={listing.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c8c8c0', fontSize: 30 }}>🛍</div>
-        }
-      </div>
-      <div style={{ padding: '14px 16px' }}>
-        <p style={{ fontSize: 14, fontWeight: 500, color: C.ink, marginBottom: 7, lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, minHeight: 39 }}>
-          {listing.title}
-        </p>
-        <p style={{ fontSize: 15, color: C.orange, fontWeight: 600, marginBottom: 9, fontFamily: MONO }}>{priceStr(listing)}</p>
-        <div style={{ display: 'flex', gap: 14, fontSize: 12.5, color: C.graphite, fontFamily: MONO }}>
-          <span>👁 {formatNumber(listing.views ?? 0)}</span>
-          <span>♥ {formatNumber(listing.num_favorers ?? 0)}</span>
-        </div>
-        {listing.shop_name && (
-          <p style={{ fontSize: 12, color: C.stone, marginTop: 7 }}>by {listing.shop_name}</p>
-        )}
-      </div>
-    </a>
-  )
-}
 
 type SortKey = 'score' | 'price' | 'created' | 'updated'
 const SORT_LABEL: Record<SortKey, string> = { score: 'Relevance', price: 'Price', created: 'Newest', updated: 'Recently updated' }
@@ -172,8 +138,8 @@ export function ListingsTab() {
             </div>
           )}
 
-          <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, opacity: isFetching ? 0.55 : 1, transition: 'opacity 0.15s' }}>
-            {listings.map(l => <ListingCard key={l.listing_id} listing={l} />)}
+          <div style={{ opacity: isFetching ? 0.6 : 1, transition: 'opacity 0.15s' }}>
+            <TopListingsTable listings={listings} query={applied.q} />
           </div>
           <Pagination page={page} pageCount={pageCount} loading={isFetching}
             onChange={p => setPage(p)} />

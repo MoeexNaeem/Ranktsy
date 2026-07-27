@@ -941,6 +941,21 @@ export async function getShopReviews(shopIdOrName: string | number, limit = 12):
   }))
 }
 
+// ─── Listing review count (public — key only) ─────────────────────────────────
+// GET /v3/application/listings/{listing_id}/reviews returns a `count`. That count
+// is a REAL lower bound on units sold (you can only review what you bought) — the
+// honest stand-in for the "Est. Sales" figure Etsy never publishes. null when Etsy
+// doesn't answer, never 0-as-unknown.
+export async function getListingReviewCount(listingId: number): Promise<number | null> {
+  try {
+    const data = await etsyFetch<{ count?: number }>(`/listings/${listingId}/reviews`, { limit: 1 })
+    return typeof data.count === 'number' ? data.count : null
+  } catch (e) {
+    console.error(`[Etsy] listing reviews ${listingId}:`, e)
+    return null
+  }
+}
+
 // ─── Shop sections (public — key only) ────────────────────────────────────────
 // GET /v3/application/shops/{shop_id}/sections. The seller's own category tabs.
 export interface ShopSection { section_id: number; title: string; active_listing_count: number }

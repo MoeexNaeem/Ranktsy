@@ -7,7 +7,15 @@ import { C, D, compColor, formatNumber } from '@/utils'
 import { MONO, tableCard, tableHead, th, tableRow, tdMono, tdTitle } from './kit'
 import type { KeywordData } from '@/types'
 
-type SortKey = keyof Pick<KeywordData, 'avgViews' | 'avgFavorites' | 'favPerView' | 'competition' | 'difficulty' | 'tagOccurrences' | 'charCount' | 'wordCount' | 'googleSearches'>
+type SortKey = keyof Pick<KeywordData, 'avgViews' | 'avgFavorites' | 'favPerView' | 'competition' | 'difficulty' | 'tagOccurrences' | 'charCount' | 'wordCount' | 'googleSearches' | 'googleCompetitionIndex' | 'googleCpcHigh'>
+
+// Google's advertiser-competition band → semantic colour (green/amber/red).
+// Low competition to advertise usually means an under-served buyer intent — good.
+const GCOMP: Record<string, { fg: string; bg: string; label: string }> = {
+  LOW:    { fg: D.good, bg: D.goodBg, label: 'Low' },
+  MEDIUM: { fg: D.mid,  bg: D.midBg,  label: 'Med' },
+  HIGH:   { fg: D.hard, bg: D.hardBg, label: 'High' },
+}
 
 // Match types mirror how Etsy shoppers actually phrase queries.
 type Match = 'default' | 'exact' | 'phrase' | 'broad'
@@ -45,9 +53,21 @@ const ALL_COLS: Col[] = [
   { id: 'chars',    label: 'Chars',           width: '0.55fr', key: 'charCount' },
   { id: 'words',    label: 'Words',           width: '0.55fr', key: 'wordCount' },
   { id: 'google',   label: 'Google Searches', width: '0.85fr', key: 'googleSearches' },
+  { id: 'gcomp',    label: 'Google Comp.',    width: '0.95fr', key: 'googleCompetitionIndex' },
+  { id: 'gcpc',     label: 'Google CPC',      width: '0.9fr',  key: 'googleCpcHigh' },
 ]
 
-const DEFAULT_HIDDEN = new Set(['words'])
+const DEFAULT_HIDDEN = new Set(['words', 'gcpc'])
+
+// Google CPC comes back only in the Ads account's own currency.
+const CURSYM: Record<string, string> = { USD: '$', GBP: '£', EUR: '€', CAD: 'C$', AUD: 'A$', PKR: '₨', INR: '₹' }
+function fmtCpc(low: number | null | undefined, high: number | null | undefined, cur?: string | null): string {
+  const sym = cur ? (CURSYM[cur] ?? `${cur} `) : ''
+  const f = (n: number) => (n >= 100 ? Math.round(n).toLocaleString() : n.toFixed(2))
+  if (low != null && high != null) return `${sym}${f(low)}–${sym}${f(high)}`
+  const one = low ?? high
+  return one != null ? `${sym}${f(one)}` : '—'
+}
 
 const AscIcon  = () => <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
 const DescIcon = () => <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
@@ -74,13 +94,14 @@ function CompCell({ level, value, measuring }: {
 }
 
 const KeywordRow = memo(function KeywordRow({
-  row, grid, cols, selected, onToggleSelect, starred, onToggleStar, onSelect, measuring,
+  row, grid, cols, selected, onToggleSelect, starred, onToggleStar, onSelect, measuring, currency,
 }: {
   row: KeywordData; grid: string; cols: Col[]
   selected: boolean; onToggleSelect: () => void
   starred: boolean; onToggleStar: () => void
   onSelect?: (r: KeywordData) => void
   measuring?: boolean
+  currency?: string | null
 }) {
   const num = (v: number | null, color?: string) =>
     v == null
@@ -104,6 +125,23 @@ const KeywordRow = memo(function KeywordRow({
       case 'chars':    return <span key={c.id} style={tdMono}>{row.charCount}</span>
       case 'words':    return <span key={c.id} style={tdMono}>{row.wordCount}</span>
       case 'google':   return <span key={c.id}>{num(row.googleSearches)}</span>
+      case 'gcomp': {
+        const band = row.googleCompetition
+        if (!band || band === 'UNSPECIFIED' || !GCOMP[band]) return <span key={c.id} style={{ ...tdMono, color: C.stone }}>—</span>
+        const g = GCOMP[band]
+        return (
+          <span key={c.id}
+            title={row.googleCompetitionIndex != null ? `Google advertiser-competition index ${row.googleCompetitionIndex}/100` : 'Google advertiser competition'}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 100, background: g.bg, color: g.fg, fontSize: 12.5, fontFamily: MONO, fontWeight: 600, width: 'fit-content', cursor: 'help' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: g.fg, flexShrink: 0 }} />
+            {g.label}{row.googleCompetitionIndex != null ? ` · ${row.googleCompetitionIndex}` : ''}
+          </span>
+        )
+      }
+      case 'gcpc': {
+        if (row.googleCpcLow == null && row.googleCpcHigh == null) return <span key={c.id} style={{ ...tdMono, color: C.stone }}>—</span>
+        return <span key={c.id} style={tdMono}>{fmtCpc(row.googleCpcLow, row.googleCpcHigh, currency)}</span>
+      }
       default:         return <span key={c.id} />
     }
   }
@@ -121,11 +159,13 @@ const KeywordRow = memo(function KeywordRow({
 })
 
 export const KeywordTable = memo(function KeywordTable({
-  rows, query = '', onSelect, measuring,
+  rows, query = '', onSelect, measuring, currency,
 }: {
   rows: KeywordData[]; query?: string; onSelect?: (r: KeywordData) => void
   /** Competition/KD probes still in flight — cells shimmer instead of showing "—". */
   measuring?: boolean
+  /** ISO code of the Ads account currency, for the Google CPC column. */
+  currency?: string | null
 }) {
   const [sortKey, setSortKey] = useState<SortKey>('competition')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
@@ -201,11 +241,11 @@ export const KeywordTable = memo(function KeywordTable({
     // Export honours the current view, and narrows to the selection if there is one.
     const target = selected.size ? view.filter(r => selected.has(r.keyword)) : view
     const csv = toCsv(
-      ['Keyword', 'Etsy competition', 'Competition level', 'KD', 'Avg views', 'Avg favorites', 'Favs per view %', 'Tag occurrences', 'Chars', 'Words', 'Google searches'],
-      target.map(r => [r.keyword, r.competition, r.competitionLevel, r.difficulty, r.avgViews, r.avgFavorites, r.favPerView, r.tagOccurrences, r.charCount, r.wordCount, r.googleSearches]),
+      ['Keyword', 'Etsy competition', 'Competition level', 'KD', 'Avg views', 'Avg favorites', 'Favs per view %', 'Tag occurrences', 'Chars', 'Words', 'Google searches', 'Google competition', 'Google comp. index', `Google CPC low (${currency || 'acct'})`, `Google CPC high (${currency || 'acct'})`],
+      target.map(r => [r.keyword, r.competition, r.competitionLevel, r.difficulty, r.avgViews, r.avgFavorites, r.favPerView, r.tagOccurrences, r.charCount, r.wordCount, r.googleSearches, r.googleCompetition ?? '', r.googleCompetitionIndex ?? '', r.googleCpcLow ?? '', r.googleCpcHigh ?? '']),
     )
     downloadCsv(`keywords-${slugify(query)}.csv`, csv)
-  }, [view, selected, query])
+  }, [view, selected, query, currency])
 
   const saveSelected = useCallback(() => {
     addMany([...selected])
@@ -301,7 +341,7 @@ export const KeywordTable = memo(function KeywordTable({
           <KeywordRow key={row.keyword} row={row} grid={grid} cols={cols}
             selected={selected.has(row.keyword)} onToggleSelect={() => toggleOne(row.keyword)}
             starred={isFavorite(row.keyword)} onToggleStar={() => toggle(row.keyword)}
-            onSelect={onSelect} measuring={measuring} />
+            onSelect={onSelect} measuring={measuring} currency={currency} />
         ))}
       </div>
 

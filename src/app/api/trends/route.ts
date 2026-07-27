@@ -25,7 +25,9 @@ export async function GET(req: NextRequest) {
   const gate = await guardSearch(req)
   if (gate) return gate
 
-  const key    = cacheKey('trends', 'v3', query)
+  // v4: rate-limit fix (sequential Google calls) — retire v3 docs that cached an
+  // empty/partial Google result when the concurrent calls were being throttled.
+  const key    = cacheKey('trends', 'v4', query)
   const cached = memCache.get(key)
   if (cached) return NextResponse.json({ success: true, data: cached, cached: true })
 
@@ -40,10 +42,12 @@ export async function GET(req: NextRequest) {
 
     let googleAvailable = false
     if (isGoogleAdsConfigured()) {
-      const [metrics, geo] = await Promise.all([
-        googleKeywordMetrics([query]),
-        googleCountryBreakdown(query),
-      ])
+      // Sequential, not Promise.all: the trend-line call plus the six geo calls
+      // inside googleCountryBreakdown otherwise fire together and trip Google's
+      // rate limit (429), which silently blanks whichever call loses. The trend
+      // line is fetched first so it always wins.
+      const metrics = await googleKeywordMetrics([query])
+      const geo = await googleCountryBreakdown(query)
       const monthly = metrics.get(query)?.monthly ?? []
       if (monthly.length) {
         // Google returns the trailing 12 months oldest→newest; label them as

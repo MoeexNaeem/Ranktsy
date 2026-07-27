@@ -105,7 +105,14 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<B
     if (isGoogleAdsConfigured()) {
       const metrics = await googleKeywordMetrics(keywords)
       if (metrics.size) {
-        for (const r of rows) r.googleSearches = metrics.get(r.keyword)?.searches ?? null
+        for (const r of rows) {
+          const g = metrics.get(r.keyword.toLowerCase())
+          if (!g) continue
+          r.googleSearches    = g.searches ?? null
+          r.googleCompetition = g.competition as BulkKeywordRow['googleCompetition']
+          r.googleCpcLow      = g.cpcLow
+          r.googleCpcHigh     = g.cpcHigh
+        }
       }
     }
 

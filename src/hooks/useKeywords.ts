@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { attachCaptchaInterceptor } from '@/components/security/captchaController'
-import type { ApiResponse, KeywordSearchResponse, KeywordData, NearMatch, EtsyListing } from '@/types'
+import type { ApiResponse, KeywordSearchResponse, KeywordData, NearMatch, EtsyListing, KeywordIdeasResponse } from '@/types'
 
 // ─── Axios instance (shared, avoids creating new instance per component) ──────
 const api = axios.create({ baseURL: '/api' })
@@ -103,6 +103,27 @@ export function useNearMatches(query: string) {
     },
     enabled:   query.trim().length >= 2,
     staleTime: 1000 * 60 * 30,
+    gcTime:    1000 * 60 * 60,
+    placeholderData: (prev) => prev,
+    retry: dontRetry4xx,
+  })
+}
+
+// ─── useKeywordIdeas — Google-suggested keywords (generateKeywordIdeas) ───────
+// Genuine discovery: Google returns terms we never searched for. Returns an empty
+// `ideas` array (not an error) when Google Ads isn't configured, so the panel can
+// render a "connect Google Ads" state.
+export function useKeywordIdeas(query: string) {
+  return useQuery({
+    queryKey: ['keywords-ideas', query.toLowerCase().trim()] as const,
+    queryFn: async ({ signal }) => {
+      const { data } = await api.get<ApiResponse<KeywordIdeasResponse>>(
+        `/keywords/ideas?q=${encodeURIComponent(query)}`, { signal })
+      if (!data.success || !data.data) throw new Error(data.error ?? 'Unknown error')
+      return data.data
+    },
+    enabled:   query.trim().length >= 2,
+    staleTime: 1000 * 60 * 60,
     gcTime:    1000 * 60 * 60,
     placeholderData: (prev) => prev,
     retry: dontRetry4xx,

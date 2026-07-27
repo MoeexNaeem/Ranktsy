@@ -21,11 +21,12 @@ import { connectDB } from '@/lib/db'
 import { KeywordCache } from '@/lib/models'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { searchEtsyListingsPaged, buildKeywordStats, buildSearchAnalysis, warmTaxonomy } from '@/lib/etsy'
-import { googleKeywordMetrics, isGoogleAdsConfigured } from '@/lib/google-ads'
+import { googleKeywordMetrics, googleAccountCurrency, isGoogleAdsConfigured } from '@/lib/google-ads'
 import type { KeywordSearchResponse } from '@/types'
 
-// v8: pipeline split into core/related/near. Bump when the CORE shape changes.
-export const KEYWORD_VERSION = 'v8'
+// v9: core/related now carry Google competition + CPC (account currency), not just
+// volume. Bump when the CORE shape changes.
+export const KEYWORD_VERSION = 'v9'
 
 export function coreKey(query: string) { return cacheKey('keyword', KEYWORD_VERSION, 'core', query) }
 export function relatedKey(query: string) { return cacheKey('keyword', KEYWORD_VERSION, 'related', query) }
@@ -52,7 +53,12 @@ function isStaleCore(d?: KeywordSearchResponse): boolean {
     d.stats.avgViews == null ||
     d.stats.favPerView == null ||
     d.related.some(r => r.listingsByMonth == null || r.avgViews === undefined) ||
-    (isGoogleAdsConfigured() && d.stats?.googleSearches == null)
+    (isGoogleAdsConfigured() && d.stats?.googleSearches == null) ||
+    // Pre-v9 docs carry Google volume but not competition/CPC/currency. The Mongo
+    // cache keys on the keyword alone, so bumping KEYWORD_VERSION doesn't retire
+    // them — this probe does. A fresh configured doc always SETS googleCurrency
+    // (to the code or null), so `undefined` uniquely marks the old shape.
+    (isGoogleAdsConfigured() && d.stats?.googleCurrency === undefined)
   )
 }
 
@@ -100,8 +106,16 @@ export async function getKeywordCore(query: string): Promise<KeywordSearchRespon
     .catch(e => { console.error('[Keywords] analysis:', e); return undefined })
 
   if (isGoogleAdsConfigured()) {
-    const metrics = await googleKeywordMetrics([query])
-    if (metrics.size) data.stats.googleSearches = metrics.get(query)?.searches ?? null
+    const [metrics, currency] = await Promise.all([googleKeywordMetrics([query]), googleAccountCurrency()])
+    const g = metrics.get(query)
+    if (g) {
+      data.stats.googleSearches         = g.searches ?? null
+      data.stats.googleCompetition      = g.competition as KeywordSearchResponse['stats']['googleCompetition']
+      data.stats.googleCompetitionIndex = g.competitionIndex
+      data.stats.googleCpcLow           = g.cpcLow
+      data.stats.googleCpcHigh          = g.cpcHigh
+    }
+    data.stats.googleCurrency = currency
   }
 
   memCache.set(key, data, CACHE_TTL.KEYWORD)

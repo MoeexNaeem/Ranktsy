@@ -10,12 +10,19 @@ import { AiInsights } from '../AiInsights'
 import type { ApiResponse, BulkKeywordRow, AiFact } from '@/types'
 
 const MAX = 25
-const GRID = '28px 1.7fr 1fr 0.6fr 0.75fr 0.7fr 0.8fr 0.8fr'
+const GRID = '28px 1.6fr 0.95fr 0.55fr 0.7fr 0.7fr 0.72fr 0.78fr 0.8fr 0.92fr'
 
 type SortKey = 'competition' | 'difficulty' | 'avgViews' | 'avgFavorites' | 'favPerView' | 'medianPrice' | 'googleSearches'
 
-const CUR: Record<string, string> = { USD: '$', GBP: '£', EUR: '€', CAD: 'C$', AUD: 'A$' }
+const CUR: Record<string, string> = { USD: '$', GBP: '£', EUR: '€', CAD: 'C$', AUD: 'A$', PKR: '₨', INR: '₹' }
 const sym = (c?: string) => CUR[c ?? 'USD'] ?? (c ? c + ' ' : '$')
+
+// Google advertiser-competition band → semantic colour (distinct from Etsy competition).
+const GCOMP: Record<string, { fg: string; bg: string; label: string }> = {
+  LOW:    { fg: D.good, bg: D.goodBg, label: 'Low' },
+  MEDIUM: { fg: D.mid,  bg: D.midBg,  label: 'Med' },
+  HIGH:   { fg: D.hard, bg: D.hardBg, label: 'High' },
+}
 
 const COLS: { label: string; key?: SortKey }[] = [
   { label: 'Keyword' },
@@ -26,6 +33,9 @@ const COLS: { label: string; key?: SortKey }[] = [
   // Not "CTR" — Etsy exposes no clicks. This is favourites ÷ views.
   { label: 'Favs / View', key: 'favPerView' },
   { label: 'Median Price', key: 'medianPrice' },
+  // Real Google Ads data — shown only when Google Ads is connected (else "—").
+  { label: 'Google Vol', key: 'googleSearches' },
+  { label: 'Google Comp.' },
 ]
 
 function CompCell({ row }: { row: BulkKeywordRow }) {
@@ -122,8 +132,8 @@ export function BulkKeywordTab() {
   const exportCsv = useCallback(() => {
     if (!view.length) return
     downloadCsv('bulk-keywords.csv', toCsv(
-      ['Keyword', 'Etsy competition', 'Competition level', 'KD', 'Avg views', 'Avg favorites', 'Favs per view %', 'Median price', 'Currency', 'Chars', 'Words', 'Google searches'],
-      view.map(r => [r.keyword, r.competition, r.competitionLevel, r.difficulty, r.avgViews, r.avgFavorites, r.favPerView, r.medianPrice, r.currency, r.charCount, r.wordCount, r.googleSearches]),
+      ['Keyword', 'Etsy competition', 'Competition level', 'KD', 'Avg views', 'Avg favorites', 'Favs per view %', 'Median price', 'Currency', 'Chars', 'Words', 'Google searches', 'Google competition', 'Google CPC low', 'Google CPC high'],
+      view.map(r => [r.keyword, r.competition, r.competitionLevel, r.difficulty, r.avgViews, r.avgFavorites, r.favPerView, r.medianPrice, r.currency, r.charCount, r.wordCount, r.googleSearches, r.googleCompetition ?? '', r.googleCpcLow ?? '', r.googleCpcHigh ?? '']),
     ))
   }, [view])
 
@@ -205,6 +215,14 @@ export function BulkKeywordTab() {
                   <span style={{ ...tdMono, color: D.hard }}>{r.avgFavorites != null ? formatNumber(r.avgFavorites) : '—'}</span>
                   <span style={tdMono}>{r.favPerView != null ? `${r.favPerView}%` : '—'}</span>
                   <span style={tdMono}>{r.medianPrice != null ? `${sym(r.currency)}${r.medianPrice.toFixed(2)}` : '—'}</span>
+                  <span style={{ ...tdMono, color: r.googleSearches != null ? '#2E6DB4' : C.stone }}>{r.googleSearches != null ? formatNumber(r.googleSearches) : '—'}</span>
+                  {r.googleCompetition && GCOMP[r.googleCompetition] ? (
+                    <span title={r.googleCpcLow != null || r.googleCpcHigh != null ? `Top-of-page CPC ${sym(r.currency)}${(r.googleCpcLow ?? r.googleCpcHigh)?.toFixed(2)}${r.googleCpcHigh != null && r.googleCpcLow != null ? `–${sym(r.currency)}${r.googleCpcHigh.toFixed(2)}` : ''}` : 'Google advertiser competition'}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 9px', borderRadius: 100, background: GCOMP[r.googleCompetition].bg, color: GCOMP[r.googleCompetition].fg, fontSize: 12, fontFamily: MONO, fontWeight: 600, width: 'fit-content', cursor: 'help' }}>
+                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: GCOMP[r.googleCompetition].fg, flexShrink: 0 }} />
+                      {GCOMP[r.googleCompetition].label}
+                    </span>
+                  ) : <span style={{ ...tdMono, color: C.stone }}>—</span>}
                 </div>
               ))}
             </div>

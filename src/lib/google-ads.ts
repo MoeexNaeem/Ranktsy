@@ -15,15 +15,16 @@
  */
 
 /**
- * Google sunsets Ads API versions roughly yearly, and a sunset version returns
- * 404 for every call — verified 2026-07-16: v18 and v19 are both dead, v20+
- * still route. The old default here was v18, so this integration would have
- * failed on the very first request even with perfect credentials.
+ * Google sunsets Ads API versions roughly yearly. A sunset version 404s on every
+ * call; a *deprecated-but-not-yet-removed* version 400s with UNSUPPORTED_VERSION.
+ * Verified 2026-07-27 with live credentials: v20 is now deprecated/blocked, and
+ * v21–v24 all route. v24 is the newest live version, so it's the default here —
+ * it has the longest runway before the next sunset.
  *
  * Override with GOOGLE_ADS_API_VERSION when Google retires this one; the error
  * thrown below names the variable so the fix is obvious from the logs.
  */
-const V = process.env.GOOGLE_ADS_API_VERSION || 'v20'
+const V = process.env.GOOGLE_ADS_API_VERSION || 'v24'
 const digits = (s?: string) => (s ?? '').replace(/\D/g, '')
 
 export function isGoogleAdsConfigured(): boolean {
@@ -70,7 +71,22 @@ async function getAccessToken(): Promise<string> {
 }
 
 // ─── Core call: historical metrics for a set of keywords in one geo ────────────
-export interface GoogleMetric { keyword: string; searches: number; competition: string; monthly: number[] }
+export interface GoogleMetric {
+  keyword: string
+  searches: number
+  /** Google's own advertiser-competition band. Distinct from Etsy listing competition. */
+  competition: string
+  /** 0–100 competition index. null when Google doesn't return one (low-volume terms). */
+  competitionIndex: number | null
+  /** Top-of-page bid range, in the Ads ACCOUNT's currency (see googleAccountCurrency). null when absent. */
+  cpcLow: number | null
+  cpcHigh: number | null
+  monthly: number[]
+}
+
+// Google returns bids in micros of the account currency: 1 unit = 1_000_000 micros.
+const microsToCurrency = (v?: string | number | null): number | null =>
+  v == null ? null : Number(v) / 1_000_000
 
 async function historicalMetrics(keywords: string[], geoId: string): Promise<Map<string, GoogleMetric>> {
   const out = new Map<string, GoogleMetric>()
@@ -124,6 +140,9 @@ async function historicalMetrics(keywords: string[], geoId: string): Promise<Map
       keyword:     String(r.text),
       searches:    Number(m.avgMonthlySearches ?? 0),
       competition: String(m.competition ?? 'UNSPECIFIED'),
+      competitionIndex: m.competitionIndex != null ? Number(m.competitionIndex) : null,
+      cpcLow:      microsToCurrency(m.lowTopOfPageBidMicros),
+      cpcHigh:     microsToCurrency(m.highTopOfPageBidMicros),
       monthly,
     })
   }
@@ -147,12 +166,15 @@ export async function googleCountryBreakdown(keyword: string): Promise<{ country
   if (!isGoogleAdsConfigured()) return []
   try {
     const isos = Object.keys(GEO_TARGETS)
-    const results = await Promise.all(
-      isos.map(async iso => {
-        const m = await historicalMetrics([keyword], GEO_TARGETS[iso].id).catch(() => new Map<string, GoogleMetric>())
-        return { iso, searches: m.get(keyword.toLowerCase())?.searches ?? 0 }
-      }),
-    )
+    // Sequential, not Promise.all: firing all six geo calls at once (plus the
+    // trend-line call in the trends route) trips Google's rate limit (429), which
+    // silently drops whichever calls lose the race. Sequential is ~1–2s and the
+    // result is cached, so the trend line and country breakdown both survive.
+    const results: { iso: string; searches: number }[] = []
+    for (const iso of isos) {
+      const m = await historicalMetrics([keyword], GEO_TARGETS[iso].id).catch(() => new Map<string, GoogleMetric>())
+      results.push({ iso, searches: m.get(keyword.toLowerCase())?.searches ?? 0 })
+    }
     const total = results.reduce((s, r) => s + r.searches, 0)
     if (!total) return []
     return results
@@ -161,6 +183,107 @@ export async function googleCountryBreakdown(keyword: string): Promise<{ country
       .map(r => ({ country: GEO_TARGETS[r.iso].name, percentage: parseFloat(((r.searches / total) * 100).toFixed(1)), color: GEO_TARGETS[r.iso].color }))
   } catch (e) {
     console.error('[GoogleAds] country breakdown failed:', e)
+    return []
+  }
+}
+
+// ─── Account currency (cached for the process) ────────────────────────────────
+// CPC bids come back in the Ads account's OWN currency with no code attached, so
+// every CPC we show has to be labelled with this. Cached because it never changes
+// for a given account and costs a round-trip.
+let cachedCurrency: string | null = null
+
+export async function googleAccountCurrency(): Promise<string | null> {
+  if (!isGoogleAdsConfigured()) return null
+  if (cachedCurrency) return cachedCurrency
+  try {
+    const token = await getAccessToken()
+    const customerId = digits(process.env.GOOGLE_ADS_CUSTOMER_ID)
+    const headers: Record<string, string> = {
+      'Authorization':  `Bearer ${token}`,
+      'developer-token': process.env.GOOGLE_ADS_DEVELOPER_TOKEN!,
+      'Content-Type':   'application/json',
+    }
+    const loginId = digits(process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID)
+    if (loginId) headers['login-customer-id'] = loginId
+
+    const res = await fetch(`https://googleads.googleapis.com/${V}/customers/${customerId}/googleAds:searchStream`, {
+      method: 'POST', headers, cache: 'no-store',
+      body: JSON.stringify({ query: 'SELECT customer.currency_code FROM customer LIMIT 1' }),
+    })
+    if (!res.ok) return null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const j = await res.json() as any
+    const code = (Array.isArray(j) ? j[0]?.results?.[0] : j?.results?.[0])?.customer?.currencyCode
+    if (code) cachedCurrency = String(code)
+    return cachedCurrency
+  } catch (e) {
+    console.error('[GoogleAds] currency lookup failed:', e)
+    return null
+  }
+}
+
+// ─── Keyword ideas: Google-suggested keywords for a seed, each with real metrics ─
+// This is genuine keyword DISCOVERY (generateKeywordIdeas), not the historical
+// lookup — Google returns terms we never asked about, so it surfaces high-volume /
+// low-competition long-tails that an Etsy-tag sample can't. Every metric is real.
+export interface GoogleIdea {
+  keyword: string
+  searches: number
+  competition: string          // LOW | MEDIUM | HIGH | UNSPECIFIED
+  competitionIndex: number | null
+  cpcLow: number | null
+  cpcHigh: number | null
+}
+
+/** Up to `limit` Google keyword ideas for a seed phrase. Safe: [] when unconfigured or on error. */
+export async function googleKeywordIdeas(seed: string, geoIso = 'US', limit = 40): Promise<GoogleIdea[]> {
+  if (!isGoogleAdsConfigured()) return []
+  const term = seed.toLowerCase().trim()
+  if (!term) return []
+  try {
+    const token = await getAccessToken()
+    const customerId = digits(process.env.GOOGLE_ADS_CUSTOMER_ID)
+    const headers: Record<string, string> = {
+      'Authorization':  `Bearer ${token}`,
+      'developer-token': process.env.GOOGLE_ADS_DEVELOPER_TOKEN!,
+      'Content-Type':   'application/json',
+    }
+    const loginId = digits(process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID)
+    if (loginId) headers['login-customer-id'] = loginId
+
+    const res = await fetch(`https://googleads.googleapis.com/${V}/customers/${customerId}:generateKeywordIdeas`, {
+      method: 'POST', headers, cache: 'no-store',
+      body: JSON.stringify({
+        keywordSeed: { keywords: [term] },
+        geoTargetConstants: [`geoTargetConstants/${GEO_TARGETS[geoIso]?.id ?? '2840'}`],
+        keywordPlanNetwork: 'GOOGLE_SEARCH',
+        language: LANG_EN,
+        pageSize: Math.min(Math.max(limit, 1), 100),
+      }),
+    })
+    if (!res.ok) {
+      console.error('[GoogleAds] keyword ideas failed:', res.status, (await res.text().catch(() => '')).slice(0, 200))
+      return []
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const j = await res.json() as { results?: any[] }
+    return (j.results ?? [])
+      .map(r => {
+        const m = r.keywordIdeaMetrics ?? {}
+        return {
+          keyword:     String(r.text),
+          searches:    Number(m.avgMonthlySearches ?? 0),
+          competition: String(m.competition ?? 'UNSPECIFIED'),
+          competitionIndex: m.competitionIndex != null ? Number(m.competitionIndex) : null,
+          cpcLow:      microsToCurrency(m.lowTopOfPageBidMicros),
+          cpcHigh:     microsToCurrency(m.highTopOfPageBidMicros),
+        }
+      })
+      .filter(i => i.keyword)
+      .slice(0, limit)
+  } catch (e) {
+    console.error('[GoogleAds] keyword ideas error:', e)
     return []
   }
 }

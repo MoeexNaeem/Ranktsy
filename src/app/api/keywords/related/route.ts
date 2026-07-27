@@ -33,7 +33,17 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
     if (isGoogleAdsConfigured()) {
       const metrics = await googleKeywordMetrics(related.map(r => r.keyword))
       if (metrics.size) {
-        related = related.map(r => ({ ...r, googleSearches: metrics.get(r.keyword)?.searches ?? null }))
+        related = related.map(r => {
+          const g = metrics.get(r.keyword.toLowerCase())
+          return g ? {
+            ...r,
+            googleSearches:         g.searches ?? null,
+            googleCompetition:      g.competition as KeywordData['googleCompetition'],
+            googleCompetitionIndex: g.competitionIndex,
+            googleCpcLow:           g.cpcLow,
+            googleCpcHigh:          g.cpcHigh,
+          } : r
+        })
       }
     }
 
