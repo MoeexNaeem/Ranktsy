@@ -10,7 +10,11 @@ const transporter = nodemailer.createTransport({
   },
 })
 
-const FROM = `"Rankkw" <${process.env.SMTP_USER ?? 'noreply@rankkw.com'}>`
+// Prefer an explicit EMAIL_FROM (e.g. `Rankkw Support <support@rankkw.com>`).
+// Fall back to the authenticated SMTP user so the From address always matches
+// the mailbox we log in as — providers like Namecheap Private Email reject a
+// From that differs from the authenticated user.
+const FROM = process.env.EMAIL_FROM || `"Rankkw" <${process.env.SMTP_USER ?? 'noreply@rankkw.com'}>`
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
 export async function sendOtpEmail(email: string, otp: string, type: 'reset' | 'verify') {
