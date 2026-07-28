@@ -1,12 +1,12 @@
 'use client'
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useKeywordSearch, useRelatedKeywords, useNearMatches, useKeywordListings, useTrends, useKeywordIdeas } from '@/hooks/useKeywords'
 import { useAppStore }     from '@/store/app'
 import { useFavorites }    from '@/hooks/useFavorites'
 import { KeywordTable }    from '../KeywordTable'
 import { TrendChart }      from '@/components/charts/TrendChart'
 import { CountryChart }    from '@/components/charts/CountryChart'
-import { OpportunityMap, MixDonut } from '@/components/charts/InsightCharts'
+import { OpportunityBarChart, MixDonut } from '@/components/charts/InsightCharts'
 import { PlatformToggle }  from '../PlatformToggle'
 import { Star }            from '../controls'
 import { SearchAnalysisPanel } from '../keyword/SearchAnalysisPanel'
@@ -36,6 +36,83 @@ function fmtCpcRange(low?: number | null, high?: number | null, cur?: string | n
   if (low != null && high != null) return `${s}${f(low)}–${s}${f(high)}`
   const one = low ?? high
   return one != null ? `${s}${f(one)}` : '—'
+}
+
+// ─── Country filter (like eRank's) — changes which country's Google volume,
+// CPC and competition are shown. Etsy metrics are marketplace-global. Keep in
+// sync with KEYWORD_GEOS in lib/google-ads.ts.
+const COUNTRIES = [
+  { code: 'US',  name: 'United States' },
+  { code: 'GB',  name: 'United Kingdom' },
+  { code: 'AU',  name: 'Australia' },
+  { code: 'CA',  name: 'Canada' },
+  { code: 'FR',  name: 'France' },
+  { code: 'DE',  name: 'Germany' },
+  { code: 'IN',  name: 'India' },
+  { code: 'GLO', name: 'Global' },
+]
+
+// Real flag images — flag emoji don't render on Windows (they show "US"/"GB"
+// letters), so we use flagcdn images. Global gets a globe glyph.
+function FlagIcon({ code, w = 24 }: { code: string; w?: number }) {
+  const [err, setErr] = useState(false)
+  const h = Math.round(w * 0.72)
+  if (code === 'GLO') {
+    return (
+      <svg width={w} height={h} viewBox="0 0 24 18" style={{ flexShrink: 0 }} aria-hidden>
+        <circle cx="12" cy="9" r="7.4" fill="none" stroke={C.graphite} strokeWidth="1.4" />
+        <path d="M4.6 9h14.8M12 1.6a13 13 0 0 1 0 14.8M12 1.6a13 13 0 0 0 0 14.8" fill="none" stroke={C.graphite} strokeWidth="1.2" />
+      </svg>
+    )
+  }
+  // Fallback to a code badge if the flag image ever fails to load.
+  if (err) return <span style={{ width: w, height: h, borderRadius: 3, background: C.canvas, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: C.graphite, fontFamily: MONO, flexShrink: 0, boxShadow: `0 0 0 1px ${C.hair}` }}>{code}</span>
+  return (
+    <img src={`https://flagcdn.com/w40/${code.toLowerCase()}.png`} width={w} height={h} alt={code}
+      loading="lazy" onError={() => setErr(true)}
+      style={{ borderRadius: 3, objectFit: 'cover', flexShrink: 0, boxShadow: `0 0 0 1px ${C.hair}` }} />
+  )
+}
+
+function CountrySelect({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [open])
+  const cur = COUNTRIES.find(c => c.code === value) ?? COUNTRIES[0]
+
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'flex', flexShrink: 0 }}
+      title="Country for Google search volume, CPC & competition">
+      <button type="button" onClick={() => setOpen(o => !o)} aria-label={`Country: ${cur.name}`}
+        style={{ display: 'flex', alignItems: 'center', gap: 9, height: '100%', minHeight: 50, padding: '0 15px', borderRadius: 100, border: `1px solid ${open ? C.orange : C.ash}`, background: C.paper, color: C.ink, fontSize: 14.5, fontFamily: 'inherit', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+        <FlagIcon code={cur.code} />
+        <span>{cur.name}</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.graphite} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 2, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}><polyline points="6 9 12 15 18 9" /></svg>
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 60, minWidth: 232, background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 14, boxShadow: '0 14px 34px rgba(40,40,40,0.14)', padding: 6 }}>
+          {COUNTRIES.map(c => {
+            const on = c.code === value
+            return (
+              <button key={c.code} type="button" onClick={() => { onChange(c.code); setOpen(false) }}
+                style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left', padding: '9px 11px', borderRadius: 9, border: 'none', cursor: 'pointer', background: on ? C.orangeFaint : 'transparent', fontFamily: 'inherit' }}
+                onMouseEnter={e => { if (!on) e.currentTarget.style.background = C.canvas }}
+                onMouseLeave={e => { e.currentTarget.style.background = on ? C.orangeFaint : 'transparent' }}>
+                <FlagIcon code={c.code} />
+                <span style={{ flex: 1, fontSize: 14, color: on ? C.orange : C.ink, fontWeight: on ? 600 : 400 }}>{c.name}</span>
+                {on && <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={C.orange} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
 }
 
 type Sub = 'ideas' | 'near' | 'analysis' | 'listings' | 'markets'
@@ -249,6 +326,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
   const seed = useAppStore.getState().activeKeyword || 'silver necklace'
   const [input, setInput] = useState(seed)
   const [query, setQuery] = useState(seed)
+  const [country, setCountry] = useState('US')
   const [plats, setPlats] = useState<TrendPlatform[]>(['etsy', 'google'])
   const [sub, setSub]     = useState<Sub>('ideas')
 
@@ -260,15 +338,15 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
   // ~1–2s; related keywords (~24 live searches) and near matches (~6) fill in
   // behind it, each with its own loading state so the UI can say which part is
   // still measuring.
-  const { data: kw, isLoading, isError, isFetching } = useKeywordSearch(query)
-  const related = useRelatedKeywords(query)
+  const { data: kw, isLoading, isError, isFetching } = useKeywordSearch(query, country)
+  const related = useRelatedKeywords(query, country)
   const near    = useNearMatches(query)
   // Images cost a separate ~1.5s Etsy batch call and only this grid uses them,
   // so they're fetched only once the tab is actually opened.
   const listingImgs = useKeywordListings(query, sub === 'listings')
-  const { data: tr } = useTrends(query)
+  const { data: tr } = useTrends(query, country)
   // Google-suggested keywords (generateKeywordIdeas) — real discovery beyond Etsy tags.
-  const ideas = useKeywordIdeas(query)
+  const ideas = useKeywordIdeas(query, country)
 
   // Related rows arrive unenriched with the core (competition: null) and are
   // replaced in place once probed — so the table shows keywords immediately and
@@ -292,8 +370,8 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
     const useVol = relatedRows.some(r => r.googleSearches != null && (r.googleSearches ?? 0) > 0)
     const pts = relatedRows
       .filter(r => r.difficulty != null && (useVol ? (r.googleSearches ?? 0) > 0 : (r.avgFavorites ?? 0) > 0))
-      .map(r => ({ label: r.keyword, x: (useVol ? r.googleSearches : r.avgFavorites) as number, kd: r.difficulty as number }))
-    const xLabel = useVol ? 'Search volume →' : 'Buyer pull — avg favorites →'
+      .map(r => ({ label: r.keyword, x: (useVol ? r.googleSearches : r.avgFavorites) as number, kd: r.difficulty as number, competition: r.competition, compLevel: r.competitionLevel }))
+    const unit = useVol ? 'searches/mo' : 'avg favorites'
     // Keywords whose competition probe hasn't returned (or failed) are genuinely
     // unknown — counting them as any bucket would overstate what we know.
     const mix = { Low: 0, Med: 0, High: 0 } as Record<'Low' | 'Med' | 'High', number>
@@ -304,7 +382,16 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
       { label: 'Med',  value: mix.Med,  color: D.mid },
       { label: 'High', value: mix.High, color: D.hard },
     ]
-    return { pts, xLabel, compMix, unknown }
+    // Ranking-difficulty spread (real KD buckets) — a second clear breakdown that
+    // fills the summary row alongside competition.
+    const kd = { Easy: 0, Medium: 0, Hard: 0 }
+    relatedRows.forEach(r => { if (r.difficulty != null) { if (r.difficulty < 34) kd.Easy++; else if (r.difficulty < 67) kd.Medium++; else kd.Hard++ } })
+    const kdMix = [
+      { label: 'Easy',   value: kd.Easy,   color: D.good },
+      { label: 'Medium', value: kd.Medium, color: D.mid },
+      { label: 'Hard',   value: kd.Hard,   color: D.hard },
+    ]
+    return { pts, unit, compMix, kdMix, unknown }
   }, [relatedRows])
 
   // Real facts for the AI read — all measured by the keyword pipeline. Gemini
@@ -349,7 +436,8 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <SearchBar value={input} onChange={setInput} onSubmit={search} placeholder="Search any Etsy keyword…" />
+      <SearchBar value={input} onChange={setInput} onSubmit={search} placeholder="Search any Etsy keyword…"
+        control={<CountrySelect value={country} onChange={setCountry} />} />
 
       {/* Live progress. Stays up until every stage lands, so the user always
           knows data is still arriving rather than wondering if it's stuck. */}
@@ -457,6 +545,22 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
         </Card>
       </div>
 
+      {/* Best Keyword Opportunities — a big, readable bar graph right beneath the
+          Google volume. Fed by related keywords, so it fills in once they land. */}
+      {kw && (
+        <Card>
+          <SectionTitle right={relatedPending ? <Measuring /> : insights ? <span style={{ fontSize: 12, fontFamily: MONO, color: C.graphite }}>{insights.pts.length} keywords</span> : undefined}>Best Keyword Opportunities</SectionTitle>
+          <p style={{ fontSize: 13, color: C.graphite, marginTop: -8, marginBottom: 12 }}>
+            Your related keywords <strong style={{ color: C.ink }}>ranked best-to-worst</strong> — the longer the bar, the better the target (real search demand you can realistically rank for).
+          </p>
+          {insights?.pts.length
+            ? <OpportunityBarChart points={insights.pts} unit={insights.unit} />
+            : relatedPending
+              ? <Shimmer h={340} r={8} />
+              : <EmptyState icon="📊" title="Measuring opportunities…" sub="Ranked keywords appear once their difficulty is measured." />}
+        </Card>
+      )}
+
       {isError && <ErrorBox>Failed to load keyword data from Etsy. Please try again.</ErrorBox>}
 
       {/* AI read of the whole keyword picture — Gemini interprets the real
@@ -483,42 +587,52 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
           {sub === 'ideas' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {insights && (
-                <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 12, alignItems: 'start' }}>
-                  <Card>
-                    <SectionTitle right={relatedPending ? <Measuring /> : <span style={{ fontSize: 12, fontFamily: MONO, color: C.graphite }}>{insights.pts.length} keywords</span>}>Opportunity Map</SectionTitle>
-                    <p style={{ fontSize: 13, color: C.graphite, marginTop: -8, marginBottom: 10 }}>
-                      Each dot is a related keyword. The <strong style={{ color: D.good }}>green “sweet spot” (top-right)</strong> — more demand, easier to rank — holds your best targets; the named ones are the top picks.
-                    </p>
-                    {relatedPending && !insights.pts.length
-                      ? <Shimmer h={280} r={8} />
-                      : insights.pts.length
-                        ? <OpportunityMap points={insights.pts} xLabel={insights.xLabel} />
-                        : <EmptyState icon="📊" title="Not enough data" sub="Etsy returned no engagement for these keywords." />}
-                  </Card>
-                  <Card>
-                    <SectionTitle right={relatedPending ? <Measuring /> : undefined}>Competition Mix</SectionTitle>
-                    <MixDonut segments={insights.compMix} />
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 16 }}>
-                      {insights.compMix.map(s => (
-                        <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <span style={{ width: 11, height: 11, borderRadius: 3, background: s.color, flexShrink: 0 }} />
-                          <span style={{ flex: 1, fontSize: 14, color: C.ink }}>{s.label} competition</span>
-                          <span style={{ fontSize: 14.5, fontWeight: 600, fontFamily: MONO, color: s.color }}>{s.value}</span>
+                  /* Two compact related-keyword breakdowns side by side. The
+                     ranked opportunities graph now lives up beneath Google volume. */
+                  <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'start' }}>
+                    <Card>
+                      <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: C.stone }}>Etsy</span>}>Competition Mix</SectionTitle>
+                      <p style={{ fontSize: 12, color: C.graphite, marginTop: -8, marginBottom: 8 }}>How many rivals compete for each related keyword.</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+                        <div style={{ width: 150, flexShrink: 0 }}><MixDonut segments={insights.compMix} /></div>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 9 }}>
+                          {insights.compMix.map(s => (
+                            <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <span style={{ width: 11, height: 11, borderRadius: 3, background: s.color, flexShrink: 0 }} />
+                              <span style={{ flex: 1, fontSize: 13.5, color: C.ink }}>{s.label} competition</span>
+                              <span style={{ fontSize: 14.5, fontWeight: 600, fontFamily: MONO, color: s.color }}>{s.value}</span>
+                            </div>
+                          ))}
+                          {insights.unknown > 0 && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 9, borderTop: `1px solid ${C.hair}` }}>
+                              <span style={{ width: 11, height: 11, borderRadius: 3, background: C.lightGray, flexShrink: 0 }} />
+                              <span style={{ flex: 1, fontSize: 13.5, color: C.graphite }}
+                                title={relatedPending ? 'Still measuring these against Etsy' : "Etsy didn't return a listing count for these keywords"}>
+                                {relatedPending ? 'Measuring…' : 'Unknown'}
+                              </span>
+                              <span style={{ fontSize: 14.5, fontWeight: 600, fontFamily: MONO, color: C.graphite }}>{insights.unknown}</span>
+                            </div>
+                          )}
                         </div>
-                      ))}
-                      {insights.unknown > 0 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 9, borderTop: `1px solid ${C.hair}` }}>
-                          <span style={{ width: 11, height: 11, borderRadius: 3, background: C.lightGray, flexShrink: 0 }} />
-                          <span style={{ flex: 1, fontSize: 14, color: C.graphite }}
-                            title={relatedPending ? 'Still measuring these against Etsy' : "Etsy didn't return a listing count for these keywords"}>
-                            {relatedPending ? 'Measuring…' : 'Unknown'}
-                          </span>
-                          <span style={{ fontSize: 14.5, fontWeight: 600, fontFamily: MONO, color: C.graphite }}>{insights.unknown}</span>
+                      </div>
+                    </Card>
+                    <Card>
+                      <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: C.stone }}>KD</span>}>Difficulty Spread</SectionTitle>
+                      <p style={{ fontSize: 12, color: C.graphite, marginTop: -8, marginBottom: 8 }}>How hard these keywords are to rank for (KD estimate).</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+                        <div style={{ width: 150, flexShrink: 0 }}><MixDonut segments={insights.kdMix} /></div>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 9 }}>
+                          {insights.kdMix.map(s => (
+                            <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <span style={{ width: 11, height: 11, borderRadius: 3, background: s.color, flexShrink: 0 }} />
+                              <span style={{ flex: 1, fontSize: 13.5, color: C.ink }}>{s.label}{s.label === 'Easy' ? ' (KD < 34)' : s.label === 'Hard' ? ' (KD 67+)' : ' (34–66)'}</span>
+                              <span style={{ fontSize: 14.5, fontWeight: 600, fontFamily: MONO, color: s.color }}>{s.value}</span>
+                            </div>
+                          ))}
                         </div>
-                      )}
-                    </div>
-                  </Card>
-                </div>
+                      </div>
+                    </Card>
+                  </div>
               )}
 
               {/* Keywords appear as soon as the core lands; the competition

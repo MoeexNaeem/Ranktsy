@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
-import { googleKeywordIdeas, googleAccountCurrency, isGoogleAdsConfigured } from '@/lib/google-ads'
+import { googleKeywordIdeas, googleAccountCurrency, isGoogleAdsConfigured, normalizeGeo } from '@/lib/google-ads'
 import { guardSearch } from '@/lib/searchGate'
 import type { ApiResponse, KeywordIdeasResponse } from '@/types'
 
@@ -18,7 +18,9 @@ export const runtime = 'nodejs'
  * so the client can render a "connect Google Ads" state instead of a failure.
  */
 export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<KeywordIdeasResponse>>> {
-  const query = new URL(req.url).searchParams.get('q')?.trim().toLowerCase()
+  const { searchParams } = new URL(req.url)
+  const query = searchParams.get('q')?.trim().toLowerCase()
+  const geo = normalizeGeo(searchParams.get('geo'))
   if (!query || query.length < 2) {
     return NextResponse.json({ success: false, error: 'Query must be at least 2 characters' }, { status: 400 })
   }
@@ -27,7 +29,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
     return NextResponse.json({ success: true, data: { seed: query, currency: null, ideas: [] } })
   }
 
-  const key    = cacheKey('kwideas', 'v1', query)
+  const key    = cacheKey('kwideas', 'v1', geo, query)
   const cached = memCache.get<KeywordIdeasResponse>(key)
   if (cached) return NextResponse.json({ success: true, data: cached, cached: true })
 
@@ -35,7 +37,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
   if (gate) return gate
 
   try {
-    const [ideas, currency] = await Promise.all([googleKeywordIdeas(query), googleAccountCurrency()])
+    const [ideas, currency] = await Promise.all([googleKeywordIdeas(query, geo), googleAccountCurrency()])
     // Highest real demand first — the actionable order for discovery.
     ideas.sort((a, b) => (b.searches ?? 0) - (a.searches ?? 0))
     // GoogleIdea.competition is a raw string from the API; the response type

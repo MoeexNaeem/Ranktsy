@@ -1,13 +1,37 @@
 # Rankkw — Session Handoff
 
-_Last updated: 2026-07-22. Read this first, then the memory files it points to._
+_Last updated: 2026-07-28. Read this first, then the memory files it points to._
 
-## ⚡ 2026-07-22 session (read first)
+## ⚡ 2026-07-27 → 28 session (read first)
+
+The dashboard now has **31 tabs**. Headline: **Google Ads went LIVE**, and a **flagship AI feature (Etsy Listing Pro)** was built.
+
+**Google Ads is now LIVE** (was dormant every prior session). Minted the refresh token via `/api/google/oauth/connect`. The blockers, in order, were: register the redirect URI in Google Cloud; **publish the OAuth app to Production** (Testing mode expires refresh tokens after 7 days — do NOT leave it in Testing); click past the "unverified app" warning; and **enable the Google Ads API _service_** in the Cloud project (a separate 403 SERVICE_DISABLED gate). **API version: the default `v20` was already dead → bumped to `v24`** (deprecated versions 400 with `UNSUPPORTED_VERSION`, sunset ones 404; v21–v24 all route). Customer `6146631942`, no MCC. Verified live (US "silver necklace" = 33.1K/mo). See `google-ads-keyword-data.md`.
+
+**eRank parity from the now-live Google data** (all real; CPC/competition are free from the call we already made):
+- **CPC + advertiser competition + 0–100 index** were being fetched and _discarded_ — now parsed and surfaced across the Keyword tool, Bulk, and the Google Search Volume card. CPC comes back in the **Ads account's own currency (PKR here, not USD)** — labeled honestly, with a **→ USD toggle** that converts via a real live rate (`/api/fx`, open.er-api.com, cached 12h, null-on-fail — never a fabricated rate).
+- **Google Keyword Ideas** — new `generateKeywordIdeas` integration (`/api/keywords/ideas`, `<KeywordIdeasPanel>`): real keyword _discovery_ beyond Etsy tags. Also threaded into the Tag/Title generator ("demand-backed tags").
+- **Country filter** (eRank-style) — `KEYWORD_GEOS` (US/GB/AU/CA/FR/DE/IN + Global; Global omits the geo target = worldwide). Geo threaded through core/related/ideas/trends routes + hooks + cache keys; **KeywordCache Mongo gained a `geo` field** so each country caches separately. Custom flag dropdown (flagcdn images — flag emoji don't render on Windows, they show "US"/"GB" letters), attached to the Search button via a new `SearchBar` `control` slot. Only Google data is geo-specific; Etsy metrics are one global marketplace.
+
+**Charts / presentation redesigns:**
+- **TrendChart** → real gradient area + validated categorical palette (was near-invisible fills). **CountryChart** → flag + colored-bar list (was a cramped grey doughnut).
+- **Keyword Statistics panel** — the eRank Avg.Searches/Clicks/CTR panel done HONESTLY: Avg.Searches = real Google volume; the fabricated Clicks/CTR are replaced with real **Avg.Views + Favs/View** (user explicitly chose real over eRank's impossible "CTR 102%").
+- **Opportunity Matrix** — iterated scatter → ranked leaderboard → **horizontal bar chart** (`OpportunityBarChart`, chart.js), moved up beneath Google Search Volume, capped at 10 with a "Show all" toggle. Score = `round(100·√(demandNorm·ease))`.
+- **Top Listings** — rebuilt from a card grid into a rich sortable **table** (`TopListingsTable`, also used on the Listings tab): Age, Views, Views/day, Favs/View, Hearts, Favs/day, Qty, Ships, expandable Tags, and a **Reviews** column (real per-listing review count via `/api/etsy/listing-reviews`, cached — the honest stand-in for eRank's fabricated Est.Sales). **No Est.Sales/Revenue** — Etsy publishes no per-listing sales.
+- **Time filter** — 1wk/1mo/3mo range toggle on the Sales Velocity chart (real daily snapshots; slices the chart client-side so the summary metrics stay accurate). Deliberately **no 12h/24h** — snapshots are daily, so sub-daily would be fabricated; and none on keyword volume (Google only publishes monthly).
+
+**🚀 FLAGSHIP — Etsy Listing Pro** (new tab `listingpro`, Optimize group). One product description → a complete listing: title, 13 tags, description, materials, **price (real market median + a clearly-labeled AI suggestion)**, and **four Gemini-generated Etsy-style images** (main hero · lifestyle mockup · feature-callout graphic · all-in-one collage; optional product-photo upload conditions the mockups on the seller's real item). Routes `/api/ai/listing-pro` (text, grounded in real tags + median) and `/api/ai/listing-image` (per image, Etsy-photography prompt templates). New `geminiImage()` in `lib/gemini.ts` with 3× retry (transient errors + the "text-only, no image" case). **Image model `gemini-3.1-flash-image-preview`** via `GEMINI_IMAGE_MODEL`. Free tier 429s on image gen; **user enabled billing → it works** (verified real PNGs). See `etsy-listing-pro.md`.
+
+**Bugs fixed this session:** (1) trends route fired 7 concurrent Google calls → 429 silently blanked the trend line while countries survived → made sequential. (2) `memCache.get()` returns **null on a miss** (not undefined); the new listing-reviews route checked `!== undefined`, so it treated every miss as cached-null and **never fetched** — fixed to `!== null` + only cache non-null. Lesson recorded.
+
+---
+
+## ⚡ 2026-07-22 session
 - **Gemini regression FIXED (was breaking ALL AI features):** `gemini-flash-latest` now **400s on `thinkingBudget: 0`**, which had silently degraded AI Listing Helper + AI Optimize to rule-based. `lib/gemini.ts` now omits `thinkingConfig` unless `think:true` (→ budget -1) and defaults `maxOutputTokens` to **4096** (the model always thinks now and truncated JSON at 2048). All three AI routes verified `ai:true` again. See `gemini-ai-features.md`.
 - **Dashboard visual overhaul:** per-tool ACCENT color system (nav, top bar, and the whole content area recolor per tool via a `--accent` CSS var threaded through the shared kit). Icons refined (stroke 1.6, no idle tiles). See `dashboard-accent-system.md`.
 - **"Deepen every tool" initiative started:** reusable `buildListingMarketStats()` (real price/views/fav/tag/age detail from a listing sample) + generic **AI Insights engine** (`/api/ai/insights` + `<AiInsights>` — Gemini interprets real facts, never invents). **Monthly Trends** rebuilt as the eRank-class flagship. Remaining 28 tools still to deepen with the same two pieces. See `deepen-tools-initiative.md`.
 
-Rankkw is an **Etsy SEO & analytics tool** (Next.js 16, App Router, React 19, MongoDB/Mongoose, TanStack Query, Zustand). It competes with eRank / EtsyHunt. The dashboard has **29 tabs**.
+Rankkw is an **Etsy SEO & analytics tool** (Next.js 16, App Router, React 19, MongoDB/Mongoose, TanStack Query, Zustand). It competes with eRank / EtsyHunt. The dashboard has **31 tabs**.
 
 ---
 
@@ -49,10 +73,10 @@ Gotchas that each silently corrupted a metric: **mixed currencies with no FX rat
 
 ## AI: Google Gemini (wired up 2026-07-16)
 
-- Provider: **`src/lib/gemini.ts`**. Model **`gemini-flash-latest`** (an alias — a pinned version like `gemini-2.5-flash` 404s for new keys). `isGeminiConfigured()` gates every call; failures return `null` so callers fall back cleanly.
-- **`thinkingConfig.thinkingBudget: 0`** for copy tasks — Flash 2.5 burns thinking tokens that truncate structured JSON. Pass `think: true` only for reasoning tasks.
-- Key env var: **`Gemini_API_KEY`** (non-standard casing; `GEMINI_API_KEY` also accepted). Currently a **free-tier key** → low RPM, expect 429s under load (handled by fallback).
-- Wired into **AI Listing Helper** (`/api/ai/listing`): Gemini writes titles/tags/description **grounded in the real tags of live Etsy listings**. This stays compliant — Gemini _writes copy_, it never invents analytics.
+- Provider: **`src/lib/gemini.ts`**. Text model **`gemini-flash-latest`** (an alias — a pinned version like `gemini-2.5-flash` 404s for new keys). **Image model `gemini-3.1-flash-image-preview`** (`GEMINI_IMAGE_MODEL` env; `geminiImage()` with 3× retry). `isGeminiConfigured()` gates every call; failures return `null`/typed outcome so callers fall back cleanly.
+- **Never send `thinkingBudget: 0`** — the current Flash model 400s on it (`INVALID_ARGUMENT`). Omit `thinkingConfig` for copy tasks (default budget); pass `think: true` (→ budget −1) only for reasoning. Default `maxOutputTokens` 4096 (the model always thinks now and truncated JSON at 2048).
+- Key env var: **`Gemini_API_KEY`** (non-standard casing; `GEMINI_API_KEY` also accepted). **Billing was enabled 2026-07-28** → image generation works (free tier 429s on images).
+- Wired into **AI Listing Helper** (`/api/ai/listing`) and **Etsy Listing Pro** (`/api/ai/listing-pro` + `/api/ai/listing-image`): Gemini writes titles/tags/description **grounded in the real tags + median price of live Etsy listings**, and generates Etsy-style product images. Compliant — Gemini _writes copy / draws images_, it never invents analytics.
 - The old code targeted Anthropic (no key); `@anthropic-ai/sdk` is still in package.json but unused.
 
 ---
@@ -87,7 +111,7 @@ These need OAuth / snapshot history / infra, so they'd show empty states today: 
 ## Open items the USER must do (external — can't be done in code)
 
 1. **Etsy app registration** still points at the dead `ranktsy.com` — update the app name + website URL to `https://rankkw.com`, and register the OAuth callback `https://rankkw.com/api/etsy/oauth/callback`. Until then Connect-Shop breaks and the Commercial API reviewer lands on a parked page. (The app was **declined once already** — needs an active external site + a clear API-use description; a draft answer is in the Etsy reapplication artifact.)
-2. **Google Ads** — needs 5 credentials + Basic-access approval (1–3 days) to light up real search volume/seasonality. Step-by-step guide was produced as an artifact.
+2. ~~**Google Ads** — needs credentials + approval.~~ **DONE 2026-07-28 — LIVE.** All 5 creds set, OAuth app published to Production, Google Ads API service enabled, version pinned to v24. Only caveat: the Ads account is **zero-ad-spend**, so competition reads coarse (HIGH/100 on everything) until some spend exists, and **CPC is in the account currency (PKR), not USD**.
 3. **Production env** — set `NEXT_PUBLIC_APP_URL=https://rankkw.com` (used in reset/verification emails), `CRON_SECRET` (guards the snapshot cron — fails closed without it), and confirm the host runs the cron (DNS suggested a non-Vercel host; if so the `vercel.json` cron won't fire).
 
 ---

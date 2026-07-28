@@ -29,6 +29,7 @@ const TopSellersTab        = dynamic(() => import('./tabs/TopSellersTab').then(m
 const OverviewTab          = dynamic(() => import('./tabs/OverviewTab').then(m => ({ default: m.OverviewTab })), { ssr: false })
 const CategoryReportTab    = dynamic(() => import('./tabs/CategoryReportTab').then(m => ({ default: m.CategoryReportTab })), { ssr: false })
 const AIListingHelperTab   = dynamic(() => import('./tabs/AIListingHelperTab').then(m => ({ default: m.AIListingHelperTab })), { ssr: false })
+const EtsyListingProTab    = dynamic(() => import('./tabs/EtsyListingProTab').then(m => ({ default: m.EtsyListingProTab })), { ssr: false })
 const MyShopTab            = dynamic(() => import('./tabs/MyShopTab').then(m => ({ default: m.MyShopTab })), { ssr: false })
 const CompetitorSalesTab   = dynamic(() => import('./tabs/CompetitorSalesTab').then(m => ({ default: m.CompetitorSalesTab })), { ssr: false })
 const SalesMapTab          = dynamic(() => import('./tabs/SalesMapTab').then(m => ({ default: m.SalesMapTab })), { ssr: false })
@@ -36,7 +37,7 @@ const DeliveryStatusTab    = dynamic(() => import('./tabs/DeliveryStatusTab').th
 const KeywordGapTab        = dynamic(() => import('./tabs/KeywordGapTab').then(m => ({ default: m.KeywordGapTab })), { ssr: false })
 const HotProductsTab       = dynamic(() => import('./tabs/HotProductsTab').then(m => ({ default: m.HotProductsTab })), { ssr: false })
 
-type TabId = 'overview' | 'myshop' | 'hotproducts' | 'keywords' | 'gap' | 'listings' | 'competitors' | 'compsales' | 'trends' | 'buzz' | 'monthly' | 'topsellers' | 'catreport' | 'bulk' | 'rank' | 'shop' | 'salesmap' | 'delivery' | 'tags' | 'aihelper' | 'ctags' | 'generator' | 'audit' | 'compare' | 'spell' | 'fees' | 'adsroi' | 'category' | 'calendar' | 'lists'
+type TabId = 'overview' | 'myshop' | 'hotproducts' | 'keywords' | 'gap' | 'listings' | 'competitors' | 'compsales' | 'trends' | 'buzz' | 'monthly' | 'topsellers' | 'catreport' | 'bulk' | 'rank' | 'shop' | 'salesmap' | 'delivery' | 'tags' | 'aihelper' | 'listingpro' | 'ctags' | 'generator' | 'audit' | 'compare' | 'spell' | 'fees' | 'adsroi' | 'category' | 'calendar' | 'lists'
 
 const ICON = (d: React.ReactNode) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
 
@@ -83,6 +84,8 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; description: stri
     icon: ICON(<><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></>) },
   { id: 'generator',   label: 'Tag & Title Gen',group: 'Optimize',   accent: 'amber',   description: 'Generate tags & titles',
     icon: ICON(<><path d="M9.5 3l1.4 3.6L14.5 8l-3.6 1.4L9.5 13 8.1 9.4 4.5 8l3.6-1.4z"/><path d="M18 13l.9 2.1 2.1.9-2.1.9L18 19l-.9-2.1-2.1-.9 2.1-.9z"/></>) },
+  { id: 'listingpro',  label: 'Etsy Listing Pro', group: 'Optimize', accent: 'rose',    description: 'A whole listing + AI images in one click',
+    icon: ICON(<><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/><path d="M16 3.5l.7 1.6 1.8.3-1.3 1.3.3 1.8-1.5-.9-1.5.9.3-1.8-1.3-1.3 1.8-.3z"/></>) },
   { id: 'aihelper',    label: 'AI Listing Helper',group: 'Optimize', accent: 'fuchsia', description: 'AI title, tags & description',
     icon: ICON(<><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.2"/></>) },
   { id: 'audit',       label: 'Listing Audit', group: 'Optimize',    accent: 'green',   description: 'Score a listing\'s SEO',
@@ -125,6 +128,7 @@ function TabContent({ active, onNavigate }: { active: TabId; onNavigate: (id: Ta
     topsellers:  <TopSellersTab />,
     catreport:   <CategoryReportTab />,
     aihelper:    <AIListingHelperTab />,
+    listingpro:  <EtsyListingProTab />,
     bulk:        <BulkKeywordTab />,
     rank:        <RankCheckerTab />,
     shop:        <ShopTab />,

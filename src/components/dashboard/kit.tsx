@@ -43,13 +43,15 @@ export const primaryBtn: React.CSSProperties = {
 }
 
 // ─── Search bar ─────────────────────────────────────────────────────────────
-export function SearchBar({ value, onChange, onSubmit, placeholder, button = 'Search →', maxWidth = 560 }: {
+export function SearchBar({ value, onChange, onSubmit, placeholder, button = 'Search →', maxWidth = 560, control }: {
   value: string; onChange: (v: string) => void; onSubmit: () => void
   placeholder: string; button?: string; maxWidth?: number
+  /** Optional control rendered between the input and the Search button (e.g. a country filter). */
+  control?: React.ReactNode
 }) {
   return (
-    <div style={{ display: 'flex', gap: 12 }}>
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: C.paper, borderRadius: 100, border: `1px solid ${C.ash}`, maxWidth, overflow: 'hidden' }}>
+    <div className="rwrap-sm" style={{ display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: C.paper, borderRadius: 100, border: `1px solid ${C.ash}`, maxWidth, overflow: 'hidden', minWidth: 220 }}>
         <span style={{ display: 'flex', paddingLeft: 18, color: 'var(--accent, #FB5E09)' }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
         </span>
@@ -57,6 +59,7 @@ export function SearchBar({ value, onChange, onSubmit, placeholder, button = 'Se
           placeholder={placeholder}
           style={{ background: 'transparent', border: 'none', padding: '14px 16px', fontSize: 16, fontFamily: 'inherit', outline: 'none', flex: 1, color: C.ink, minWidth: 0 }} />
       </div>
+      {control}
       <button onClick={onSubmit} style={primaryBtn}
         onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
         onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>

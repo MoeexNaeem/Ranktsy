@@ -528,6 +528,7 @@ export interface OrdersInsight {
 export interface IKeywordCache {
   _id?: string
   keyword: string
+  geo?: string
   data: KeywordSearchResponse
   createdAt: Date
   expiresAt: Date

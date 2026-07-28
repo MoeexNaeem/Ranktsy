@@ -34,12 +34,12 @@ const dontRetry4xx = (failureCount: number, error: unknown) => {
  */
 
 // ─── useKeywordSearch — fast core: stats, listings, analysis ──────────────────
-export function useKeywordSearch(query: string) {
+export function useKeywordSearch(query: string, geo = 'US') {
   return useQuery({
-    queryKey:  queryKeys.keywords(query),
+    queryKey:  [...queryKeys.keywords(query), geo] as const,
     queryFn:   async ({ signal }) => {
       const { data } = await api.get<ApiResponse<KeywordSearchResponse>>(
-        `/keywords?q=${encodeURIComponent(query)}`,
+        `/keywords?q=${encodeURIComponent(query)}&geo=${geo}`,
         { signal } // abort on unmount / query key change
       )
       if (!data.success || !data.data) throw new Error(data.error ?? 'Unknown error')
@@ -54,12 +54,12 @@ export function useKeywordSearch(query: string) {
 }
 
 // ─── useRelatedKeywords — the slow stage: one live search per keyword ─────────
-export function useRelatedKeywords(query: string) {
+export function useRelatedKeywords(query: string, geo = 'US') {
   return useQuery({
-    queryKey: queryKeys.related(query),
+    queryKey: [...queryKeys.related(query), geo] as const,
     queryFn: async ({ signal }) => {
       const { data } = await api.get<ApiResponse<KeywordData[]>>(
-        `/keywords/related?q=${encodeURIComponent(query)}`, { signal })
+        `/keywords/related?q=${encodeURIComponent(query)}&geo=${geo}`, { signal })
       if (!data.success || !data.data) throw new Error(data.error ?? 'Unknown error')
       return data.data
     },
@@ -113,12 +113,12 @@ export function useNearMatches(query: string) {
 // Genuine discovery: Google returns terms we never searched for. Returns an empty
 // `ideas` array (not an error) when Google Ads isn't configured, so the panel can
 // render a "connect Google Ads" state.
-export function useKeywordIdeas(query: string) {
+export function useKeywordIdeas(query: string, geo = 'US') {
   return useQuery({
-    queryKey: ['keywords-ideas', query.toLowerCase().trim()] as const,
+    queryKey: ['keywords-ideas', query.toLowerCase().trim(), geo] as const,
     queryFn: async ({ signal }) => {
       const { data } = await api.get<ApiResponse<KeywordIdeasResponse>>(
-        `/keywords/ideas?q=${encodeURIComponent(query)}`, { signal })
+        `/keywords/ideas?q=${encodeURIComponent(query)}&geo=${geo}`, { signal })
       if (!data.success || !data.data) throw new Error(data.error ?? 'Unknown error')
       return data.data
     },
@@ -131,11 +131,11 @@ export function useKeywordIdeas(query: string) {
 }
 
 // ─── useTrends ────────────────────────────────────────────────────────────────
-export function useTrends(query: string) {
+export function useTrends(query: string, geo = 'US') {
   return useQuery({
-    queryKey:  queryKeys.trends(query),
+    queryKey:  [...queryKeys.trends(query), geo] as const,
     queryFn:   async ({ signal }) => {
-      const { data } = await api.get(`/trends?q=${encodeURIComponent(query)}`, { signal })
+      const { data } = await api.get(`/trends?q=${encodeURIComponent(query)}&geo=${geo}`, { signal })
       if (!data.success) throw new Error(data.error)
       return data.data
     },

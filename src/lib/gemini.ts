@@ -28,6 +28,10 @@ export function isGeminiConfigured(): boolean {
 // to new users" while this alias returns 200. Override via GEMINI_MODEL if you
 // later want to pin a specific model.
 const MODEL = process.env.GEMINI_MODEL || 'gemini-flash-latest'
+// Flash Image ("Nano Banana"). The `-preview` alias 404s on this key; the stable
+// `gemini-2.5-flash-image` works. Override with GEMINI_IMAGE_MODEL to use a newer
+// one (e.g. gemini-3.1-flash-image). Verified 2026-07-28.
+const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image'
 const BASE = 'https://generativelanguage.googleapis.com/v1beta'
 
 // JSON-schema subset Gemini accepts on `responseSchema`.
@@ -118,6 +122,71 @@ export async function geminiGenerate(opts: GenerateOpts): Promise<string | null>
     console.error('[Gemini] request failed:', e)
     return null
   }
+}
+
+// ─── Image generation (Gemini Flash Image / "Nano Banana") ────────────────────
+export interface GeminiRefImage { data: string; mimeType: string }  // base64 data (no data: prefix)
+export type GeminiImageOutcome =
+  | { ok: true; dataUrl: string; mimeType: string }
+  | { ok: false; reason: 'unconfigured' | 'quota' | 'blocked' | 'error'; detail?: string }
+
+/**
+ * Generate an image from a text prompt (optionally conditioned on reference
+ * images, e.g. a real product photo to build mockups from). Returns a typed
+ * outcome so the UI can tell "needs billing" (quota) apart from a plain failure.
+ * Never throws.
+ */
+export async function geminiImage(prompt: string, refs?: GeminiRefImage[]): Promise<GeminiImageOutcome> {
+  const key = geminiKey()
+  if (!key) return { ok: false, reason: 'unconfigured' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const parts: any[] = [{ text: prompt }]
+  for (const r of refs ?? []) parts.push({ inlineData: { mimeType: r.mimeType, data: r.data } })
+
+  // Retry transient failures: 5xx, network errors, and — importantly — the case
+  // where the model replies with only TEXT and no image (common for the
+  // feature-callout graphic). Quota (429) and safety blocks are NOT retried.
+  const MAX = 3
+  const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+  let last: GeminiImageOutcome = { ok: false, reason: 'error', detail: 'unknown' }
+
+  for (let attempt = 0; attempt < MAX; attempt++) {
+    try {
+      const res = await fetch(
+        `${BASE}/models/${IMAGE_MODEL}:generateContent?key=${encodeURIComponent(key)}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts }] }), cache: 'no-store' },
+      )
+      if (!res.ok) {
+        const body = await res.text().catch(() => '')
+        console.error(`[Gemini image] ${res.status}: ${body.slice(0, 200)}`)
+        if (res.status === 429) return { ok: false, reason: 'quota', detail: 'Image-generation quota exhausted — enable billing on the Gemini API key.' }
+        last = { ok: false, reason: 'error', detail: `${res.status}` }
+        if (res.status >= 500 && attempt < MAX - 1) { await sleep(700 * (attempt + 1)); continue }
+        return last
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const j = await res.json() as any
+      if (j?.promptFeedback?.blockReason) return { ok: false, reason: 'blocked', detail: String(j.promptFeedback.blockReason) }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rparts: any[] = j?.candidates?.[0]?.content?.parts ?? []
+      const img = rparts.find(p => p?.inlineData?.data || p?.inline_data?.data)
+      const data = img?.inlineData?.data || img?.inline_data?.data
+      const mime = img?.inlineData?.mimeType || img?.inline_data?.mime_type || 'image/png'
+      if (!data) {
+        last = { ok: false, reason: 'error', detail: 'no image in response' }
+        if (attempt < MAX - 1) { await sleep(500 * (attempt + 1)); continue }
+        return last
+      }
+      return { ok: true, dataUrl: `data:${mime};base64,${data}`, mimeType: mime }
+    } catch (e) {
+      console.error('[Gemini image] request failed:', e)
+      last = { ok: false, reason: 'error', detail: e instanceof Error ? e.message : 'unknown' }
+      if (attempt < MAX - 1) { await sleep(700 * (attempt + 1)); continue }
+      return last
+    }
+  }
+  return last
 }
 
 /**

@@ -38,6 +38,7 @@ export function isGoogleAdsConfigured(): boolean {
 }
 
 // ─── Country → Google geoTargetConstant id + display + doughnut colour ─────────
+// Used by the "Searchers by Country" breakdown (fixed 6-country doughnut).
 export const GEO_TARGETS: Record<string, { id: string; name: string; color: string }> = {
   US: { id: '2840', name: 'United States', color: '#FB5E09' },
   GB: { id: '2826', name: 'United Kingdom', color: '#3D3E3B' },
@@ -45,6 +46,30 @@ export const GEO_TARGETS: Record<string, { id: string; name: string; color: stri
   AU: { id: '2036', name: 'Australia', color: '#B9791A' },
   DE: { id: '2276', name: 'Germany', color: '#5A5A5A' },
   FR: { id: '2250', name: 'France', color: '#CF463A' },
+}
+
+// ─── User-selectable country filter (like eRank's) → geoTargetConstant ─────────
+// `id: null` = Global (omit the geo target, so Google returns worldwide volume).
+// Search volume, CPC and competition are all geo-specific, so this genuinely
+// changes the Google numbers; Etsy metrics are marketplace-global and don't move.
+export const KEYWORD_GEOS: Record<string, { id: string | null; name: string; flag: string }> = {
+  US:  { id: '2840', name: 'United States', flag: '🇺🇸' },
+  GB:  { id: '2826', name: 'United Kingdom', flag: '🇬🇧' },
+  AU:  { id: '2036', name: 'Australia',      flag: '🇦🇺' },
+  CA:  { id: '2124', name: 'Canada',         flag: '🇨🇦' },
+  FR:  { id: '2250', name: 'France',         flag: '🇫🇷' },
+  DE:  { id: '2276', name: 'Germany',        flag: '🇩🇪' },
+  IN:  { id: '2356', name: 'India',          flag: '🇮🇳' },
+  GLO: { id: null,   name: 'Global',         flag: '🌐' },
+}
+/** Normalise an incoming country code to a valid key (defaults to US). */
+export function normalizeGeo(iso?: string | null): string {
+  const k = (iso ?? '').toUpperCase()
+  return KEYWORD_GEOS[k] ? k : 'US'
+}
+// Resolve a selectable country code to a geoTargetConstant id, or null for Global.
+function geoIdFor(iso: string): string | null {
+  return iso in KEYWORD_GEOS ? KEYWORD_GEOS[iso].id : '2840'
 }
 const LANG_EN = 'languageConstants/1000'
 
@@ -88,7 +113,7 @@ export interface GoogleMetric {
 const microsToCurrency = (v?: string | number | null): number | null =>
   v == null ? null : Number(v) / 1_000_000
 
-async function historicalMetrics(keywords: string[], geoId: string): Promise<Map<string, GoogleMetric>> {
+async function historicalMetrics(keywords: string[], geoId: string | null): Promise<Map<string, GoogleMetric>> {
   const out = new Map<string, GoogleMetric>()
   const kws = [...new Set(keywords.map(k => k.toLowerCase().trim()).filter(Boolean))].slice(0, 1000)
   if (!kws.length) return out
@@ -110,7 +135,8 @@ async function historicalMetrics(keywords: string[], geoId: string): Promise<Map
       headers,
       body: JSON.stringify({
         keywords: kws,
-        geoTargetConstants: [`geoTargetConstants/${geoId}`],
+        // null geo = Global: omit the target so Google returns worldwide volume.
+        ...(geoId ? { geoTargetConstants: [`geoTargetConstants/${geoId}`] } : {}),
         keywordPlanNetwork: 'GOOGLE_SEARCH',
         language: LANG_EN,
       }),
@@ -154,7 +180,7 @@ async function historicalMetrics(keywords: string[], geoId: string): Promise<Map
 export async function googleKeywordMetrics(keywords: string[], geoIso = 'US'): Promise<Map<string, GoogleMetric>> {
   if (!isGoogleAdsConfigured()) return new Map()
   try {
-    return await historicalMetrics(keywords, GEO_TARGETS[geoIso]?.id ?? '2840')
+    return await historicalMetrics(keywords, geoIdFor(normalizeGeo(geoIso)))
   } catch (e) {
     console.error('[GoogleAds] keyword metrics failed:', e)
     return new Map()
@@ -256,7 +282,8 @@ export async function googleKeywordIdeas(seed: string, geoIso = 'US', limit = 40
       method: 'POST', headers, cache: 'no-store',
       body: JSON.stringify({
         keywordSeed: { keywords: [term] },
-        geoTargetConstants: [`geoTargetConstants/${GEO_TARGETS[geoIso]?.id ?? '2840'}`],
+        // null geo = Global: omit the target for worldwide ideas.
+        ...(geoIdFor(normalizeGeo(geoIso)) ? { geoTargetConstants: [`geoTargetConstants/${geoIdFor(normalizeGeo(geoIso))}`] } : {}),
         keywordPlanNetwork: 'GOOGLE_SEARCH',
         language: LANG_EN,
         pageSize: Math.min(Math.max(limit, 1), 100),

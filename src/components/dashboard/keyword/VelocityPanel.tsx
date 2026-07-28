@@ -1,5 +1,5 @@
 'use client'
-import { memo, useMemo } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { BarChart } from '@/components/charts/BarChart'
@@ -7,12 +7,12 @@ import { Card, SectionTitle, MONO } from '../kit'
 import { C, D, formatNumber } from '@/utils'
 import type { ApiResponse, ShopVelocity } from '@/types'
 
-export function useVelocity(shop: string | number, enabled = true) {
+export function useVelocity(shop: string | number, enabled = true, days = 90) {
   return useQuery({
-    queryKey: ['velocity', String(shop)],
+    queryKey: ['velocity', String(shop), days],
     queryFn: async ({ signal }) => {
       const { data } = await axios.get<ApiResponse<ShopVelocity>>(
-        `/api/etsy/velocity?shop=${encodeURIComponent(String(shop))}`, { signal })
+        `/api/etsy/velocity?shop=${encodeURIComponent(String(shop))}&days=${days}`, { signal })
       if (!data.success || !data.data) throw new Error(data.error ?? 'Failed to load velocity')
       return data.data
     },
@@ -20,6 +20,13 @@ export function useVelocity(shop: string | number, enabled = true) {
     staleTime: 1000 * 60 * 30,
   })
 }
+
+// Time-range filter for the sales-history chart (real daily snapshots).
+const RANGES: { label: string; days: number }[] = [
+  { label: '1 week', days: 7 },
+  { label: '1 month', days: 30 },
+  { label: '3 months', days: 90 },
+]
 
 const fmtDay = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })
 
@@ -44,11 +51,18 @@ function Metric({ label, value, sub, color = C.ink }: { label: string; value: st
 export const VelocityPanel = memo(function VelocityPanel({
   shopId, shopName,
 }: { shopId: number; shopName: string }) {
-  const { data: v, isLoading } = useVelocity(shopId || shopName, !!(shopId || shopName))
+  const [days, setDays] = useState(30)
+  const [nowMs] = useState(() => Date.now())  // captured once — avoids Date.now() during render
+  // Fetch the full 90-day window so the summary metrics (last 7 / last 30) stay
+  // accurate; the range toggle slices only the CHART, client-side, so switching
+  // ranges is instant and never re-queries.
+  const { data: v, isLoading } = useVelocity(shopId || shopName, !!(shopId || shopName), 90)
 
   const chart = useMemo(() => {
     if (!v) return null
-    const pts = v.points.filter(p => p.sold != null) as { day: string; sold: number }[]
+    const cutoffMs = nowMs - days * 86_400_000
+    const pts = (v.points.filter(p => p.sold != null) as { day: string; sold: number }[])
+      .filter(p => Date.parse(p.day + 'T00:00:00Z') >= cutoffMs)
     if (!pts.length) return null
     const max = Math.max(...pts.map(p => p.sold))
     return {
@@ -56,7 +70,7 @@ export const VelocityPanel = memo(function VelocityPanel({
       values: pts.map(p => p.sold),
       colors: pts.map(p => (p.sold === max ? C.orange : 'rgba(31,138,76,0.55)')),
     }
-  }, [v])
+  }, [v, days, nowMs])
 
   if (isLoading) return <div className="shimmer" style={{ height: 150, borderRadius: 16, background: '#e8e7e2' }} />
   if (!v) return null
@@ -66,9 +80,23 @@ export const VelocityPanel = memo(function VelocityPanel({
   return (
     <Card>
       <SectionTitle right={
-        <span style={{ fontSize: 11, fontFamily: MONO, color: C.stone }}>
-          {v.trackedSince ? `tracking since ${fmtDay(v.trackedSince)} · ${v.days} day${v.days === 1 ? '' : 's'}` : 'not tracked yet'}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <div style={{ display: 'inline-flex', gap: 3, background: C.bone, padding: 3, borderRadius: 100 }}>
+            {RANGES.map(r => {
+              const on = days === r.days
+              return (
+                <button key={r.days} onClick={() => setDays(r.days)}
+                  style={{ fontSize: 11.5, fontFamily: MONO, fontWeight: on ? 600 : 400, padding: '4px 11px', borderRadius: 100, cursor: 'pointer', border: 'none',
+                    background: on ? C.paper : 'transparent', color: on ? C.ink : C.graphite, boxShadow: on ? `0 0 0 1px ${C.ash}` : 'none' }}>
+                  {r.label}
+                </button>
+              )
+            })}
+          </div>
+          <span style={{ fontSize: 11, fontFamily: MONO, color: C.stone }}>
+            {v.trackedSince ? `tracking since ${fmtDay(v.trackedSince)}` : 'not tracked yet'}
+          </span>
+        </div>
       }>Sales Velocity</SectionTitle>
 
       {hasVelocity ? (

@@ -51,11 +51,14 @@ OTPSchema.index({ email: 1, type: 1 })
 // ─── Keyword Cache ─────────────────────────────────────────────────────────────
 const KeywordCacheSchema = new Schema<IKeywordCache>({
   keyword:   { type: String, required: true, index: true, lowercase: true, trim: true },
+  // Country filter — Google volume/CPC/competition are geo-specific, so each
+  // country caches its own document for the same keyword. Defaults to US.
+  geo:       { type: String, default: 'US', uppercase: true, trim: true },
   data:      { type: Schema.Types.Mixed, required: true },
   expiresAt: { type: Date, required: true, index: { expireAfterSeconds: 0 } },
 }, { timestamps: true })
 
-KeywordCacheSchema.index({ keyword: 1, createdAt: -1 })
+KeywordCacheSchema.index({ keyword: 1, geo: 1, createdAt: -1 })
 
 // ─── Search History ────────────────────────────────────────────────────────────
 const KeywordHistorySchema = new Schema<IKeywordHistory>({
