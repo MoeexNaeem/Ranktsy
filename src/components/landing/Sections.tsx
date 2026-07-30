@@ -214,14 +214,182 @@ export function HowItWorks() {
   );
 }
 
-/* ─── Pricing ──────────────────────────────────────────────────────────────── */
-/* Pricing plans coming soon. Currently all features are free during beta. */
+/* ─── Pricing ────────────────────────────────────────────────────────────────
+   Display-only for now. Checkout is intentionally NOT wired — the plan CTAs
+   link to /register (carrying the chosen plan as `?plan=`), so PayFast can be
+   hooked in later without changing this layout. */
 
+/** Small check glyph — 'General Sans' has no emoji, so an inline SVG is used. */
+function Check({ color }: { color: string }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={color}
+      strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
+      aria-hidden="true" style={{ flexShrink: 0, marginTop: 2 }}>
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
 
-// Pricing section is coming soon. Currently in beta — all features are free.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+type Plan = {
+  name: string;
+  price: string;
+  period: string;
+  blurb: string;
+  features: string[];
+  cta: string;
+  href: string;
+  popular?: boolean;
+};
+
+const PLANS: Plan[] = [
+  {
+    name: "Free",
+    price: "$0",
+    period: "forever",
+    blurb: "Get started and explore the basics.",
+    features: ["5 keyword searches / day", "Basic keyword metrics", "Limited listing audit", "Basic shop analytics"],
+    cta: "Start free",
+    href: "/register",
+  },
+  {
+    name: "Starter",
+    price: "$9.99",
+    period: "per month",
+    blurb: "For sellers getting serious about SEO.",
+    features: ["500 keyword searches / day", "Listing optimization", "Competitor tracking", "Tag generator", "Basic AI"],
+    cta: "Choose Starter",
+    href: "/register?plan=starter",
+  },
+  {
+    name: "Pro",
+    price: "$19.99",
+    period: "per month",
+    blurb: "Everything you need to grow, unlimited.",
+    features: ["Unlimited keyword research", "AI Listing Generator", "Trend Finder", "Competitor analysis", "Shop Audit", "Product research", "Keyword tracking", "CSV export"],
+    cta: "Choose Pro",
+    href: "/register?plan=pro",
+    popular: true,
+  },
+  {
+    name: "Business",
+    price: "$39.99",
+    period: "per month",
+    blurb: "For growing teams and multiple shops.",
+    features: ["Multi-shop support", "Team members", "Advanced analytics", "Bulk listing optimization", "Rank tracking", "Priority support"],
+    cta: "Choose Business",
+    href: "/register?plan=business",
+  },
+  {
+    name: "Agency",
+    price: "$79.99",
+    period: "per month",
+    blurb: "Manage unlimited clients, white-labeled.",
+    features: ["Unlimited shops", "White-label reports", "Client dashboard", "Dedicated support"],
+    cta: "Choose Agency",
+    href: "/register?plan=agency",
+  },
+];
+
+function PlanCard({ p }: { p: Plan }) {
+  const dark = p.popular;
+  const ink = dark ? "#F5F5EB" : C.ink;
+  const sub = dark ? "rgba(245,245,235,0.62)" : C.graphite;
+  return (
+    <RevealItem
+      style={{
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        background: dark ? C.charcoal : C.canvas,
+        border: dark ? `1px solid ${C.orange}` : `1px solid ${C.hairInk}`,
+        borderRadius: 24,
+        padding: dark ? "30px 26px 28px" : "26px 26px",
+        boxShadow: dark ? "0 24px 60px -30px rgba(0,0,0,0.5)" : "none",
+      }}
+    >
+      {p.popular && (
+        <span style={{
+          position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)",
+          background: C.orange, color: "#fff", fontSize: 10.5, fontWeight: 600,
+          fontFamily: "'General Sans',monospace", textTransform: "uppercase", letterSpacing: "0.08em",
+          padding: "5px 12px", borderRadius: 100, whiteSpace: "nowrap",
+        }}>
+          Most Popular
+        </span>
+      )}
+
+      <h3 style={{ fontSize: 15, fontWeight: 600, color: ink, letterSpacing: "-0.01em", marginBottom: 6, textTransform: "uppercase", fontFamily: "'General Sans',monospace" }}>
+        {p.name}
+      </h3>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginBottom: 5 }}>
+        <span style={{ fontSize: 34, fontWeight: 500, color: ink, letterSpacing: "-0.04em", lineHeight: 1 }}>{p.price}</span>
+        <span style={{ fontSize: 13, color: sub }}>/ {p.period}</span>
+      </div>
+      <p style={{ fontSize: 13.5, color: sub, lineHeight: 1.4, marginBottom: 16, minHeight: 30 }}>{p.blurb}</p>
+
+      <Link
+        href={p.href}
+        style={{
+          display: "block", textAlign: "center", textDecoration: "none",
+          padding: "11px 16px", borderRadius: 100, fontSize: 14.5, fontWeight: 500, letterSpacing: "-0.01em",
+          marginBottom: 18, transition: "opacity 0.18s, background 0.18s",
+          background: dark ? C.orange : "transparent",
+          color: dark ? "#fff" : C.ink,
+          border: dark ? "none" : `1px solid ${C.ink}`,
+        }}
+        onMouseEnter={(e) => { if (dark) e.currentTarget.style.opacity = "0.88"; else { e.currentTarget.style.background = C.ink; e.currentTarget.style.color = "#fff"; } }}
+        onMouseLeave={(e) => { if (dark) e.currentTarget.style.opacity = "1"; else { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.ink; } }}
+      >
+        {p.cta}
+      </Link>
+
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 9 }}>
+        {p.features.map((f) => (
+          <li key={f} style={{ display: "flex", gap: 9, fontSize: 13, color: dark ? "rgba(245,245,235,0.86)" : C.graphite, lineHeight: 1.4 }}>
+            <Check color={C.orange} />
+            <span>{f}</span>
+          </li>
+        ))}
+      </ul>
+    </RevealItem>
+  );
+}
+
 export function Pricing() {
-  return null
+  return (
+    <section id="pricing" style={{ padding: "120px 24px", background: C.paper }}>
+      <div style={{ maxWidth: 1360, margin: "0 auto" }}>
+        <Reveal style={{ textAlign: "center" }}>
+          <SectionTag center>Pricing</SectionTag>
+          <h2 style={{ fontSize: "clamp(34px,4.6vw,56px)", fontWeight: 500, letterSpacing: "-0.03em", color: C.ink, lineHeight: 1.0, marginBottom: 16 }}>
+            Plans that grow with your shop.
+          </h2>
+          <p style={{ fontSize: 18, color: "#6E6E64", lineHeight: 1.5, letterSpacing: "-0.14px", maxWidth: 520, margin: "0 auto 24px" }}>
+            Start free and upgrade whenever you&apos;re ready. Every plan runs on the same real Etsy data.
+          </p>
+          {/* $1 / 3-day trial callout */}
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 9, marginBottom: 52,
+            background: C.bone, border: `1px solid ${C.hairInk}`, borderRadius: 100,
+            padding: "9px 18px", fontSize: 13.5, color: C.ink, fontWeight: 500,
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.orange, display: "inline-block" }} />
+            New — try any paid plan for <strong style={{ color: C.orange }}>$1 for 3 days</strong> before you commit.
+          </div>
+        </Reveal>
+
+        <RevealGroup className="rgrid-5" style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 20, alignItems: "start" }}>
+          {PLANS.map((p) => (
+            <PlanCard key={p.name} p={p} />
+          ))}
+        </RevealGroup>
+
+        <p style={{ textAlign: "center", fontSize: 13.5, color: "#6E6E64", marginTop: 36 }}>
+          Prices in USD. Cancel anytime — no long-term contracts.
+        </p>
+      </div>
+    </section>
+  );
 }
 
 /* ─── About + Contact Teaser ───────────────────────────────────────────────── */
@@ -319,7 +487,7 @@ export function CTA() {
           Ready to grow your Etsy shop?
         </h2>
         <p style={{ fontSize: 19, color: "rgba(245,245,235,0.6)", marginBottom: 40, maxWidth: 480, marginLeft: "auto", marginRight: "auto", lineHeight: 1.5 }}>
-          Start using real Etsy data to rank higher and sell more — free while we&apos;re in beta.
+          Start using real Etsy data to rank higher and sell more — free to start, upgrade anytime.
         </p>
         <div style={{ display: "flex", gap: 24, justifyContent: "center", alignItems: "center", flexWrap: "wrap" }}>
           <Link href="/register" style={{ background: C.orange, color: "#fff", textDecoration: "none", padding: "16px 34px", borderRadius: 28, fontSize: 16, fontWeight: 500, letterSpacing: "-0.01em", transition: "opacity 0.18s" }}

@@ -28,10 +28,10 @@ const VALUES = [
 ]
 
 const STATS = [
-  { number: 'Beta', label: 'Current Stage' },
+  { number: 'Live', label: 'Current Stage' },
   { number: '2024', label: 'Founded' },
   { number: '100%', label: 'Etsy API Powered' },
-  { number: 'Free', label: 'During Beta' },
+  { number: '5', label: 'Pricing Plans' },
 ]
 
 export default function AboutPage() {
@@ -338,7 +338,7 @@ export default function AboutPage() {
                 is exactly what lets us give you objective, unbiased market intelligence.
               </p>
               <p style={{ fontSize: 16, color: '#6E6E64', lineHeight: 1.7, letterSpacing: '-0.1px' }}>
-                We&apos;re in beta and building in the open — shipping improvements every week and reading every piece of
+                We build in the open — shipping improvements every week and reading every piece of
                 feedback. Our business grows only when our sellers grow, and that keeps us honest.
               </p>
             </div>

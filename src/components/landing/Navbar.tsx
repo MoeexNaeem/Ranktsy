@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation'
 import { useAuth, useLogout } from '@/hooks/useAuth'
 import { C } from '@/utils'
 
-const MONO = "'General Sans',monospace"
 const SANS = "'General Sans',sans-serif"
 
 const S = {
@@ -25,11 +24,7 @@ const S = {
     display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 24,
   },
   logoWrap: { display: 'inline-flex', alignItems: 'center', gap: 9, textDecoration: 'none', justifySelf: 'start' },
-  beta: {
-    fontSize: 10, fontWeight: 500, padding: '2px 8px', borderRadius: 100,
-    letterSpacing: '0.08em', textTransform: 'uppercase' as const, fontFamily: MONO,
-    border: `1px solid ${C.hairInk}`, color: C.ink,
-  },
+  stripLink: { color: '#F5F5EB', textDecoration: 'underline', textUnderlineOffset: '3px', fontWeight: 600 },
   links: { display: 'flex', gap: 30, listStyle: 'none', alignItems: 'center', justifySelf: 'center', margin: 0, padding: 0 },
   link: { fontSize: 15, fontWeight: 500, color: C.graphite, textDecoration: 'none', transition: 'color 0.15s', letterSpacing: '-0.01em' },
   activeLink: { fontSize: 14, fontWeight: 500, color: C.ink, textDecoration: 'underline', textUnderlineOffset: '5px', textDecorationColor: C.orange },
@@ -47,6 +42,7 @@ const FEATURE_MENU: [string, string][] = [
   ['/#keywords', 'Keyword Tool'],
   ['/fee-calculator', 'Fee Calculator'],
   ['/#dashboard', 'Live Dashboard'],
+  ['/#pricing', 'Pricing'],
 ]
 const PAGE_LINKS: [string, string][] = [
   ['/about', 'About'],
@@ -68,7 +64,8 @@ export function Navbar() {
       {/* Announcement strip */}
       <div className="rnav-strip" style={S.strip}>
         <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.orange, display: 'inline-block' }} />
-        Private Beta — every feature is free while we&apos;re in beta.
+        Flexible plans for every stage — start free.{' '}
+        <Link href="/#pricing" style={S.stripLink}>See pricing →</Link>
       </div>
 
       {/* Main nav */}
@@ -77,7 +74,6 @@ export function Navbar() {
           {/* Left: logo */}
           <Link href="/" style={S.logoWrap}>
             <Image src="/website_logo.png" alt="Rankkw — Etsy SEO Tools" width={44} height={38} style={{ objectFit: 'contain', display: 'block' }} priority />
-            <span style={S.beta}>Beta</span>
           </Link>
 
           {/* Center: links */}

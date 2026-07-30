@@ -38,12 +38,13 @@ const sections = [
   },
   {
     number: '04',
-    title: 'Service Access & Beta Period',
-    content: 'Rankkw is currently in beta and available free of charge. During this period:',
+    title: 'Service Access & Subscription Plans',
+    content: 'Rankkw offers a free plan alongside paid subscription plans. By using the Service you agree that:',
     bullets: [
-      { label: 'Free Access', text: 'All features are available at no cost while we are in beta. No credit card is required.' },
-      { label: 'Future Pricing', text: 'We may introduce paid subscription tiers in the future. Existing users will receive at least 30 days\' notice before any billing begins.' },
-      { label: 'No Current Charges', text: 'We do not currently collect payment information or charge any fees.' },
+      { label: 'Free Plan', text: 'A free plan is available with limited usage — including a daily cap on keyword searches. No credit card is required to use it.' },
+      { label: 'Paid Plans', text: 'Paid tiers (Starter, Pro, Business and Agency) unlock additional features and higher limits, billed monthly in US dollars at the prices shown on our pricing page.' },
+      { label: '3-Day Trial', text: 'A 3-day trial of a paid plan may be offered for a one-time US$1 charge. Unless cancelled before the trial ends, it converts to the applicable monthly subscription.' },
+      { label: 'Cancellation & Changes', text: 'You may cancel a paid subscription at any time; access continues through the end of the current billing period. Prices may change with at least 30 days\' notice to existing subscribers.' },
     ],
   },
   {

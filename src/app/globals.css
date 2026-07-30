@@ -82,7 +82,13 @@ svg  { max-width: 100%; }
 @media (max-width: 1024px) {
   .rgrid-4 { grid-template-columns: repeat(2, 1fr) !important; }
   .rgrid-3 { grid-template-columns: repeat(2, 1fr) !important; }
+  .rgrid-5 { grid-template-columns: repeat(3, 1fr) !important; }
   .rsplit  { grid-template-columns: 1fr !important; }
+}
+
+/* ── Pricing 5-up → 2-up ≤ 760px ─────────────────────────────────────────────── */
+@media (max-width: 760px) {
+  .rgrid-5 { grid-template-columns: repeat(2, 1fr) !important; }
 }
 
 /* ── Dashboard sidebar → off-canvas drawer ≤ 900px ───────────────────────────── */
@@ -139,7 +145,7 @@ svg  { max-width: 100%; }
 
 /* ── Phone ≤ 640px ───────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
-  .rgrid-4, .rgrid-3, .rgrid-2 { grid-template-columns: 1fr !important; }
+  .rgrid-4, .rgrid-3, .rgrid-2, .rgrid-5 { grid-template-columns: 1fr !important; }
 
   section { padding-left: 20px !important; padding-right: 20px !important; }
   main.rpage { padding-top: 118px !important; padding-left: 18px !important; padding-right: 18px !important; }
