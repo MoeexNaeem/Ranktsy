@@ -42,8 +42,8 @@ const sections = [
     content: 'Rankkw offers a free plan alongside paid subscription plans. By using the Service you agree that:',
     bullets: [
       { label: 'Free Plan', text: 'A free plan is available with limited usage — including a daily cap on keyword searches. No credit card is required to use it.' },
-      { label: 'Paid Plans', text: 'Paid tiers (Starter, Pro, Business and Agency) unlock additional features and higher limits, billed monthly in US dollars at the prices shown on our pricing page.' },
-      { label: '3-Day Trial', text: 'A 3-day trial of a paid plan may be offered for a one-time US$1 charge. Unless cancelled before the trial ends, it converts to the applicable monthly subscription.' },
+      { label: 'Paid Plans', text: 'Paid tiers (Starter, Pro, Business and Agency) unlock additional features and higher limits, billed monthly in Pakistani rupees (PKR) at the prices shown on our pricing page.' },
+      { label: '3-Day Trial', text: 'A 3-day trial of a paid plan may be offered for a one-time Rs 299 charge. Unless cancelled before the trial ends, it converts to the applicable monthly subscription.' },
       { label: 'Cancellation & Changes', text: 'You may cancel a paid subscription at any time; access continues through the end of the current billing period. Prices may change with at least 30 days\' notice to existing subscribers.' },
     ],
   },

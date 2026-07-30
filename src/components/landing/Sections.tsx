@@ -244,7 +244,7 @@ type Plan = {
 const PLANS: Plan[] = [
   {
     name: "Free",
-    price: "$0",
+    price: "Rs 0",
     period: "forever",
     blurb: "Get started and explore the basics.",
     features: ["5 keyword searches / day", "Basic keyword metrics", "Limited listing audit", "Basic shop analytics"],
@@ -253,7 +253,7 @@ const PLANS: Plan[] = [
   },
   {
     name: "Starter",
-    price: "$9.99",
+    price: "Rs 2,999",
     period: "per month",
     blurb: "For sellers getting serious about SEO.",
     features: ["500 keyword searches / day", "Listing optimization", "Competitor tracking", "Tag generator", "Basic AI"],
@@ -262,7 +262,7 @@ const PLANS: Plan[] = [
   },
   {
     name: "Pro",
-    price: "$19.99",
+    price: "Rs 5,999",
     period: "per month",
     blurb: "Everything you need to grow, unlimited.",
     features: ["Unlimited keyword research", "AI Listing Generator", "Trend Finder", "Competitor analysis", "Shop Audit", "Product research", "Keyword tracking", "CSV export"],
@@ -272,7 +272,7 @@ const PLANS: Plan[] = [
   },
   {
     name: "Business",
-    price: "$39.99",
+    price: "Rs 11,999",
     period: "per month",
     blurb: "For growing teams and multiple shops.",
     features: ["Multi-shop support", "Team members", "Advanced analytics", "Bulk listing optimization", "Rank tracking", "Priority support"],
@@ -281,7 +281,7 @@ const PLANS: Plan[] = [
   },
   {
     name: "Agency",
-    price: "$79.99",
+    price: "Rs 22,999",
     period: "per month",
     blurb: "Manage unlimited clients, white-labeled.",
     features: ["Unlimited shops", "White-label reports", "Client dashboard", "Dedicated support"],
@@ -321,8 +321,8 @@ function PlanCard({ p }: { p: Plan }) {
       <h3 style={{ fontSize: 15, fontWeight: 600, color: ink, letterSpacing: "-0.01em", marginBottom: 6, textTransform: "uppercase", fontFamily: "'General Sans',monospace" }}>
         {p.name}
       </h3>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginBottom: 5 }}>
-        <span style={{ fontSize: 34, fontWeight: 500, color: ink, letterSpacing: "-0.04em", lineHeight: 1 }}>{p.price}</span>
+      <div style={{ display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: "2px 5px", marginBottom: 5 }}>
+        <span style={{ fontSize: 30, fontWeight: 500, color: ink, letterSpacing: "-0.03em", lineHeight: 1.05 }}>{p.price}</span>
         <span style={{ fontSize: 13, color: sub }}>/ {p.period}</span>
       </div>
       <p style={{ fontSize: 13.5, color: sub, lineHeight: 1.4, marginBottom: 16, minHeight: 30 }}>{p.blurb}</p>
@@ -374,7 +374,7 @@ export function Pricing() {
             padding: "9px 18px", fontSize: 13.5, color: C.ink, fontWeight: 500,
           }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.orange, display: "inline-block" }} />
-            New — try any paid plan for <strong style={{ color: C.orange }}>$1 for 3 days</strong> before you commit.
+            New — try any paid plan for <strong style={{ color: C.orange }}>Rs 299 for 3 days</strong> before you commit.
           </div>
         </Reveal>
 
@@ -385,7 +385,7 @@ export function Pricing() {
         </RevealGroup>
 
         <p style={{ textAlign: "center", fontSize: 13.5, color: "#6E6E64", marginTop: 36 }}>
-          Prices in USD. Cancel anytime — no long-term contracts.
+          Prices in PKR. Cancel anytime — no long-term contracts.
         </p>
       </div>
     </section>
