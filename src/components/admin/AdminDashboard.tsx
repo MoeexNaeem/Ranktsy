@@ -9,8 +9,14 @@ interface AUser {
   isVerified: boolean; createdAt: string | null; searches: number; lastActive: string | null; etsyShopId: string | null
 }
 interface Stats { total: number; admins: number; verified: number; searches: number }
+interface UsageUser { userId: string; userEmail: string | null; etsyCalls: number; googleCalls: number; searches: number; cacheHits: number; apiHits: number }
+interface UsageData {
+  today: { day: string; totals: { etsyCalls: number; googleCalls: number; searches: number; cacheHits: number; apiHits: number }; perUser: UsageUser[] }
+  last7Days: { day: string; etsyCalls: number; googleCalls: number; searches: number }[]
+}
 
 const GRID = '2.2fr 0.9fr 0.85fr 0.7fr 0.9fr 0.6fr'
+const UGRID = '2fr 0.8fr 0.8fr 0.9fr 1fr'
 const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }) : '—'
 const timeAgo = (d: string | null) => {
   if (!d) return 'never'
@@ -26,6 +32,7 @@ const selectStyle: React.CSSProperties = {
 export function AdminDashboard() {
   const [users, setUsers] = useState<AUser[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
+  const [usage, setUsage] = useState<UsageData | null>(null)
   const [state, setState] = useState<'loading' | 'ok' | 'forbidden' | 'error'>('loading')
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState('')
@@ -38,6 +45,11 @@ export function AdminDashboard() {
       if (r.ok && d?.success) { setUsers(d.data.users); setStats(d.data.stats); setState('ok') }
       else setState('error')
     }).catch(() => setState('error'))
+    // API-usage analytics (per-user + totals + 7-day) — independent of the user list.
+    fetch('/api/admin/usage').then(async r => {
+      const d = await r.json().catch(() => null)
+      if (r.ok && d?.success) setUsage(d.data)
+    }).catch(() => {})
   }, [])
   useEffect(load, [load])
 
@@ -89,6 +101,48 @@ export function AdminDashboard() {
           <StatCard label="Admins" value={formatNumber(stats.admins)} accent={C.orange} />
           <StatCard label="Verified" value={formatNumber(stats.verified)} accent={C.ink} />
           <StatCard label="Total searches" value={formatNumber(stats.searches)} accent={C.ink} />
+        </div>
+      )}
+
+      {usage && (
+        <div style={{ marginBottom: 30 }}>
+          <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>today · {usage.today.day} (UTC) · resets at midnight</span>}>API usage — today</SectionTitle>
+          <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 14 }}>
+            <StatCard label="Etsy API calls" value={formatNumber(usage.today.totals.etsyCalls)} accent={C.orange} />
+            <StatCard label="Google API calls" value={formatNumber(usage.today.totals.googleCalls)} accent={C.ink} />
+            <StatCard label="Searches" value={formatNumber(usage.today.totals.searches)} accent={C.ink} />
+            <StatCard label="Cache hits / API" value={`${formatNumber(usage.today.totals.cacheHits)} / ${formatNumber(usage.today.totals.apiHits)}`} accent={C.ink} />
+          </div>
+
+          <div className="rtable" style={tableCard}>
+            <div style={tableHead(UGRID)}>
+              {['User', 'Etsy', 'Google', 'Searches', 'Cache / API'].map((h, i) => <span key={i} style={th}>{h}</span>)}
+            </div>
+            {usage.today.perUser.length === 0 ? (
+              <div style={{ padding: '16px 18px', fontSize: 13, color: '#808080' }}>No API usage recorded yet today.</div>
+            ) : usage.today.perUser.map(u => (
+              <div key={u.userId} style={tableRow(UGRID)}>
+                <span style={{ fontSize: 12.5, color: C.ink, fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {u.userEmail || (u.userId === 'anonymous' ? 'anonymous (logged-out)' : u.userId)}
+                </span>
+                <span style={tdMono}>{formatNumber(u.etsyCalls)}</span>
+                <span style={tdMono}>{formatNumber(u.googleCalls)}</span>
+                <span style={tdMono}>{formatNumber(u.searches)}</span>
+                <span style={tdMono}>{formatNumber(u.cacheHits)} / {formatNumber(u.apiHits)}</span>
+              </div>
+            ))}
+          </div>
+
+          <p style={{ fontSize: 11.5, fontFamily: MONO, color: '#808080', margin: '16px 0 8px' }}>LAST 7 DAYS</p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {usage.last7Days.map(d => (
+              <div key={d.day} style={{ flex: '1 1 96px', minWidth: 96, background: C.canvas, borderRadius: 10, padding: '9px 11px' }}>
+                <p style={{ fontSize: 10, fontFamily: MONO, color: '#808080', marginBottom: 5 }}>{d.day.slice(5)}</p>
+                <p style={{ fontSize: 12.5, color: C.ink, fontFamily: MONO }}>E {formatNumber(d.etsyCalls)} · G {formatNumber(d.googleCalls)}</p>
+                <p style={{ fontSize: 10.5, color: '#808080', fontFamily: MONO, marginTop: 2 }}>{formatNumber(d.searches)} searches</p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

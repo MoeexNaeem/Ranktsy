@@ -80,12 +80,20 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
     })
   }, [listings, nowSec])
 
-  // Real per-listing review counts (a verified sold-floor) — fetched lazily so the
-  // table paints immediately and the Reviews column fills in.
-  const ids = useMemo(() => listings.map(l => l.listing_id), [listings])
+  // Real per-listing review counts (a verified sold-floor). When the listings come
+  // from the shared Collective store they already carry `review_count`, so use those
+  // and skip the network entirely. Otherwise fetch lazily (capped to the top rows —
+  // each id is its own Etsy call).
+  const storedReviews = useMemo(() => {
+    const m: Record<number, number | null> = {}
+    let has = false
+    for (const l of listings) { if (l.review_count != null) { m[l.listing_id] = l.review_count; has = true } }
+    return has ? m : null
+  }, [listings])
+  const ids = useMemo(() => storedReviews ? [] : listings.slice(0, 30).map(l => l.listing_id), [listings, storedReviews])
   const reviewsQ = useListingReviews(ids)
-  const reviews = reviewsQ.data
-  const reviewsLoading = reviewsQ.isPending || reviewsQ.isFetching
+  const reviews = storedReviews ?? reviewsQ.data
+  const reviewsLoading = !storedReviews && (reviewsQ.isPending || reviewsQ.isFetching)
 
   const cols = useMemo(() => ALL_COLS.filter(c => !hidden.has(c.id)), [hidden])
   const grid = useMemo(() => cols.map(c => c.width).join(' ') + ' 34px', [cols])

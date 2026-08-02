@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { memCache, CACHE_TTL } from '@/lib/cache'
 import { getKeywordCore, nearKey } from '@/lib/keywords'
 import { getNearMatches } from '@/lib/etsy'
+import { getCollectivePackage } from '@/lib/collective-read'
+import { withUsage } from '@/lib/track'
 import type { ApiResponse, NearMatch } from '@/types'
 
 export const runtime = 'nodejs'
+export const GET = withUsage(getHandler)
 
 /**
  * Near matches — plural/hyphen/word-order variants, each measured against its
@@ -12,7 +15,7 @@ export const runtime = 'nodejs'
  *
  * Split out of /api/keywords so it can't hold up the first paint.
  */
-export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<NearMatch[]>>> {
+async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<NearMatch[]>>> {
   const query = new URL(req.url).searchParams.get('q')?.trim().toLowerCase()
   if (!query || query.length < 2) {
     return NextResponse.json({ success: false, error: 'Query must be at least 2 characters' }, { status: 400 })
@@ -21,6 +24,15 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ne
   const key = nearKey(query)
   const hit = memCache.get<NearMatch[]>(key)
   if (hit) return NextResponse.json({ success: true, data: hit, cached: true })
+
+  // Shared Collective store first — if the saved package carries near matches,
+  // serve them with no Etsy calls. (Near matches are geo-independent; checked
+  // under the default US doc.)
+  const shared = await getCollectivePackage(query, 'US')
+  if (shared?.nearMatches?.length) {
+    memCache.set(key, shared.nearMatches, CACHE_TTL.KEYWORD)
+    return NextResponse.json({ success: true, data: shared.nearMatches, cached: true })
+  }
 
   try {
     const matches = await getNearMatches(query)

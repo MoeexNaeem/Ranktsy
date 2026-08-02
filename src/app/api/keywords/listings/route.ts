@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { searchEtsyListingsPaged } from '@/lib/etsy'
 import { KEYWORD_VERSION } from '@/lib/keywords'
+import { getCollectivePackage } from '@/lib/collective-read'
+import { withUsage } from '@/lib/track'
 import type { ApiResponse, EtsyListing } from '@/types'
 
 export const runtime = 'nodejs'
+export const GET = withUsage(getHandler)
 
 /**
  * The same top listings as the core, but WITH images.
@@ -13,7 +16,7 @@ export const runtime = 'nodejs'
  * against /listings/batch. Only the Top Listings grid renders them, so that cost
  * is paid when the user opens that tab rather than on every keyword search.
  */
-export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<EtsyListing[]>>> {
+async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<EtsyListing[]>>> {
   const query = new URL(req.url).searchParams.get('q')?.trim().toLowerCase()
   if (!query || query.length < 2) {
     return NextResponse.json({ success: false, error: 'Query must be at least 2 characters' }, { status: 400 })
@@ -22,6 +25,15 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Et
   const key = cacheKey('keyword', KEYWORD_VERSION, 'listings', query)
   const hit = memCache.get<EtsyListing[]>(key)
   if (hit) return NextResponse.json({ success: true, data: hit, cached: true })
+
+  // Shared Collective store first — its listings already include images, so a
+  // present keyword needs no Etsy call. (Listings are geo-independent; the package
+  // is checked under the default US doc.)
+  const shared = await getCollectivePackage(query, 'US')
+  if (shared?.listings?.length) {
+    memCache.set(key, shared.listings, CACHE_TTL.KEYWORD)
+    return NextResponse.json({ success: true, data: shared.listings, cached: true })
+  }
 
   try {
     const { listings } = await searchEtsyListingsPaged(query, 100, 0)

@@ -3,9 +3,11 @@ import { memCache, CACHE_TTL } from '@/lib/cache'
 import { getKeywordCore, relatedKey } from '@/lib/keywords'
 import { enrichRelatedCompetition } from '@/lib/etsy'
 import { googleKeywordMetrics, isGoogleAdsConfigured, normalizeGeo } from '@/lib/google-ads'
+import { withUsage } from '@/lib/track'
 import type { ApiResponse, KeywordData } from '@/types'
 
 export const runtime = 'nodejs'
+export const GET = withUsage(getHandler)
 
 /**
  * Related keywords with their REAL competition — the expensive stage (~24 live
@@ -14,7 +16,7 @@ export const runtime = 'nodejs'
  * Split out of /api/keywords so the page can paint in ~1s and fill this in when
  * it lands. The core response is cached, so reading it here is free.
  */
-export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<KeywordData[]>>> {
+async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<KeywordData[]>>> {
   const { searchParams } = new URL(req.url)
   const query = searchParams.get('q')?.trim().toLowerCase()
   const geo = normalizeGeo(searchParams.get('geo'))
@@ -29,6 +31,14 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
   try {
     const core = await getKeywordCore(query, geo)
     if (!core.related.length) return NextResponse.json({ success: true, data: [] })
+
+    // If the core came from the shared Collective store, its related keywords are
+    // already enriched (competition/KD/Google) — return them as-is, no re-probe,
+    // no API calls.
+    if (core.related.some(r => r.competition != null)) {
+      memCache.set(key, core.related, CACHE_TTL.KEYWORD)
+      return NextResponse.json({ success: true, data: core.related, cached: true })
+    }
 
     let related = await enrichRelatedCompetition(core.related)
 

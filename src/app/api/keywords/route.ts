@@ -5,6 +5,8 @@ import { getKeywordCore } from '@/lib/keywords'
 import { normalizeGeo } from '@/lib/google-ads'
 import { getCurrentUser } from '@/lib/auth/session'
 import { guardSearch } from '@/lib/searchGate'
+import { withUsage } from '@/lib/track'
+import { recordSearch, recordCacheHit, recordApiHit, peekApiCalls } from '@/lib/usage'
 import type { ApiResponse, KeywordSearchResponse } from '@/types'
 
 export const runtime = 'nodejs'
@@ -18,7 +20,7 @@ export const runtime = 'nodejs'
  * /api/keywords/near-matches. The client fires all three in parallel so the page
  * renders immediately instead of waiting ~13s for the full fan-out.
  */
-export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<KeywordSearchResponse>>> {
+export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiResponse<KeywordSearchResponse>>> => {
   const { searchParams } = new URL(req.url)
   const query = searchParams.get('q')?.trim().toLowerCase()
   const geo = normalizeGeo(searchParams.get('geo'))
@@ -32,7 +34,13 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
   if (gate) return gate
 
   try {
+    const before = peekApiCalls()
     const data = await getKeywordCore(query, geo)
+
+    // Usage analytics: one search, and whether it was served from cache/DB (no API
+    // calls) or required a live fetch.
+    recordSearch()
+    if (peekApiCalls() > before) recordApiHit(); else recordCacheHit()
 
     // Search history is a side-effect of the request, not part of it.
     getCurrentUser()
@@ -47,4 +55,4 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
       { status: 502 },
     )
   }
-}
+})

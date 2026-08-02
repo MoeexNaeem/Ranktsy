@@ -83,45 +83,63 @@ export async function geminiGenerate(opts: GenerateOpts): Promise<string | null>
     body.systemInstruction = { parts: [{ text: opts.system }] }
   }
 
-  try {
-    const res = await fetch(
-      `${BASE}/models/${MODEL}:generateContent?key=${encodeURIComponent(key)}`,
-      {
+  // Gemini is frequently overloaded (503) or drops the connection (fetch failed);
+  // both are transient. Retry a few times with backoff so a single blip doesn't
+  // surface as "AI generation failed" to the user.
+  const url = `${BASE}/models/${MODEL}:generateContent?key=${encodeURIComponent(key)}`
+  const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+  const MAX_ATTEMPTS = 3
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
         cache: 'no-store',
-      },
-    )
+      })
 
-    if (!res.ok) {
-      const errBody = await res.text().catch(() => '')
-      // A 404 here means the pinned model was retired — name it so the log is
-      // actionable instead of a bare status code.
-      if (res.status === 404) {
-        console.error(`[Gemini] model "${MODEL}" returned 404 — likely retired. Set GEMINI_MODEL to a current one. ${errBody.slice(0, 160)}`)
-      } else {
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => '')
+        // 404 = pinned model retired; not retryable.
+        if (res.status === 404) {
+          console.error(`[Gemini] model "${MODEL}" returned 404 — likely retired. Set GEMINI_MODEL to a current one. ${errBody.slice(0, 160)}`)
+          return null
+        }
+        // 429 / 5xx are transient — retry with backoff.
+        if ((res.status === 429 || res.status >= 500) && attempt < MAX_ATTEMPTS - 1) {
+          console.warn(`[Gemini] ${res.status} — retrying (${attempt + 1}/${MAX_ATTEMPTS - 1})`)
+          await sleep(900 * 2 ** attempt)
+          continue
+        }
         console.error(`[Gemini] ${res.status}: ${errBody.slice(0, 200)}`)
+        return null
       }
+
+      const json = await res.json() as {
+        candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[]
+        promptFeedback?: { blockReason?: string }
+      }
+
+      if (json.promptFeedback?.blockReason) {
+        console.error('[Gemini] blocked:', json.promptFeedback.blockReason)
+        return null
+      }
+
+      const text = json.candidates?.[0]?.content?.parts?.map(p => p.text ?? '').join('') ?? ''
+      return text || null
+    } catch (e) {
+      // Network error (fetch failed) — retry, else give up.
+      if (attempt < MAX_ATTEMPTS - 1) {
+        console.warn(`[Gemini] request failed — retrying (${attempt + 1}/${MAX_ATTEMPTS - 1}):`, (e as Error)?.message)
+        await sleep(900 * 2 ** attempt)
+        continue
+      }
+      console.error('[Gemini] request failed:', e)
       return null
     }
-
-    const json = await res.json() as {
-      candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[]
-      promptFeedback?: { blockReason?: string }
-    }
-
-    if (json.promptFeedback?.blockReason) {
-      console.error('[Gemini] blocked:', json.promptFeedback.blockReason)
-      return null
-    }
-
-    const text = json.candidates?.[0]?.content?.parts?.map(p => p.text ?? '').join('') ?? ''
-    return text || null
-  } catch (e) {
-    console.error('[Gemini] request failed:', e)
-    return null
   }
+  return null
 }
 
 // ─── Image generation (Gemini Flash Image / "Nano Banana") ────────────────────

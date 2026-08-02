@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { getListingReviewCount } from '@/lib/etsy'
+import { withUsage } from '@/lib/track'
 import type { ApiResponse } from '@/types'
 
 export const runtime = 'nodejs'
+export const GET = withUsage(getHandler)
 
 const MAX_IDS = 100
 
@@ -16,7 +18,7 @@ const MAX_IDS = 100
  * shared Etsy rate gate throttles the fan-out. The client fetches this LAZILY
  * after the table paints, so the rest of the page never waits on it.
  */
-export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Record<number, number | null>>>> {
+async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Record<number, number | null>>>> {
   const raw = new URL(req.url).searchParams.get('ids') ?? ''
   const ids = [...new Set(raw.split(',').map(s => parseInt(s.trim(), 10)).filter(n => Number.isFinite(n) && n > 0))].slice(0, MAX_IDS)
   if (!ids.length) return NextResponse.json({ success: false, error: 'Provide ?ids=1,2,3' }, { status: 400 })

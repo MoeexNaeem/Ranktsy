@@ -374,6 +374,9 @@ export interface KeywordSearchResponse {
   listings: EtsyListing[]
   analysis?: SearchAnalysis
   nearMatches?: NearMatch[]
+  /** Full trends payload, saved into the shared Collective package so Rankkw can
+   *  serve Trends + Searchers-by-Country from the DB with no API calls. */
+  trends?: TrendsPayload
   cachedAt?: string
 }
 
@@ -397,6 +400,9 @@ export interface EtsyListing {
   created_timestamp?: number   // epoch seconds; listing age → views/day
   processing_min?: number      // seller's stated processing window, in days
   processing_max?: number
+  /** Review count saved in the shared Collective package (Ranktsy Bulk search);
+   *  present when this listing came from `collectivekeyworddatas`, else undefined. */
+  review_count?: number | null
 }
 
 export interface EtsyShop {
@@ -434,6 +440,18 @@ export interface TrendPoint { month: string; value: number }
 export type TrendPlatform = 'etsy' | 'google' | 'amazon' | 'ebay'
 export interface TrendData { platform: TrendPlatform; points: TrendPoint[] }
 export interface CountryData { country: string; percentage: number; color: string }
+
+// The full payload /api/trends returns — saved into the shared Collective package
+// (by Ranktsy's Bulk search) so Rankkw serves Trends + Searchers-by-Country from
+// the DB with no API calls.
+export interface TrendsPayload {
+  trends: TrendData[]
+  countries: CountryData[]
+  supplyByMonth: { month: string; value: number }[]
+  market: ListingMarketStats | null
+  googleAvailable: boolean
+  note: string
+}
 
 // ─── Snapshots (our own history — Etsy returns state, never a series) ─────────
 // Etsy exposes a shop's LIFETIME sales total and nothing else: no per-day series,
@@ -539,6 +557,78 @@ export interface IKeywordHistory {
   keyword: string
   searchedAt: Date
   userId?: string
+}
+
+// ─── Collective Keyword Data (shared, read-only in Rankkw) ────────────────────
+// The permanent `collectivekeyworddatas` collection is WRITTEN by Ranktsy's Bulk
+// Keyword Search (full package: enriched related + reviews + images). Rankkw's
+// single Keyword Search only READS it — if a keyword is present, it's served from
+// here with no API calls; otherwise Rankkw fetches live.
+export interface ICollectiveKeywordData {
+  _id?: string
+  keyword: string
+  geo: string
+  data: KeywordSearchResponse
+  searchedAt?: Date
+  lastRefreshedAt?: Date
+  createdAt?: Date
+  updatedAt?: Date
+}
+
+// ─── Per-user daily API usage (Rankkw admin analytics) ────────────────────────
+export interface IApiUsage {
+  _id?: string
+  day: string                 // YYYY-MM-DD (UTC) — the daily bucket (resets at 00:00)
+  userId: string              // user id, or 'anonymous' for logged-out searches
+  userEmail?: string          // denormalized for the admin table
+  etsyCalls: number
+  googleCalls: number
+  searches: number            // keyword searches initiated
+  cacheHits: number           // served from DB/cache (no API)
+  apiHits: number             // required a live API fetch
+  createdAt?: Date
+  updatedAt?: Date
+}
+
+// ─── AI generators (Title / Tag / Description) ────────────────────────────────
+export interface AiTitleItem {
+  title: string
+  charCount: number
+  primaryKeywords?: string[]
+  lowKdKeywords?: string[]
+  semanticKeywords?: string[]
+  buyerIntent: string
+  spamScore: number
+  readabilityScore: number
+  seoStrength: number
+  ctrPotential: number
+}
+export interface AiTitleResult {
+  focusKeyword: string
+  titles: AiTitleItem[]
+  best: { index: number; reason: string }
+  altKeywords: string[]
+  longTailVariations: string[]
+}
+export interface AiTagResult {
+  focusKeyword: string
+  tags: string[]
+  primaryTag: string
+  secondaryTags?: string[]
+  longTailTags?: string[]
+  competition: string
+  seoScore: number
+  strategy: string
+}
+export interface AiDescResult {
+  focusKeyword: string
+  description: string
+  secondaryKeywords?: string[]
+  longTailKeywords?: string[]
+  semanticKeywords?: string[]
+  seoScore: number
+  readabilityScore: number
+  conversionScore: number
 }
 
 // ─── API Response ─────────────────────────────────────────────────────────────

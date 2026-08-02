@@ -13,7 +13,9 @@ const ShopTab          = dynamic(() => import('./tabs/ShopTab').then(m => ({ def
 const TagOptimizerTab  = dynamic(() => import('./tabs/TagOptimizerTab').then(m => ({ default: m.TagOptimizerTab })), { ssr: false })
 const FeeCalculatorTab = dynamic(() => import('./tabs/FeeCalculatorTab').then(m => ({ default: m.FeeCalculatorTab })), { ssr: false })
 const ListingAuditTab      = dynamic(() => import('./tabs/ListingAuditTab').then(m => ({ default: m.ListingAuditTab })), { ssr: false })
-const TagTitleGeneratorTab = dynamic(() => import('./tabs/TagTitleGeneratorTab').then(m => ({ default: m.TagTitleGeneratorTab })), { ssr: false })
+const TitleGenTab       = dynamic(() => import('./tabs/TitleGenTab').then(m => ({ default: m.TitleGenTab })), { ssr: false })
+const TagGenTab         = dynamic(() => import('./tabs/TagGenTab').then(m => ({ default: m.TagGenTab })), { ssr: false })
+const DescriptionGenTab = dynamic(() => import('./tabs/DescriptionGenTab').then(m => ({ default: m.DescriptionGenTab })), { ssr: false })
 const KeywordListsTab      = dynamic(() => import('./tabs/KeywordListsTab').then(m => ({ default: m.KeywordListsTab })), { ssr: false })
 const BulkKeywordTab       = dynamic(() => import('./tabs/BulkKeywordTab').then(m => ({ default: m.BulkKeywordTab })), { ssr: false })
 const RankCheckerTab       = dynamic(() => import('./tabs/RankCheckerTab').then(m => ({ default: m.RankCheckerTab })), { ssr: false })
@@ -37,7 +39,7 @@ const DeliveryStatusTab    = dynamic(() => import('./tabs/DeliveryStatusTab').th
 const KeywordGapTab        = dynamic(() => import('./tabs/KeywordGapTab').then(m => ({ default: m.KeywordGapTab })), { ssr: false })
 const HotProductsTab       = dynamic(() => import('./tabs/HotProductsTab').then(m => ({ default: m.HotProductsTab })), { ssr: false })
 
-type TabId = 'overview' | 'myshop' | 'hotproducts' | 'keywords' | 'gap' | 'listings' | 'competitors' | 'compsales' | 'trends' | 'buzz' | 'monthly' | 'topsellers' | 'catreport' | 'bulk' | 'rank' | 'shop' | 'salesmap' | 'delivery' | 'tags' | 'aihelper' | 'listingpro' | 'ctags' | 'generator' | 'audit' | 'compare' | 'spell' | 'fees' | 'adsroi' | 'category' | 'calendar' | 'lists'
+type TabId = 'overview' | 'myshop' | 'hotproducts' | 'keywords' | 'gap' | 'listings' | 'competitors' | 'compsales' | 'trends' | 'buzz' | 'monthly' | 'topsellers' | 'catreport' | 'bulk' | 'rank' | 'shop' | 'salesmap' | 'delivery' | 'tags' | 'aihelper' | 'listingpro' | 'ctags' | 'titlegen' | 'taggen' | 'descgen' | 'audit' | 'compare' | 'spell' | 'fees' | 'adsroi' | 'category' | 'calendar' | 'lists'
 
 const ICON = (d: React.ReactNode) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
 
@@ -82,8 +84,12 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; description: stri
     icon: ICON(<><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></>) },
   { id: 'tags',        label: 'Tag Optimizer', group: 'Optimize',    accent: 'emerald', description: 'Find best-performing tags',
     icon: ICON(<><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></>) },
-  { id: 'generator',   label: 'Tag & Title Gen',group: 'Optimize',   accent: 'amber',   description: 'Generate tags & titles',
-    icon: ICON(<><path d="M9.5 3l1.4 3.6L14.5 8l-3.6 1.4L9.5 13 8.1 9.4 4.5 8l3.6-1.4z"/><path d="M18 13l.9 2.1 2.1.9-2.1.9L18 19l-.9-2.1-2.1-.9 2.1-.9z"/></>) },
+  { id: 'titlegen',    label: 'Title Generator',group: 'Optimize',   accent: 'amber',   description: 'AI Etsy titles from real data',
+    icon: ICON(<><path d="M4 7V5h16v2"/><path d="M9 20h6"/><path d="M12 5v15"/></>) },
+  { id: 'taggen',      label: 'Tag Generator', group: 'Optimize',    accent: 'amber',   description: 'AI Etsy tags from real data',
+    icon: ICON(<><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></>) },
+  { id: 'descgen',     label: 'Description Gen',group: 'Optimize',    accent: 'amber',   description: 'AI Etsy descriptions from real data',
+    icon: ICON(<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></>) },
   { id: 'listingpro',  label: 'Etsy Listing Pro', group: 'Optimize', accent: 'rose',    description: 'A whole listing + AI images in one click',
     icon: ICON(<><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/><path d="M16 3.5l.7 1.6 1.8.3-1.3 1.3.3 1.8-1.5-.9-1.5.9.3-1.8-1.3-1.3 1.8-.3z"/></>) },
   { id: 'aihelper',    label: 'AI Listing Helper',group: 'Optimize', accent: 'fuchsia', description: 'AI title, tags & description',
@@ -134,7 +140,9 @@ function TabContent({ active, onNavigate }: { active: TabId; onNavigate: (id: Ta
     shop:        <ShopTab />,
     tags:        <TagOptimizerTab />,
     ctags:       <CompetitorTagsTab />,
-    generator:   <TagTitleGeneratorTab />,
+    titlegen:    <TitleGenTab />,
+    taggen:      <TagGenTab />,
+    descgen:     <DescriptionGenTab />,
     audit:       <ListingAuditTab />,
     compare:     <CompareListingsTab />,
     spell:       <SpellCheckerTab />,

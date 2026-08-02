@@ -3,6 +3,7 @@ import { SNAPSHOT_RETENTION_DAYS } from '@/utils'
 import type {
   IKeywordCache, IKeywordHistory, IOTP,
   IShopSnapshot, IListingSnapshot, ITrackedShop,
+  ICollectiveKeywordData, IApiUsage,
 } from '@/types'
 
 // ─── User ─────────────────────────────────────────────────────────────────────
@@ -59,6 +60,40 @@ const KeywordCacheSchema = new Schema<IKeywordCache>({
 }, { timestamps: true })
 
 KeywordCacheSchema.index({ keyword: 1, geo: 1, createdAt: -1 })
+
+// ─── Collective Keyword Data (shared, READ-ONLY here) ──────────────────────────
+// Written by Ranktsy's Bulk Keyword Search (permanent, no TTL). Rankkw only reads
+// it. Schema mirrors Ranktsy's so the shared collection's indexes never conflict;
+// NO TTL is declared (the collection is permanent).
+const CollectiveKeywordDataSchema = new Schema<ICollectiveKeywordData>({
+  keyword:         { type: String, required: true, lowercase: true, trim: true },
+  geo:             { type: String, default: 'US', uppercase: true, trim: true },
+  data:            { type: Schema.Types.Mixed, required: true },
+  searchedAt:      { type: Date, default: Date.now },
+  lastRefreshedAt: { type: Date, default: Date.now },
+}, { timestamps: true })
+CollectiveKeywordDataSchema.index({ keyword: 1, geo: 1 }, { unique: true })
+
+// ─── API Usage (per user, per UTC day) ─────────────────────────────────────────
+// One row per {day, userId}. Powers the admin usage analytics. `day` is the daily
+// bucket (resets at 00:00 UTC); rows are kept ~60 days so every user has ≥7 days
+// of history. Incremented via lib/usage.ts ($inc, coalesced). Uses its OWN
+// collection `userapiusages` — NOT the `apiusages` that Ranktsy's simple daily
+// tracker writes (their {day}-unique schema is incompatible with this per-user one).
+const ApiUsageSchema = new Schema<IApiUsage>({
+  day:        { type: String, required: true },      // YYYY-MM-DD (UTC)
+  userId:     { type: String, required: true },      // user id or 'anonymous'
+  userEmail:  { type: String },
+  etsyCalls:  { type: Number, default: 0 },
+  googleCalls:{ type: Number, default: 0 },
+  searches:   { type: Number, default: 0 },
+  cacheHits:  { type: Number, default: 0 },
+  apiHits:    { type: Number, default: 0 },
+}, { timestamps: true })
+ApiUsageSchema.index({ day: 1, userId: 1 }, { unique: true })
+ApiUsageSchema.index({ userId: 1, day: -1 })
+// Keep ~60 days so the admin's 7-day history is always available, without unbounded growth.
+ApiUsageSchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 24 * 60 * 60 })
 
 // ─── Search History ────────────────────────────────────────────────────────────
 const KeywordHistorySchema = new Schema<IKeywordHistory>({
@@ -144,4 +179,6 @@ export const ListingSnapshot = models.ListingSnapshot ?? model<IListingSnapshot>
 export const TrackedShop     = models.TrackedShop     ?? model<ITrackedShop>('TrackedShop', TrackedShopSchema)
 export const OTP           = models.OTP           ?? model<IOTP>('OTP', OTPSchema)
 export const KeywordCache  = models.KeywordCache  ?? model<IKeywordCache>('KeywordCache', KeywordCacheSchema)
+export const CollectiveKeywordData = models.CollectiveKeywordData ?? model<ICollectiveKeywordData>('CollectiveKeywordData', CollectiveKeywordDataSchema)
+export const ApiUsage      = models.UserApiUsage  ?? model<IApiUsage>('UserApiUsage', ApiUsageSchema)
 export const KeywordHistory= models.KeywordHistory?? model<IKeywordHistory>('KeywordHistory', KeywordHistorySchema)

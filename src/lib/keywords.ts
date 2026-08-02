@@ -19,6 +19,7 @@
  */
 import { connectDB } from '@/lib/db'
 import { KeywordCache } from '@/lib/models'
+import { getCollectivePackage } from '@/lib/collective-read'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { searchEtsyListingsPaged, buildKeywordStats, buildSearchAnalysis, warmTaxonomy } from '@/lib/etsy'
 import { googleKeywordMetrics, googleAccountCurrency, isGoogleAdsConfigured } from '@/lib/google-ads'
@@ -81,6 +82,16 @@ export async function getKeywordCore(query: string, geo = 'US'): Promise<Keyword
 
   const memHit = memCache.get<KeywordSearchResponse>(key)
   if (memHit && !isStaleCore(memHit)) return memHit
+
+  // Shared permanent store first (populated by Ranktsy's Bulk Keyword Search). If
+  // the keyword is there, serve the complete package with ZERO API calls. This is
+  // a full package — its related keywords are already enriched and its listings
+  // carry images + reviews — a superset of the normal core, which the page renders.
+  const shared = await getCollectivePackage(query, geo)
+  if (shared) {
+    memCache.set(key, shared, CACHE_TTL.KEYWORD)
+    return shared
+  }
 
   try {
     await connectDB()

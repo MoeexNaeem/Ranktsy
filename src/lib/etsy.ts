@@ -11,6 +11,7 @@
  *   GET /v3/application/shops/{shop_id}/listings/active → shop listings
  */
 import { recordShopSnapshots, recordListingSnapshots, recordShopSnapshot } from '@/lib/snapshots'
+import { recordEtsyCall } from '@/lib/usage'
 import type {
   EtsyListing, EtsyShop, KeywordData,
   KeywordSearchResponse, TrendData, CountryData,
@@ -70,6 +71,7 @@ async function etsyFetch<T = unknown>(path: string, params?: Record<string, stri
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     await rateGate()
+    recordEtsyCall()   // attribute every Etsy HTTP request (incl. retries) to the caller
     const res = await fetch(url.toString(), {
       headers: {
         'x-api-key': ETSY_KEY_HEADER,
@@ -1179,6 +1181,7 @@ class EtsyAuthError extends Error {
 async function etsyAuthedFetch<T = unknown>(path: string, accessToken: string, params?: Record<string, string | number>): Promise<T> {
   const url = new URL(`${ETSY_BASE}${path}`)
   if (params) Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)))
+  recordEtsyCall()   // attribute authenticated (shop) Etsy requests too
   const res = await fetch(url.toString(), {
     headers: {
       'x-api-key':     ETSY_KEY_HEADER,
