@@ -35,11 +35,11 @@ const ctrl: React.CSSProperties = { background: C.paper, border: `1px solid ${C.
 function HotBar({ score }: { score: number }) {
   const color = score >= 55 ? D.hard : score >= 35 ? D.mid : D.good
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <div style={{ flex: 1, height: 6, background: C.bone, borderRadius: 999, overflow: 'hidden', minWidth: 40 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+      <div style={{ flex: 1, height: 9, background: C.bone, borderRadius: 999, overflow: 'hidden', minWidth: 56 }}>
         <div style={{ height: '100%', width: `${score}%`, background: color, borderRadius: 999 }} />
       </div>
-      <span style={{ fontSize: 13, fontFamily: MONO, fontWeight: 600, color, width: 26, textAlign: 'right' }}>{score}</span>
+      <span style={{ fontSize: 15, fontFamily: MONO, fontWeight: 600, color, width: 34, textAlign: 'right' }}>{score}</span>
     </div>
   )
 }
@@ -168,30 +168,30 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
             <EmptyState icon="🔍" title="No products match these filters" sub="These filters apply to the top matches for your search. Try loosening the price, favorites, or release-time filters." />
           ) : view === 'list' ? (
             <Card pad={0}>
-              <div style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.8fr 0.8fr 1fr 0.5fr', gap: 12, padding: '12px 18px', background: C.headerBg, borderBottom: `1px solid ${C.ash}` }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.8fr 0.8fr 1fr 0.5fr', gap: 14, padding: '16px 22px', background: C.headerBg, borderBottom: `1px solid ${C.ash}` }}>
                 {['Product', 'Views', 'Favorites', 'Hot Score', ''].map((h, i) => (
-                  <span key={h || i} style={{ fontSize: 10.5, fontFamily: MONO, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: C.graphite, textAlign: i === 0 || i === 4 ? 'left' : 'right' }}>{h}</span>
+                  <span key={h || i} style={{ fontSize: 12, fontFamily: MONO, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: C.graphite, textAlign: i === 0 || i === 4 ? 'left' : 'right' }}>{h}</span>
                 ))}
               </div>
               {products.map(p => (
                 <button key={p.listing_id} onClick={() => setSelected(p)}
-                  style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.8fr 0.8fr 1fr 0.5fr', gap: 12, padding: '13px 18px', borderBottom: `1px solid ${C.hair}`, alignItems: 'center', width: '100%', background: 'transparent', border: 'none', borderBottomStyle: 'solid', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'background 0.12s' }}
+                  style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.8fr 0.8fr 1fr 0.5fr', gap: 14, padding: '18px 22px', borderBottom: `1px solid ${C.hair}`, alignItems: 'center', width: '100%', background: 'transparent', border: 'none', borderBottomStyle: 'solid', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'background 0.12s' }}
                   onMouseEnter={e => (e.currentTarget.style.background = C.rowHover)}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
-                    {p.image ? <img src={p.image} alt="" style={{ width: 52, height: 52, borderRadius: 8, objectFit: 'cover', flexShrink: 0, border: `1px solid ${C.hair}` }} /> : <div style={{ width: 52, height: 52, borderRadius: 8, background: C.bone, flexShrink: 0 }} />}
+                  <div style={{ display: 'flex', gap: 16, alignItems: 'center', minWidth: 0 }}>
+                    {p.image ? <img src={p.image} alt="" style={{ width: 72, height: 72, borderRadius: 10, objectFit: 'cover', flexShrink: 0, border: `1px solid ${C.hair}` }} /> : <div style={{ width: 72, height: 72, borderRadius: 10, background: C.bone, flexShrink: 0 }} />}
                     <div style={{ minWidth: 0 }}>
-                      <p style={{ fontSize: 13.5, fontWeight: 500, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
-                        {p.price != null && <span style={{ fontSize: 13, fontFamily: MONO, fontWeight: 600, color: HUE }}>{sym(p.currency)}{p.price}</span>}
-                        <span style={{ fontSize: 11.5, color: C.stone }}>· {p.engagementPct}% eng · {fmtDate(p.createdTimestamp)}</span>
+                      <p style={{ fontSize: 16, fontWeight: 500, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5 }}>
+                        {p.price != null && <span style={{ fontSize: 15, fontFamily: MONO, fontWeight: 600, color: HUE }}>{sym(p.currency)}{p.price}</span>}
+                        <span style={{ fontSize: 13, color: C.stone }}>· {p.engagementPct}% eng · {fmtDate(p.createdTimestamp)}</span>
                       </div>
                     </div>
                   </div>
-                  <span style={{ fontSize: 13.5, fontFamily: MONO, color: D.series[1], textAlign: 'right' }}>{formatNumber(p.views)}</span>
-                  <span style={{ fontSize: 13.5, fontFamily: MONO, color: D.series[5], textAlign: 'right' }}>{formatNumber(p.favorites)}</span>
+                  <span style={{ fontSize: 16, fontFamily: MONO, color: D.series[1], textAlign: 'right' }}>{formatNumber(p.views)}</span>
+                  <span style={{ fontSize: 16, fontFamily: MONO, color: D.series[5], textAlign: 'right' }}>{formatNumber(p.favorites)}</span>
                   <HotBar score={p.hotScore} />
-                  <span style={{ fontSize: 12, fontFamily: MONO, color: HUE, textAlign: 'right' }}>View →</span>
+                  <span style={{ fontSize: 13.5, fontFamily: MONO, color: HUE, textAlign: 'right' }}>View →</span>
                 </button>
               ))}
             </Card>

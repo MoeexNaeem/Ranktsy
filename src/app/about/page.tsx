@@ -1,8 +1,16 @@
-'use client'
+import type { Metadata } from 'next'
 import { Navbar } from '@/components/landing/Navbar'
 import { Footer } from '@/components/landing/Sections'
 import { C } from '@/utils'
 import { Icon, type IconName } from '@/components/ui/Icon'
+import { abs } from '@/lib/seo/site'
+
+export const metadata: Metadata = {
+  title: 'About Rankkw — Built by Etsy sellers, for sellers',
+  description: 'Rankkw is an independent Etsy keyword research and analytics platform built by sellers and engineers — real data from official APIs, never fabricated numbers.',
+  alternates: { canonical: abs('/about') },
+  openGraph: { title: 'About Rankkw', description: 'Built by independent Etsy sellers, on data you can actually trust.', url: abs('/about'), type: 'website' },
+}
 
 const SANS = "'General Sans',sans-serif"
 

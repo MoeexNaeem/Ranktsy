@@ -2,12 +2,11 @@
 import { useMemo } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useTrendBuzz } from '@/hooks/useKeywords'
-import { BarChart } from '@/components/charts/BarChart'
 import { Card, SectionTitle, Loading, MONO } from '../kit'
 import { C, ACCENT, withAlpha, formatNumber } from '@/utils'
 
 const ICON = (d: React.ReactNode) => (
-  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
 )
 
 // Each launcher tile carries its destination tool's own accent hue, so the grid
@@ -29,6 +28,7 @@ export function OverviewTab({ onNavigate }: { onNavigate?: (id: string) => void 
   const { data: buzz, isLoading } = useTrendBuzz('')
 
   const top8 = useMemo(() => (buzz ?? []).slice(0, 8), [buzz])
+  const maxHeat = useMemo(() => Math.max(...top8.map(b => b.heat), 1), [top8])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -49,7 +49,7 @@ export function OverviewTab({ onNavigate }: { onNavigate?: (id: string) => void 
             style={{ position: 'relative', textAlign: 'left', background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 16, padding: '18px 18px', cursor: 'pointer', fontFamily: 'inherit', transition: 'transform 0.15s, border-color 0.15s, box-shadow 0.15s', overflow: 'hidden' }}
             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.borderColor = t.color; e.currentTarget.style.boxShadow = `0 10px 24px ${withAlpha(t.color, 0.16)}` }}
             onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = C.ash; e.currentTarget.style.boxShadow = 'none' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 42, height: 42, borderRadius: 12, background: withAlpha(t.color, 0.12), color: t.color, marginBottom: 14 }}>{t.icon}</span>
+            <span style={{ display: 'inline-flex', color: t.color, marginBottom: 14 }}>{t.icon}</span>
             <p style={{ fontSize: 15.5, fontWeight: 600, color: C.ink, marginBottom: 3 }}>{t.label}</p>
             <p style={{ fontSize: 13, color: C.graphite }}>{t.desc}</p>
           </button>
@@ -63,8 +63,20 @@ export function OverviewTab({ onNavigate }: { onNavigate?: (id: string) => void 
             Buzzing on Etsy right now
           </SectionTitle>
           {isLoading ? <Loading label="Reading live Etsy signals…" /> : (
-            <BarChart axis="y" height={280} highlightMax
-              labels={top8.map(b => b.keyword)} values={top8.map(b => b.heat)} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {top8.map((b, i) => {
+                const pct = Math.max(6, Math.round((b.heat / maxHeat) * 100))
+                return (
+                  <div key={b.keyword} className="rbuzz-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(96px,160px) 1fr 34px', alignItems: 'center', gap: 14 }}>
+                    <span style={{ fontSize: 14.5, fontWeight: 500, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.keyword}</span>
+                    <div style={{ height: 13, background: C.bone, borderRadius: 999, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: withAlpha(C.orange, Math.max(0.4, 0.95 - i * 0.07)), borderRadius: 999, transition: 'width 0.7s ease' }} />
+                    </div>
+                    <span style={{ fontSize: 14, fontFamily: MONO, fontWeight: 600, color: C.orange, textAlign: 'right' }}>{b.heat}</span>
+                  </div>
+                )
+              })}
+            </div>
           )}
           <p style={{ fontSize: 12.5, color: C.graphite, marginTop: 12, fontFamily: MONO }}>
             Relative heat index from live listing tags + engagement — not absolute search volume.

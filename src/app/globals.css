@@ -298,6 +298,11 @@ svg  { max-width: 100%; }
 .rv-track { display: flex; gap: 20px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; padding: 6px 4px 22px; -ms-overflow-style: none; scrollbar-width: none; }
 .rv-track::-webkit-scrollbar { display: none; }
 .rv-card  { flex: 0 0 auto; width: min(85vw, 384px); scroll-snap-align: start; border-radius: 24px; padding: 30px 30px 28px; display: flex; flex-direction: column; min-height: 384px; }
+
+/* Legal-page table-of-contents link hover — CSS so the pages stay server
+   components (a JS onMouseEnter would force 'use client' and block metadata). */
+.toc-link { transition: color 0.15s; }
+.toc-link:hover { color: #3D3E3B !important; }
 /* FAQ */
 .faq-q    { display: flex; align-items: center; justify-content: space-between; gap: 18px; width: 100%; text-align: left; background: none; border: none; cursor: pointer; font-family: inherit; padding: 22px 4px; }
 

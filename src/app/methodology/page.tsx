@@ -1,7 +1,15 @@
-'use client'
+import type { Metadata } from 'next'
 import { Navbar } from '@/components/landing/Navbar'
 import { Footer } from '@/components/landing/Sections'
 import { C, SNAPSHOT_RETENTION_DAYS } from '@/utils'
+import { abs } from '@/lib/seo/site'
+
+export const metadata: Metadata = {
+  title: 'Data & Methodology — How Rankkw measures Etsy data',
+  description: 'Exactly how Rankkw measures Etsy and Google data — the sources, the caching, and what it deliberately never fabricates.',
+  alternates: { canonical: abs('/methodology') },
+  openGraph: { title: 'Data & Methodology — Rankkw', description: 'How Rankkw measures Etsy and Google data, honestly.', url: abs('/methodology'), type: 'website' },
+}
 
 const MONO = "'General Sans', monospace"
 

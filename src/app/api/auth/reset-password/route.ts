@@ -3,10 +3,16 @@ import { connectDB } from '@/lib/db'
 import { User, OTP } from '@/lib/models'
 import { hashPassword } from '@/lib/auth/password'
 import { resetPasswordSchema } from '@/lib/auth/schemas'
+import { rateLimit, clientIp, tooManyResponse } from '@/lib/auth/rateLimit'
+import { pwnedCount } from '@/lib/auth/pwned'
 
 export async function POST(req: NextRequest) {
   try {
     const body   = await req.json()
+
+    const ipRL = rateLimit(`reset:ip:${clientIp(req)}`, 10, 15 * 60 * 1000)
+    if (!ipRL.allowed) return tooManyResponse(ipRL.retryAfterSec)
+
     const parsed = resetPasswordSchema.safeParse(body)
     if (!parsed.success) {
       const errors: Record<string, string> = {}
@@ -15,6 +21,11 @@ export async function POST(req: NextRequest) {
     }
 
     const { email, code, password } = parsed.data
+
+    if (await pwnedCount(password) > 0) {
+      return NextResponse.json({ success: false, errors: { password: 'This password has appeared in a known data breach. Please choose a different one.' } }, { status: 422 })
+    }
+
     await connectDB()
 
     // Verify OTP one more time

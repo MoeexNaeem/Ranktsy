@@ -293,8 +293,8 @@ export function DashboardLayout() {
             <button className="rdash-burger" onClick={() => setNavOpen(o => !o)} aria-label="Toggle menu">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
-            {/* Active-tool icon chip in its own hue */}
-            <span className="rdash-titleicon" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: 11, flexShrink: 0, background: withAlpha(activeHue, 0.12), color: activeHue }}>
+            {/* Active-tool icon in its own hue — no background chip */}
+            <span className="rdash-titleicon" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 34, flexShrink: 0, color: activeHue }}>
               {activeInfo.icon}
             </span>
             <div style={{ minWidth: 0 }}>

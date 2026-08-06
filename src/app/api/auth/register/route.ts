@@ -8,14 +8,20 @@ import { sendWelcomeEmail } from '@/lib/auth/email'
 import { registerSchema } from '@/lib/auth/schemas'
 import { resolveRole } from '@/lib/auth/roles'
 import { verifyRecaptcha } from '@/lib/recaptcha'
+import { rateLimit, clientIp, tooManyResponse } from '@/lib/auth/rateLimit'
+import { pwnedCount } from '@/lib/auth/pwned'
 import type { ApiResponse, AuthUser } from '@/types'
 
 export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<AuthUser>>> {
   try {
     const body   = await req.json()
+    const ip = clientIp(req)
+
+    // Cap account creation per IP (anti-abuse).
+    const ipRL = rateLimit(`register:ip:${ip}`, 5, 60 * 60 * 1000)
+    if (!ipRL.allowed) return tooManyResponse(ipRL.retryAfterSec)
 
     // Bot protection — verify the reCAPTCHA token (a no-op if keys aren't set).
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
     if (!(await verifyRecaptcha(body?.captchaToken, ip))) {
       return NextResponse.json({ success: false, errors: { _: 'Please complete the “I’m not a robot” check.' } }, { status: 400 })
     }
@@ -29,6 +35,13 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<A
     }
 
     const { name, email, password } = parsed.data
+
+    // Reject passwords known to appear in public breaches (extra guard on top of
+    // the strong-password rules). Fails open if HIBP is unreachable.
+    if (await pwnedCount(password) > 0) {
+      return NextResponse.json({ success: false, errors: { password: 'This password has appeared in a known data breach. Please choose a different one.' } }, { status: 422 })
+    }
+
     await connectDB()
 
     const exists = await User.findOne({ email }).lean()

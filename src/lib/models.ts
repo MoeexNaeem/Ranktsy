@@ -10,7 +10,8 @@ import type {
 export interface IUserDoc extends Document {
   name: string
   email: string
-  password: string
+  password?: string                       // optional: OAuth (Google/Microsoft) users have none
+  authProvider?: 'google' | 'microsoft'   // set when the account was created/linked via OAuth
   role: 'user' | 'admin'
   plan: 'free' | 'grow' | 'scale'
   isVerified: boolean
@@ -26,7 +27,8 @@ export interface IUserDoc extends Document {
 const UserSchema = new Schema<IUserDoc>({
   name:             { type: String, required: true, trim: true, maxlength: 60 },
   email:            { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
-  password:         { type: String, required: true, select: false }, // never returned by default
+  password:         { type: String, required: false, select: false }, // optional — OAuth users have none; never returned by default
+  authProvider:     { type: String, enum: ['google','microsoft'] },
   role:             { type: String, enum: ['user','admin'], default: 'user' },
   plan:             { type: String, enum: ['free','grow','scale'], default: 'free' },
   isVerified:       { type: Boolean, default: false },

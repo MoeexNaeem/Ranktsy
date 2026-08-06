@@ -7,14 +7,21 @@ import { setAuthCookies } from '@/lib/auth/cookies'
 import { loginSchema } from '@/lib/auth/schemas'
 import { resolveRole } from '@/lib/auth/roles'
 import { verifyRecaptcha } from '@/lib/recaptcha'
+import { rateLimit, clientIp, tooManyResponse } from '@/lib/auth/rateLimit'
 import type { ApiResponse, AuthUser } from '@/types'
+
+const FIFTEEN_MIN = 15 * 60 * 1000
 
 export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<AuthUser>>> {
   try {
     const body   = await req.json()
+    const ip = clientIp(req)
+
+    // Brute-force protection: cap attempts per IP before doing any work.
+    const ipRL = rateLimit(`login:ip:${ip}`, 10, FIFTEEN_MIN)
+    if (!ipRL.allowed) return tooManyResponse(ipRL.retryAfterSec)
 
     // Bot protection — verify the reCAPTCHA token (a no-op if keys aren't set).
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
     if (!(await verifyRecaptcha(body?.captchaToken, ip))) {
       return NextResponse.json({ success: false, errors: { _: 'Please complete the “I’m not a robot” check.' } }, { status: 400 })
     }
@@ -28,6 +35,11 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<A
     }
 
     const { email, password } = parsed.data
+
+    // Also cap attempts against a single account (targeted brute force).
+    const emailRL = rateLimit(`login:email:${email}`, 6, FIFTEEN_MIN)
+    if (!emailRL.allowed) return tooManyResponse(emailRL.retryAfterSec)
+
     await connectDB()
 
     const user = await User.findOne({ email }).select('+password').lean()

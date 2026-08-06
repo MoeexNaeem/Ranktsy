@@ -1,7 +1,15 @@
-'use client'
+import type { Metadata } from 'next'
 import { Navbar } from '@/components/landing/Navbar'
 import { Footer } from '@/components/landing/Sections'
 import { C } from '@/utils'
+import { abs } from '@/lib/seo/site'
+
+export const metadata: Metadata = {
+  title: 'Privacy Policy — Rankkw',
+  description: 'How Rankkw collects, uses, stores and protects your data as an independent Etsy analytics platform.',
+  alternates: { canonical: abs('/privacy') },
+  openGraph: { title: 'Privacy Policy — Rankkw', description: 'How Rankkw collects, uses and protects your data.', url: abs('/privacy'), type: 'website' },
+}
 
 const sections = [
   {
@@ -191,8 +199,7 @@ export default function PrivacyPage() {
                   lineHeight: 1.4,
                   transition: 'color 0.15s',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = C.charcoal)}
-                onMouseLeave={(e) => (e.currentTarget.style.color = '#666')}
+                className="toc-link"
               >
                 <span
                   style={{

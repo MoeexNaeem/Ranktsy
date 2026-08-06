@@ -1,13 +1,28 @@
 import { z } from 'zod'
 
+/**
+ * Strong-password rule for NEW passwords (signup + reset). Existing accounts are
+ * grandfathered — login only checks the password matches, never re-validates it.
+ * Client and server share this exact rule via the regexes below.
+ */
+export const PASSWORD_RULES = [
+  { test: (p: string) => p.length >= 8,        label: 'At least 8 characters' },
+  { test: (p: string) => /[A-Z]/.test(p),      label: 'One uppercase letter' },
+  { test: (p: string) => /[0-9]/.test(p),      label: 'One number' },
+  { test: (p: string) => /[^A-Za-z0-9]/.test(p), label: 'One special character' },
+] as const
+
+const strongPassword = z
+  .string()
+  .min(8, 'Password must be at least 8 characters')
+  .regex(/[A-Z]/, 'Must contain at least one uppercase letter')
+  .regex(/[0-9]/, 'Must contain at least one number')
+  .regex(/[^A-Za-z0-9]/, 'Must contain at least one special character')
+
 export const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(60),
   email: z.string().email('Invalid email address').toLowerCase(),
-  password: z
-    .string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/[A-Z]/, 'Must contain at least one uppercase letter')
-    .regex(/[0-9]/, 'Must contain at least one number'),
+  password: strongPassword,
   confirmPassword: z.string(),
 }).refine(d => d.password === d.confirmPassword, {
   message: 'Passwords do not match',
@@ -32,9 +47,7 @@ export const verifyOtpSchema = z.object({
 export const resetPasswordSchema = z.object({
   email:           z.string().email(),
   code:            z.string().length(6),
-  password:        z.string().min(8)
-    .regex(/[A-Z]/, 'Must contain uppercase')
-    .regex(/[0-9]/, 'Must contain a number'),
+  password:        strongPassword,
   confirmPassword: z.string(),
 }).refine(d => d.password === d.confirmPassword, {
   message: 'Passwords do not match',
