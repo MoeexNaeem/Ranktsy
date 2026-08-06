@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { geminiImage, isGeminiConfigured, type GeminiRefImage } from '@/lib/gemini'
+import { withUsage } from '@/lib/track'
 import type { ApiResponse } from '@/types'
 
 export const runtime = 'nodejs'
@@ -37,7 +38,9 @@ function buildPrompt(type: ImageType, product: string, visual: string, features:
   }
 }
 
-export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{ dataUrl: string }>>> {
+export const POST = withUsage(postHandler)
+
+async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<{ dataUrl: string; costUsd?: number; tokens?: number }>>> {
   const body = await req.json().catch(() => ({})) as {
     type?: string; product?: string; visual?: string; features?: string[]
     refImage?: { data?: string; mimeType?: string }
@@ -59,7 +62,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
   const prompt = buildPrompt(type, product, String(body.visual ?? ''), Array.isArray(body.features) ? body.features.map(String) : [], refs.length > 0)
   const out = await geminiImage(prompt, refs)
 
-  if (out.ok) return NextResponse.json({ success: true, data: { dataUrl: out.dataUrl } })
+  if (out.ok) return NextResponse.json({ success: true, data: { dataUrl: out.dataUrl, costUsd: out.usage.costUsd, tokens: out.usage.totalTokens } })
 
   // Map the typed failure to an honest, actionable message.
   const msg = out.reason === 'quota'

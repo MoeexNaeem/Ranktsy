@@ -1,14 +1,28 @@
 import type { Metadata, Viewport } from 'next'
 import { Providers } from '@/lib/providers'
 import { Toaster }   from 'react-hot-toast'
+import { siteUrl }   from '@/lib/seo/site'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title:       'Rankkw — Etsy Keyword Research & Analytics',
-  description: 'Data-driven keyword research, competition analysis, and trend tracking for Etsy sellers.',
-  keywords:    ['Etsy SEO', 'Etsy keyword research', 'Etsy analytics'],
-  openGraph:   { title: 'Rankkw', description: 'Keyword research for Etsy sellers.', type: 'website' },
-  robots:      { index: true, follow: true },
+  // Resolves relative canonical/OG image URLs to absolute — without this, social
+  // cards and canonicals silently break.
+  metadataBase: new URL(siteUrl()),
+  title: {
+    default:  'Rankkw — Etsy Keyword Research & Analytics',
+    template: '%s',   // child pages set full titles themselves
+  },
+  description: 'Data-driven keyword research, competition analysis, and trend tracking for Etsy sellers — measured from the official Etsy & Google APIs, never estimated.',
+  keywords:    ['Etsy SEO', 'Etsy keyword research', 'Etsy analytics', 'Etsy tags', 'Etsy competitor analysis'],
+  applicationName: 'Rankkw',
+  alternates:  { canonical: '/' },
+  openGraph: {
+    title: 'Rankkw — Etsy Keyword Research & Analytics',
+    description: 'Real Etsy keyword data — search volume, competition and trends from the official APIs.',
+    url: siteUrl(), siteName: 'Rankkw', type: 'website',
+  },
+  twitter: { card: 'summary_large_image', title: 'Rankkw — Etsy Keyword Research', description: 'Real Etsy keyword data, not estimates.' },
+  robots: { index: true, follow: true },
 }
 // Emits <meta name="viewport" content="width=device-width, initial-scale=1">.
 //

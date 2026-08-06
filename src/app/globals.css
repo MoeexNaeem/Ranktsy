@@ -130,10 +130,12 @@ svg  { max-width: 100%; }
     padding-left: 18px !important; padding-right: 18px !important;
   }
 
-  /* Landing nav: hide the centre links (they live in the footer + mobile menu). */
+  /* Landing nav: hide the centre links + desktop CTAs; show the burger/drawer. */
   .rnav-links { display: none !important; }
   nav .rnav-inner { padding-left: 20px !important; padding-right: 20px !important; grid-template-columns: 1fr auto !important; }
-  .rnav-cta { gap: 14px !important; }
+  .rnav-cta { gap: 12px !important; }
+  .rnav-cta-desktop { display: none !important; }
+  .rnav-burger { display: inline-flex !important; }
 }
 
 /* ── Wide grids scroll horizontally instead of squishing ≤ 820px ─────────────── */
@@ -182,4 +184,160 @@ svg  { max-width: 100%; }
 @media (max-width: 420px) {
   main.rpage { padding-left: 14px !important; padding-right: 14px !important; }
   .rdash-content, .rdash-topbar, .rdash-footer { padding-left: 14px !important; padding-right: 14px !important; }
+}
+
+/* ── Landing · Features cards (colorful accent + hover animation) ─────────────── */
+.feature-card {
+  position: relative;
+  height: 100%;
+  background: #FFFFFF;
+  border: 1px solid #ECE6DB;
+  border-radius: 22px;
+  padding: 30px 28px 32px;
+  overflow: hidden;
+  transition: transform .32s cubic-bezier(.22,1,.36,1), box-shadow .32s cubic-bezier(.22,1,.36,1), border-color .3s ease;
+}
+.feature-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0;
+  height: 3px; width: 0;
+  background: var(--fc-fg, #FB5E09);
+  transition: width .4s cubic-bezier(.22,1,.36,1);
+}
+.feature-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 22px 46px -24px var(--fc-shadow, rgba(0,0,0,.28));
+  border-color: var(--fc-fg, #FB5E09);
+}
+.feature-card:hover::before { width: 100%; }
+.feature-icon {
+  width: 52px; height: 52px; border-radius: 15px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--fc-bg, rgba(251,94,9,.10));
+  color: var(--fc-fg, #FB5E09);
+  margin-bottom: 20px;
+  transition: transform .34s cubic-bezier(.34,1.56,.64,1), background .3s ease;
+}
+.feature-card:hover .feature-icon { transform: scale(1.08) rotate(-4deg); }
+@media (prefers-reduced-motion: reduce) {
+  .feature-card, .feature-card::before, .feature-icon { transition: none; }
+  .feature-card:hover { transform: none; }
+  .feature-card:hover .feature-icon { transform: none; }
+}
+
+/* ── "We connect sellers with real data" illustration collage ──────────────────
+   Prolific-style scattered-illustration band beneath the hero. A centred lockup
+   sits over browser-window frames + a circular seller portrait that float gently
+   in the gutters, threaded by a hand-drawn dashed ribbon. The absolute collage is
+   desktop-only; ≤ 980px it collapses to a clean stacked grid (.cx-stack). */
+@keyframes cxFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+.cx-float { animation: cxFloat var(--dur, 6s) ease-in-out infinite; animation-delay: var(--delay, 0s); will-change: transform; }
+
+.cx-stage   { position: relative; min-height: 600px; display: flex; align-items: center; justify-content: center; }
+.cx-item    { position: absolute; margin: 0; }
+.cx-bare img{ display: block; width: 100%; height: auto; filter: drop-shadow(0 22px 40px rgba(61,62,59,0.16)); }
+.cx-frame   { margin: 0; background: #fff; border: 1px solid #E2E0D4; border-radius: 18px;
+              box-shadow: 0 26px 60px rgba(61,62,59,0.13); overflow: hidden; }
+.cx-bar     { display: flex; align-items: center; gap: 6px; padding: 11px 14px; border-bottom: 1px solid #EFEEE6; }
+.cx-bar i   { width: 9px; height: 9px; border-radius: 50%; background: #D2D2C8; display: block; }
+.cx-bar i:first-child { background: #FB5E09; }
+.cx-shot    { padding: 14px 16px 16px; background: #fff; }
+.cx-shot img{ display: block; width: 100%; height: auto; }
+
+.cx-bubble  { border-radius: 50%; overflow: hidden; background: #F2F2F2;
+              border: 5px solid #fff; box-shadow: 0 22px 46px rgba(61,62,59,0.16); }
+.cx-bubble img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+.cx-chip    { position: absolute; left: 16px; bottom: -17px; display: inline-flex; align-items: center; gap: 8px;
+              background: #fff; border: 1px solid #E2E0D4; box-shadow: 0 10px 24px rgba(61,62,59,0.12);
+              border-radius: 999px; padding: 8px 15px; font-family: 'General Sans', sans-serif;
+              font-size: 13px; font-weight: 500; letter-spacing: -0.01em; color: #3D3E3B; white-space: nowrap; }
+.cx-chip::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #FB5E09; flex: none; }
+
+.cx-thread  { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+.cx-spark   { position: absolute; z-index: 1; pointer-events: none; }
+
+/* Stacked fallback (mobile / tablet) */
+.cx-stack   { display: none; }
+.cx-stack .cx-frame { box-shadow: 0 16px 40px rgba(61,62,59,0.10); }
+
+@media (max-width: 980px) {
+  .cx-collage { display: none !important; }
+  .cx-stack   { display: grid !important; }
+}
+@media (max-width: 560px) {
+  .cx-stack   { grid-template-columns: 1fr !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cx-float { animation: none; }
+}
+
+/* ── "How it works" — overlapping colour-chain (Ditto-style) ────────────────────
+   The four steps read as a connected journey: numbered circular nodes joined by
+   overlapping pills, blended with mix-blend multiply. The horizontal chain shows
+   only where the grid is a true 4-up (> 1024px); below that each step falls back
+   to an inline colour badge (.hiw-badge). */
+/* The sticky stage clips its own horizontal overflow so the chain's edge blobs
+   (left/right: -60px bleed) can't push a stray horizontal scrollbar on the page.
+   overflow on the sticky element itself is safe — only an *ancestor* scroll
+   container would break the pin. */
+.hiw-stage  { overflow-x: clip; }
+.hiw-chain  { position: relative; height: 132px; margin-bottom: 44px; }
+.hiw-shape  { position: absolute; mix-blend-mode: multiply; }
+.hiw-badge  { display: none; }
+
+/* Mega-menu links — monochrome by default, single orange accent on hover only. */
+.rnav-link  { display: flex; align-items: center; gap: 12px; padding: 12px 12px; border-radius: 11px; text-decoration: none; transition: background 0.13s ease; }
+.rnav-link.block { padding: 13px 12px; }
+.rnav-link:hover { background: #F4F3EC; }
+.rnav-chip  { width: 22px; flex: none; color: #3D3E3B; display: inline-flex; align-items: center; justify-content: center; transition: color 0.13s ease; }
+.rnav-link:hover .rnav-chip { color: #FB5E09; }
+.rnav-label { font-size: 14.5px; font-weight: 500; color: #3D3E3B; letter-spacing: -0.01em; }
+
+/* Reviews carousel (August-style colour cards) */
+.rv-track { display: flex; gap: 20px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; padding: 6px 4px 22px; -ms-overflow-style: none; scrollbar-width: none; }
+.rv-track::-webkit-scrollbar { display: none; }
+.rv-card  { flex: 0 0 auto; width: min(85vw, 384px); scroll-snap-align: start; border-radius: 24px; padding: 30px 30px 28px; display: flex; flex-direction: column; min-height: 384px; }
+/* FAQ */
+.faq-q    { display: flex; align-items: center; justify-content: space-between; gap: 18px; width: 100%; text-align: left; background: none; border: none; cursor: pointer; font-family: inherit; padding: 22px 4px; }
+
+/* Blog article body (Markdown output) */
+.blogbody { font-size: 17px; line-height: 1.75; color: #3D3E3B; }
+.blogbody > * + * { margin-top: 1.15em; }
+.blogbody h2 { font-size: clamp(24px,3vw,32px); font-weight: 600; letter-spacing: -0.02em; color: #3D3E3B; margin-top: 1.8em; line-height: 1.2; }
+.blogbody h3 { font-size: clamp(20px,2.4vw,25px); font-weight: 600; letter-spacing: -0.015em; color: #3D3E3B; margin-top: 1.5em; line-height: 1.25; }
+.blogbody h4 { font-size: 18px; font-weight: 600; color: #3D3E3B; margin-top: 1.3em; }
+.blogbody p  { color: #4A4A44; }
+.blogbody a  { color: #FB5E09; text-decoration: underline; text-underline-offset: 3px; }
+.blogbody strong { color: #3D3E3B; font-weight: 600; }
+.blogbody ul, .blogbody ol { padding-left: 1.4em; }
+.blogbody li { margin: 0.4em 0; color: #4A4A44; }
+.blogbody blockquote { border-left: 3px solid #FB5E09; padding: 4px 0 4px 20px; color: #6E6E64; font-style: italic; }
+.blogbody img { max-width: 100%; height: auto; border-radius: 14px; display: block; }
+.blogbody figure { margin: 1.6em 0; }
+.blogbody figcaption { font-size: 13.5px; color: #919183; text-align: center; margin-top: 8px; }
+.blogbody code { background: #ECEBE1; border-radius: 6px; padding: 2px 6px; font-size: 0.9em; font-family: ui-monospace, monospace; }
+.blogbody pre { background: #3D3E3B; color: #F5F5EB; border-radius: 12px; padding: 18px 20px; overflow-x: auto; }
+.blogbody pre code { background: none; padding: 0; color: inherit; }
+.blogbody hr { border: none; border-top: 1px solid #D2D2C8; margin: 2em 0; }
+
+/* Pricing — single-row horizontal scroller with blurred/faded edges. */
+.plan-scroll { position: relative; }
+.plan-track  { position: relative; display: flex; flex-wrap: nowrap; gap: 24px; overflow-x: auto; scroll-behavior: smooth; padding: 18px 10px 24px; -ms-overflow-style: none; scrollbar-width: none; }
+.plan-track::-webkit-scrollbar { display: none; }
+.plan-fade   { position: absolute; top: 0; bottom: 24px; width: 56px; z-index: 3; pointer-events: none; }
+.plan-fade-l { left: 0;  background: linear-gradient(to right, var(--fade, #F5F5EB), transparent);
+               -webkit-backdrop-filter: blur(1px); backdrop-filter: blur(1px);
+               -webkit-mask-image: linear-gradient(to right, #000 45%, transparent); mask-image: linear-gradient(to right, #000 45%, transparent); }
+.plan-fade-r { right: 0; background: linear-gradient(to left, var(--fade, #F5F5EB), transparent);
+               -webkit-backdrop-filter: blur(1px); backdrop-filter: blur(1px);
+               -webkit-mask-image: linear-gradient(to left, #000 45%, transparent); mask-image: linear-gradient(to left, #000 45%, transparent); }
+@media (max-width: 560px) { .plan-fade { width: 34px; } }
+/* Scroll-pinned stage: a tall track holds a sticky, viewport-tall stage so scroll
+   progress can scrub the chain. Disabled ≤1024px (no pin, content just flows). */
+@media (max-width: 1024px) {
+  .hiw-chain { display: none; }
+  .hiw-badge { display: inline-flex; }
+  .hiw-track { height: auto !important; }
+  .hiw-stage { position: static !important; min-height: 0 !important; padding-top: 96px !important; padding-bottom: 96px !important; }
 }

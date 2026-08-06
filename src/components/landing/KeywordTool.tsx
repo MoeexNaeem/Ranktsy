@@ -1,108 +1,99 @@
 'use client'
-import { useState, useCallback, useRef } from 'react'
-import { useKeywordSearch } from '@/hooks/useKeywords'
-import { useAppStore }      from '@/store/app'
-import { KeywordTable }     from '@/components/dashboard/KeywordTable'
+import Link from 'next/link'
+import Image from 'next/image'
 import { Reveal } from './Reveal'
 import { C } from '@/utils'
 
-const SUGG = ['silver necklace','handmade candles','boho jewelry','vintage poster','custom mug']
+const SANS = "'General Sans',sans-serif"
+
+/* The public keyword tool used to run a LIVE Etsy/Google search on every visitor —
+   burning real API quota and putting live data on an unauthenticated page. It's now
+   a static product showcase: a framed screenshot of the real dashboard, no calls.
+   The section keeps id="keywords" so the hero's "Try the keyword tool ↓" still lands
+   here. */
+
+// Vibrant-but-brand band behind the screenshot (Ditto-style colour frame).
+const BAND = 'linear-gradient(118deg, #FB5E09 0%, #FF7A2E 20%, #F6A93B 40%, #F0907B 60%, #6FBFB6 83%, #1C5D5F 100%)'
+
+function Chip({ label, style }: { label: string; style: React.CSSProperties }) {
+  return (
+    <span className="kw-chip rhide-sm" style={{
+      position: 'absolute', display: 'inline-flex', alignItems: 'center', gap: 8,
+      background: '#fff', borderRadius: 100, padding: '9px 15px', fontFamily: SANS,
+      fontSize: 13, fontWeight: 500, color: C.ink, letterSpacing: '-0.01em', whiteSpace: 'nowrap',
+      boxShadow: '0 14px 34px rgba(61,62,59,0.18)', ...style,
+    }}>
+      <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.orange, flex: 'none' }} />
+      {label}
+    </span>
+  )
+}
+
+/* Minimal browser chrome so the screenshot reads as a real product shot. */
+function Frame({ src, alt, style }: { src: string; alt: string; style?: React.CSSProperties }) {
+  return (
+    <div style={{ borderRadius: 16, overflow: 'hidden', background: '#fff', border: '1px solid rgba(255,255,255,0.7)', boxShadow: '0 24px 60px rgba(0,0,0,0.20)', ...style }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 14px', background: '#F4F3EE', borderBottom: `1px solid ${C.cardBorder}` }}>
+        <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#E5675B' }} />
+        <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#E9B24B' }} />
+        <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#5BB463' }} />
+        <span style={{ marginLeft: 12, flex: 1, maxWidth: 320, background: '#fff', border: `1px solid ${C.ash}`, borderRadius: 100, padding: '4px 12px', fontSize: 11.5, fontFamily: SANS, color: C.stone, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          rankkw.com/dashboard/keywords
+        </span>
+      </div>
+      <Image src={src} alt={alt} width={1800} height={923} sizes="(max-width: 900px) 92vw, 1160px" style={{ display: 'block', width: '100%', height: 'auto' }} />
+    </div>
+  )
+}
 
 export function KeywordTool() {
-  const ref   = useRef<HTMLInputElement>(null)
-  const [q, setQ] = useState('')
-  const addR  = useAppStore(s => s.addRecentSearch)
-  const { data, isLoading, isError } = useKeywordSearch(q)
-
-  const go = useCallback(() => {
-    const v = ref.current?.value.trim() ?? ''; if (v.length < 2) return
-    setQ(v); addR(v)
-  }, [addR])
-
   return (
-    <section id="keywords" style={{ padding: '120px 40px', background: C.canvas }}>
-      <Reveal style={{ maxWidth: 1200, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, fontWeight: 500, fontFamily:"'General Sans',monospace", textTransform: 'uppercase' as const, letterSpacing: '0.09em', color: C.ink, marginBottom: 18 }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.orange, display: 'inline-block' }} />Keyword Tool
-        </div>
-        <h2 style={{ fontSize: 'clamp(34px,4.6vw,56px)', fontWeight: 500, letterSpacing: '-0.03em', color: C.ink, lineHeight: 1.0, marginBottom: 16, maxWidth: 760 }}>
-          Try it live — search any keyword.
-        </h2>
-        {/* This tool calls the same live Etsy API the dashboard does — it never
-            showed demo data. The old copy said it did, which is both untrue and
-            the worst possible claim to make to an Etsy API reviewer. */}
-        <p style={{ fontSize: 18, color: '#6E6E64', lineHeight: 1.5, letterSpacing: '-0.14px', maxWidth: 520, marginBottom: 48 }}>
-          Enter any product keyword for real numbers measured live from the official Etsy API — no sign-up, no demo data.
-        </p>
+    <section id="keywords" style={{ background: C.canvas, padding: '110px 24px', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ maxWidth: 1180, margin: '0 auto', position: 'relative' }}>
 
-        <div className="rpad-card" style={{ background: C.paper, border: `1px solid ${C.hairInk}`, borderRadius: 24, padding: 28 }}>
-          {/* Input row. `minWidth: 0` on the input is load-bearing: a flex item
-              defaults to min-width:auto and so refuses to shrink below its
-              placeholder's intrinsic width, which pushed this row (and with it the
-              whole page's scroll width) past the viewport on phones. */}
-          <div className="rstack-sm" style={{ display: 'flex', gap: 12, marginBottom: 28 }}>
-            <input ref={ref} type="text" className="kw-input rfull-sm"
-              placeholder="e.g. handmade candles, silver ring, boho jewelry..."
-              onKeyDown={e=>e.key==='Enter'&&go()}
-              style={{ flex: 1, minWidth: 0, padding: '14px 18px', border: `1px solid ${C.hair}`, borderRadius: 100, fontSize: 15, fontFamily: 'inherit', background: C.canvas, outline: 'none', color: '#000', transition: 'border-color 0.2s' }}
-              onFocus={e=>(e.currentTarget.style.borderColor=C.ink)}
-              onBlur={e=>(e.currentTarget.style.borderColor=C.hair)}
-            />
-            <button onClick={go} className="rfull-sm"
-              style={{ background: C.orange, border: 'none', color: '#fff', padding: '14px 30px', borderRadius: 28, fontSize: 14.5, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0, transition: 'opacity 0.2s' }}
-              onMouseEnter={e=>(e.currentTarget.style.opacity='0.88')}
-              onMouseLeave={e=>(e.currentTarget.style.opacity='1')}>
-              Search keywords →
-            </button>
+        {/* Heading */}
+        <Reveal>
+          <div style={{ textAlign: 'center', maxWidth: 720, margin: '0 auto 46px' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 11.5, fontWeight: 500, fontFamily: SANS, textTransform: 'uppercase', letterSpacing: '0.11em', color: C.ink, marginBottom: 18 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.orange, display: 'inline-block' }} />
+              Keyword Tool
+            </div>
+            <h2 style={{ fontSize: 'clamp(34px,4.6vw,56px)', fontWeight: 600, letterSpacing: '-0.035em', color: C.ink, lineHeight: 1.05, marginBottom: 18 }}>
+              See the real numbers behind any keyword
+            </h2>
+            <p style={{ fontSize: 'clamp(16px,1.4vw,18px)', color: C.graphite, lineHeight: 1.55, maxWidth: 560, margin: '0 auto' }}>
+              Search volume, competition, KD, 12-month trends and the top-ranking listings —
+              measured live from the official Etsy &amp; Google APIs. No estimates, no demo data.
+            </p>
           </div>
+        </Reveal>
 
-          {/* Loading */}
-          {isLoading && (
-            <div id="loading-state" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '32px 0', fontSize: 14, color: C.charcoal }}>
-              <div style={{ display: 'inline-flex', gap: 4 }}>
-                {[0,1,2].map(i=>(
-                  <span key={i} className="shimmer" style={{ width: 6, height: 6, borderRadius: '50%', background: C.charcoal, display: 'inline-block', animationDelay:`${i*0.15}s` }}/>
-                ))}
-              </div>
-              <span>Analyzing keyword data...</span>
-            </div>
-          )}
+        {/* Colour-framed product shot */}
+        <Reveal delay={0.08}>
+          <div className="kw-stage" style={{ position: 'relative', borderRadius: 30, padding: 'clamp(16px,3.4vw,44px)', background: BAND, boxShadow: '0 44px 100px rgba(61,62,59,0.22)' }}>
+            <Frame src="/DashboardUI.webp" alt="Rankkw keyword research dashboard — search volume, competition, KD and trends" />
 
-          {/* Error */}
-          {isError && <p style={{ textAlign:'center', color:'#c00', padding:'24px 0', fontSize:14 }}>Failed to load. Please try again.</p>}
+            {/* Floating callouts */}
+            <Chip label="Real Etsy search volume" style={{ top: 26, left: -14 }} />
+            <Chip label="Competition + KD score" style={{ top: '42%', right: -18 }} />
+            <Chip label="12-month demand trends" style={{ bottom: 30, left: 30 }} />
+          </div>
+        </Reveal>
 
-          {/* Results */}
-          {data && !isLoading && (
-            <div>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-                <p style={{ fontSize:15, fontWeight:500, color:C.charcoal }}>Keywords related to &ldquo;{data.query}&rdquo;</p>
-                <span style={{ fontSize:12, color:'#b3b3b3', fontFamily:"'General Sans',monospace" }}>{data.related.length} keywords found</span>
-              </div>
-              <div style={{ background: C.paper, borderRadius: 8, overflow: 'hidden', border: `1px solid ${C.hair}` }}>
-                <KeywordTable rows={data.related} />
-              </div>
-            </div>
-          )}
-
-          {/* Suggestions */}
-          {!data && !isLoading && !isError && (
-            <div style={{ textAlign: 'center', padding: '24px 0' }}>
-              <p style={{ fontSize: 13, color: '#aaa', marginBottom: 12 }}>Try one of these popular searches:</p>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                {SUGG.map(s => (
-                  <button key={s}
-                    onClick={()=>{ if(ref.current) ref.current.value=s; setQ(s); addR(s) }}
-                    style={{ fontSize: 12.5, fontFamily:"'General Sans',monospace", color: C.orange, background: 'transparent', border: `1px solid ${C.orange}`, padding: '5px 14px', borderRadius: 100, cursor: 'pointer', transition: 'all 0.15s' }}
-                    onMouseEnter={e=>{ e.currentTarget.style.background=C.orange; e.currentTarget.style.color='#fff' }}
-                    onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.color=C.orange }}>
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </Reveal>
+        {/* CTA */}
+        <Reveal delay={0.16}>
+          <div style={{ textAlign: 'center', marginTop: 'clamp(48px, 7vw, 72px)' }}>
+            <Link href="/register" style={{ display: 'inline-block', background: C.orange, color: '#fff', textDecoration: 'none', fontSize: 16, fontWeight: 500, padding: '15px 30px', borderRadius: 28, letterSpacing: '-0.01em', boxShadow: '0 12px 26px rgba(251,94,9,0.28)', transition: 'opacity 0.18s' }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
+              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
+              Start free — research any keyword →
+            </Link>
+            <p style={{ fontSize: 13.5, color: C.stone, marginTop: 14, fontFamily: SANS }}>
+              Free plan · no card required · real data from your first search
+            </p>
+          </div>
+        </Reveal>
+      </div>
     </section>
   )
 }

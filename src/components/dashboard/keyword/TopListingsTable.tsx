@@ -27,28 +27,32 @@ interface Row {
 type SortKey = 'rank' | 'ageDays' | 'views' | 'dailyViews' | 'fpv' | 'hearts' | 'favsPerDay' | 'price' | 'quantity' | 'tags' | 'reviews'
 
 interface Col { id: string; label: string; width: string; key?: SortKey; locked?: boolean; num?: boolean }
+// Columns use minmax(px, fr): the px floor keeps every column readable, and when
+// the sum can't fit the container the table scrolls horizontally (see .rtable
+// overflowX below) instead of crushing the numbers into unreadable slivers.
 const ALL_COLS: Col[] = [
-  { id: 'rank',    label: '#',           width: '38px',  key: 'rank', locked: true },
-  { id: 'listing', label: 'Listing',     width: '3.4fr', locked: true },
-  { id: 'age',     label: 'Age (days)',  width: '0.9fr', key: 'ageDays',    num: true },
-  { id: 'views',   label: 'Views',       width: '0.8fr', key: 'views',      num: true },
-  { id: 'dviews',  label: 'Views / day', width: '0.9fr', key: 'dailyViews', num: true },
-  { id: 'fpv',     label: 'Favs / View', width: '0.9fr', key: 'fpv',        num: true },
-  { id: 'hearts',  label: 'Hearts',      width: '0.8fr', key: 'hearts',     num: true },
-  { id: 'reviews', label: 'Reviews',     width: '0.85fr', key: 'reviews',   num: true },
-  { id: 'fpd',     label: 'Favs / day',  width: '0.85fr', key: 'favsPerDay', num: true },
-  { id: 'price',   label: 'Price',       width: '0.9fr', key: 'price',      num: true },
-  { id: 'qty',     label: 'Qty',         width: '0.6fr', key: 'quantity',   num: true },
-  { id: 'ships',   label: 'Ships (d)',   width: '0.8fr', num: true },
-  { id: 'tags',    label: 'Tags',        width: '0.7fr', key: 'tags',       num: true },
+  { id: 'rank',    label: '#',           width: '57px',                key: 'rank', locked: true },
+  { id: 'listing', label: 'Listing',     width: 'minmax(429px,3fr)',   locked: true },
+  { id: 'age',     label: 'Age (days)',  width: 'minmax(143px,0.9fr)',  key: 'ageDays',    num: true },
+  { id: 'views',   label: 'Views',       width: 'minmax(135px,0.8fr)',  key: 'views',      num: true },
+  { id: 'dviews',  label: 'Views / day', width: 'minmax(169px,0.9fr)',  key: 'dailyViews', num: true },
+  { id: 'fpv',     label: 'Favs / View', width: 'minmax(169px,0.9fr)',  key: 'fpv',        num: true },
+  { id: 'hearts',  label: 'Hearts',      width: 'minmax(143px,0.8fr)',  key: 'hearts',     num: true },
+  { id: 'reviews', label: 'Reviews',     width: 'minmax(153px,0.85fr)', key: 'reviews',    num: true },
+  { id: 'fpd',     label: 'Favs / day',  width: 'minmax(159px,0.85fr)', key: 'favsPerDay', num: true },
+  { id: 'price',   label: 'Price',       width: 'minmax(166px,0.9fr)',  key: 'price',      num: true },
+  { id: 'qty',     label: 'Qty',         width: 'minmax(114px,0.6fr)',  key: 'quantity',   num: true },
+  { id: 'ships',   label: 'Ships (d)',   width: 'minmax(151px,0.8fr)',  num: true },
+  { id: 'tags',    label: 'Tags',        width: 'minmax(125px,0.7fr)',  key: 'tags',       num: true },
 ]
 const DEFAULT_HIDDEN = new Set(['fpd'])
 
-const Arrow = ({ dir }: { dir?: 'asc' | 'desc' }) => (
-  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: dir ? 1 : 0.3 }}>
-    {dir === 'asc' ? <polyline points="18 15 12 9 6 15" /> : <polyline points="6 9 12 15 18 9" />}
-  </svg>
-)
+// Sort indicators — mirror the Keyword table: an active column shows a single
+// caret (asc/desc); every other sortable column shows a faint up+down pair so the
+// little "sortable" arrows are visible on all columns, not just the active one.
+const AscIcon  = () => <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15" /></svg>
+const DescIcon = () => <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+const BothIcon = () => <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.35 }}><polyline points="18 15 12 9 6 15" /><polyline points="6 9 12 15 18 9" /></svg>
 
 function ExtIcon() {
   return <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: '-1px' }}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
@@ -97,6 +101,13 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
 
   const cols = useMemo(() => ALL_COLS.filter(c => !hidden.has(c.id)), [hidden])
   const grid = useMemo(() => cols.map(c => c.width).join(' ') + ' 34px', [cols])
+  // Sum of the px floors → the row's min-width, so backgrounds/borders span the
+  // full width when the table scrolls horizontally instead of being cut short.
+  const minTableW = useMemo(() => cols.reduce((s, c) => {
+    const mm = c.width.match(/minmax\((\d+)px/)
+    const fixed = c.width.match(/^(\d+)px$/)
+    return s + (mm ? +mm[1] : fixed ? +fixed[1] : 0)
+  }, 34 + cols.length * 15), [cols])
 
   const handleSort = useCallback((key: SortKey) => {
     setSortDir(prev => (sortKey === key ? (prev === 'asc' ? 'desc' : 'asc') : (key === 'rank' ? 'asc' : 'desc')))
@@ -145,33 +156,33 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
 
   const num = (v: number | null, opts?: { digits?: number; color?: string; suffix?: string }) =>
     v == null
-      ? <span style={{ fontFamily: MONO, fontSize: 13, color: C.stone }}>—</span>
-      : <span style={{ fontFamily: MONO, fontSize: 13, color: opts?.color ?? C.ink }}>{opts?.digits != null ? v.toFixed(opts.digits) : formatNumber(v)}{opts?.suffix ?? ''}</span>
+      ? <span style={{ fontFamily: MONO, fontSize: 17.5, color: C.stone }}>—</span>
+      : <span style={{ fontFamily: MONO, fontSize: 17.5, color: opts?.color ?? C.ink }}>{opts?.digits != null ? v.toFixed(opts.digits) : formatNumber(v)}{opts?.suffix ?? ''}</span>
 
   const cell = (c: Col, r: Row) => {
     switch (c.id) {
       case 'rank': {
         const podium = r.rank <= 3
-        return <span key={c.id} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 24, height: 22, padding: '0 6px', borderRadius: 7, background: podium ? C.orange : C.bone, color: podium ? '#fff' : C.graphite, fontSize: 11.5, fontFamily: MONO, fontWeight: 700 }}>{r.rank}</span>
+        return <span key={c.id} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 30, height: 28, padding: '0 8px', borderRadius: 9, background: podium ? C.orange : C.bone, color: podium ? '#fff' : C.graphite, fontSize: 14, fontFamily: MONO, fontWeight: 700 }}>{r.rank}</span>
       }
       case 'listing':
         return (
-          <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
+          <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
             {r.l.images?.[0]?.url_75x75
-              ? <img src={r.l.images[0].url_75x75} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0, background: C.bone }} />
-              : <div style={{ width: 44, height: 44, borderRadius: 8, background: C.bone, flexShrink: 0 }} />}
+              ? <img src={r.l.images[0].url_75x75} alt="" style={{ width: 60, height: 60, borderRadius: 11, objectFit: 'cover', flexShrink: 0, background: C.bone }} />
+              : <div style={{ width: 60, height: 60, borderRadius: 11, background: C.bone, flexShrink: 0 }} />}
             <div style={{ minWidth: 0 }}>
               <a href={r.l.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
                 title={r.l.title}
-                style={{ display: 'block', fontSize: 13, color: C.ink, fontWeight: 500, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}
+                style={{ display: 'block', fontSize: 17.5, color: C.ink, fontWeight: 500, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}
                 onMouseEnter={e => (e.currentTarget.style.color = C.orange)}
                 onMouseLeave={e => (e.currentTarget.style.color = C.ink)}>
                 {r.l.title}
               </a>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 3 }}>
-                <span style={{ fontSize: 11.5, color: C.stone, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>{r.l.shop_name}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 5 }}>
+                <span style={{ fontSize: 15, color: C.stone, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{r.l.shop_name}</span>
                 <a href={r.l.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-                  style={{ fontSize: 11, color: C.orange, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  style={{ fontSize: 13.5, color: C.orange, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                   See on Etsy <ExtIcon />
                 </a>
               </div>
@@ -185,19 +196,19 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
       case 'hearts': return <span key={c.id}>{num(r.l.num_favorers ?? 0, { color: D.hard })}</span>
       case 'reviews': {
         const rc = reviews?.[r.l.listing_id]
-        if (rc === undefined && reviewsLoading) return <span key={c.id} className="shimmer" style={{ height: 12, width: 34, borderRadius: 4, background: '#e8e7e2', display: 'inline-block' }} />
+        if (rc === undefined && reviewsLoading) return <span key={c.id} className="shimmer" style={{ height: 15, width: 42, borderRadius: 4, background: '#e8e7e2', display: 'inline-block' }} />
         return <span key={c.id}>{num(rc ?? null, { color: (rc ?? 0) > 0 ? D.good : C.stone })}</span>
       }
       case 'fpd':    return <span key={c.id}>{num(r.favsPerDay, { digits: 2 })}</span>
-      case 'price':  return <span key={c.id} style={{ fontFamily: MONO, fontSize: 13, color: C.orange, fontWeight: 600 }}>{sym(r.l.price.currency_code)}{r.price.toFixed(2)}</span>
+      case 'price':  return <span key={c.id} style={{ fontFamily: MONO, fontSize: 17.5, color: C.orange, fontWeight: 600 }}>{sym(r.l.price.currency_code)}{r.price.toFixed(2)}</span>
       case 'qty':    return <span key={c.id}>{num(r.l.quantity ?? null)}</span>
-      case 'ships':  return <span key={c.id} style={{ fontFamily: MONO, fontSize: 13, color: (r.l.processing_min != null || r.l.processing_max != null) ? C.ink : C.stone }}>{r.l.processing_min != null && r.l.processing_max != null ? `${r.l.processing_min}–${r.l.processing_max}` : (r.l.processing_min ?? r.l.processing_max ?? '—')}</span>
-      case 'tags':   return <span key={c.id} style={{ fontFamily: MONO, fontSize: 13, color: (r.l.tags?.length ?? 0) > 0 ? C.ink : C.stone }}>{r.l.tags?.length ?? 0}</span>
+      case 'ships':  return <span key={c.id} style={{ fontFamily: MONO, fontSize: 17.5, color: (r.l.processing_min != null || r.l.processing_max != null) ? C.ink : C.stone }}>{r.l.processing_min != null && r.l.processing_max != null ? `${r.l.processing_min}–${r.l.processing_max}` : (r.l.processing_min ?? r.l.processing_max ?? '—')}</span>
+      case 'tags':   return <span key={c.id} style={{ fontFamily: MONO, fontSize: 17.5, color: (r.l.tags?.length ?? 0) > 0 ? C.ink : C.stone }}>{r.l.tags?.length ?? 0}</span>
       default:       return <span key={c.id} />
     }
   }
 
-  const rowGrid = { display: 'grid', gridTemplateColumns: grid, gap: 12, alignItems: 'center', padding: '10px 14px' } as const
+  const rowGrid = { display: 'grid', gridTemplateColumns: grid, gap: 15, alignItems: 'center', padding: '16px 20px', minWidth: minTableW } as const
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -219,15 +230,16 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
         <ExportBtn onClick={exportCsv} />
       </div>
 
-      {/* Table */}
-      <div className="rtable" style={tableCard}>
+      {/* Table — scrolls horizontally when the columns need more room than the
+          container has, so nothing gets squeezed into an unreadable width. */}
+      <div className="rtable" style={{ ...tableCard, overflowX: 'auto' }}>
         {/* Header */}
         <div style={{ ...rowGrid, position: 'sticky', top: 0, background: C.canvas, borderBottom: `1px solid ${C.ash}`, zIndex: 1 }}>
           {cols.map(c => (
             <button key={c.id} onClick={() => c.key && handleSort(c.key)} disabled={!c.key}
-              style={{ display: 'flex', alignItems: 'center', gap: 3, justifyContent: c.num ? 'flex-end' : 'flex-start', background: 'none', border: 'none', cursor: c.key ? 'pointer' : 'default', padding: 0, fontFamily: MONO, fontSize: 11, fontWeight: 600, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 3, justifyContent: c.num ? 'flex-end' : 'flex-start', background: 'none', border: 'none', cursor: c.key ? 'pointer' : 'default', padding: 0, fontFamily: MONO, fontSize: 13, fontWeight: 600, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               {c.label}
-              {c.key && <Arrow dir={sortKey === c.key ? sortDir : undefined} />}
+              {c.key && (sortKey === c.key ? (sortDir === 'asc' ? <AscIcon /> : <DescIcon />) : <BothIcon />)}
             </button>
           ))}
           <span />
@@ -241,7 +253,7 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
         ) : view.map(r => {
           const open = expanded.has(r.l.listing_id)
           return (
-            <div key={r.l.listing_id} style={{ borderBottom: `1px solid ${C.hair}` }}>
+            <div key={r.l.listing_id} style={{ borderBottom: `1px solid ${C.hair}`, minWidth: minTableW }}>
               <div style={{ ...rowGrid, cursor: 'pointer', transition: 'background 0.12s', background: open ? C.orangeFaint : 'transparent' }}
                 onClick={() => toggleRow(r.l.listing_id)}
                 onMouseEnter={e => { if (!open) e.currentTarget.style.background = C.rowHover }}

@@ -28,7 +28,7 @@ function CopyBtn({ text, label = 'Copy' }: { text: string; label?: string }) {
   )
 }
 
-interface ImgState { loading: boolean; dataUrl?: string; error?: string }
+interface ImgState { loading: boolean; dataUrl?: string; error?: string; costUsd?: number }
 
 export function EtsyListingProTab() {
   const [product, setProduct] = useState('')
@@ -37,6 +37,7 @@ export function EtsyListingProTab() {
   const [images, setImages] = useState<Record<ImageType, ImgState>>({
     main: { loading: false }, mockup: { loading: false }, feature: { loading: false }, combo: { loading: false },
   })
+  const [spentUsd, setSpentUsd] = useState(0)   // running cost this session
 
   const gen = useMutation({
     mutationFn: async () => {
@@ -59,12 +60,14 @@ export function EtsyListingProTab() {
     if (!listing) return
     setImages(p => ({ ...p, [type]: { loading: true } }))
     try {
-      const { data } = await axios.post<ApiResponse<{ dataUrl: string }>>('/api/ai/listing-image', {
+      const { data } = await axios.post<ApiResponse<{ dataUrl: string; costUsd?: number }>>('/api/ai/listing-image', {
         type, product, visual: listing.visual, features: listing.features,
         refImage: ref ? { data: ref.dataUrl, mimeType: ref.mimeType } : undefined,
       })
       if (!data.success || !data.data) throw new Error(data.error ?? 'Image failed')
-      setImages(p => ({ ...p, [type]: { loading: false, dataUrl: data.data!.dataUrl } }))
+      const cost = data.data.costUsd ?? 0
+      setSpentUsd(s => s + cost)
+      setImages(p => ({ ...p, [type]: { loading: false, dataUrl: data.data!.dataUrl, costUsd: cost } }))
     } catch (e) {
       const msg = axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : (e instanceof Error ? e.message : 'Image failed')
       setImages(p => ({ ...p, [type]: { loading: false, error: msg } }))
@@ -169,10 +172,17 @@ export function EtsyListingProTab() {
           {/* ─── Images ───────────────────────────────────────────────────── */}
           <Card>
             <SectionTitle right={
-              <button onClick={genAll}
-                style={{ fontSize: 12.5, fontFamily: MONO, color: C.orange, background: C.orangeFaint, border: `1px solid ${C.orange}`, borderRadius: 100, padding: '6px 13px', cursor: 'pointer' }}>
-                Generate all
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {spentUsd > 0 && (
+                  <span title="Estimated Gemini image-generation cost this session" style={{ fontSize: 12, fontFamily: MONO, color: C.ink, background: C.bone, border: `1px solid ${C.ash}`, borderRadius: 100, padding: '5px 11px', whiteSpace: 'nowrap' }}>
+                    Spent: <strong style={{ color: C.orange }}>${spentUsd.toFixed(4)}</strong>
+                  </span>
+                )}
+                <button onClick={genAll}
+                  style={{ fontSize: 12.5, fontFamily: MONO, color: C.orange, background: C.orangeFaint, border: `1px solid ${C.orange}`, borderRadius: 100, padding: '6px 13px', cursor: 'pointer' }}>
+                  Generate all
+                </button>
+              </div>
             }>Etsy-style images</SectionTitle>
             <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.6, marginTop: -6, marginBottom: 14 }}>
               AI images shot in real Etsy styles — hero, lifestyle mockup, feature callouts, and an all-in-one. Alt text: <span style={{ fontStyle: 'italic' }}>{listing.altText}</span>
@@ -185,7 +195,9 @@ export function EtsyListingProTab() {
                     <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: `1px solid ${C.hair}` }}>
                       <div style={{ flex: 1 }}>
                         <p style={{ fontSize: 14, fontWeight: 500, color: C.ink }}>{name}</p>
-                        <p style={{ fontSize: 11.5, color: C.stone }}>{desc}</p>
+                        <p style={{ fontSize: 11.5, color: C.stone }}>
+                          {st.costUsd != null ? <span style={{ color: C.orange, fontFamily: MONO }}>${st.costUsd.toFixed(4)} spent</span> : desc}
+                        </p>
                       </div>
                       {st.dataUrl && (
                         <>

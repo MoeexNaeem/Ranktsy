@@ -166,13 +166,17 @@ export function DashboardLayout() {
   const logout = useLogout()
   const handleTab = useCallback((id: TabId) => { setActiveTab(id); setNavOpen(false) }, [])
 
-  // After the Etsy OAuth redirect (…/dashboard?etsy=connected), land on My Shop
-  // and clean the URL so a refresh doesn't re-trigger the banner.
+  // Deep links: the Etsy OAuth redirect (…/dashboard?etsy=connected) lands on My
+  // Shop; the marketing nav opens a specific tool via …/dashboard?tab=<id>. Either
+  // way the query is cleaned so a refresh doesn't re-trigger it.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    if (params.has('etsy')) {
-      setActiveTab('myshop')
-      params.delete('etsy')
+    let target: TabId | null = null
+    if (params.has('etsy')) { target = 'myshop'; params.delete('etsy') }
+    const tab = params.get('tab')
+    if (tab && TABS.some(t => t.id === tab)) { target = tab as TabId; params.delete('tab') }
+    if (target) {
+      setActiveTab(target)
       const qs = params.toString()
       window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''))
     }

@@ -12,6 +12,8 @@
  * and the failure modes explicit.
  */
 
+import { recordImage } from '@/lib/usage'
+
 // The key was uploaded under the non-standard name `Gemini_API_KEY`; accept the
 // conventional GEMINI_API_KEY too so either works.
 function geminiKey(): string {
@@ -33,6 +35,14 @@ const MODEL = process.env.GEMINI_MODEL || 'gemini-flash-latest'
 // one (e.g. gemini-3.1-flash-image). Verified 2026-07-28.
 const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image'
 const BASE = 'https://generativelanguage.googleapis.com/v1beta'
+
+// Image-generation pricing (USD). Gemini 2.5 Flash Image bills image OUTPUT as
+// tokens (~1290 tokens per image → ~$0.039); text INPUT is cheap. Rates are
+// env-overridable so they can be corrected if the model/price changes. Cost is
+// computed from the real usageMetadata token counts each call returns.
+const IMG_IN_USD_PER_MTOK  = Number(process.env.GEMINI_IMAGE_INPUT_USD_PER_MTOK  ?? 0.30)
+const IMG_OUT_USD_PER_MTOK = Number(process.env.GEMINI_IMAGE_OUTPUT_USD_PER_MTOK ?? 30)
+const IMG_FALLBACK_USD     = Number(process.env.GEMINI_IMAGE_USD_PER_IMAGE       ?? 0.039)
 
 // JSON-schema subset Gemini accepts on `responseSchema`.
 export type GeminiSchema = Record<string, unknown>
@@ -144,8 +154,9 @@ export async function geminiGenerate(opts: GenerateOpts): Promise<string | null>
 
 // ─── Image generation (Gemini Flash Image / "Nano Banana") ────────────────────
 export interface GeminiRefImage { data: string; mimeType: string }  // base64 data (no data: prefix)
+export interface GeminiImageUsage { promptTokens: number; outputTokens: number; totalTokens: number; costUsd: number }
 export type GeminiImageOutcome =
-  | { ok: true; dataUrl: string; mimeType: string }
+  | { ok: true; dataUrl: string; mimeType: string; usage: GeminiImageUsage }
   | { ok: false; reason: 'unconfigured' | 'quota' | 'blocked' | 'error'; detail?: string }
 
 /**
@@ -196,7 +207,16 @@ export async function geminiImage(prompt: string, refs?: GeminiRefImage[]): Prom
         if (attempt < MAX - 1) { await sleep(500 * (attempt + 1)); continue }
         return last
       }
-      return { ok: true, dataUrl: `data:${mime};base64,${data}`, mimeType: mime }
+      // Cost & token accounting from the real usageMetadata this call returns.
+      const um = j?.usageMetadata ?? {}
+      const promptTokens = Number(um.promptTokenCount ?? 0)
+      const outputTokens = Number(um.candidatesTokenCount ?? 0)
+      const totalTokens = Number(um.totalTokenCount ?? (promptTokens + outputTokens))
+      const costUsd = totalTokens > 0
+        ? promptTokens * IMG_IN_USD_PER_MTOK / 1e6 + outputTokens * IMG_OUT_USD_PER_MTOK / 1e6
+        : IMG_FALLBACK_USD
+      recordImage(1, totalTokens, costUsd)   // attributed to the current user (withUsage)
+      return { ok: true, dataUrl: `data:${mime};base64,${data}`, mimeType: mime, usage: { promptTokens, outputTokens, totalTokens, costUsd } }
     } catch (e) {
       console.error('[Gemini image] request failed:', e)
       last = { ok: false, reason: 'error', detail: e instanceof Error ? e.message : 'unknown' }

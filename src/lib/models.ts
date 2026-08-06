@@ -3,7 +3,7 @@ import { SNAPSHOT_RETENTION_DAYS } from '@/utils'
 import type {
   IKeywordCache, IKeywordHistory, IOTP,
   IShopSnapshot, IListingSnapshot, ITrackedShop,
-  ICollectiveKeywordData, IApiUsage,
+  ICollectiveKeywordData, IApiUsage, IBlog,
 } from '@/types'
 
 // ─── User ─────────────────────────────────────────────────────────────────────
@@ -89,6 +89,10 @@ const ApiUsageSchema = new Schema<IApiUsage>({
   searches:   { type: Number, default: 0 },
   cacheHits:  { type: Number, default: 0 },
   apiHits:    { type: Number, default: 0 },
+  // Gemini image generation — count, total tokens burnt, and USD spent.
+  imageCalls:   { type: Number, default: 0 },
+  imageTokens:  { type: Number, default: 0 },
+  imageCostUsd: { type: Number, default: 0 },
 }, { timestamps: true })
 ApiUsageSchema.index({ day: 1, userId: 1 }, { unique: true })
 ApiUsageSchema.index({ userId: 1, day: -1 })
@@ -173,7 +177,26 @@ const TrackedShopSchema = new Schema<ITrackedShop>({
 
 TrackedShopSchema.index({ userId: 1, shopId: 1 }, { unique: true })
 
+// ─── Blog ──────────────────────────────────────────────────────────────────────
+const BlogSchema = new Schema<IBlog>({
+  title:          { type: String, required: true, trim: true, maxlength: 200 },
+  slug:           { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
+  excerpt:        { type: String, trim: true, maxlength: 400 },
+  coverImage:     { type: String, trim: true },
+  category:       { type: String, trim: true, default: 'General' },
+  tags:           { type: [String], default: [] },
+  content:        { type: String, default: '' },          // Markdown
+  status:         { type: String, enum: ['draft', 'published'], default: 'draft', index: true },
+  author:         { type: String, trim: true, default: 'Rankkw' },
+  seoTitle:       { type: String, trim: true },
+  seoDescription: { type: String, trim: true },
+  readingMinutes: { type: Number, default: 1 },
+  publishedAt:    { type: Date, default: null },
+}, { timestamps: true })
+BlogSchema.index({ status: 1, publishedAt: -1 })
+
 export const User          = models.User          ?? model<IUserDoc>('User', UserSchema)
+export const Blog          = (models.Blog as mongoose.Model<IBlog>) ?? model<IBlog>('Blog', BlogSchema)
 export const ShopSnapshot    = models.ShopSnapshot    ?? model<IShopSnapshot>('ShopSnapshot', ShopSnapshotSchema)
 export const ListingSnapshot = models.ListingSnapshot ?? model<IListingSnapshot>('ListingSnapshot', ListingSnapshotSchema)
 export const TrackedShop     = models.TrackedShop     ?? model<ITrackedShop>('TrackedShop', TrackedShopSchema)

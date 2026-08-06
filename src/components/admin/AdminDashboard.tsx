@@ -9,15 +9,17 @@ interface AUser {
   isVerified: boolean; createdAt: string | null; searches: number; lastActive: string | null; etsyShopId: string | null
 }
 interface Stats { total: number; admins: number; verified: number; searches: number }
-interface UsageUser { userId: string; userEmail: string | null; etsyCalls: number; googleCalls: number; searches: number; cacheHits: number; apiHits: number }
+interface UsageUser { userId: string; userEmail: string | null; etsyCalls: number; googleCalls: number; searches: number; cacheHits: number; apiHits: number; imageCalls: number; imageTokens: number; imageCostUsd: number }
 interface UsageData {
-  today: { day: string; totals: { etsyCalls: number; googleCalls: number; searches: number; cacheHits: number; apiHits: number }; perUser: UsageUser[] }
-  last7Days: { day: string; etsyCalls: number; googleCalls: number; searches: number }[]
+  today: { day: string; totals: { etsyCalls: number; googleCalls: number; searches: number; cacheHits: number; apiHits: number; imageCalls: number; imageTokens: number; imageCostUsd: number }; perUser: UsageUser[] }
+  last7Days: { day: string; etsyCalls: number; googleCalls: number; searches: number; imageCalls: number; imageCostUsd: number }[]
 }
 
 const GRID = '2.2fr 0.9fr 0.85fr 0.7fr 0.9fr 0.6fr'
-const UGRID = '2fr 0.8fr 0.8fr 0.9fr 1fr'
+const UGRID = '1.7fr 0.7fr 0.7fr 0.8fr 0.9fr 1fr'
 const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }) : '—'
+/** USD with enough precision for tiny per-image costs. */
+const usd = (n: number) => `$${(n || 0).toFixed(n < 1 ? 4 : 2)}`
 const timeAgo = (d: string | null) => {
   if (!d) return 'never'
   const days = Math.floor((Date.now() - new Date(d).getTime()) / 86400000)
@@ -92,7 +94,10 @@ export function AdminDashboard() {
     <>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
         <h1 style={{ fontSize: 'clamp(30px,3.8vw,46px)', fontWeight: 500, color: C.ink, letterSpacing: '-0.03em', lineHeight: 1.02 }}>User management</h1>
-        <Link href="/dashboard" style={{ fontSize: 13, color: C.ink, textDecoration: 'underline', textUnderlineOffset: 4 }}>← Back to dashboard</Link>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+          <Link href="/admin/blogs" style={{ fontSize: 13.5, fontWeight: 500, color: '#fff', background: C.orange, borderRadius: 100, padding: '9px 18px', textDecoration: 'none' }}>✍ Manage blog</Link>
+          <Link href="/dashboard" style={{ fontSize: 13, color: C.ink, textDecoration: 'underline', textUnderlineOffset: 4 }}>← Back to dashboard</Link>
+        </div>
       </div>
 
       {stats && (
@@ -107,16 +112,23 @@ export function AdminDashboard() {
       {usage && (
         <div style={{ marginBottom: 30 }}>
           <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>today · {usage.today.day} (UTC) · resets at midnight</span>}>API usage — today</SectionTitle>
-          <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 14 }}>
+          <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 12 }}>
             <StatCard label="Etsy API calls" value={formatNumber(usage.today.totals.etsyCalls)} accent={C.orange} />
             <StatCard label="Google API calls" value={formatNumber(usage.today.totals.googleCalls)} accent={C.ink} />
             <StatCard label="Searches" value={formatNumber(usage.today.totals.searches)} accent={C.ink} />
             <StatCard label="Cache hits / API" value={`${formatNumber(usage.today.totals.cacheHits)} / ${formatNumber(usage.today.totals.apiHits)}`} accent={C.ink} />
           </div>
 
+          {/* Gemini image generation — count, tokens burnt, USD spent */}
+          <div className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 14 }}>
+            <StatCard label="AI images generated" value={formatNumber(usage.today.totals.imageCalls)} accent={C.orange} />
+            <StatCard label="Image tokens burnt" value={formatNumber(usage.today.totals.imageTokens)} accent={C.ink} />
+            <StatCard label="Image cost (today)" value={usd(usage.today.totals.imageCostUsd)} accent={C.orange} />
+          </div>
+
           <div className="rtable" style={tableCard}>
             <div style={tableHead(UGRID)}>
-              {['User', 'Etsy', 'Google', 'Searches', 'Cache / API'].map((h, i) => <span key={i} style={th}>{h}</span>)}
+              {['User', 'Etsy', 'Google', 'Searches', 'Cache / API', 'Images · $'].map((h, i) => <span key={i} style={th}>{h}</span>)}
             </div>
             {usage.today.perUser.length === 0 ? (
               <div style={{ padding: '16px 18px', fontSize: 13, color: '#808080' }}>No API usage recorded yet today.</div>
@@ -129,6 +141,7 @@ export function AdminDashboard() {
                 <span style={tdMono}>{formatNumber(u.googleCalls)}</span>
                 <span style={tdMono}>{formatNumber(u.searches)}</span>
                 <span style={tdMono}>{formatNumber(u.cacheHits)} / {formatNumber(u.apiHits)}</span>
+                <span style={{ ...tdMono, color: u.imageCalls > 0 ? C.orange : '#808080' }}>{formatNumber(u.imageCalls)} · {usd(u.imageCostUsd)}</span>
               </div>
             ))}
           </div>
@@ -140,6 +153,7 @@ export function AdminDashboard() {
                 <p style={{ fontSize: 10, fontFamily: MONO, color: '#808080', marginBottom: 5 }}>{d.day.slice(5)}</p>
                 <p style={{ fontSize: 12.5, color: C.ink, fontFamily: MONO }}>E {formatNumber(d.etsyCalls)} · G {formatNumber(d.googleCalls)}</p>
                 <p style={{ fontSize: 10.5, color: '#808080', fontFamily: MONO, marginTop: 2 }}>{formatNumber(d.searches)} searches</p>
+                <p style={{ fontSize: 10.5, color: d.imageCalls > 0 ? C.orange : '#808080', fontFamily: MONO, marginTop: 2 }}>{formatNumber(d.imageCalls)} img · {usd(d.imageCostUsd)}</p>
               </div>
             ))}
           </div>

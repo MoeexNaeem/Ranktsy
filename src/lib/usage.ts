@@ -33,6 +33,7 @@ const dayKey = (d: Date = new Date()) => d.toISOString().slice(0, 10)
 interface Bucket {
   day: string; userId: string; userEmail?: string
   etsy: number; google: number; searches: number; cacheHits: number; apiHits: number
+  images: number; imageTokens: number; imageCostUsd: number   // Gemini image generation
 }
 
 const FLUSH_MS = 4000
@@ -44,7 +45,7 @@ function bucket(): Bucket {
   const day = dayKey()
   const k = `${day}|${userId}`
   let b = buffers.get(k)
-  if (!b) { b = { day, userId, userEmail, etsy: 0, google: 0, searches: 0, cacheHits: 0, apiHits: 0 }; buffers.set(k, b) }
+  if (!b) { b = { day, userId, userEmail, etsy: 0, google: 0, searches: 0, cacheHits: 0, apiHits: 0, images: 0, imageTokens: 0, imageCostUsd: 0 }; buffers.set(k, b) }
   else if (userEmail && !b.userEmail) b.userEmail = userEmail
   return b
 }
@@ -60,7 +61,7 @@ async function flush(): Promise<void> {
     await connectDB()
     await Promise.all(pending.map(b => {
       const update: Record<string, unknown> = {
-        $inc: { etsyCalls: b.etsy, googleCalls: b.google, searches: b.searches, cacheHits: b.cacheHits, apiHits: b.apiHits },
+        $inc: { etsyCalls: b.etsy, googleCalls: b.google, searches: b.searches, cacheHits: b.cacheHits, apiHits: b.apiHits, imageCalls: b.images, imageTokens: b.imageTokens, imageCostUsd: b.imageCostUsd },
       }
       if (b.userEmail) update.$set = { userEmail: b.userEmail }
       return ApiUsage.updateOne({ day: b.day, userId: b.userId }, update, { upsert: true })
@@ -72,6 +73,7 @@ async function flush(): Promise<void> {
       const cur = buffers.get(k)
       if (!cur) { buffers.set(k, b); continue }
       cur.etsy += b.etsy; cur.google += b.google; cur.searches += b.searches; cur.cacheHits += b.cacheHits; cur.apiHits += b.apiHits
+      cur.images += b.images; cur.imageTokens += b.imageTokens; cur.imageCostUsd += b.imageCostUsd
     }
     console.error('[Usage] flush failed:', e)
   }
@@ -82,6 +84,10 @@ export function recordGoogleCall(n = 1): void { bucket().google += n; schedule()
 export function recordSearch(n = 1): void { bucket().searches += n; schedule() }
 export function recordCacheHit(n = 1): void { bucket().cacheHits += n; schedule() }
 export function recordApiHit(n = 1): void { bucket().apiHits += n; schedule() }
+/** Record a Gemini image generation: image count, token total, and USD cost. */
+export function recordImage(images: number, tokens: number, costUsd: number): void {
+  const b = bucket(); b.images += images; b.imageTokens += tokens; b.imageCostUsd += costUsd; schedule()
+}
 
 /** Etsy+Google calls attributed to the current request so far (for cache-vs-live detection). */
 export function peekApiCalls(): number { const b = bucket(); return b.etsy + b.google }

@@ -62,6 +62,7 @@ export function DescriptionGenTab() {
   const [features, setFeatures] = useState(saved.features)
   const [submitted, setSubmitted] = useState<DescParams | null>(saved.submitted)
   const [copied, setCopied] = useState(false)
+  const [active, setActive] = useState(0) // which of the 3 versions is shown
 
   const { data, isFetching, isError, error } = useQuery({
     queryKey: ['ai-desc', submitted ? JSON.stringify(submitted) : ''],
@@ -72,7 +73,7 @@ export function DescriptionGenTab() {
       })
       const d = await r.json().catch(() => null)
       if (!r.ok || !d?.success) throw new Error(d?.error || 'Generation failed.')
-      return d.data as AiDescResult
+      return d.data as AiDescResult[]
     },
     enabled: !!submitted && submitted.q.trim().length >= 2,
     staleTime: Infinity,
@@ -85,6 +86,7 @@ export function DescriptionGenTab() {
     const params: DescParams = { q: q.trim(), productName, productType, audience, features }
     Object.assign(saved, params, { submitted: params })
     setSubmitted(params)
+    setActive(0)
   }
 
   return (
@@ -112,48 +114,70 @@ export function DescriptionGenTab() {
         </div>
         <button onClick={run} disabled={isFetching || q.trim().length < 2}
           style={{ ...primaryBtn, marginTop: 14, opacity: isFetching || q.trim().length < 2 ? 0.6 : 1, cursor: isFetching || q.trim().length < 2 ? 'not-allowed' : 'pointer' }}>
-          {isFetching ? 'Generating…' : 'Generate description →'}
+          {isFetching ? 'Generating 3 versions…' : 'Generate 3 descriptions →'}
         </button>
       </Card>
 
       {isError && <ErrorBox>{(error as Error)?.message || 'Generation failed.'}</ErrorBox>}
       {isFetching && <Card><div className="shimmer" style={{ height: 320, borderRadius: 10, background: '#e8e7e2' }} /></Card>}
-      {!isFetching && !data && !isError && <EmptyState icon="📝" title="No description yet" sub="Fill in your keyword and hit Generate." />}
+      {!isFetching && !data && !isError && <EmptyState icon="📝" title="No description yet" sub="Fill in your keyword and hit Generate — you'll get 3 versions to choose from." />}
 
-      {data && !isFetching && (
-        <>
-          <Card>
-            <SectionTitle right={
-              <button onClick={() => { navigator.clipboard?.writeText(data.description); setCopied(true); setTimeout(() => setCopied(false), 1400) }}
-                style={{ border: `1px solid ${copied ? D.good : C.ash}`, background: copied ? D.goodBg : C.paper, color: copied ? D.good : C.orange, borderRadius: 100, padding: '6px 15px', fontSize: 13, fontWeight: 500, fontFamily: 'inherit', cursor: 'pointer' }}>
-                {copied ? 'Copied ✓' : 'Copy description'}
-              </button>
-            }>
-              Etsy description
-            </SectionTitle>
-            <div style={{ marginTop: 8, background: C.canvas, borderRadius: 12, padding: '20px 22px', border: `1px solid ${C.hair}` }}>
-              <MiniMarkdown text={data.description} />
+      {data && data.length > 0 && !isFetching && (() => {
+        const cur = data[Math.min(active, data.length - 1)]
+        const idx = Math.min(active, data.length - 1)
+        return (
+          <>
+            <Card>
+              <SectionTitle right={
+                <button onClick={() => { navigator.clipboard?.writeText(cur.description); setCopied(true); setTimeout(() => setCopied(false), 1400) }}
+                  style={{ border: `1px solid ${copied ? D.good : C.ash}`, background: copied ? D.goodBg : C.paper, color: copied ? D.good : C.orange, borderRadius: 100, padding: '6px 15px', fontSize: 13, fontWeight: 500, fontFamily: 'inherit', cursor: 'pointer' }}>
+                  {copied ? 'Copied ✓' : 'Copy description'}
+                </button>
+              }>
+                Etsy description
+              </SectionTitle>
+
+              {/* Version switcher — one tab per generated variant */}
+              {data.length > 1 && (
+                <div style={{ display: 'flex', gap: 8, margin: '4px 0 14px', flexWrap: 'wrap' }}>
+                  {data.map((_, i) => (
+                    <button key={i} onClick={() => { setActive(i); setCopied(false) }}
+                      style={{
+                        padding: '7px 16px', borderRadius: 100, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 500,
+                        border: `1px solid ${idx === i ? C.orange : C.ash}`,
+                        background: idx === i ? C.orange : C.paper,
+                        color: idx === i ? '#fff' : C.graphite,
+                      }}>
+                      Version {i + 1}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ background: C.canvas, borderRadius: 12, padding: '20px 22px', border: `1px solid ${C.hair}` }}>
+                <MiniMarkdown text={cur.description} />
+              </div>
+            </Card>
+
+            <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'start' }}>
+              <Card>
+                <SectionTitle>Scores{data.length > 1 ? ` · Version ${idx + 1}` : ''}</SectionTitle>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 6 }}>
+                  <ScoreBar label="SEO optimization" value={cur.seoScore} />
+                  <ScoreBar label="Readability" value={cur.readabilityScore} />
+                  <ScoreBar label="Conversion" value={cur.conversionScore} />
+                </div>
+              </Card>
+              <Card>
+                <SectionTitle>Keywords used</SectionTitle>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                  {[...(cur.secondaryKeywords ?? []), ...(cur.longTailKeywords ?? []), ...(cur.semanticKeywords ?? [])].slice(0, 24).map((k, i) => <TagPill key={k + i}>{k}</TagPill>)}
+                </div>
+              </Card>
             </div>
-          </Card>
-
-          <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'start' }}>
-            <Card>
-              <SectionTitle>Scores</SectionTitle>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 6 }}>
-                <ScoreBar label="SEO optimization" value={data.seoScore} />
-                <ScoreBar label="Readability" value={data.readabilityScore} />
-                <ScoreBar label="Conversion" value={data.conversionScore} />
-              </div>
-            </Card>
-            <Card>
-              <SectionTitle>Keywords used</SectionTitle>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-                {[...(data.secondaryKeywords ?? []), ...(data.longTailKeywords ?? []), ...(data.semanticKeywords ?? [])].slice(0, 24).map((k, i) => <TagPill key={k + i}>{k}</TagPill>)}
-              </div>
-            </Card>
-          </div>
-        </>
-      )}
+          </>
+        )
+      })()}
     </div>
   )
 }

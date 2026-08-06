@@ -37,8 +37,9 @@ export async function GET(): Promise<NextResponse<ApiResponse<unknown>>> {
         userId: r.userId, userEmail: r.userEmail ?? null,
         etsyCalls: r.etsyCalls, googleCalls: r.googleCalls, searches: r.searches,
         cacheHits: r.cacheHits, apiHits: r.apiHits,
+        imageCalls: r.imageCalls ?? 0, imageTokens: r.imageTokens ?? 0, imageCostUsd: r.imageCostUsd ?? 0,
       }))
-      .sort((a, b) => (b.etsyCalls + b.googleCalls) - (a.etsyCalls + a.googleCalls))
+      .sort((a, b) => (b.etsyCalls + b.googleCalls + b.imageCalls) - (a.etsyCalls + a.googleCalls + a.imageCalls))
 
     const totals = todayRows.reduce((t, r) => ({
       etsyCalls: t.etsyCalls + (r.etsyCalls || 0),
@@ -46,14 +47,17 @@ export async function GET(): Promise<NextResponse<ApiResponse<unknown>>> {
       searches: t.searches + (r.searches || 0),
       cacheHits: t.cacheHits + (r.cacheHits || 0),
       apiHits: t.apiHits + (r.apiHits || 0),
-    }), { etsyCalls: 0, googleCalls: 0, searches: 0, cacheHits: 0, apiHits: 0 })
+      imageCalls: t.imageCalls + (r.imageCalls || 0),
+      imageTokens: t.imageTokens + (r.imageTokens || 0),
+      imageCostUsd: t.imageCostUsd + (r.imageCostUsd || 0),
+    }), { etsyCalls: 0, googleCalls: 0, searches: 0, cacheHits: 0, apiHits: 0, imageCalls: 0, imageTokens: 0, imageCostUsd: 0 })
 
     // Last 7 days — daily totals across all users (oldest → newest).
-    const byDay = new Map<string, { day: string; etsyCalls: number; googleCalls: number; searches: number }>()
-    for (const d of days) byDay.set(d, { day: d, etsyCalls: 0, googleCalls: 0, searches: 0 })
+    const byDay = new Map<string, { day: string; etsyCalls: number; googleCalls: number; searches: number; imageCalls: number; imageCostUsd: number }>()
+    for (const d of days) byDay.set(d, { day: d, etsyCalls: 0, googleCalls: 0, searches: 0, imageCalls: 0, imageCostUsd: 0 })
     for (const r of rows) {
       const b = byDay.get(r.day)
-      if (b) { b.etsyCalls += r.etsyCalls || 0; b.googleCalls += r.googleCalls || 0; b.searches += r.searches || 0 }
+      if (b) { b.etsyCalls += r.etsyCalls || 0; b.googleCalls += r.googleCalls || 0; b.searches += r.searches || 0; b.imageCalls += r.imageCalls || 0; b.imageCostUsd += r.imageCostUsd || 0 }
     }
     const last7Days = [...byDay.values()].sort((a, b) => (a.day < b.day ? -1 : 1))
 

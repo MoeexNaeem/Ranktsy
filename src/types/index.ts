@@ -586,6 +586,29 @@ export interface IApiUsage {
   searches: number            // keyword searches initiated
   cacheHits: number           // served from DB/cache (no API)
   apiHits: number             // required a live API fetch
+  imageCalls?: number         // Gemini images generated
+  imageTokens?: number        // tokens burnt on image generation
+  imageCostUsd?: number       // USD spent on image generation
+  createdAt?: Date
+  updatedAt?: Date
+}
+
+// ─── Blog (programmatic SEO) ──────────────────────────────────────────────────
+export interface IBlog {
+  _id?: string
+  title: string
+  slug: string                // URL slug → /blogs/<slug>
+  excerpt?: string            // short summary for cards + meta description
+  coverImage?: string         // image URL (pasted)
+  category?: string
+  tags: string[]
+  content: string             // Markdown body (headings, images between sections, …)
+  status: 'draft' | 'published'
+  author?: string
+  seoTitle?: string           // overrides <title> if set
+  seoDescription?: string     // overrides meta description if set
+  readingMinutes?: number
+  publishedAt?: Date | null
   createdAt?: Date
   updatedAt?: Date
 }
