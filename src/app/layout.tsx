@@ -23,6 +23,11 @@ export const metadata: Metadata = {
   },
   twitter: { card: 'summary_large_image', title: 'Rankkw — Etsy Keyword Research', description: 'Real Etsy keyword data, not estimates.' },
   robots: { index: true, follow: true },
+  // Trustpilot one-time domain-verification tag. Renders:
+  // <meta name="trustpilot-one-time-domain-verification-id" content="…">
+  other: {
+    'trustpilot-one-time-domain-verification-id': 'a93072bb-7251-41aa-ae54-3d354cdd9150',
+  },
 }
 // Emits <meta name="viewport" content="width=device-width, initial-scale=1">.
 //

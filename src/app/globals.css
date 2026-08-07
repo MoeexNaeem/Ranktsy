@@ -303,6 +303,9 @@ svg  { max-width: 100%; }
    components (a JS onMouseEnter would force 'use client' and block metadata). */
 .toc-link { transition: color 0.15s; }
 .toc-link:hover { color: #3D3E3B !important; }
+
+/* Dashboard tool/feature header icon — ~35% larger than the base 18px icon. */
+.rdash-titleicon svg { width: 24px; height: 24px; }
 /* FAQ */
 .faq-q    { display: flex; align-items: center; justify-content: space-between; gap: 18px; width: 100%; text-align: left; background: none; border: none; cursor: pointer; font-family: inherit; padding: 22px 4px; }
 
