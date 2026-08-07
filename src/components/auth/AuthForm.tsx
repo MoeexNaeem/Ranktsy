@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { C } from '@/utils'
-import { PASSWORD_RULES } from '@/lib/auth/schemas'
+import { PASSWORD_RULES, isAllowedEmailDomain, EMAIL_DOMAIN_MESSAGE } from '@/lib/auth/schemas'
 import { Recaptcha, RECAPTCHA_ENABLED } from '@/components/security/Recaptcha'
 
 type FormType = 'login' | 'register' | 'forgot' | 'verify-otp' | 'reset'
@@ -17,6 +17,7 @@ const OAUTH_ERRORS: Record<string, string> = {
   oauth_denied:      'Sign-in was cancelled. Please try again.',
   oauth_state:       'Your sign-in session expired. Please try again.',
   oauth_failed:      'We couldn’t sign you in with that provider. Please try again.',
+  oauth_domain:      EMAIL_DOMAIN_MESSAGE,
 }
 
 function GoogleLogo() {
@@ -151,7 +152,7 @@ const SUBTITLES: Record<FormType,string> = { login:'Log in to your Rankkw dashbo
 const BUTTONS:   Record<FormType,string> = { login:'Log in →', register:'Create account →', forgot:'Send reset code →', 'verify-otp':'Verify code →', reset:'Reset password →' }
 const ENDPOINTS: Record<FormType,string> = { login:'/api/auth/login', register:'/api/auth/register', forgot:'/api/auth/forgot-password', 'verify-otp':'/api/auth/verify-otp', reset:'/api/auth/reset-password' }
 
-type EmailStatus = 'idle' | 'invalid' | 'checking' | 'available' | 'taken'
+type EmailStatus = 'idle' | 'invalid' | 'domain' | 'checking' | 'available' | 'taken'
 
 function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: FormType; email?: string; onNext?: (email: string) => void; providers?: { google?: boolean; microsoft?: boolean } }) {
   const router       = useRouter()
@@ -195,6 +196,7 @@ function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: Fo
     const email = (values.email ?? '').trim().toLowerCase()
     if (!email) { setEmailStatus('idle'); return }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setEmailStatus('invalid'); return }
+    if (!isAllowedEmailDomain(email)) { setEmailStatus('domain'); return }
 
     setEmailStatus('checking')
     let cancelled = false
@@ -234,7 +236,7 @@ function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: Fo
   const isPwned = (pwned ?? 0) > 0
 
   // Block signup submission on client-known problems (server still re-validates).
-  const registerBlocked = isRegister && (emailStatus === 'taken' || emailStatus === 'invalid' || !pwValid || !confirmOk || isPwned || (values.name ?? '').trim().length < 2)
+  const registerBlocked = isRegister && (emailStatus === 'taken' || emailStatus === 'invalid' || emailStatus === 'domain' || !pwValid || !confirmOk || isPwned || (values.name ?? '').trim().length < 2)
   const resetBlocked    = type === 'reset' && (!pwValid || !confirmOk || isPwned)
 
   const submit = useCallback(async () => {
@@ -269,7 +271,7 @@ function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: Fo
   const borderColor = (name: string): string => {
     if (errors[name]) return RED
     if (name === 'email' && isRegister) {
-      if (emailStatus === 'taken' || emailStatus === 'invalid') return RED
+      if (emailStatus === 'taken' || emailStatus === 'invalid' || emailStatus === 'domain') return RED
       if (emailStatus === 'available') return GREEN
     }
     if (name === 'password' && showPwRules && pw.length > 0) return (pwValid && !isPwned) ? GREEN : RED
@@ -284,6 +286,7 @@ function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: Fo
     if (!isRegister || !(values.email ?? '').trim()) return null
     if (emailStatus === 'checking')   return { text: 'Checking availability…', color: '#888' }
     if (emailStatus === 'invalid')    return { text: 'Enter a valid email address', color: RED }
+    if (emailStatus === 'domain')     return { text: EMAIL_DOMAIN_MESSAGE, color: RED }
     if (emailStatus === 'taken')      return { text: 'That email is already registered', color: RED }
     if (emailStatus === 'available')  return { text: '✓ Email is available', color: GREEN }
     return null

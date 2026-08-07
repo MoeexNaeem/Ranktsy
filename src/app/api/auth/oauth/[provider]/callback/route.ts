@@ -7,6 +7,7 @@ import { setAuthCookiesOn } from '@/lib/auth/cookies'
 import { sendWelcomeEmail } from '@/lib/auth/email'
 import { resolveRole } from '@/lib/auth/roles'
 import { isOAuthProvider, providerEnabled, exchangeCodeForProfile } from '@/lib/auth/oauth'
+import { isAllowedEmailDomain } from '@/lib/auth/schemas'
 import { siteUrl } from '@/lib/seo/site'
 import type { AuthUser } from '@/types'
 
@@ -37,6 +38,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ prov
 
     await connectDB()
     let user = await User.findOne({ email: profile.email })
+
+    // New accounts must use an allowed provider domain. Existing users are exempt.
+    if (!user && !isAllowedEmailDomain(profile.email)) {
+      return NextResponse.redirect(new URL('/register?error=oauth_domain', base))
+    }
 
     if (!user) {
       // No password is known — store an unguessable placeholder so the account

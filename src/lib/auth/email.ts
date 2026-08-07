@@ -1,5 +1,16 @@
 import nodemailer from 'nodemailer'
 
+/**
+ * Email delivery. Preferred path is Resend (set RESEND_API_KEY) sending from
+ * support@rankkw.com — this is what powers the password-reset OTP and welcome
+ * emails in production. If no Resend key is set, we fall back to SMTP
+ * (nodemailer) so local/dev setups still work.
+ *
+ * ⚠️ Resend requires the sending domain (rankkw.com) to be verified in the
+ * Resend dashboard (SPF + DKIM DNS records). Until it is, sends are rejected.
+ */
+const RESEND_API_KEY = process.env.RESEND_API_KEY
+
 const transporter = nodemailer.createTransport({
   host:   process.env.SMTP_HOST   ?? 'smtp.gmail.com',
   port:   Number(process.env.SMTP_PORT ?? 587),
@@ -10,22 +21,34 @@ const transporter = nodemailer.createTransport({
   },
 })
 
-// Prefer an explicit EMAIL_FROM (e.g. `Rankkw Support <support@rankkw.com>`).
-// Fall back to the authenticated SMTP user so the From address always matches
-// the mailbox we log in as — providers like Namecheap Private Email reject a
-// From that differs from the authenticated user.
-const FROM = process.env.EMAIL_FROM || `"Rankkw" <${process.env.SMTP_USER ?? 'noreply@rankkw.com'}>`
+// From address. Resend sends from support@rankkw.com by default; the SMTP
+// fallback uses the authenticated mailbox (some providers reject a mismatched
+// From). Override either with EMAIL_FROM.
+const RESEND_FROM = process.env.EMAIL_FROM || 'Rankkw Support <support@rankkw.com>'
+const SMTP_FROM   = process.env.EMAIL_FROM || `"Rankkw" <${process.env.SMTP_USER ?? 'noreply@rankkw.com'}>`
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+
+/** Send one email — via Resend's REST API when configured, else SMTP. */
+async function sendEmail(to: string, subject: string, html: string): Promise<void> {
+  if (RESEND_API_KEY) {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: RESEND_FROM, to, subject, html }),
+    })
+    if (!res.ok) {
+      throw new Error(`Resend send failed (${res.status}): ${await res.text().catch(() => '')}`)
+    }
+    return
+  }
+  await transporter.sendMail({ from: SMTP_FROM, to, subject, html })
+}
 
 export async function sendOtpEmail(email: string, otp: string, type: 'reset' | 'verify') {
   const subject = type === 'reset' ? 'Reset your Rankkw password' : 'Verify your Rankkw account'
   const action  = type === 'reset' ? 'reset your password' : 'verify your account'
 
-  await transporter.sendMail({
-    from:    FROM,
-    to:      email,
-    subject,
-    html: `
+  await sendEmail(email, subject, `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -61,16 +84,11 @@ export async function sendOtpEmail(email: string, otp: string, type: 'reset' | '
     </td></tr>
   </table>
 </body>
-</html>`,
-  })
+</html>`)
 }
 
 export async function sendWelcomeEmail(email: string, name: string) {
-  await transporter.sendMail({
-    from:    FROM,
-    to:      email,
-    subject: `Welcome to Rankkw, ${name}! 🌱`,
-    html: `
+  await sendEmail(email, `Welcome to Rankkw, ${name}! 🌱`, `
 <!DOCTYPE html><html><body style="font-family:'Inter',-apple-system,sans-serif;background:#EEEBE1;padding:40px 20px;margin:0">
 <table width="480" cellpadding="0" cellspacing="0" style="margin:0 auto;background:#F6F4EC;border-radius:16px;overflow:hidden;border:1px solid rgba(0,0,0,0.08)">
   <tr><td style="background:#3D3E3B;padding:28px 40px;text-align:center">
@@ -86,6 +104,5 @@ export async function sendWelcomeEmail(email: string, name: string) {
     </a>
   </td></tr>
 </table>
-</body></html>`,
-  })
+</body></html>`)
 }
