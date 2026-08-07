@@ -49,7 +49,7 @@ const STATS = [
   { number: 'Live', label: 'Current Stage', bg: '#FCE7D8', fg: '#C2510B' },
   { number: '2024', label: 'Founded', bg: '#DEEFE4', fg: '#1F7A42' },
   { number: '100%', label: 'Etsy API Powered', bg: '#DEE6FF', fg: '#2E44C4' },
-  { number: '5', label: 'Pricing Plans', bg: C.bone, fg: C.ink },
+  { number: '8', label: 'Pricing Plans', bg: C.bone, fg: C.ink },
 ]
 
 const tag = (label: string, color: string = C.orange) => (

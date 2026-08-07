@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Navbar } from '@/components/landing/Navbar'
 import { Footer, CTA } from '@/components/landing/Sections'
-import { PlanScroller, ComparePlans } from '@/components/landing/plans'
+import { PlanScroller, ComparePlans, PriceNote } from '@/components/landing/plans'
 import { C } from '@/utils'
 
 const SANS = "'General Sans',sans-serif"
@@ -52,7 +52,7 @@ export default function PricingPage() {
             </div>
             <ComparePlans />
             <p style={{ textAlign: 'center', fontSize: 13.5, color: C.graphite, marginTop: 28 }}>
-              Prices in PKR. Cancel anytime — no long-term contracts.{' '}
+              <PriceNote /> Cancel anytime — no long-term contracts.{' '}
               <Link href="/#faq" style={{ color: C.orange, textDecoration: 'none' }}>Questions? Read the FAQ →</Link>
             </p>
           </div>

@@ -11,11 +11,10 @@ const CUR: Record<string, string> = { USD: '$', GBP: '£', EUR: '€', CAD: 'C$'
 const sym = (c?: string) => CUR[c ?? 'USD'] ?? (c ? `${c} ` : '$')
 
 type ImageType = 'main' | 'mockup' | 'feature' | 'combo'
+// One image per listing (a clean hero product shot). The other styles remain in
+// the union so the image-state map stays valid, but only 'main' is offered.
 const IMAGE_TYPES: { type: ImageType; name: string; desc: string }[] = [
-  { type: 'main',    name: 'Main listing image', desc: 'Clean hero product shot' },
-  { type: 'mockup',  name: 'Lifestyle mockup',   desc: 'Product shown in use / styled' },
-  { type: 'feature', name: 'Feature graphic',    desc: 'Callout labels for selling points' },
-  { type: 'combo',   name: 'All-in-one image',   desc: 'Collage of shots + highlights' },
+  { type: 'main',    name: 'Listing image', desc: 'Clean hero product shot' },
 ]
 
 function CopyBtn({ text, label = 'Copy' }: { text: string; label?: string }) {
@@ -94,7 +93,7 @@ export function EtsyListingProTab() {
         <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: C.stone }}>AI · Gemini</span>}>Etsy Listing Pro</SectionTitle>
         <p style={{ fontSize: 13, color: C.graphite, lineHeight: 1.6, marginTop: -6, marginBottom: 14 }}>
           Describe your product and get a <strong style={{ color: C.ink }}>complete listing</strong> — one optimized title,
-          13 tags, a description, a price (anchored to the real market median), and Etsy-style AI images.
+          13 tags, a description, a price (anchored to the real market median), and a clean Etsy-style image.
         </p>
         <textarea value={product} onChange={e => setProduct(e.target.value)} rows={2}
           placeholder="What are you selling? e.g. personalized birth flower sweatshirt, minimalist gold necklace…"
@@ -123,7 +122,7 @@ export function EtsyListingProTab() {
       {gen.isError && <ErrorBox>{gen.error instanceof Error ? gen.error.message : 'Generation failed.'}</ErrorBox>}
 
       {!listing && !gen.isPending && (
-        <EmptyState icon="✨" title="Your full listing appears here" sub="Title, 13 tags, description, price and four Etsy-style images — all in one." />
+        <EmptyState icon="✨" title="Your full listing appears here" sub="Title, 13 tags, description, price and a clean Etsy-style image — all in one." />
       )}
 
       {listing && (
@@ -185,9 +184,9 @@ export function EtsyListingProTab() {
               </div>
             }>Etsy-style images</SectionTitle>
             <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.6, marginTop: -6, marginBottom: 14 }}>
-              AI images shot in real Etsy styles — hero, lifestyle mockup, feature callouts, and an all-in-one. Alt text: <span style={{ fontStyle: 'italic' }}>{listing.altText}</span>
+              A clean hero product image shot in a real Etsy style. Alt text: <span style={{ fontStyle: 'italic' }}>{listing.altText}</span>
             </p>
-            <div className="rgrid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, maxWidth: 380 }}>
               {IMAGE_TYPES.map(({ type, name, desc }) => {
                 const st = images[type]
                 return (

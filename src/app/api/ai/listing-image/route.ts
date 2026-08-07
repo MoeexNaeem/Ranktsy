@@ -1,10 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server'
+import sharp from 'sharp'
 import { geminiImage, isGeminiConfigured, type GeminiRefImage } from '@/lib/gemini'
 import { withUsage } from '@/lib/track'
 import type { ApiResponse } from '@/types'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
+
+// Output cap: 720p (max 720px on the short side) — never 2K/4K. Keeps files small
+// and generation cheap. Gemini has no resolution param, so we resize the result.
+const OUTPUT_MAX_PX = 720
+
+async function to720p(dataUrl: string): Promise<string> {
+  try {
+    const b64 = dataUrl.split(',')[1]
+    if (!b64) return dataUrl
+    const buf = Buffer.from(b64, 'base64')
+    const out = await sharp(buf)
+      .resize({ height: OUTPUT_MAX_PX, withoutEnlargement: true }) // cap at 720p, never upscale
+      .png()
+      .toBuffer()
+    return `data:image/png;base64,${out.toString('base64')}`
+  } catch {
+    return dataUrl // fall back to the original if resize fails
+  }
+}
+
+// Turn a focus keyword into a short, punchy uppercase headline (≤ 2 lines).
+function headlineFrom(product: string): string {
+  const words = product.trim().split(/\s+/).slice(0, 4)
+  const mid = Math.ceil(words.length / 2)
+  return words.length > 2 ? `${words.slice(0, mid).join(' ')}\\n${words.slice(mid).join(' ')}`.toUpperCase() : words.join(' ').toUpperCase()
+}
 
 /**
  * Etsy Listing Pro — image generation (Gemini Flash Image).
@@ -27,8 +54,20 @@ function buildPrompt(type: ImageType, product: string, visual: string, features:
   const feats = features.filter(Boolean).slice(0, 4)
   const refNote = hasRef ? 'Use the attached photo as the exact product; keep its shape, colour and details faithful. ' : ''
   switch (type) {
-    case 'main':
-      return `${refNote}A clean hero product photo of ${subject}. The product is centered and fills most of the frame on a soft neutral background (white seamless or pale marble), gentle studio lighting with soft shadows, styled the way best-selling Etsy listings shoot their main image. ${COMMON}`
+    case 'main': {
+      // Premium Etsy HERO listing image — a Pinterest-worthy bestseller thumbnail
+      // with a bold product headline, subtitle and up to 4 feature badges baked in.
+      const headline = headlineFrom(product)
+      const subtitle = (visual || product).trim().slice(0, 48)
+      const badgeLine = feats.length
+        ? `Add up to ${Math.min(feats.length, 4)} small rounded feature badges, each reading exactly one of: ${feats.join(', ')}. `
+        : ''
+      return `${refNote}Create a PREMIUM Etsy HERO listing image for "${product}" — a top-seller, Pinterest-worthy, luxury e-commerce aesthetic that immediately reads at Etsy thumbnail size.\n` +
+        `COMPOSITION: 4:3 aspect ratio on a bright clean neutral background (#F8F6F2, or a tasteful complementary tone if it suits the product). The product (${subject}), shown with a realistic professional mockup appropriate to it, dominates about 65–75% of the frame. Bright natural daylight, soft realistic shadows, elegant visual hierarchy, generous negative space, clean and uncluttered.\n` +
+        `TEXT (must be perfectly legible and correctly spelled — every letter a real word, NO gibberish): a large bold modern sans-serif HEADLINE reading "${headline}", and a short professional SUBTITLE reading "${subtitle}". Strong hierarchy, premium typography, high readability.\n` +
+        `${badgeLine}` +
+        `Do NOT show any price. Ultra-detailed, sharp, commercial advertising quality, premium Etsy bestseller appearance. No watermark, no brand logos.`
+    }
     case 'mockup':
       return `${refNote}An aspirational lifestyle mockup of ${subject}, shown in a real-world context (in use, worn, or styled in a cozy home/desk scene) with natural window light, warm tones, tasteful props, shallow depth of field — the kind of lifestyle shot that makes Etsy shoppers imagine owning it. ${COMMON}`
     case 'feature':
@@ -62,7 +101,10 @@ async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<{
   const prompt = buildPrompt(type, product, String(body.visual ?? ''), Array.isArray(body.features) ? body.features.map(String) : [], refs.length > 0)
   const out = await geminiImage(prompt, refs)
 
-  if (out.ok) return NextResponse.json({ success: true, data: { dataUrl: out.dataUrl, costUsd: out.usage.costUsd, tokens: out.usage.totalTokens } })
+  if (out.ok) {
+    const dataUrl = await to720p(out.dataUrl) // cap at 720p, never 2K/4K
+    return NextResponse.json({ success: true, data: { dataUrl, costUsd: out.usage.costUsd, tokens: out.usage.totalTokens } })
+  }
 
   // Map the typed failure to an honest, actionable message.
   const msg = out.reason === 'quota'

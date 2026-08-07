@@ -78,27 +78,27 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<L
   try {
     const ctx = await liveContext(seed)
     const prompt =
-      `You are an expert Etsy SEO copywriter and product photographer's art director. Write ONE complete, ready-to-publish Etsy listing.\n\n` +
-      `Product: ${seed}\n` +
-      (details ? `Seller's extra details: ${details}\n` : '') +
-      `\nReal tags top-ranking Etsy listings use here (draw the strongest, most relevant): ${ctx.tags.slice(0, 30).join(', ') || '(none)'}\n` +
-      (ctx.sampleTitles.length ? `Example competing titles: ${ctx.sampleTitles.slice(0, 5).join(' // ')}\n` : '') +
-      (ctx.median != null ? `Real median price of live listings for this product: ${ctx.currency} ${ctx.median}. Suggest a competitive price NEAR this real market median.\n` : '') +
-      `\nReturn:\n` +
-      `- title: ONE Etsy title, MAX 140 chars, front-load the most-searched keywords.\n` +
-      `- tags: EXACTLY 13, each MAX 20 chars, long-tail multi-word phrases, no duplicates, no '#'.\n` +
-      `- description: 100–170 words — a hooky intro line, then scannable bullet points, then a natural keyword line.\n` +
-      `- altText: one image alt line, MAX 120 chars.\n` +
-      `- materials: 2–6 likely materials.\n` +
-      `- features: 3–5 SHORT selling-point phrases (≤40 chars) suitable as image callout labels.\n` +
-      `- visual: a vivid but concise description of exactly what the product LOOKS like (colour, form, texture, style) for a photographer — no marketing words.\n` +
+      `You are RankKW's Elite Etsy Listing Pro — a world-class Etsy + Google + semantic SEO, buyer-psychology and conversion specialist. ` +
+      `The Focus Keyword is "${seed}". Produce ONE complete, ready-to-publish Etsy listing from it. Do not expose internal analysis.\n\n` +
+      (details ? `Seller's extra details (use to improve accuracy, don't contradict): ${details}\n` : '') +
+      `Real tags the top-ranking live Etsy listings use here (draw the strongest, most relevant — a mix of exact-match, long-tail, semantic and buyer-intent): ${ctx.tags.slice(0, 30).join(', ') || '(none)'}\n` +
+      (ctx.sampleTitles.length ? `Example competing titles (for tone, do not copy): ${ctx.sampleTitles.slice(0, 5).join(' // ')}\n` : '') +
+      (ctx.median != null ? `REAL median price of live listings for this product: ${ctx.currency} ${ctx.median}. Recommend ONE competitive price near this real market median — never invent market data.\n` : '') +
+      `\nRules — infer only what the Focus Keyword safely implies; NEVER invent file formats, quantities, dimensions, licenses, compatibility, materials or included items:\n` +
+      `- title: ONE Etsy title, 125–140 characters, BEGINNING with the exact Focus Keyword "${seed}". Front-load the highest-value terms, weave in ~5–8 relevant supporting concepts as semantic variations (no duplicate phrases, no stuffing), separate major phrases with commas, natural readable English, strong buyer intent; end with a genuine buyer-intent modifier (e.g. Instant Download, Printable, SVG File) ONLY if it truly matches the product.\n` +
+      `- tags: EXACTLY 13, each ≤20 characters, all unique, NO punctuation, NO emojis, a mix of exact-match, long-tail, semantic and buyer-intent phrases that reflect realistic Etsy searches.\n` +
+      `- description: buyer-focused and SEO-optimized. The FIRST sentence MUST begin with the exact Focus Keyword. Use short paragraphs and clear headings in this order (skip any that can't be supported): Overview (2–3 paragraphs), "Why You'll Love It" (benefit bullets), "What's Included", "Perfect For", "How It Works". Use the keyword ~2–4 times naturally. No AI clichés, no fake urgency, no unsupported claims.\n` +
+      `- altText: one descriptive image alt line, ≤120 chars.\n` +
+      `- materials: 2–6 likely materials (only if reasonably implied).\n` +
+      `- features: 3–5 SHORT true selling-point phrases (≤40 chars) usable as image badges (e.g. Instant Download, Printable) — only ones that genuinely apply.\n` +
+      `- visual: a concise, vivid description of exactly what the product LOOKS like (colour, form, texture, style) for a photographer — no marketing words.\n` +
       `- priceSuggested: a number in ${ctx.currency}${ctx.median != null ? ` near the ${ctx.median} market median` : ''}.\n` +
       `- priceReason: one sentence on the price.`
 
     const parsed = await geminiJSON<Omit<ListingPro, 'ai' | 'marketMedian' | 'currency'>>({
       prompt,
       schema: SCHEMA,
-      system: 'You write Etsy listing copy grounded in the real competing tags and real market price provided. Never invent statistics.',
+      system: 'You write Etsy listing copy grounded ONLY in the real competing tags and real market price provided. Never invent SEO metrics, search volume, keyword difficulty, ranking data or competitor prices. Never invent product features. Output only the requested JSON.',
       temperature: 0.85,
       maxOutputTokens: 4096,
     })

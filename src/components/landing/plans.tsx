@@ -1,10 +1,34 @@
 'use client'
-import { Fragment, useEffect, useRef } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { C } from '@/utils'
-import { PLANS, GROUPS, type Plan, type Cell } from './plans-data'
+import { PLANS, GROUPS, priceOf, noteOf, type Plan, type Cell, type Currency } from './plans-data'
 
 const MONO = "'General Sans',monospace"
+
+/* Visitor currency (PKR for Pakistan, USD otherwise) — resolved once from /api/geo
+   and cached module-wide so every pricing component shares the same answer without
+   re-fetching. Defaults to USD until the geo lookup returns. */
+let cachedCurrency: Currency | null = null
+export function useCurrency(): Currency {
+  const [cur, setCur] = useState<Currency>(cachedCurrency ?? 'USD')
+  useEffect(() => {
+    if (cachedCurrency) { setCur(cachedCurrency); return }
+    let alive = true
+    fetch('/api/geo').then(r => r.json()).then((d: { currency?: string }) => {
+      cachedCurrency = d.currency === 'PKR' ? 'PKR' : 'USD'
+      if (alive) setCur(cachedCurrency)
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [])
+  return cur
+}
+
+/* Small note under the plan grid: "Prices in USD." / "Prices in PKR (Rs)." */
+export function PriceNote() {
+  const cur = useCurrency()
+  return <>Prices in {cur === 'PKR' ? 'PKR (Rs)' : 'USD'}.</>
+}
 
 /* Filled check-circle tinted with each plan's accent colour. */
 export function Check({ color, onDark }: { color: string; onDark?: boolean }) {
@@ -19,11 +43,13 @@ export function Check({ color, onDark }: { color: string; onDark?: boolean }) {
 
 /* Colourful, wide plan card. Its own flex sizing (grow to fill, wrap 3-then-2)
    so the parent just needs `display:flex; flex-wrap:wrap; justify-content:center`. */
-export function PlanCard({ p }: { p: Plan }) {
+export function PlanCard({ p, cur }: { p: Plan; cur: Currency }) {
   const dark = !!p.popular
   const a = p.accent
   const ink = dark ? '#F5F5EB' : C.ink
   const sub = dark ? 'rgba(245,245,235,0.68)' : C.graphite
+  const price = priceOf(p, cur)
+  const note = noteOf(p, cur)
   return (
     <div style={{
       flex: '0 0 340px', width: 340,
@@ -51,10 +77,11 @@ export function PlanCard({ p }: { p: Plan }) {
           </h3>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '2px 6px', marginBottom: 8 }}>
-          <span style={{ fontSize: 40, fontWeight: 600, color: ink, letterSpacing: '-0.035em', lineHeight: 1 }}>{p.price}</span>
+        <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '2px 6px', marginBottom: note ? 4 : 8 }}>
+          <span style={{ fontSize: 40, fontWeight: 600, color: ink, letterSpacing: '-0.035em', lineHeight: 1 }}>{price}</span>
           <span style={{ fontSize: 14, color: sub }}>/ {p.period}</span>
         </div>
+        {note && <p style={{ fontSize: 12.5, fontWeight: 600, color: a, marginBottom: 8 }}>{note}</p>}
         <p style={{ fontSize: 14.5, color: sub, lineHeight: 1.5, marginBottom: 24, minHeight: 42 }}>{p.blurb}</p>
 
         <Link href={p.href}
@@ -101,6 +128,7 @@ function Arrow({ dir, onClick, side }: { dir: 'prev' | 'next'; onClick: () => vo
    plan (two cards each side), with arrow navigation and soft faded edges. */
 export function PlanScroller({ fade }: { fade: string }) {
   const track = useRef<HTMLDivElement>(null)
+  const cur = useCurrency()
 
   // Centre the "Most Popular" card on mount (Pro in the middle, two on each side).
   // Deferred + retried because layout width can still be 0 on the first tick.
@@ -134,7 +162,7 @@ export function PlanScroller({ fade }: { fade: string }) {
   return (
     <div className="plan-scroll" style={{ ['--fade' as string]: fade }}>
       <div ref={track} className="plan-track">
-        {PLANS.map(p => <PlanCard key={p.name} p={p} />)}
+        {PLANS.map(p => <PlanCard key={p.name} p={p} cur={cur} />)}
       </div>
       <div className="plan-fade plan-fade-l" aria-hidden />
       <div className="plan-fade plan-fade-r" aria-hidden />
@@ -152,6 +180,7 @@ function CellView({ v }: { v: Cell }) {
 }
 
 export function ComparePlans() {
+  const cur = useCurrency()
   return (
     <div style={{ overflowX: 'auto', border: `1px solid ${C.ash}`, borderRadius: 20, background: C.paper }}>
       <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 860 }}>
@@ -163,7 +192,7 @@ export function ComparePlans() {
             {PLANS.map(p => (
               <th key={p.slug} style={{ padding: '18px 16px', minWidth: 128, textAlign: 'center', background: p.popular ? C.orangeFaint : C.paper, borderBottom: `1px solid ${C.ash}` }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>{p.name}</div>
-                <div style={{ fontSize: 12.5, color: C.graphite, marginTop: 2 }}>{p.price}</div>
+                <div style={{ fontSize: 12.5, color: C.graphite, marginTop: 2 }}>{priceOf(p, cur)}</div>
               </th>
             ))}
           </tr>

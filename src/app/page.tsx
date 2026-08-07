@@ -17,7 +17,7 @@ const jsonLd = {
     { '@type': 'WebSite', '@id': abs('/#website'), url: siteUrl(), name: 'Rankkw', publisher: { '@id': abs('/#org') } },
     { '@type': 'SoftwareApplication', name: 'Rankkw', applicationCategory: 'BusinessApplication', operatingSystem: 'Web', url: siteUrl(),
       description: 'Research Etsy keywords with real search volume, competition and trends — measured from the official Etsy Open API and Google Ads, never estimated.',
-      offers: { '@type': 'AggregateOffer', priceCurrency: 'PKR', lowPrice: '0', highPrice: '22999', offerCount: 5 } },
+      offers: { '@type': 'AggregateOffer', priceCurrency: 'USD', lowPrice: '0', highPrice: '49.99', offerCount: 8 } },
   ],
 }
 

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { C } from "@/utils";
 import { SocialRow } from "@/components/ui/Social";
 import { Reveal, RevealGroup, RevealItem } from "./Reveal";
-import { PlanScroller } from "./plans";
+import { PlanScroller, PriceNote } from "./plans";
 
 const SANS = "'General Sans',sans-serif";
 
@@ -470,7 +470,7 @@ export function Pricing() {
             Compare all features →
           </Link>
           <p style={{ textAlign: "center", fontSize: 13.5, color: "#6E6E64" }}>
-            Prices in PKR. Cancel anytime — no long-term contracts.
+            <PriceNote /> Cancel anytime — no long-term contracts.
           </p>
         </div>
       </div>
