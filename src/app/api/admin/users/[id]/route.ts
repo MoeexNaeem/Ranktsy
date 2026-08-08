@@ -3,6 +3,7 @@ import { connectDB } from '@/lib/db'
 import { User, KeywordHistory } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin } from '@/lib/auth/roles'
+import { PLAN_SLUGS } from '@/lib/plans'
 
 export const runtime = 'nodejs'
 
@@ -21,7 +22,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const update: Record<string, unknown> = {}
   if (body.role === 'user' || body.role === 'admin') update.role = body.role
-  if (['free', 'grow', 'scale'].includes(body.plan)) update.plan = body.plan
+  if ((PLAN_SLUGS as string[]).includes(body.plan)) update.plan = body.plan
   if (typeof body.isVerified === 'boolean') update.isVerified = body.isVerified
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ success: false, error: 'Nothing to update' }, { status: 400 })

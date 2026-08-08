@@ -1,18 +1,70 @@
 'use client'
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
+import toast from 'react-hot-toast'
 import { C } from '@/utils'
+import { CHECKOUT_PLANS } from '@/lib/plans'
 import { PLANS, GROUPS, priceOf, noteOf, type Plan, type Cell, type Currency } from './plans-data'
 
 const MONO = "'General Sans',monospace"
 
-/* Visitor currency (PKR for Pakistan, USD otherwise) — resolved once from /api/geo
-   and cached module-wide so every pricing component shares the same answer without
-   re-fetching. Defaults to USD until the geo lookup returns. */
+/* Start a Lemon Squeezy checkout for a plan. Not logged in → send to login first;
+   otherwise open the returned checkout URL in the Lemon.js overlay (redirect fallback). */
+async function startCheckout(slug: string): Promise<void> {
+  const res = await fetch('/api/lemonsqueezy/checkout', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan: slug }),
+  })
+  if (res.status === 401) {
+    window.location.href = `/login?redirect=${encodeURIComponent('/pricing')}`
+    return
+  }
+  const j = await res.json().catch(() => null) as { success?: boolean; url?: string; error?: string } | null
+  if (j?.success && j.url) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ls = (window as any).LemonSqueezy
+    if (ls?.Url?.Open) ls.Url.Open(j.url)
+    else window.location.href = j.url
+  } else {
+    toast.error(j?.error || 'Could not start checkout. Please try again.')
+  }
+}
+
+/* Plan CTA: a Lemon Squeezy checkout button for paid plans; a plain link for
+   Free (register) and Custom (contact). */
+function CheckoutCTA({ p }: { p: Plan }) {
+  const [loading, setLoading] = useState(false)
+  const a = p.accent
+  const style: CSSProperties = {
+    display: 'block', width: '100%', textAlign: 'center', textDecoration: 'none',
+    padding: '13px 18px', borderRadius: 100, fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em',
+    marginBottom: 26, transition: 'opacity 0.18s', background: a, color: '#fff', border: `1px solid ${a}`,
+    cursor: 'pointer', fontFamily: 'inherit',
+  }
+  const hoverIn = (e: React.MouseEvent<HTMLElement>) => { if (!loading) e.currentTarget.style.opacity = '0.88' }
+  const hoverOut = (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.opacity = '1' }
+
+  if (!(CHECKOUT_PLANS as string[]).includes(p.slug)) {
+    return <Link href={p.href} style={style} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>{p.cta}</Link>
+  }
+  return (
+    <button type="button" disabled={loading} style={{ ...style, opacity: loading ? 0.7 : 1 }}
+      onMouseEnter={hoverIn} onMouseLeave={hoverOut}
+      onClick={async () => { setLoading(true); try { await startCheckout(p.slug) } finally { setLoading(false) } }}>
+      {loading ? 'Starting…' : p.cta}
+    </button>
+  )
+}
+
+/* Geo pricing (PKR for Pakistan) is PAUSED — show USD to every country for now.
+   Flip GEO_PRICING_ENABLED back to true to re-enable it; the /api/geo route and
+   the PKR overrides in plans-data are left intact so it's a one-line switch. */
+const GEO_PRICING_ENABLED = false
+
 let cachedCurrency: Currency | null = null
 export function useCurrency(): Currency {
-  const [cur, setCur] = useState<Currency>(cachedCurrency ?? 'USD')
+  const [cur, setCur] = useState<Currency>('USD')
   useEffect(() => {
+    if (!GEO_PRICING_ENABLED) return
     if (cachedCurrency) { setCur(cachedCurrency); return }
     let alive = true
     fetch('/api/geo').then(r => r.json()).then((d: { currency?: string }) => {
@@ -84,17 +136,7 @@ export function PlanCard({ p, cur }: { p: Plan; cur: Currency }) {
         {note && <p style={{ fontSize: 12.5, fontWeight: 600, color: a, marginBottom: 8 }}>{note}</p>}
         <p style={{ fontSize: 14.5, color: sub, lineHeight: 1.5, marginBottom: 24, minHeight: 42 }}>{p.blurb}</p>
 
-        <Link href={p.href}
-          style={{
-            display: 'block', textAlign: 'center', textDecoration: 'none',
-            padding: '13px 18px', borderRadius: 100, fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em',
-            marginBottom: 26, transition: 'opacity 0.18s, background 0.18s, color 0.18s',
-            background: a, color: '#fff', border: `1px solid ${a}`,
-          }}
-          onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
-          onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
-          {p.cta}
-        </Link>
+        <CheckoutCTA p={p} />
 
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 13 }}>
           {p.features.map(f => (

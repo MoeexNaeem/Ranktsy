@@ -1,5 +1,6 @@
 import mongoose, { Schema, model, models, type Document } from 'mongoose'
 import { SNAPSHOT_RETENTION_DAYS } from '@/utils'
+import { PLAN_SLUGS, type PlanSlug } from '@/lib/plans'
 import type {
   IKeywordCache, IKeywordHistory, IOTP,
   IShopSnapshot, IListingSnapshot, ITrackedShop,
@@ -13,8 +14,14 @@ export interface IUserDoc extends Document {
   password?: string                       // optional: OAuth (Google/Microsoft) users have none
   authProvider?: 'google' | 'microsoft'   // set when the account was created/linked via OAuth
   role: 'user' | 'admin'
-  plan: 'free' | 'grow' | 'scale'
+  plan: PlanSlug
   isVerified: boolean
+  // Lemon Squeezy subscription (set by the webhook)
+  lsSubscriptionId?: string
+  lsCustomerId?: string
+  lsVariantId?: string
+  subscriptionStatus?: string   // active | on_trial | past_due | cancelled | paused | expired
+  planRenewsAt?: Date
   etsyShopId?: string
   etsyAccessToken?: string
   etsyRefreshToken?: string
@@ -30,8 +37,13 @@ const UserSchema = new Schema<IUserDoc>({
   password:         { type: String, required: false, select: false }, // optional — OAuth users have none; never returned by default
   authProvider:     { type: String, enum: ['google','microsoft'] },
   role:             { type: String, enum: ['user','admin'], default: 'user' },
-  plan:             { type: String, enum: ['free','grow','scale'], default: 'free' },
+  plan:             { type: String, enum: PLAN_SLUGS, default: 'free' },
   isVerified:       { type: Boolean, default: false },
+  lsSubscriptionId:  { type: String },
+  lsCustomerId:      { type: String },
+  lsVariantId:       { type: String },
+  subscriptionStatus:{ type: String },
+  planRenewsAt:      { type: Date },
   etsyShopId:       { type: String },
   etsyAccessToken:  { type: String, select: false },
   etsyRefreshToken: { type: String, select: false },

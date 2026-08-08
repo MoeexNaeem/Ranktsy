@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Providers } from '@/lib/providers'
 import { Toaster }   from 'react-hot-toast'
 import { siteUrl }   from '@/lib/seo/site'
+import { LemonSqueezyScript } from '@/components/payments/LemonSqueezyScript'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -52,6 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
           <Toaster position="bottom-right" toastOptions={{ style: { background: '#3D3E3B', color: '#FFFFFF', borderRadius: 999, fontSize: 13, fontFamily: 'General Sans, sans-serif' } }} />
         </Providers>
+        <LemonSqueezyScript />
       </body>
     </html>
   )

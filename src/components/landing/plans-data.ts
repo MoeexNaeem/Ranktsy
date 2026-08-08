@@ -52,17 +52,17 @@ export const PLANS: Plan[] = [
     cta: 'Choose Pro', href: '/register?plan=pro',
   },
   {
-    name: 'Pro · 2-Year', slug: 'pro-2yr', price: '$149.99', period: 'every 2 years', accent: '#B7791F',
+    name: 'Pro · 1-Year', slug: 'pro-1yr', price: '$74.99', period: 'per year', accent: '#B7791F',
     note: '≈ $6.25 / mo · best value',
-    blurb: 'All of Pro for 2 years — with more images.',
+    blurb: 'All of Pro for a year — with more images.',
     features: [
       'Everything in Pro',
       'Etsy Listing Pro — 20 images / mo',
       '200 keyword searches / day',
       'Priority support',
-      'Locked-in 2-year price',
+      'Locked-in 1-year price',
     ],
-    cta: 'Get 2-Year Pro', href: '/register?plan=pro-2yr',
+    cta: 'Get 1-Year Pro', href: '/register?plan=pro-1yr',
   },
   {
     name: 'Business', slug: 'business', price: '$19.99', period: 'per month', accent: '#0D9488',
@@ -105,7 +105,7 @@ export const PLANS: Plan[] = [
     blurb: 'Tailored limits and images for your team.',
     features: [
       'Everything in Enterprise',
-      'Etsy Listing Pro — 30 images / mo (+$10 per extra 20)',
+      'Etsy Listing Pro — 50 images / mo (+$10 per extra 20)',
       'Custom searches & limits',
       'Onboarding & SLA',
     ],
@@ -131,7 +131,7 @@ export const GROUPS: { group: string; rows: { label: string; cells: Cell[] }[] }
     { label: 'Tag generator', cells: [false, true, true, true, true, true, true, true, true] },
     { label: 'AI title / tag / description', cells: [false, false, 'Basic', true, true, true, true, true, true] },
     { label: 'Etsy Listing Pro', cells: [false, false, false, true, true, true, true, true, true] },
-    { label: 'Etsy Listing Pro images / month', cells: [false, false, false, '5', '20', '15', '30', '50', '30 +'] },
+    { label: 'Etsy Listing Pro images / month', cells: [false, false, false, '5', '20', '15', '30', '50', '50 +'] },
     { label: 'CSV export', cells: [false, false, false, true, true, true, true, true, true] },
   ] },
   { group: 'Shops & team', rows: [
@@ -156,7 +156,7 @@ const PKR_OVERRIDES: Record<string, { price: string; note?: string }> = {
   starter:      { price: 'Rs 250' },
   basic:        { price: 'Rs 750' },
   pro:          { price: 'Rs 1,750' },
-  'pro-2yr':    { price: 'Rs 37,500', note: '≈ Rs 1,563 / mo · best value' },
+  'pro-1yr':    { price: 'Rs 18,750', note: '≈ Rs 1,563 / mo · best value' },
   business:     { price: 'Rs 4,999' },
   agency:       { price: 'Rs 9,999' },
   enterprise:   { price: 'Rs 12,500' },

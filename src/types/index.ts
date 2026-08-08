@@ -5,7 +5,7 @@ export interface IUser {
   email: string
   password: string
   role: 'user' | 'admin'
-  plan: 'free' | 'grow' | 'scale'
+  plan: import('@/lib/plans').PlanSlug
   isVerified: boolean
   etsyShopId?: string
   etsyAccessToken?: string
@@ -19,7 +19,7 @@ export interface AuthUser {
   name: string
   email: string
   role: 'user' | 'admin'
-  plan: 'free' | 'grow' | 'scale'
+  plan: import('@/lib/plans').PlanSlug
   isVerified: boolean
   etsyShopId?: string
 }

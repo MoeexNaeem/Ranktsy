@@ -178,9 +178,9 @@ export function AdminDashboard() {
               <option value="admin">admin</option>
             </select>
             <select value={u.plan} onChange={e => patchUser(u.id, { plan: e.target.value })} style={selectStyle}>
-              <option value="free">free</option>
-              <option value="grow">grow</option>
-              <option value="scale">scale</option>
+              {['free','starter','basic','pro','pro-1yr','business','agency','enterprise','custom'].map(pl => (
+                <option key={pl} value={pl}>{pl}</option>
+              ))}
             </select>
             <span style={tdMono}>{fmtDate(u.createdAt)}</span>
             <span style={tdMono}>{u.searches} · {timeAgo(u.lastActive)}</span>
