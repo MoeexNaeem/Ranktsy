@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import sharp from 'sharp'
 import { geminiImage, isGeminiConfigured, type GeminiRefImage } from '@/lib/gemini'
+import { getCurrentUser } from '@/lib/auth/session'
+import { connectDB } from '@/lib/db'
+import { consumeMonthlyImage, refundMonthlyImage } from '@/lib/quota'
 import { withUsage } from '@/lib/track'
 import type { ApiResponse } from '@/types'
 
@@ -93,6 +96,20 @@ async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<{
     return NextResponse.json({ success: false, error: 'AI images are not configured (set the Gemini API key).' }, { status: 503 })
   }
 
+  // Per-plan MONTHLY image allowance. Consume before generating; refunded below
+  // if the generation fails, so a failed attempt never costs a credit.
+  const authUser = await getCurrentUser().catch(() => null)
+  if (authUser) {
+    await connectDB()
+    const q = await consumeMonthlyImage(authUser.id)
+    if (q && !q.allowed) {
+      const msg = q.limit === 0
+        ? `Etsy Listing Pro images aren't included in the ${q.plan} plan. Upgrade to generate listing images.`
+        : `You've used all ${q.limit} Etsy Listing Pro images this month on the ${q.plan} plan. Upgrade for more.`
+      return NextResponse.json({ success: false, code: 'plan_limit', metric: 'images', plan: q.plan, limit: q.limit, error: msg }, { status: 402 })
+    }
+  }
+
   const refs: GeminiRefImage[] = []
   if (body.refImage?.data && body.refImage.mimeType) {
     refs.push({ data: body.refImage.data.replace(/^data:[^,]+,/, ''), mimeType: body.refImage.mimeType })
@@ -105,6 +122,9 @@ async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<{
     const dataUrl = await to720p(out.dataUrl) // cap at 720p, never 2K/4K
     return NextResponse.json({ success: true, data: { dataUrl, costUsd: out.usage.costUsd, tokens: out.usage.totalTokens } })
   }
+
+  // Generation failed — give the consumed monthly image credit back.
+  if (authUser) await refundMonthlyImage(authUser.id)
 
   // Map the typed failure to an honest, actionable message.
   const msg = out.reason === 'quota'

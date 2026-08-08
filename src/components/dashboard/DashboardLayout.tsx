@@ -4,6 +4,8 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useAuth, useLogout } from '@/hooks/useAuth'
 import { C, ACCENT, withAlpha, type AccentName } from '@/utils'
+import { UpgradeModalHost } from './UpgradeModal'
+import { triggerUpgrade } from '@/lib/upgrade'
 
 const KeywordsTab      = dynamic(() => import('./tabs/KeywordsTab').then(m => ({ default: m.KeywordsTab })), { ssr: false })
 const ListingsTab      = dynamic(() => import('./tabs/ListingsTab').then(m => ({ default: m.ListingsTab })), { ssr: false })
@@ -303,6 +305,13 @@ export function DashboardLayout() {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            {user && !['business', 'agency', 'enterprise', 'custom'].includes(user.plan) && (
+              <button onClick={() => triggerUpgrade({ title: 'Upgrade your plan', message: 'Unlock higher daily limits, Etsy Listing Pro images and more with a paid plan.' })}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, background: C.orange, color: '#fff', padding: '7px 15px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
+                Upgrade
+              </button>
+            )}
             <span className="rdash-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11.5, background: C.paper, color: C.graphite, padding: '6px 13px', borderRadius: 999, fontFamily: "'General Sans',monospace", border: `1px solid ${C.ash}`, fontWeight: 500 }}>
               <span style={{ position: 'relative', width: 7, height: 7, borderRadius: '50%', background: '#16A34A', display: 'inline-block' }}>
                 <span className="shimmer" style={{ position: 'absolute', inset: -2, borderRadius: '50%', border: '1.5px solid #16A34A', opacity: 0.5 }} />
@@ -336,6 +345,7 @@ export function DashboardLayout() {
           <Link href="/methodology" style={{ fontSize: 11.5, color: C.orange, fontFamily: "'General Sans',monospace", textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>How our data works →</Link>
         </div>
       </main>
+      <UpgradeModalHost />
     </div>
   )
 }

@@ -29,6 +29,8 @@ export interface IUserDoc extends Document {
   savedKeywords: string[]
   searchCount: number
   lastSearchReset: Date
+  listingImageCount?: number   // Etsy Listing Pro images used this month
+  listingImageReset?: Date
 }
 
 const UserSchema = new Schema<IUserDoc>({
@@ -51,6 +53,8 @@ const UserSchema = new Schema<IUserDoc>({
   savedKeywords:    { type: [String], default: [] },
   searchCount:      { type: Number, default: 0 },
   lastSearchReset:  { type: Date, default: Date.now },
+  listingImageCount:{ type: Number, default: 0 },
+  listingImageReset:{ type: Date, default: Date.now },
 }, { timestamps: true })
 
 // ─── OTP ──────────────────────────────────────────────────────────────────────

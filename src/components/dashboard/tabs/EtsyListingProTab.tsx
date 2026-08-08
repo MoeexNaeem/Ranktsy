@@ -4,6 +4,7 @@ import { useMutation } from '@tanstack/react-query'
 import axios from 'axios'
 import { Card, SectionTitle, EmptyState, ErrorBox, MONO, primaryBtn } from '../kit'
 import { C, D } from '@/utils'
+import { triggerUpgrade } from '@/lib/upgrade'
 import type { ApiResponse } from '@/types'
 import type { ListingPro } from '@/app/api/ai/listing-pro/route'
 
@@ -68,6 +69,10 @@ export function EtsyListingProTab() {
       setSpentUsd(s => s + cost)
       setImages(p => ({ ...p, [type]: { loading: false, dataUrl: data.data!.dataUrl, costUsd: cost } }))
     } catch (e) {
+      const resp = axios.isAxiosError(e) ? e.response : undefined
+      if (resp?.status === 402 && resp.data?.code === 'plan_limit') {
+        triggerUpgrade({ title: 'Image limit reached', message: resp.data.error, plan: resp.data.plan })
+      }
       const msg = axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : (e instanceof Error ? e.message : 'Image failed')
       setImages(p => ({ ...p, [type]: { loading: false, error: msg } }))
     }

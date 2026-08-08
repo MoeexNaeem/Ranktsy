@@ -663,4 +663,9 @@ export interface ApiResponse<T> {
   cached?: boolean
   /** Set by the search rate gate — the client should prompt a reCAPTCHA and retry. */
   captchaRequired?: boolean
+  /** Set when a plan quota is exhausted (HTTP 402) — client shows the upgrade modal. */
+  code?: 'plan_limit'
+  plan?: string
+  limit?: number
+  metric?: string
 }

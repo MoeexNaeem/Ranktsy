@@ -5,6 +5,7 @@ import { getKeywordCore } from '@/lib/keywords'
 import { normalizeGeo } from '@/lib/google-ads'
 import { getCurrentUser } from '@/lib/auth/session'
 import { guardSearch } from '@/lib/searchGate'
+import { consumeDailySearch } from '@/lib/quota'
 import { withUsage } from '@/lib/track'
 import { recordSearch, recordCacheHit, recordApiHit, peekApiCalls } from '@/lib/usage'
 import type { ApiResponse, KeywordSearchResponse } from '@/types'
@@ -32,6 +33,20 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
   // Rate gate: 25 searches/hour per user, then a reCAPTCHA to continue.
   const gate = await guardSearch<KeywordSearchResponse>(req)
   if (gate) return gate
+
+  // Per-plan DAILY search quota (independent of the hourly bot gate).
+  const authUser = await getCurrentUser().catch(() => null)
+  if (authUser) {
+    await connectDB()
+    const q = await consumeDailySearch(authUser.id)
+    if (q && !q.allowed) {
+      return NextResponse.json(
+        { success: false, code: 'plan_limit', metric: 'searches', plan: q.plan, limit: q.limit,
+          error: `You've reached your daily limit of ${q.limit} keyword search${q.limit === 1 ? '' : 'es'} on the ${q.plan} plan. Upgrade to keep researching.` },
+        { status: 402 },
+      )
+    }
+  }
 
   try {
     const before = peekApiCalls()

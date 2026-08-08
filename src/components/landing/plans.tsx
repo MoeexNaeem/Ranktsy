@@ -1,30 +1,12 @@
 'use client'
 import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
-import toast from 'react-hot-toast'
 import { C } from '@/utils'
 import { CHECKOUT_PLANS } from '@/lib/plans'
+import { startCheckout } from '@/lib/checkout'
 import { PLANS, GROUPS, priceOf, noteOf, type Plan, type Cell, type Currency } from './plans-data'
 
 const MONO = "'General Sans',monospace"
-
-/* Start a Lemon Squeezy checkout for a plan. Not logged in → send to login first;
-   otherwise open the returned checkout URL in the Lemon.js overlay (redirect fallback). */
-async function startCheckout(slug: string): Promise<void> {
-  const res = await fetch('/api/lemonsqueezy/checkout', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan: slug }),
-  })
-  if (res.status === 401) {
-    window.location.href = `/login?redirect=${encodeURIComponent('/pricing')}`
-    return
-  }
-  const j = await res.json().catch(() => null) as { success?: boolean; url?: string; error?: string } | null
-  if (j?.success && j.url) {
-    window.location.href = j.url   // go to the full hosted Lemon Squeezy checkout page
-  } else {
-    toast.error(j?.error || 'Could not start checkout. Please try again.')
-  }
-}
 
 /* Plan CTA: a Lemon Squeezy checkout button for paid plans; a plain link for
    Free (register) and Custom (contact). */
