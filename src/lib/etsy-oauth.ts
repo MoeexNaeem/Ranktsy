@@ -43,7 +43,10 @@ export function randomState(): string {
  * of truth for the real public origin; fall back to req.url only if it's unset.
  */
 export function getAppOrigin(reqUrl: string): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL || new URL(reqUrl).origin
+  // SITE_URL (server-only, NOT inlined at build time) is the most reliable public
+  // origin — it's correct in prod even when NEXT_PUBLIC_APP_URL is still localhost.
+  // Falls back to NEXT_PUBLIC_APP_URL, then the request origin.
+  const base = process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || new URL(reqUrl).origin
   return new URL(base).origin
 }
 
