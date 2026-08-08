@@ -45,7 +45,8 @@ export async function createCheckoutUrl(a: CheckoutArgs): Promise<string | null>
             custom: { user_id: a.userId, plan: a.plan },
           },
           product_options: { redirect_url: a.redirectUrl },
-          checkout_options: { embed: true, dark: false },
+          // Full hosted checkout page (not the cramped Lemon.js overlay).
+          checkout_options: { embed: false },
         },
         relationships: {
           store:   { data: { type: 'stores', id: String(storeId) } },

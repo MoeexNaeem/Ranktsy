@@ -20,10 +20,7 @@ async function startCheckout(slug: string): Promise<void> {
   }
   const j = await res.json().catch(() => null) as { success?: boolean; url?: string; error?: string } | null
   if (j?.success && j.url) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ls = (window as any).LemonSqueezy
-    if (ls?.Url?.Open) ls.Url.Open(j.url)
-    else window.location.href = j.url
+    window.location.href = j.url   // go to the full hosted Lemon Squeezy checkout page
   } else {
     toast.error(j?.error || 'Could not start checkout. Please try again.')
   }
