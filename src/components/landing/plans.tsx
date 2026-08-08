@@ -8,6 +8,42 @@ import { PLANS, GROUPS, priceOf, noteOf, type Plan, type Cell, type Currency } f
 
 const MONO = "'General Sans',monospace"
 
+/* ── "Log in to subscribe" prompt for logged-out visitors ─────────────────────
+   Tiny local pub/sub: a checkout button calls promptLoginRequired(); the modal
+   (mounted once inside PlanScroller) shows itself. */
+let loginPromptCb: (() => void) | null = null
+function promptLoginRequired() { loginPromptCb?.() }
+
+function LoginRequiredModal() {
+  const [open, setOpen] = useState(false)
+  useEffect(() => { loginPromptCb = () => setOpen(true); return () => { loginPromptCb = null } }, [])
+  if (!open) return null
+  const back = typeof window !== 'undefined' ? encodeURIComponent(window.location.pathname + window.location.search) : '/pricing'
+  const btn = (bg: string, color: string, border: string): CSSProperties => ({
+    display: 'block', textAlign: 'center', textDecoration: 'none', padding: '13px 18px', borderRadius: 100,
+    fontSize: 15, fontWeight: 600, background: bg, color, border, fontFamily: 'inherit',
+  })
+  return (
+    <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(20,20,20,0.55)', display: 'grid', placeItems: 'center', padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true"
+        style={{ background: C.paper, borderRadius: 24, maxWidth: 400, width: '100%', padding: '32px 30px 26px', boxShadow: '0 34px 80px rgba(0,0,0,0.34)', textAlign: 'center', position: 'relative' }}>
+        <button onClick={() => setOpen(false)} aria-label="Close" style={{ position: 'absolute', top: 16, right: 16, width: 32, height: 32, borderRadius: '50%', border: 'none', background: C.bone, color: C.graphite, cursor: 'pointer', fontSize: 16 }}>×</button>
+        <span style={{ display: 'inline-grid', placeItems: 'center', width: 52, height: 52, borderRadius: 15, background: C.orangeFaint, marginBottom: 16 }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.orange} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+        </span>
+        <h2 style={{ fontSize: 21, fontWeight: 600, color: C.ink, letterSpacing: '-0.02em', marginBottom: 8 }}>Log in to subscribe</h2>
+        <p style={{ fontSize: 14.5, color: C.graphite, lineHeight: 1.6, marginBottom: 22 }}>
+          You need a Rankkw account to buy a plan. Log in or create one — it only takes a moment, then you can complete checkout.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <Link href={`/login?redirect=${back}`} style={btn(C.orange, '#fff', `1px solid ${C.orange}`)}>Log in</Link>
+          <Link href={`/register?redirect=${back}`} style={btn(C.paper, C.ink, `1px solid ${C.ash}`)}>Create an account</Link>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* Plan CTA: a Lemon Squeezy checkout button for paid plans; a plain link for
    Free (register) and Custom (contact). */
 function CheckoutCTA({ p }: { p: Plan }) {
@@ -26,10 +62,17 @@ function CheckoutCTA({ p }: { p: Plan }) {
     return <Link href={p.href} style={style} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>{p.cta}</Link>
   }
   return (
-    <button type="button" disabled={loading} style={{ ...style, opacity: loading ? 0.7 : 1 }}
+    <button type="button" disabled={loading} style={{ ...style, opacity: loading ? 0.85 : 1, cursor: loading ? 'default' : 'pointer' }}
       onMouseEnter={hoverIn} onMouseLeave={hoverOut}
-      onClick={async () => { setLoading(true); try { await startCheckout(p.slug) } finally { setLoading(false) } }}>
-      {loading ? 'Starting…' : p.cta}
+      onClick={async () => {
+        setLoading(true)
+        const r = await startCheckout(p.slug)
+        // On success we're navigating to checkout — KEEP the spinner. Only stop it
+        // if we need a login prompt or the request failed.
+        if (r === 'needs_login') { setLoading(false); promptLoginRequired() }
+        else if (r === 'error') setLoading(false)
+      }}>
+      {loading ? <span className="rk-spinner" role="status" aria-label="Loading" /> : p.cta}
     </button>
   )
 }
@@ -189,6 +232,7 @@ export function PlanScroller({ fade }: { fade: string }) {
       <div className="plan-fade plan-fade-r" aria-hidden />
       <Arrow dir="prev" side={6} onClick={() => scroll(-1)} />
       <Arrow dir="next" side={6} onClick={() => scroll(1)} />
+      <LoginRequiredModal />
     </div>
   )
 }
