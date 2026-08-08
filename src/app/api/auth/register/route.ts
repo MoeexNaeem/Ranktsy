@@ -9,7 +9,6 @@ import { registerSchema } from '@/lib/auth/schemas'
 import { resolveRole } from '@/lib/auth/roles'
 import { verifyRecaptcha } from '@/lib/recaptcha'
 import { rateLimit, clientIp, tooManyResponse } from '@/lib/auth/rateLimit'
-import { pwnedCount } from '@/lib/auth/pwned'
 import type { ApiResponse, AuthUser } from '@/types'
 
 export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<AuthUser>>> {
@@ -35,12 +34,6 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<A
     }
 
     const { name, email, password } = parsed.data
-
-    // Reject passwords known to appear in public breaches (extra guard on top of
-    // the strong-password rules). Fails open if HIBP is unreachable.
-    if (await pwnedCount(password) > 0) {
-      return NextResponse.json({ success: false, errors: { password: 'This password has appeared in a known data breach. Please choose a different one.' } }, { status: 422 })
-    }
 
     await connectDB()
 

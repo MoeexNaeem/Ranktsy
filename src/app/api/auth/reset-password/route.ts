@@ -4,7 +4,6 @@ import { User, OTP } from '@/lib/models'
 import { hashPassword } from '@/lib/auth/password'
 import { resetPasswordSchema } from '@/lib/auth/schemas'
 import { rateLimit, clientIp, tooManyResponse } from '@/lib/auth/rateLimit'
-import { pwnedCount } from '@/lib/auth/pwned'
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,10 +20,6 @@ export async function POST(req: NextRequest) {
     }
 
     const { email, code, password } = parsed.data
-
-    if (await pwnedCount(password) > 0) {
-      return NextResponse.json({ success: false, errors: { password: 'This password has appeared in a known data breach. Please choose a different one.' } }, { status: 422 })
-    }
 
     await connectDB()
 

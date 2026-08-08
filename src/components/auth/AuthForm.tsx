@@ -52,13 +52,6 @@ function OAuthButton({ provider, label, redirect }: { provider: 'google' | 'micr
   )
 }
 
-// SHA-1 hex (Web Crypto) for the HIBP k-anonymity check — only the first 5 chars
-// are ever sent to the API, never the password.
-async function sha1Hex(s: string): Promise<string> {
-  const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(s))
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
-}
-
 // Four-point sparkle used in the backdrop.
 function Sparkle({ color, size }: { color: string; size: number }) {
   return (
@@ -166,8 +159,8 @@ function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: Fo
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState('')
   const [captcha, setCaptcha] = useState('')
+  const [captchaKey, setCaptchaKey] = useState(0) // bump to remount (reset) the captcha
   const [emailStatus, setEmailStatus] = useState<EmailStatus>('idle')
-  const [pwned, setPwned] = useState<number | null>(null) // null = unknown, 0 = safe, >0 = breach count
   const [reveal, setReveal] = useState<Record<string, boolean>>({}) // per-field show/hide password
 
   const isRegister  = type === 'register'
@@ -212,32 +205,9 @@ function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: Fo
     return () => { cancelled = true; clearTimeout(t) }
   }, [values.email, isRegister])
 
-  // ── Live breached-password check (HIBP k-anonymity), only once the rules pass ──
-  useEffect(() => {
-    if (!showPwRules || !pwValid) { setPwned(null); return }
-    let cancelled = false
-    const t = setTimeout(async () => {
-      try {
-        const hash = (await sha1Hex(pw)).toUpperCase()
-        const res = await fetch(`https://api.pwnedpasswords.com/range/${hash.slice(0, 5)}`)
-        const text = await res.text()
-        const suffix = hash.slice(5)
-        let count = 0
-        for (const line of text.split('\n')) {
-          const [suf, c] = line.trim().split(':')
-          if (suf === suffix) { count = parseInt(c ?? '0', 10) || 0; break }
-        }
-        if (!cancelled) setPwned(count)
-      } catch { if (!cancelled) setPwned(null) } // fail open — server still checks
-    }, 500)
-    return () => { cancelled = true; clearTimeout(t) }
-  }, [pw, pwValid, showPwRules])
-
-  const isPwned = (pwned ?? 0) > 0
-
   // Block signup submission on client-known problems (server still re-validates).
-  const registerBlocked = isRegister && (emailStatus === 'taken' || emailStatus === 'invalid' || emailStatus === 'domain' || !pwValid || !confirmOk || isPwned || (values.name ?? '').trim().length < 2)
-  const resetBlocked    = type === 'reset' && (!pwValid || !confirmOk || isPwned)
+  const registerBlocked = isRegister && (emailStatus === 'taken' || emailStatus === 'invalid' || emailStatus === 'domain' || !pwValid || !confirmOk || (values.name ?? '').trim().length < 2)
+  const resetBlocked    = type === 'reset' && (!pwValid || !confirmOk)
 
   const submit = useCallback(async () => {
     setLoading(true); setErrors({}); setSuccess('')
@@ -248,12 +218,21 @@ function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: Fo
     try {
       const res  = await fetch(ENDPOINTS[type], { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(body) })
       const json = await res.json()
-      if (!json.success) { setErrors(json.errors ?? { _: json.error ?? 'Something went wrong' }); return }
+      if (!json.success) {
+        setErrors(json.errors ?? { _: json.error ?? 'Something went wrong' })
+        // The captcha token is single-use and was already spent server-side, so
+        // reset the widget for the next attempt — no page refresh needed.
+        if (needsCaptcha) { setCaptcha(''); setCaptchaKey(k => k + 1) }
+        return
+      }
       if (type === 'login' || type === 'register') { router.push(redirect); router.refresh(); return }
       if (type === 'forgot')     { setSuccess('OTP sent! Check your inbox.'); onNext?.(values.email); return }
       if (type === 'verify-otp') { setSuccess('Code verified!'); onNext?.(initEmail ?? ''); return }
       if (type === 'reset')      { setSuccess('Password reset! Redirecting to login...'); setTimeout(() => router.push('/login'), 2000) }
-    } catch { setErrors({ _: 'Network error. Please try again.' }) }
+    } catch {
+      setErrors({ _: 'Network error. Please try again.' })
+      if (needsCaptcha) { setCaptcha(''); setCaptchaKey(k => k + 1) }
+    }
     finally  { setLoading(false) }
   }, [values, type, initEmail, router, redirect, onNext, needsCaptcha, captcha])
 
@@ -274,7 +253,7 @@ function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: Fo
       if (emailStatus === 'taken' || emailStatus === 'invalid' || emailStatus === 'domain') return RED
       if (emailStatus === 'available') return GREEN
     }
-    if (name === 'password' && showPwRules && pw.length > 0) return (pwValid && !isPwned) ? GREEN : RED
+    if (name === 'password' && showPwRules && pw.length > 0) return pwValid ? GREEN : RED
     if (name === 'confirmPassword' && showPwRules) {
       if (confirmOk) return GREEN
       if (confirmBad) return RED
@@ -357,9 +336,6 @@ function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: Fo
                   ))}
                 </div>
               )}
-              {field.name==='password' && showPwRules && isPwned && (
-                <p style={{ fontSize:12, color:RED, marginTop:6 }}>⚠ This password appeared in {pwned!.toLocaleString()} known data breaches — please choose another.</p>
-              )}
               {field.name==='confirmPassword' && confirmBad && <p style={{ fontSize:12, color:RED, marginTop:5 }}>Passwords don&apos;t match</p>}
               {field.name==='confirmPassword' && confirmOk  && <p style={{ fontSize:12, color:GREEN, marginTop:5 }}>✓ Passwords match</p>}
             </div>
@@ -368,7 +344,7 @@ function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: Fo
 
         {needsCaptcha && (
           <div style={{ marginTop:20 }}>
-            <Recaptcha onVerify={setCaptcha} onExpire={() => setCaptcha('')} />
+            <Recaptcha key={captchaKey} onVerify={setCaptcha} onExpire={() => setCaptcha('')} />
           </div>
         )}
 
