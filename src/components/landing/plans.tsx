@@ -5,6 +5,9 @@ import { C } from '@/utils'
 import { CHECKOUT_PLANS } from '@/lib/plans'
 import { startCheckout } from '@/lib/checkout'
 import { PLANS, GROUPS, priceOf, noteOf, type Plan, type Cell, type Currency } from './plans-data'
+// NOTE: Plan now also carries optional `expandableHeading` / `expandableFootnote`
+// fields alongside `expandable` — see plans-data.ts. No separate import needed,
+// they come through on the Plan objects themselves.
 
 const MONO = "'General Sans',monospace"
 
@@ -116,7 +119,9 @@ export function Check({ color, onDark }: { color: string; onDark?: boolean }) {
 }
 
 /* Colourful, wide plan card. Its own flex sizing (grow to fill, wrap 3-then-2)
-   so the parent just needs `display:flex; flex-wrap:wrap; justify-content:center`. */
+   so the parent just needs `display:flex; flex-wrap:wrap; justify-content:center`.
+   Plans that define `expandable` (currently Pro · 1-Year) get a small toggle
+   arrow beneath the regular feature list that reveals extra bonus bullets. */
 export function PlanCard({ p, cur }: { p: Plan; cur: Currency }) {
   const dark = !!p.popular
   const a = p.accent
@@ -124,6 +129,8 @@ export function PlanCard({ p, cur }: { p: Plan; cur: Currency }) {
   const sub = dark ? 'rgba(245,245,235,0.68)' : C.graphite
   const price = priceOf(p, cur)
   const note = noteOf(p, cur)
+  const [expanded, setExpanded] = useState(false)
+
   return (
     <div style={{
       flex: '0 0 340px', width: 340,
@@ -168,6 +175,58 @@ export function PlanCard({ p, cur }: { p: Plan; cur: Currency }) {
             </li>
           ))}
         </ul>
+
+        {/* Bonus details toggle — only renders when the plan defines `expandable` */}
+        {p.expandable && p.expandable.length > 0 && (
+          <div style={{ marginTop: 18 }}>
+            <button
+              type="button"
+              onClick={() => setExpanded(v => !v)}
+              aria-expanded={expanded}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none',
+                padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600,
+                color: dark ? '#fff' : a,
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"
+                strokeLinecap="round" strokeLinejoin="round"
+                style={{ transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.18s' }}>
+                <polyline points="9 6 15 12 9 18" />
+              </svg>
+              {expanded ? 'Hide bonus details' : "What's included this year"}
+            </button>
+
+            {expanded && (
+              <div style={{
+                marginTop: 14, paddingTop: 14,
+                borderTop: `1px solid ${dark ? 'rgba(255,255,255,0.14)' : C.hair}`,
+              }}>
+                {p.expandableHeading && (
+                  <p style={{
+                    fontSize: 12.5, fontWeight: 700, color: a, textTransform: 'uppercase',
+                    letterSpacing: '0.04em', lineHeight: 1.4, marginBottom: 12,
+                  }}>
+                    {p.expandableHeading}
+                  </p>
+                )}
+                <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 11 }}>
+                  {p.expandable.map(f => (
+                    <li key={f} style={{ display: 'flex', gap: 11, fontSize: 14, color: dark ? 'rgba(245,245,235,0.92)' : C.ink, lineHeight: 1.4 }}>
+                      <Check color={a} onDark={dark} />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                {p.expandableFootnote && (
+                  <p style={{ fontSize: 12.5, fontWeight: 600, color: a, marginTop: 14, lineHeight: 1.5 }}>
+                    {p.expandableFootnote}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -225,7 +284,10 @@ export function PlanScroller({ fade }: { fade: string }) {
 
   return (
     <div className="plan-scroll" style={{ ['--fade' as string]: fade }}>
-      <div ref={track} className="plan-track">
+      {/* align-items: flex-start overrides the CSS class's default (stretch),
+          which was forcing every card to grow to match the tallest card
+          whenever the Pro · 1-Year card's "bonus details" were expanded. */}
+      <div ref={track} className="plan-track" style={{ display: 'flex', alignItems: 'flex-start' }}>
         {PLANS.map(p => <PlanCard key={p.name} p={p} cur={cur} />)}
       </div>
       <div className="plan-fade plan-fade-l" aria-hidden />

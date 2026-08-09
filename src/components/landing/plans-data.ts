@@ -10,6 +10,9 @@ export type Plan = {
   note?: string       // secondary price line (e.g. 2-year deal / per-month equivalent)
   blurb: string
   features: string[]
+  expandable?: string[]        // extra bullets revealed by a tap/click arrow on the card (optional)
+  expandableHeading?: string   // small heading shown above the expandable bullets (optional)
+  expandableFootnote?: string  // small note shown below the expandable bullets (optional)
   cta: string
   href: string
   accent: string
@@ -62,6 +65,15 @@ export const PLANS: Plan[] = [
       'Priority support',
       'Locked-in 1-year price',
     ],
+    expandableHeading: 'One-Time Exclusive Offer — Limited to 50 Accounts',
+    expandable: [
+      '100 Digital Products ready to list',
+      '100 SEO-Optimized Product Titles',
+      '100 SEO-Optimized Product Descriptions',
+      '100 Professional Product Listing Images',
+      '30-Minute One-on-One Consultation',
+    ],
+    expandableFootnote: '🔥 One-Time Offer: Available for only 50 accounts.',
     cta: 'Get 1-Year Pro', href: '/register?plan=pro-1yr',
   },
   {
