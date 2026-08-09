@@ -17,7 +17,7 @@ export const runtime = 'nodejs'
  * Everything returned is measured from the Etsy API. See no-fabricated-data-rule.
  */
 
-type SortKey = 'hot' | 'favorites' | 'views' | 'newest' | 'price_low' | 'price_high'
+type SortKey = 'hot' | 'favorites' | 'views' | 'newest' | 'price_low' | 'price_high' | 'engagement' | 'velocity'
 
 // Map the UI sort to how we fetch from Etsy. Etsy can sort globally by relevance,
 // created date and price — but NOT by views/favorites, so those are scored on the
@@ -112,6 +112,8 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ho
     else if (sort === 'favorites') products.sort((a, b) => b.favorites - a.favorites)
     else if (sort === 'views') products.sort((a, b) => b.views - a.views)
     else if (sort === 'newest') products.sort((a, b) => (b.createdTimestamp ?? 0) - (a.createdTimestamp ?? 0))
+    else if (sort === 'engagement') products.sort((a, b) => b.engagementPct - a.engagementPct)
+    else if (sort === 'velocity') products.sort((a, b) => (b.favPerDay ?? 0) - (a.favPerDay ?? 0))
 
     return NextResponse.json({
       success: true,

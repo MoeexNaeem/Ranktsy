@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import sharp from 'sharp'
 import { geminiImage, isGeminiConfigured, type GeminiRefImage } from '@/lib/gemini'
 import { getCurrentUser } from '@/lib/auth/session'
 import { connectDB } from '@/lib/db'
@@ -9,25 +8,6 @@ import type { ApiResponse } from '@/types'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
-
-// Output cap: 720p (max 720px on the short side) — never 2K/4K. Keeps files small
-// and generation cheap. Gemini has no resolution param, so we resize the result.
-const OUTPUT_MAX_PX = 720
-
-async function to720p(dataUrl: string): Promise<string> {
-  try {
-    const b64 = dataUrl.split(',')[1]
-    if (!b64) return dataUrl
-    const buf = Buffer.from(b64, 'base64')
-    const out = await sharp(buf)
-      .resize({ height: OUTPUT_MAX_PX, withoutEnlargement: true }) // cap at 720p, never upscale
-      .png()
-      .toBuffer()
-    return `data:image/png;base64,${out.toString('base64')}`
-  } catch {
-    return dataUrl // fall back to the original if resize fails
-  }
-}
 
 // Turn a focus keyword into a short, punchy uppercase headline (≤ 2 lines).
 function headlineFrom(product: string): string {
@@ -119,8 +99,8 @@ async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<{
   const out = await geminiImage(prompt, refs)
 
   if (out.ok) {
-    const dataUrl = await to720p(out.dataUrl) // cap at 720p, never 2K/4K
-    return NextResponse.json({ success: true, data: { dataUrl, costUsd: out.usage.costUsd, tokens: out.usage.totalTokens } })
+    // Return the full-resolution image as generated (one complete hero image).
+    return NextResponse.json({ success: true, data: { dataUrl: out.dataUrl, costUsd: out.usage.costUsd, tokens: out.usage.totalTokens } })
   }
 
   // Generation failed — give the consumed monthly image credit back.

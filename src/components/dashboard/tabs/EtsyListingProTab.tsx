@@ -37,7 +37,6 @@ export function EtsyListingProTab() {
   const [images, setImages] = useState<Record<ImageType, ImgState>>({
     main: { loading: false }, mockup: { loading: false }, feature: { loading: false }, combo: { loading: false },
   })
-  const [spentUsd, setSpentUsd] = useState(0)   // running cost this session
 
   const gen = useMutation({
     mutationFn: async () => {
@@ -65,9 +64,7 @@ export function EtsyListingProTab() {
         refImage: ref ? { data: ref.dataUrl, mimeType: ref.mimeType } : undefined,
       })
       if (!data.success || !data.data) throw new Error(data.error ?? 'Image failed')
-      const cost = data.data.costUsd ?? 0
-      setSpentUsd(s => s + cost)
-      setImages(p => ({ ...p, [type]: { loading: false, dataUrl: data.data!.dataUrl, costUsd: cost } }))
+      setImages(p => ({ ...p, [type]: { loading: false, dataUrl: data.data!.dataUrl } }))
     } catch (e) {
       const resp = axios.isAxiosError(e) ? e.response : undefined
       if (resp?.status === 402 && resp.data?.code === 'plan_limit') {
@@ -176,18 +173,11 @@ export function EtsyListingProTab() {
           {/* ─── Images ───────────────────────────────────────────────────── */}
           <Card>
             <SectionTitle right={
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                {spentUsd > 0 && (
-                  <span title="Estimated Gemini image-generation cost this session" style={{ fontSize: 12, fontFamily: MONO, color: C.ink, background: C.bone, border: `1px solid ${C.ash}`, borderRadius: 100, padding: '5px 11px', whiteSpace: 'nowrap' }}>
-                    Spent: <strong style={{ color: C.orange }}>${spentUsd.toFixed(4)}</strong>
-                  </span>
-                )}
-                <button onClick={genAll}
-                  style={{ fontSize: 12.5, fontFamily: MONO, color: C.orange, background: C.orangeFaint, border: `1px solid ${C.orange}`, borderRadius: 100, padding: '6px 13px', cursor: 'pointer' }}>
-                  Generate all
-                </button>
-              </div>
-            }>Etsy-style images</SectionTitle>
+              <button onClick={genAll}
+                style={{ fontSize: 12.5, fontFamily: MONO, color: C.orange, background: C.orangeFaint, border: `1px solid ${C.orange}`, borderRadius: 100, padding: '6px 13px', cursor: 'pointer' }}>
+                Generate image
+              </button>
+            }>Etsy-style image</SectionTitle>
             <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.6, marginTop: -6, marginBottom: 14 }}>
               A clean hero product image shot in a real Etsy style. Alt text: <span style={{ fontStyle: 'italic' }}>{listing.altText}</span>
             </p>
@@ -199,9 +189,7 @@ export function EtsyListingProTab() {
                     <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: `1px solid ${C.hair}` }}>
                       <div style={{ flex: 1 }}>
                         <p style={{ fontSize: 14, fontWeight: 500, color: C.ink }}>{name}</p>
-                        <p style={{ fontSize: 11.5, color: C.stone }}>
-                          {st.costUsd != null ? <span style={{ color: C.orange, fontFamily: MONO }}>${st.costUsd.toFixed(4)} spent</span> : desc}
-                        </p>
+                        <p style={{ fontSize: 11.5, color: C.stone }}>{desc}</p>
                       </div>
                       {st.dataUrl && (
                         <>
@@ -210,15 +198,15 @@ export function EtsyListingProTab() {
                         </>
                       )}
                     </div>
-                    <div style={{ aspectRatio: '1 / 1', background: C.canvas, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                    <div style={{ background: C.canvas, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', minHeight: st.dataUrl ? undefined : 300 }}>
                       {st.loading ? (
-                        <div style={{ textAlign: 'center' }}>
+                        <>
                           <div className="shimmer" style={{ position: 'absolute', inset: 0, background: '#e8e7e2' }} />
                           <p style={{ position: 'relative', fontSize: 12.5, color: C.graphite }}>Generating…</p>
-                        </div>
+                        </>
                       ) : st.dataUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={st.dataUrl} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={st.dataUrl} alt={name} style={{ width: '100%', height: 'auto', display: 'block' }} />
                       ) : st.error ? (
                         <div style={{ padding: 20, textAlign: 'center' }}>
                           <p style={{ fontSize: 12.5, color: D.hard, lineHeight: 1.5, marginBottom: 10 }}>{st.error}</p>

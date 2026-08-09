@@ -439,17 +439,20 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
       <SearchBar value={input} onChange={setInput} onSubmit={search} placeholder="Search any Etsy keyword…"
         control={<CountrySelect value={country} onChange={setCountry} />} />
 
-      {/* Live progress. Stays up until every stage lands, so the user always
-          knows data is still arriving rather than wondering if it's stuck. */}
-      {!allDone && !isError && <LoadingStages stages={stages} note="Every figure is measured live against the Etsy API — no cached estimates. This takes a few seconds the first time a keyword is searched; afterwards it's instant." />}
-
-      {/* Keyword header */}
+      {/* Keyword header + main cards — plain skeletons while data loads. */}
       {isLoading && !kw && (
-        <div className="rsectitle" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <Shimmer h={32} w={220} r={6} />
-          <Shimmer h={24} w={130} r={100} />
-          <Shimmer h={24} w={100} r={100} />
-        </div>
+        <>
+          <div className="rsectitle" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <Shimmer h={32} w={220} r={6} />
+            <Shimmer h={24} w={130} r={100} />
+            <Shimmer h={24} w={100} r={100} />
+          </div>
+          <div className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
+            <CardSkeleton h={240} />
+            <CardSkeleton h={240} />
+            <CardSkeleton h={240} />
+          </div>
+        </>
       )}
 
       {kw && (

@@ -1,6 +1,6 @@
 import { User } from './models'
 import { limitsFor } from './planLimits'
-import type { PlanSlug } from './plans'
+import { effectivePlan, type PlanSlug } from './plans'
 
 /**
  * Per-plan quota metering. Counters live on the User doc (daily searches reuse the
@@ -19,7 +19,7 @@ export interface QuotaResult { allowed: boolean; used: number; limit: number; pl
 export async function consumeDailySearch(userId: string): Promise<QuotaResult | null> {
   const user = await User.findById(userId)
   if (!user) return null
-  const plan = user.plan
+  const plan = effectivePlan(user)
   const limit = limitsFor(plan).searchesPerDay
   const now = new Date()
   if (!sameUTCDay(user.lastSearchReset, now)) { user.searchCount = 0; user.lastSearchReset = now }
@@ -34,7 +34,7 @@ export async function consumeDailySearch(userId: string): Promise<QuotaResult | 
 export async function consumeMonthlyImage(userId: string): Promise<QuotaResult | null> {
   const user = await User.findById(userId)
   if (!user) return null
-  const plan = user.plan
+  const plan = effectivePlan(user)
   const limit = limitsFor(plan).listingImagesPerMonth
   const now = new Date()
   if (!sameUTCMonth(user.listingImageReset, now)) { user.listingImageCount = 0; user.listingImageReset = now }

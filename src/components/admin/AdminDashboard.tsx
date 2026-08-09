@@ -7,6 +7,7 @@ import { StatCard, SectionTitle, tableCard, tableHead, th, tableRow, tdMono, Emp
 interface AUser {
   id: string; name: string; email: string; role: 'user' | 'admin'; plan: string
   isVerified: boolean; createdAt: string | null; searches: number; lastActive: string | null; etsyShopId: string | null
+  subscriptionStatus: string | null; imagesThisMonth: number
 }
 interface Stats { total: number; admins: number; verified: number; searches: number }
 interface UsageUser { userId: string; userEmail: string | null; etsyCalls: number; googleCalls: number; searches: number; cacheHits: number; apiHits: number; imageCalls: number; imageTokens: number; imageCostUsd: number }
@@ -15,7 +16,25 @@ interface UsageData {
   last7Days: { day: string; etsyCalls: number; googleCalls: number; searches: number; imageCalls: number; imageCostUsd: number }[]
 }
 
-const GRID = '2.2fr 0.9fr 0.85fr 0.7fr 0.9fr 0.6fr'
+const GRID = '2fr 0.8fr 0.95fr 0.9fr 0.75fr 1fr 0.55fr'
+
+// Per-tier accent dot + subscription-status pill colours (professional, no rainbow).
+const PLAN_HUE: Record<string, string> = {
+  free: '#6E6E64', starter: '#2563EB', basic: '#0EA5E9', pro: '#FB5E09', 'pro-1yr': '#B7791F',
+  business: '#0D9488', agency: '#7C3AED', enterprise: '#4F46E5', custom: '#5B6472',
+}
+function statusPill(s: string | null): { label: string; fg: string; bg: string } | null {
+  if (!s) return null
+  const map: Record<string, { fg: string; bg: string }> = {
+    active:   { fg: '#1F7A42', bg: 'rgba(31,138,76,0.12)' },
+    on_trial: { fg: '#2563EB', bg: 'rgba(37,99,235,0.12)' },
+    cancelled:{ fg: '#C2510B', bg: 'rgba(194,81,11,0.12)' },
+    paused:   { fg: '#6E6E64', bg: 'rgba(110,110,100,0.14)' },
+    past_due: { fg: '#CF463A', bg: 'rgba(207,70,58,0.12)' },
+    expired:  { fg: '#CF463A', bg: 'rgba(207,70,58,0.12)' },
+  }
+  return { label: s.replace(/_/g, ' '), ...(map[s] ?? { fg: '#6E6E64', bg: 'rgba(110,110,100,0.10)' }) }
+}
 const UGRID = '1.7fr 0.7fr 0.7fr 0.8fr 0.9fr 1fr'
 const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }) : '—'
 /** USD with enough precision for tiny per-image costs. */
@@ -27,8 +46,8 @@ const timeAgo = (d: string | null) => {
 }
 
 const selectStyle: React.CSSProperties = {
-  background: C.canvas, border: `1px solid ${C.hair}`, borderRadius: 100, padding: '5px 10px',
-  fontSize: 12, fontFamily: MONO, color: C.ink, outline: 'none', cursor: 'pointer',
+  background: C.canvas, border: `1px solid ${C.hair}`, borderRadius: 100, padding: '6px 10px',
+  fontSize: 12.5, fontFamily: MONO, color: C.ink, outline: 'none', cursor: 'pointer', width: '100%', minWidth: 0,
 }
 
 export function AdminDashboard() {
@@ -163,33 +182,49 @@ export function AdminDashboard() {
       <SectionTitle right={err ? <span style={{ fontSize: 12, color: C.danger }}>{err}</span> : <span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>{users.length} users</span>}>All users</SectionTitle>
       <div className="rtable" style={tableCard}>
         <div style={tableHead(GRID)}>
-          {['User', 'Role', 'Plan', 'Joined', 'Activity', ''].map((h, i) => <span key={i} style={th}>{h}</span>)}
+          {['User', 'Role', 'Plan', 'Status', 'Joined', 'Activity', ''].map((h, i) => <span key={i} style={th}>{h}</span>)}
         </div>
-        {users.map(u => (
-          <div key={u.id} style={{ ...tableRow(GRID), opacity: busy === u.id ? 0.5 : 1 }}>
+        {users.map(u => {
+          const sp = statusPill(u.subscriptionStatus)
+          return (
+          <div key={u.id} className="admin-user-row" style={{ ...tableRow(GRID), opacity: busy === u.id ? 0.5 : 1, transition: 'background 0.12s' }}
+            onMouseEnter={e => (e.currentTarget.style.background = C.canvas)}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
             <div style={{ minWidth: 0 }}>
-              <p style={{ fontSize: 13, fontWeight: 500, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {u.name} {u.isVerified && <span title="Verified" style={{ color: C.success, fontSize: 11 }}>✓</span>}
+              <p style={{ fontSize: 14.5, fontWeight: 600, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}>
+                {u.name}
+                {u.isVerified && <span title="Verified" style={{ display: 'inline-grid', placeItems: 'center', width: 15, height: 15, borderRadius: '50%', background: 'rgba(31,138,76,0.14)', color: '#1F7A42', fontSize: 10, flexShrink: 0 }}>✓</span>}
+                {u.role === 'admin' && <span style={{ fontSize: 9.5, fontWeight: 700, fontFamily: MONO, color: C.orange, background: C.orangeFaint, padding: '2px 7px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}>Admin</span>}
               </p>
-              <p style={{ fontSize: 11.5, color: '#808080', fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</p>
+              <p style={{ fontSize: 12.5, color: '#6E6E64', fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{u.email}</p>
             </div>
             <select value={u.role} onChange={e => patchUser(u.id, { role: e.target.value as AUser['role'] })} style={selectStyle}>
               <option value="user">user</option>
               <option value="admin">admin</option>
             </select>
-            <select value={u.plan} onChange={e => patchUser(u.id, { plan: e.target.value })} style={selectStyle}>
-              {['free','starter','basic','pro','pro-1yr','business','agency','enterprise','custom'].map(pl => (
-                <option key={pl} value={pl}>{pl}</option>
-              ))}
-            </select>
-            <span style={tdMono}>{fmtDate(u.createdAt)}</span>
-            <span style={tdMono}>{u.searches} · {timeAgo(u.lastActive)}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: PLAN_HUE[u.plan] ?? C.stone, flexShrink: 0 }} />
+              <select value={u.plan} onChange={e => patchUser(u.id, { plan: e.target.value })} style={selectStyle}>
+                {['free','starter','basic','pro','pro-1yr','business','agency','enterprise','custom'].map(pl => (
+                  <option key={pl} value={pl}>{pl}</option>
+                ))}
+              </select>
+            </div>
+            {sp
+              ? <span style={{ display: 'inline-flex', alignItems: 'center', width: 'fit-content', fontSize: 11, fontWeight: 600, color: sp.fg, background: sp.bg, padding: '4px 10px', borderRadius: 100, textTransform: 'capitalize', whiteSpace: 'nowrap' }}>{sp.label}</span>
+              : <span style={{ color: '#b7b7ae', fontSize: 14 }}>—</span>}
+            <span style={{ ...tdMono, fontSize: 13, color: C.graphite }}>{fmtDate(u.createdAt)}</span>
+            <div style={{ fontFamily: MONO, minWidth: 0 }}>
+              <div style={{ fontSize: 13, color: C.ink, fontWeight: 500 }}>{formatNumber(u.searches)} searches</div>
+              <div style={{ fontSize: 11, color: '#8a8a82', marginTop: 2 }}>{u.imagesThisMonth} img · {timeAgo(u.lastActive)}</div>
+            </div>
             <button onClick={() => deleteUser(u)} title="Delete user"
-              style={{ background: 'transparent', border: `1px solid ${C.dangerBg}`, color: C.danger, borderRadius: 100, padding: '5px 10px', fontSize: 11, fontFamily: MONO, cursor: 'pointer', width: 'fit-content' }}>
+              style={{ background: 'transparent', border: `1px solid ${C.dangerBg}`, color: C.danger, borderRadius: 100, padding: '6px 11px', fontSize: 11, fontFamily: MONO, cursor: 'pointer', width: 'fit-content' }}>
               Delete
             </button>
           </div>
-        ))}
+          )
+        })}
       </div>
       <p style={{ fontSize: 12, color: '#808080', marginTop: 12, lineHeight: 1.5 }}>
         Role/plan changes save instantly. Emails in the server&apos;s <code style={{ fontFamily: MONO }}>ADMIN_EMAILS</code> are always admin regardless of this setting.

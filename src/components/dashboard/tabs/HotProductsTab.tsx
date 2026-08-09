@@ -20,17 +20,35 @@ const fmtDate = (ts?: number | null) => ts ? new Date(ts * 1000).toLocaleDateStr
 
 const SORTS: { id: string; label: string }[] = [
   { id: 'hot', label: '🔥 Hot Score' },
+  { id: 'velocity', label: 'Fastest Growing' },
+  { id: 'engagement', label: 'Most Engaging' },
   { id: 'favorites', label: 'Most Favorited' },
   { id: 'views', label: 'Most Viewed' },
   { id: 'newest', label: 'Newest' },
   { id: 'price_low', label: 'Price: Low → High' },
   { id: 'price_high', label: 'Price: High → Low' },
 ]
+
+// Export the current results to CSV (real fields only — no fabricated sales).
+function exportCsv(rows: HotProduct[], query: string) {
+  const header = ['Title', 'Shop', 'Price', 'Currency', 'Views', 'Favorites', 'Engagement %', 'Favs/day', 'Hot Score', 'Quantity', 'Created', 'URL']
+  const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+  const lines = rows.map(p => [
+    p.title, p.shopName, p.price ?? '', p.currency, p.views, p.favorites, p.engagementPct,
+    p.favPerDay ?? '', p.hotScore, p.quantity, fmtDate(p.createdTimestamp), p.url,
+  ].map(esc).join(','))
+  const csv = [header.map(esc).join(','), ...lines].join('\n')
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
+  const a = document.createElement('a')
+  a.href = url; a.download = `hot-products-${query.replace(/\s+/g, '-').slice(0, 30)}.csv`; a.click()
+  URL.revokeObjectURL(url)
+}
 const RELEASE: { id: string; label: string }[] = [
   { id: '30', label: '30 Days' }, { id: '180', label: '180 Days' }, { id: '365', label: '1 Year' }, { id: '', label: 'All Time' },
 ]
 
 const ctrl: React.CSSProperties = { background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 100, padding: '9px 14px', fontSize: 13.5, fontFamily: 'inherit', color: C.ink, outline: 'none' }
+const LIST_GRID = '2.2fr 1fr 0.7fr 0.85fr 0.7fr 0.85fr 1fr 0.5fr'
 
 function HotBar({ score }: { score: number }) {
   const color = score >= 55 ? D.hard : score >= 35 ? D.mid : D.good
@@ -161,6 +179,10 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
                   </button>
                 ))}
               </div>
+              <button onClick={() => exportCsv(products, applied.q)} disabled={products.length === 0}
+                style={{ ...ctrl, cursor: products.length ? 'pointer' : 'default', opacity: products.length ? 1 : 0.5, whiteSpace: 'nowrap', fontFamily: MONO, fontSize: 12.5, padding: '9px 15px' }}>
+                ↓ Export CSV
+              </button>
             </div>
           </div>
 
@@ -168,14 +190,14 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
             <EmptyState icon="🔍" title="No products match these filters" sub="These filters apply to the top matches for your search. Try loosening the price, favorites, or release-time filters." />
           ) : view === 'list' ? (
             <Card pad={0}>
-              <div style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.8fr 0.8fr 1fr 0.5fr', gap: 14, padding: '16px 22px', background: C.headerBg, borderBottom: `1px solid ${C.ash}` }}>
-                {['Product', 'Views', 'Favorites', 'Hot Score', ''].map((h, i) => (
-                  <span key={h || i} style={{ fontSize: 12, fontFamily: MONO, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: C.graphite, textAlign: i === 0 || i === 4 ? 'left' : 'right' }}>{h}</span>
+              <div style={{ display: 'grid', gridTemplateColumns: LIST_GRID, gap: 14, padding: '16px 22px', background: C.headerBg, borderBottom: `1px solid ${C.ash}` }}>
+                {['Product', 'Shop', 'Views', 'Favorites', 'Eng %', 'Favs/day', 'Hot Score', ''].map((h, i) => (
+                  <span key={h || i} style={{ fontSize: 12, fontFamily: MONO, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: C.graphite, textAlign: i === 0 || i === 1 || i === 7 ? 'left' : 'right' }}>{h}</span>
                 ))}
               </div>
               {products.map(p => (
                 <button key={p.listing_id} onClick={() => setSelected(p)}
-                  style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.8fr 0.8fr 1fr 0.5fr', gap: 14, padding: '18px 22px', borderBottom: `1px solid ${C.hair}`, alignItems: 'center', width: '100%', background: 'transparent', border: 'none', borderBottomStyle: 'solid', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'background 0.12s' }}
+                  style={{ display: 'grid', gridTemplateColumns: LIST_GRID, gap: 14, padding: '18px 22px', borderBottom: `1px solid ${C.hair}`, alignItems: 'center', width: '100%', background: 'transparent', border: 'none', borderBottomStyle: 'solid', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'background 0.12s' }}
                   onMouseEnter={e => (e.currentTarget.style.background = C.rowHover)}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                   <div style={{ display: 'flex', gap: 16, alignItems: 'center', minWidth: 0 }}>
@@ -184,12 +206,15 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
                       <p style={{ fontSize: 16, fontWeight: 500, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</p>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5 }}>
                         {p.price != null && <span style={{ fontSize: 15, fontFamily: MONO, fontWeight: 600, color: HUE }}>{sym(p.currency)}{p.price}</span>}
-                        <span style={{ fontSize: 13, color: C.stone }}>· {p.engagementPct}% eng · {fmtDate(p.createdTimestamp)}</span>
+                        <span style={{ fontSize: 13, color: C.stone }}>· {fmtDate(p.createdTimestamp)}</span>
                       </div>
                     </div>
                   </div>
+                  <span style={{ fontSize: 13.5, color: C.graphite, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{p.shopName || '—'}</span>
                   <span style={{ fontSize: 16, fontFamily: MONO, color: D.series[1], textAlign: 'right' }}>{formatNumber(p.views)}</span>
                   <span style={{ fontSize: 16, fontFamily: MONO, color: D.series[5], textAlign: 'right' }}>{formatNumber(p.favorites)}</span>
+                  <span style={{ fontSize: 15, fontFamily: MONO, color: C.ink, textAlign: 'right' }}>{p.engagementPct}%</span>
+                  <span style={{ fontSize: 15, fontFamily: MONO, color: p.favPerDay != null ? D.good : C.stone, textAlign: 'right' }}>{p.favPerDay != null ? p.favPerDay : '—'}</span>
                   <HotBar score={p.hotScore} />
                   <span style={{ fontSize: 13.5, fontFamily: MONO, color: HUE, textAlign: 'right' }}>View →</span>
                 </button>

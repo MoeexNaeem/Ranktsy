@@ -166,6 +166,11 @@ export function DashboardLayout() {
   const [navOpen, setNavOpen] = useState(false)
   const { data: user } = useAuth()
   const logout = useLogout()
+  // Current plan, read fresh from the DB (not the possibly-stale JWT).
+  const [planInfo, setPlanInfo] = useState<{ plan: string; label: string } | null>(null)
+  useEffect(() => {
+    fetch('/api/plan').then(r => (r.ok ? r.json() : null)).then(d => { if (d?.success) setPlanInfo({ plan: d.plan, label: d.label }) }).catch(() => {})
+  }, [])
   const handleTab = useCallback((id: TabId) => { setActiveTab(id); setNavOpen(false) }, [])
 
   // Deep links: the Etsy OAuth redirect (…/dashboard?etsy=connected) lands on My
@@ -305,19 +310,19 @@ export function DashboardLayout() {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-            {user && !['business', 'agency', 'enterprise', 'custom'].includes(user.plan) && (
+            {planInfo && (
+              <span className="rdash-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11.5, background: C.paper, color: C.ink, padding: '6px 13px', borderRadius: 999, fontFamily: "'General Sans',monospace", border: `1px solid ${C.ash}`, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: planInfo.plan === 'free' ? C.stone : C.orange }} />
+                {planInfo.label} plan
+              </span>
+            )}
+            {planInfo && !['business', 'agency', 'enterprise', 'custom'].includes(planInfo.plan) && (
               <button onClick={() => triggerUpgrade({ title: 'Upgrade your plan', message: 'Unlock higher daily limits, Etsy Listing Pro images and more with a paid plan.' })}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, background: C.orange, color: '#fff', padding: '7px 15px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
                 onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
                 Upgrade
               </button>
             )}
-            <span className="rdash-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11.5, background: C.paper, color: C.graphite, padding: '6px 13px', borderRadius: 999, fontFamily: "'General Sans',monospace", border: `1px solid ${C.ash}`, fontWeight: 500 }}>
-              <span style={{ position: 'relative', width: 7, height: 7, borderRadius: '50%', background: '#16A34A', display: 'inline-block' }}>
-                <span className="shimmer" style={{ position: 'absolute', inset: -2, borderRadius: '50%', border: '1.5px solid #16A34A', opacity: 0.5 }} />
-              </span>
-              Etsy API · Live
-            </span>
             {user && (
               <div style={{ width: 34, height: 34, borderRadius: '50%', background: activeHue, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13.5, fontWeight: 600, transition: 'background 0.2s' }}>
                 {user.name?.charAt(0)?.toUpperCase() ?? '?'}

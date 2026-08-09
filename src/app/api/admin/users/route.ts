@@ -35,6 +35,8 @@ export async function GET() {
       createdAt: u.createdAt ?? null,
       searches: a?.count ?? 0,
       lastActive: a?.last ?? null,
+      subscriptionStatus: u.subscriptionStatus ?? null,
+      imagesThisMonth: u.listingImageCount ?? 0,
     }
   })
 

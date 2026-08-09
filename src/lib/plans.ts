@@ -12,6 +12,30 @@ export const PLAN_SLUGS: PlanSlug[] = [
   'free', 'starter', 'basic', 'pro', 'pro-1yr', 'business', 'agency', 'enterprise', 'custom',
 ]
 
+/** Human labels for UI (dashboard badge, admin, etc.). */
+export const PLAN_LABELS: Record<PlanSlug, string> = {
+  free: 'Free', starter: 'Starter', basic: 'Basic', pro: 'Pro', 'pro-1yr': 'Pro · 1-Year',
+  business: 'Business', agency: 'Agency', enterprise: 'Enterprise', custom: 'Custom',
+}
+
+/**
+ * The plan we should actually treat the user as being on. The Lemon Squeezy
+ * webhook downgrades to 'free' on expiry, but this is a safety net for a missed
+ * webhook: a non-active paid subscription whose paid period is over (renews_at +
+ * 1-day grace) falls back to free. Active/trialing subs and admin-granted plans
+ * (no subscription metadata) are kept as-is.
+ */
+export function effectivePlan(u: { plan?: PlanSlug | string; subscriptionStatus?: string | null; planRenewsAt?: Date | string | null }): PlanSlug {
+  const plan = (u.plan ?? 'free') as PlanSlug
+  if (plan === 'free') return 'free'
+  const status = u.subscriptionStatus ?? ''
+  if (status === 'expired') return 'free'
+  if (status === 'active' || status === 'on_trial') return plan // trust active status even if renews_at is stale
+  const renews = u.planRenewsAt ? new Date(u.planRenewsAt).getTime() : null
+  if (renews != null && Date.now() > renews + 24 * 60 * 60 * 1000) return 'free'
+  return plan
+}
+
 // Paid plans that map to a Lemon Squeezy variant (via env). Free & Custom don't.
 const VARIANT_ENV: Record<string, string> = {
   starter:    'LS_VARIANT_STARTER',

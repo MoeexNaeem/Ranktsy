@@ -4,7 +4,6 @@ import { User } from '@/lib/models'
 import { hashPassword } from '@/lib/auth/password'
 import { signAccessToken, signRefreshToken } from '@/lib/auth/jwt'
 import { setAuthCookiesOn } from '@/lib/auth/cookies'
-import { sendWelcomeEmail } from '@/lib/auth/email'
 import { resolveRole } from '@/lib/auth/roles'
 import { isOAuthProvider, providerEnabled, exchangeCodeForProfile } from '@/lib/auth/oauth'
 import { isAllowedEmailDomain } from '@/lib/auth/schemas'
@@ -56,7 +55,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ prov
         isVerified: true,           // email is verified by the provider
         authProvider: provider,
       })
-      sendWelcomeEmail(profile.email, user.name).catch(console.error)
     } else if (!user.authProvider) {
       // First social login on an existing email/password account — link them.
       user.authProvider = provider

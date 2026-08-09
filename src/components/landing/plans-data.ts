@@ -52,8 +52,8 @@ export const PLANS: Plan[] = [
     cta: 'Choose Pro', href: '/register?plan=pro',
   },
   {
-    name: 'Pro · 1-Year', slug: 'pro-1yr', price: '$74.99', period: 'per year', accent: '#B7791F',
-    note: '≈ $6.25 / mo · best value',
+    name: 'Pro · 1-Year', slug: 'pro-1yr', price: '$89.99', period: 'per year', accent: '#B7791F',
+    note: '≈ $7.50 / mo · best value',
     blurb: 'All of Pro for a year — with more images.',
     features: [
       'Everything in Pro',

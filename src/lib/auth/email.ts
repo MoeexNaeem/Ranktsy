@@ -90,23 +90,3 @@ export async function sendOtpEmail(email: string, otp: string, type: 'reset' | '
 </body>
 </html>`)
 }
-
-export async function sendWelcomeEmail(email: string, name: string) {
-  await sendEmail(email, `Welcome to Rankkw, ${name}! 🌱`, `
-<!DOCTYPE html><html><body style="font-family:'Inter',-apple-system,sans-serif;background:#EEEBE1;padding:40px 20px;margin:0">
-<table width="480" cellpadding="0" cellspacing="0" style="margin:0 auto;background:#F6F4EC;border-radius:16px;overflow:hidden;border:1px solid rgba(0,0,0,0.08)">
-  <tr><td style="background:#FFFFFF;padding:26px 40px;text-align:center;border-bottom:1px solid rgba(0,0,0,0.06)">
-    <img src="${LOGO_URL}" alt="Rankkw" width="150" style="display:inline-block;height:auto;max-width:160px;border:0;outline:none;text-decoration:none" />
-  </td></tr>
-  <tr><td style="padding:40px">
-    <h1 style="font-size:22px;font-weight:400;color:#3D3E3B;margin:0 0 12px">Welcome, ${name}!</h1>
-    <p style="font-size:14px;color:#666;line-height:1.65;margin:0 0 24px">
-      Your account is ready. Start researching Etsy keywords and growing your shop today.
-    </p>
-    <a href="${APP_URL}/dashboard" style="display:inline-block;background:#FB5E09;color:#ffffff;text-decoration:none;padding:13px 28px;border-radius:999px;font-size:14px;font-weight:500">
-      Open Dashboard →
-    </a>
-  </td></tr>
-</table>
-</body></html>`)
-}

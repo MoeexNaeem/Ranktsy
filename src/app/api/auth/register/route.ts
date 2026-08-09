@@ -4,7 +4,6 @@ import { User } from '@/lib/models'
 import { hashPassword } from '@/lib/auth/password'
 import { signAccessToken, signRefreshToken } from '@/lib/auth/jwt'
 import { setAuthCookies } from '@/lib/auth/cookies'
-import { sendWelcomeEmail } from '@/lib/auth/email'
 import { registerSchema } from '@/lib/auth/schemas'
 import { resolveRole } from '@/lib/auth/roles'
 import { verifyRecaptcha } from '@/lib/recaptcha'
@@ -49,7 +48,6 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<A
 
     const [at, rt] = await Promise.all([signAccessToken(authUser), signRefreshToken(authUser.id)])
     await setAuthCookies(at, rt)
-    sendWelcomeEmail(email, name).catch(console.error)
 
     return NextResponse.json({ success: true, data: authUser }, { status: 201 })
   } catch (err) {

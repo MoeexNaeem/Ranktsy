@@ -9,6 +9,24 @@ import { slugifyTitle } from '@/lib/blog'
 
 interface PostRow { _id: string; title: string; slug: string; status: 'draft' | 'published'; category?: string; tags?: string[]; readingMinutes?: number; updatedAt?: string }
 
+/**
+ * Clean text pasted from Word/Google Docs so it doesn't wreck the Markdown body:
+ * normalise line endings, drop non-breaking spaces, straighten smart quotes,
+ * turn tabs into spaces, strip trailing whitespace, and collapse runs of blank
+ * lines to a single paragraph break.
+ */
+function normalizePastedText(t: string): string {
+  return t
+    .replace(/\r\n?/g, '\n')
+    .replace(/ /g, ' ')
+    .replace(/[‘’‛]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/\t/g, '  ')
+    .replace(/[ \t]+$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 const field: React.CSSProperties = { width: '100%', background: C.snow, border: `1px solid ${C.ash}`, borderRadius: 10, padding: '10px 13px', fontSize: 14.5, fontFamily: 'inherit', color: C.ink, outline: 'none' }
 const label: React.CSSProperties = { fontSize: 12, fontFamily: MONO, color: C.stone, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5, display: 'block' }
 const chip: React.CSSProperties = { fontSize: 12.5, fontFamily: MONO, border: `1px solid ${C.ash}`, background: C.paper, borderRadius: 8, padding: '6px 11px', cursor: 'pointer', color: C.ink }
@@ -190,6 +208,18 @@ export function BlogsAdmin() {
               </div>
             ) : (
               <textarea ref={bodyRef} value={content} onChange={e => setContent(e.target.value)}
+                onPaste={e => {
+                  const text = e.clipboardData.getData('text/plain')
+                  if (!text) return
+                  e.preventDefault()
+                  const el = e.currentTarget
+                  const s = el.selectionStart ?? content.length
+                  const en = el.selectionEnd ?? content.length
+                  const cleaned = normalizePastedText(text)
+                  const next = content.slice(0, s) + cleaned + content.slice(en)
+                  setContent(next)
+                  requestAnimationFrame(() => { const pos = s + cleaned.length; el.selectionStart = el.selectionEnd = pos })
+                }}
                 placeholder={'Write in Markdown.\n\n## A section heading\n\nA paragraph of text. Use **bold**, *italic*, [links](https://example.com).\n\n![Alt text](https://image-url.jpg)\n\n- A bullet\n- Another bullet'}
                 style={{ ...field, minHeight: 420, resize: 'vertical', fontFamily: 'ui-monospace, monospace', fontSize: 14, lineHeight: 1.6 }} />
             )}
