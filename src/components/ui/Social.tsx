@@ -15,7 +15,7 @@ export interface SocialLink {
 
 export const SOCIALS: SocialLink[] = [
   { name: 'youtube',   href: 'https://www.youtube.com/channel/UCN_HqL1neCkrLf_QndBvS5Q', label: 'Rankkw on YouTube' },
-  { name: 'facebook',  href: 'https://www.facebook.com/profile.php?id=61591829587497',   label: 'Rankkw on Facebook' },
+  { name: 'facebook',  href: 'https://www.facebook.com/share/1D3GER3eeD/?mibextid=wwXIfr',   label: 'Rankkw on Facebook' },
   { name: 'instagram', href: 'https://www.instagram.com/rank.kw/',                       label: 'Rankkw on Instagram' },
   { name: 'pinterest', href: 'https://www.pinterest.com/rankkwoffical/_profile/',        label: 'Rankkw on Pinterest' },
   { name: 'threads',   href: 'https://www.threads.com/@rank.kw',                         label: 'Rankkw on Threads' },
