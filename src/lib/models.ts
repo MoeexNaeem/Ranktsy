@@ -4,7 +4,7 @@ import { PLAN_SLUGS, type PlanSlug } from '@/lib/plans'
 import type {
   IKeywordCache, IKeywordHistory, IOTP,
   IShopSnapshot, IListingSnapshot, ITrackedShop, IConnectedShop,
-  ICollectiveKeywordData, IApiUsage, IBlog,
+  ICollectiveKeywordData, IApiUsage, IBlog, IDeal, IPopupAd,
 } from '@/types'
 
 // ─── User ─────────────────────────────────────────────────────────────────────
@@ -249,8 +249,42 @@ const BlogSchema = new Schema<IBlog>({
 }, { timestamps: true })
 BlogSchema.index({ status: 1, publishedAt: -1 })
 
+// ─── Deal ──────────────────────────────────────────────────────────────────────
+const DealSchema = new Schema<IDeal>({
+  title:    { type: String, required: true, trim: true, maxlength: 200 },
+  slug:     { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
+  summary:  { type: String, trim: true, maxlength: 400 },
+  content:  { type: String, default: '' },          // Markdown
+  badge:    { type: String, trim: true, maxlength: 40 },
+  ctaLabel: { type: String, trim: true, default: 'Get this deal' },
+  ctaPlan:  { type: String, trim: true },           // plan slug for LS checkout
+  ctaUrl:   { type: String, trim: true },           // direct URL fallback
+  status:   { type: String, enum: ['draft', 'published'], default: 'draft', index: true },
+  seedKey:  { type: String, trim: true, index: true },
+}, { timestamps: true })
+DealSchema.index({ status: 1, createdAt: -1 })
+
+// ─── Popup Ad ──────────────────────────────────────────────────────────────────
+const PopupAdSchema = new Schema<IPopupAd>({
+  enabled:     { type: Boolean, default: false, index: true },
+  mode:        { type: String, enum: ['card', 'image'], default: 'card' },
+  badge:       { type: String, trim: true, maxlength: 40 },
+  title:       { type: String, trim: true, maxlength: 120 },
+  description: { type: String, trim: true, maxlength: 400 },
+  price:       { type: String, trim: true, maxlength: 24 },
+  priceNote:   { type: String, trim: true, maxlength: 60 },
+  ctaLabel:    { type: String, trim: true, default: 'Learn more' },
+  ctaUrl:      { type: String, trim: true },
+  imageUrl:    { type: String, trim: true },
+  imageLink:   { type: String, trim: true },
+  seedKey:     { type: String, trim: true, index: true },
+}, { timestamps: true })
+PopupAdSchema.index({ enabled: 1, updatedAt: -1 })
+
 export const User          = models.User          ?? model<IUserDoc>('User', UserSchema)
 export const Blog          = (models.Blog as mongoose.Model<IBlog>) ?? model<IBlog>('Blog', BlogSchema)
+export const Deal          = (models.Deal as mongoose.Model<IDeal>) ?? model<IDeal>('Deal', DealSchema)
+export const PopupAd       = (models.PopupAd as mongoose.Model<IPopupAd>) ?? model<IPopupAd>('PopupAd', PopupAdSchema)
 export const ShopSnapshot    = models.ShopSnapshot    ?? model<IShopSnapshot>('ShopSnapshot', ShopSnapshotSchema)
 export const ListingSnapshot = models.ListingSnapshot ?? model<IListingSnapshot>('ListingSnapshot', ListingSnapshotSchema)
 export const TrackedShop     = models.TrackedShop     ?? model<ITrackedShop>('TrackedShop', TrackedShopSchema)

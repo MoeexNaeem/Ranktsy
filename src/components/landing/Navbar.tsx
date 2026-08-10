@@ -240,6 +240,12 @@ export function Navbar() {
                 Blog
               </Link>
             </li>
+            <li>
+              {/* Deals — frosted glass pill with a moving dashed border to draw the eye */}
+              <Link href="/deals" className="rk-deals-nav rk-ants" style={{ ...S.trigger, ['--ant' as string]: C.orange, color: C.orange, fontWeight: 600, textDecoration: 'none', padding: '7px 16px' }} onMouseEnter={() => setOpenMenu(null)}>
+                Deals
+              </Link>
+            </li>
           </ul>
 
           {/* Right: CTA + burger */}
@@ -316,6 +322,10 @@ export function Navbar() {
             <span className="rnav-chip"><Icon name="book" /></span>
             <span className="rnav-label">Blog</span>
           </a>
+          <Link href="/deals" onClick={closeAll} className="rnav-link block rk-ants" style={{ ['--ant' as string]: C.orange, ['--ant-tile' as string]: '14px', borderRadius: 12, marginTop: 4, background: 'rgba(251,94,9,0.06)' }}>
+            <span className="rnav-chip" style={{ color: C.orange }}><Icon name="dollar" /></span>
+            <span className="rnav-label" style={{ color: C.orange, fontWeight: 600 }}>Deals</span>
+          </Link>
         </div>
 
         <div style={{ borderTop: `1px solid ${C.ash}`, padding: 16, display: 'grid', gap: 10 }}>

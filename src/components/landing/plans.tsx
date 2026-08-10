@@ -129,7 +129,6 @@ export function PlanCard({ p, cur }: { p: Plan; cur: Currency }) {
   const sub = dark ? 'rgba(245,245,235,0.68)' : C.graphite
   const price = priceOf(p, cur)
   const note = noteOf(p, cur)
-  const [expanded, setExpanded] = useState(false)
 
   return (
     <div style={{
@@ -176,54 +175,38 @@ export function PlanCard({ p, cur }: { p: Plan; cur: Currency }) {
           ))}
         </ul>
 
-        {/* Bonus details toggle — only renders when the plan defines `expandable` */}
+        {/* Bonus details — always visible (no toggle) when the plan defines `expandable` */}
         {p.expandable && p.expandable.length > 0 && (
-          <div style={{ marginTop: 18 }}>
-            <button
-              type="button"
-              onClick={() => setExpanded(v => !v)}
-              aria-expanded={expanded}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none',
-                padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600,
-                color: dark ? '#fff' : a,
-              }}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"
-                strokeLinecap="round" strokeLinejoin="round"
-                style={{ transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.18s' }}>
-                <polyline points="9 6 15 12 9 18" />
-              </svg>
-              {expanded ? 'Hide bonus details' : "What's included this year"}
-            </button>
-
-            {expanded && (
-              <div style={{
-                marginTop: 14, paddingTop: 14,
-                borderTop: `1px solid ${dark ? 'rgba(255,255,255,0.14)' : C.hair}`,
+          <div style={{
+            marginTop: 18, paddingTop: 16,
+            borderTop: `1px solid ${dark ? 'rgba(255,255,255,0.14)' : C.hair}`,
+          }}>
+            <p style={{
+              fontSize: 12.5, fontWeight: 700, color: dark ? '#fff' : a, textTransform: 'uppercase',
+              letterSpacing: '0.06em', lineHeight: 1.4, marginBottom: 12,
+            }}>
+              What&apos;s included this year
+            </p>
+            {p.expandableHeading && (
+              <p style={{
+                fontSize: 12.5, fontWeight: 700, color: a, textTransform: 'uppercase',
+                letterSpacing: '0.04em', lineHeight: 1.4, marginBottom: 12,
               }}>
-                {p.expandableHeading && (
-                  <p style={{
-                    fontSize: 12.5, fontWeight: 700, color: a, textTransform: 'uppercase',
-                    letterSpacing: '0.04em', lineHeight: 1.4, marginBottom: 12,
-                  }}>
-                    {p.expandableHeading}
-                  </p>
-                )}
-                <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 11 }}>
-                  {p.expandable.map(f => (
-                    <li key={f} style={{ display: 'flex', gap: 11, fontSize: 14, color: dark ? 'rgba(245,245,235,0.92)' : C.ink, lineHeight: 1.4 }}>
-                      <Check color={a} onDark={dark} />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                {p.expandableFootnote && (
-                  <p style={{ fontSize: 12.5, fontWeight: 600, color: a, marginTop: 14, lineHeight: 1.5 }}>
-                    {p.expandableFootnote}
-                  </p>
-                )}
-              </div>
+                {p.expandableHeading}
+              </p>
+            )}
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 11 }}>
+              {p.expandable.map(f => (
+                <li key={f} style={{ display: 'flex', gap: 11, fontSize: 14, color: dark ? 'rgba(245,245,235,0.92)' : C.ink, lineHeight: 1.4 }}>
+                  <Check color={a} onDark={dark} />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+            {p.expandableFootnote && (
+              <p style={{ fontSize: 12.5, fontWeight: 600, color: a, marginTop: 14, lineHeight: 1.5 }}>
+                {p.expandableFootnote}
+              </p>
             )}
           </div>
         )}

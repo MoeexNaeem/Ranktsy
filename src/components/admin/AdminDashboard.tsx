@@ -173,6 +173,8 @@ export function AdminDashboard() {
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
         <h1 style={{ fontSize: 'clamp(30px,3.8vw,46px)', fontWeight: 500, color: C.ink, letterSpacing: '-0.03em', lineHeight: 1.02 }}>User management</h1>
         <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+          <Link href="/admin/ads" style={{ fontSize: 13.5, fontWeight: 500, color: C.orange, background: C.orangeFaint, border: `1px solid ${C.orange}`, borderRadius: 100, padding: '8px 18px', textDecoration: 'none' }}>📣 Manage ads</Link>
+          <Link href="/admin/deals" style={{ fontSize: 13.5, fontWeight: 500, color: C.orange, background: C.orangeFaint, border: `1px solid ${C.orange}`, borderRadius: 100, padding: '8px 18px', textDecoration: 'none' }}>🎁 Manage deals</Link>
           <Link href="/admin/blogs" style={{ fontSize: 13.5, fontWeight: 500, color: '#fff', background: C.orange, borderRadius: 100, padding: '9px 18px', textDecoration: 'none' }}>✍ Manage blog</Link>
           <Link href="/dashboard" style={{ fontSize: 13, color: C.ink, textDecoration: 'underline', textUnderlineOffset: 4 }}>← Back to dashboard</Link>
         </div>

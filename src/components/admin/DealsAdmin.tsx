@@ -7,35 +7,20 @@ import { Card, SectionTitle, primaryBtn, MONO, tableCard, tableHead, th, tableRo
 import { Markdown } from '@/components/blog/Markdown'
 import { slugifyTitle } from '@/lib/blog'
 
-interface PostRow { _id: string; title: string; slug: string; status: 'draft' | 'published'; category?: string; tags?: string[]; readingMinutes?: number; updatedAt?: string }
+interface DealRow { _id: string; title: string; slug: string; status: 'draft' | 'published'; badge?: string; ctaLabel?: string; ctaPlan?: string; ctaUrl?: string; updatedAt?: string }
 
-/**
- * Clean text pasted from Word/Google Docs so it doesn't wreck the Markdown body:
- * normalise line endings, drop non-breaking spaces, straighten smart quotes,
- * turn tabs into spaces, strip trailing whitespace, and collapse runs of blank
- * lines to a single paragraph break.
- */
-function normalizePastedText(t: string): string {
-  return t
-    .replace(/\r\n?/g, '\n')
-    .replace(/ /g, ' ')
-    .replace(/[‘’‛]/g, "'")
-    .replace(/[“”]/g, '"')
-    .replace(/\t/g, '  ')
-    .replace(/[ \t]+$/gm, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-}
+// Paid plan slugs an admin can attach a checkout CTA to (mirrors CHECKOUT_PLANS).
+const PLAN_OPTIONS = ['', 'starter', 'basic', 'pro', 'pro-1yr', 'business', 'agency', 'enterprise']
 
-const field: React.CSSProperties = { width: '100%', background: C.snow, border: `1px solid ${C.ash}`, borderRadius: 10, padding: '10px 13px', fontSize: 14.5, fontFamily: 'inherit', color: C.ink, outline: 'none' }
+const field: React.CSSProperties = { width: '100%', background: C.snow, border: `1px solid ${C.ash}`, borderRadius: 10, padding: '10px 13px', fontSize: 14.5, fontFamily: 'inherit', color: C.ink, outline: 'none', boxSizing: 'border-box' }
 const label: React.CSSProperties = { fontSize: 12, fontFamily: MONO, color: C.stone, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5, display: 'block' }
 const chip: React.CSSProperties = { fontSize: 12.5, fontFamily: MONO, border: `1px solid ${C.ash}`, background: C.paper, borderRadius: 8, padding: '6px 11px', cursor: 'pointer', color: C.ink }
 
-const GRID = '2.4fr 0.8fr 0.9fr 0.8fr 1.1fr'
+const GRID = '2.2fr 0.9fr 1fr 0.8fr 1.1fr'
 
-export function BlogsAdmin() {
+export function DealsAdmin() {
   const [view, setView] = useState<'list' | 'edit'>('list')
-  const [posts, setPosts] = useState<PostRow[]>([])
+  const [deals, setDeals] = useState<DealRow[]>([])
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -44,13 +29,12 @@ export function BlogsAdmin() {
   const [title, setTitle] = useState('')
   const [slug, setSlug] = useState('')
   const [slugTouched, setSlugTouched] = useState(false)
-  const [category, setCategory] = useState('General')
-  const [tags, setTags] = useState('')
-  const [cover, setCover] = useState('')
-  const [excerpt, setExcerpt] = useState('')
+  const [badge, setBadge] = useState('')
+  const [summary, setSummary] = useState('')
   const [content, setContent] = useState('')
-  const [seoTitle, setSeoTitle] = useState('')
-  const [seoDesc, setSeoDesc] = useState('')
+  const [ctaLabel, setCtaLabel] = useState('Get this deal')
+  const [ctaPlan, setCtaPlan] = useState('')
+  const [ctaUrl, setCtaUrl] = useState('')
   const [status, setStatus] = useState<'draft' | 'published'>('draft')
   const [saving, setSaving] = useState(false)
   const [preview, setPreview] = useState(false)
@@ -59,8 +43,8 @@ export function BlogsAdmin() {
   const load = useCallback(async () => {
     setLoading(true); setErr('')
     try {
-      const { data } = await axios.get('/api/admin/blogs')
-      if (data?.success) setPosts(data.data.posts)
+      const { data } = await axios.get('/api/admin/deals')
+      if (data?.success) setDeals(data.data.deals)
       else setErr(data?.error || 'Failed to load')
     } catch (e) { setErr(axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Failed to load') }
     finally { setLoading(false) }
@@ -68,20 +52,20 @@ export function BlogsAdmin() {
   useEffect(() => { load() }, [load])
 
   const resetForm = () => {
-    setId(null); setTitle(''); setSlug(''); setSlugTouched(false); setCategory('General'); setTags('')
-    setCover(''); setExcerpt(''); setContent(''); setSeoTitle(''); setSeoDesc(''); setStatus('draft'); setPreview(false)
+    setId(null); setTitle(''); setSlug(''); setSlugTouched(false); setBadge(''); setSummary('')
+    setContent(''); setCtaLabel('Get this deal'); setCtaPlan(''); setCtaUrl(''); setStatus('draft'); setPreview(false)
   }
   const startNew = () => { resetForm(); setView('edit') }
 
-  const startEdit = async (pid: string) => {
+  const startEdit = async (did: string) => {
     resetForm()
     try {
-      const { data } = await axios.get(`/api/admin/blogs/${pid}`)
+      const { data } = await axios.get(`/api/admin/deals/${did}`)
       if (!data?.success) throw new Error(data?.error || 'Not found')
-      const p = data.data.post
-      setId(p._id); setTitle(p.title); setSlug(p.slug); setSlugTouched(true); setCategory(p.category || 'General')
-      setTags((p.tags || []).join(', ')); setCover(p.coverImage || ''); setExcerpt(p.excerpt || ''); setContent(p.content || '')
-      setSeoTitle(p.seoTitle || ''); setSeoDesc(p.seoDescription || ''); setStatus(p.status || 'draft'); setView('edit')
+      const d = data.data.deal
+      setId(d._id); setTitle(d.title); setSlug(d.slug); setSlugTouched(true); setBadge(d.badge || '')
+      setSummary(d.summary || ''); setContent(d.content || ''); setCtaLabel(d.ctaLabel || 'Get this deal')
+      setCtaPlan(d.ctaPlan || ''); setCtaUrl(d.ctaUrl || ''); setStatus(d.status || 'draft'); setView('edit')
     } catch (e) { setErr(axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Failed to open') }
   }
 
@@ -95,28 +79,18 @@ export function BlogsAdmin() {
     setContent(next)
     requestAnimationFrame(() => { el.focus(); el.selectionStart = el.selectionEnd = s + before.length + sel.length + after.length })
   }
-  const insertImage = () => {
-    const url = window.prompt('Image URL (paste a hosted image link):')?.trim()
-    if (!url) return
-    const alt = window.prompt('Alt text / caption (for SEO & accessibility):')?.trim() || ''
-    insert(`\n\n![${alt}](${url})\n\n`)
-  }
-
-  // Select a word/phrase, click Link → paste a URL → the selection becomes a
-  // clickable [text](url). With nothing selected, it asks for the text too.
   const insertLink = () => {
     const el = bodyRef.current
     const s = el?.selectionStart ?? content.length
     const e = el?.selectionEnd ?? content.length
     const selected = content.slice(s, e).trim()
-    const text = selected || window.prompt('Link text (the word(s) to show):')?.trim() || ''
+    const text = selected || window.prompt('Link text:')?.trim() || ''
     if (!text) return
     let url = window.prompt('Paste the link URL:', 'https://')?.trim() || ''
     if (!url || url === 'https://') return
     if (!/^https?:\/\//i.test(url) && !url.startsWith('/') && !url.startsWith('#')) url = `https://${url}`
     const md = `[${text}](${url})`
-    const next = content.slice(0, s) + md + content.slice(e)
-    setContent(next)
+    setContent(content.slice(0, s) + md + content.slice(e))
     requestAnimationFrame(() => { if (el) { el.focus(); el.selectionStart = el.selectionEnd = s + md.length } })
   }
 
@@ -124,21 +98,18 @@ export function BlogsAdmin() {
     if (title.trim().length < 3) { setErr('Title must be at least 3 characters.'); return }
     setSaving(true); setErr('')
     const nextStatus = publish != null ? (publish ? 'published' : 'draft') : status
-    const payload = {
-      title, slug, category, cover, excerpt, content, seoTitle, seoDescription: seoDesc, status: nextStatus,
-      coverImage: cover, tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-    }
+    const payload = { title, slug, badge, summary, content, ctaLabel, ctaPlan, ctaUrl, status: nextStatus }
     try {
-      if (id) await axios.put(`/api/admin/blogs/${id}`, payload)
-      else await axios.post('/api/admin/blogs', payload)
+      if (id) await axios.put(`/api/admin/deals/${id}`, payload)
+      else await axios.post('/api/admin/deals', payload)
       await load(); setView('list'); resetForm()
     } catch (e) { setErr(axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Save failed') }
     finally { setSaving(false) }
   }
 
-  const del = async (pid: string) => {
-    if (!window.confirm('Delete this post permanently?')) return
-    try { await axios.delete(`/api/admin/blogs/${pid}`); await load() }
+  const del = async (did: string) => {
+    if (!window.confirm('Delete this deal permanently?')) return
+    try { await axios.delete(`/api/admin/deals/${did}`); await load() }
     catch (e) { setErr(axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Delete failed') }
   }
 
@@ -149,29 +120,29 @@ export function BlogsAdmin() {
         <SectionTitle right={
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <Link href="/admin" style={{ ...chip, textDecoration: 'none' }}>← Admin</Link>
-            <button onClick={startNew} style={{ ...primaryBtn, height: 38 }}>+ New post</button>
+            <button onClick={startNew} style={{ ...primaryBtn, height: 38 }}>+ New deal</button>
           </div>
-        }>Blog</SectionTitle>
+        }>Deals</SectionTitle>
 
         {err && <p style={{ color: C.danger, fontSize: 13.5, marginBottom: 12 }}>{err}</p>}
 
         {loading ? (
           <div className="shimmer" style={{ height: 200, borderRadius: 14, background: '#e8e7e2' }} />
-        ) : posts.length === 0 ? (
-          <EmptyState icon="📝" title="No posts yet" sub="Create your first Etsy SEO article." />
+        ) : deals.length === 0 ? (
+          <EmptyState icon="🎁" title="No deals yet" sub="Create your first promotional deal." />
         ) : (
           <div className="rtable" style={tableCard}>
-            <div style={tableHead(GRID)}>{['Title', 'Status', 'Category', 'Read', 'Actions'].map((h, i) => <span key={i} style={th}>{h}</span>)}</div>
-            {posts.map(p => (
-              <div key={p._id} style={tableRow(GRID)}>
-                <span style={{ fontSize: 13.5, color: C.ink, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
-                <span><span style={{ fontSize: 11.5, fontFamily: MONO, padding: '3px 9px', borderRadius: 100, background: p.status === 'published' ? 'rgba(46,125,70,0.13)' : C.bone, color: p.status === 'published' ? '#2E7D46' : C.graphite }}>{p.status}</span></span>
-                <span style={{ fontSize: 13, color: C.graphite }}>{p.category || 'General'}</span>
-                <span style={{ fontSize: 13, fontFamily: MONO, color: C.graphite }}>{p.readingMinutes || 1}m</span>
+            <div style={tableHead(GRID)}>{['Title', 'Status', 'CTA', 'Badge', 'Actions'].map((h, i) => <span key={i} style={th}>{h}</span>)}</div>
+            {deals.map(d => (
+              <div key={d._id} style={tableRow(GRID)}>
+                <span style={{ fontSize: 13.5, color: C.ink, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.title}</span>
+                <span><span style={{ fontSize: 11.5, fontFamily: MONO, padding: '3px 9px', borderRadius: 100, background: d.status === 'published' ? 'rgba(46,125,70,0.13)' : C.bone, color: d.status === 'published' ? '#2E7D46' : C.graphite }}>{d.status}</span></span>
+                <span style={{ fontSize: 12.5, color: C.graphite, fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.ctaPlan ? `plan: ${d.ctaPlan}` : d.ctaUrl ? 'url' : '—'}</span>
+                <span style={{ fontSize: 13, color: C.graphite }}>{d.badge || '—'}</span>
                 <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button onClick={() => startEdit(p._id)} style={chip}>Edit</button>
-                  {p.status === 'published' && <a href={`/blogs/${p.slug}`} target="_blank" rel="noreferrer" style={{ ...chip, textDecoration: 'none' }}>View</a>}
-                  <button onClick={() => del(p._id)} style={{ ...chip, color: C.danger, borderColor: 'rgba(207,70,58,0.3)' }}>Delete</button>
+                  <button onClick={() => startEdit(d._id)} style={chip}>Edit</button>
+                  {d.status === 'published' && <a href={`/deals/${d.slug}`} target="_blank" rel="noreferrer" style={{ ...chip, textDecoration: 'none' }}>View</a>}
+                  <button onClick={() => del(d._id)} style={{ ...chip, color: C.danger, borderColor: 'rgba(207,70,58,0.3)' }}>Delete</button>
                 </span>
               </div>
             ))}
@@ -190,7 +161,7 @@ export function BlogsAdmin() {
           <button onClick={() => save(false)} disabled={saving} style={{ ...chip, opacity: saving ? 0.6 : 1 }}>Save draft</button>
           <button onClick={() => save(true)} disabled={saving} style={{ ...primaryBtn, height: 38, opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving…' : 'Publish'}</button>
         </div>
-      }>{id ? 'Edit post' : 'New post'}</SectionTitle>
+      }>{id ? 'Edit deal' : 'New deal'}</SectionTitle>
 
       {err && <p style={{ color: C.danger, fontSize: 13.5, marginBottom: 12 }}>{err}</p>}
 
@@ -199,10 +170,10 @@ export function BlogsAdmin() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <Card>
             <label style={label}>Title *</label>
-            <input style={{ ...field, fontSize: 18, fontWeight: 500 }} value={title} onChange={e => onTitle(e.target.value)} placeholder="How keyword research grows your Etsy shop" />
+            <input style={{ ...field, fontSize: 18, fontWeight: 500 }} value={title} onChange={e => onTitle(e.target.value)} placeholder="Pro · 1-Year — Best Value" />
             <div style={{ marginTop: 12 }}>
-              <label style={label}>Slug — /blogs/<span style={{ color: C.orange }}>{slug || 'your-title'}</span></label>
-              <input style={field} value={slug} onChange={e => { setSlugTouched(true); setSlug(slugifyTitle(e.target.value)) }} placeholder="how-keyword-research-grows-your-etsy-shop" />
+              <label style={label}>Slug — /deals/<span style={{ color: C.orange }}>{slug || 'your-deal'}</span></label>
+              <input style={field} value={slug} onChange={e => { setSlugTouched(true); setSlug(slugifyTitle(e.target.value)) }} placeholder="pro-1-year-plan" />
             </div>
           </Card>
 
@@ -214,9 +185,7 @@ export function BlogsAdmin() {
                 <button onClick={() => insert('**', '**')} style={chip} title="Bold">B</button>
                 <button onClick={() => insert('*', '*')} style={chip} title="Italic"><em>i</em></button>
                 <button onClick={() => insert('\n- ', '')} style={chip} title="List">• List</button>
-                <button onClick={() => insert('\n> ', '')} style={chip} title="Quote">❝</button>
                 <button onClick={insertLink} style={chip} title="Select a word, then add a link">🔗 Link</button>
-                <button onClick={insertImage} style={{ ...chip, borderColor: C.orange, color: C.orange }} title="Insert image between sections">🖼 Image</button>
               </div>
               <button onClick={() => setPreview(p => !p)} style={{ ...chip, background: preview ? C.orangeFaint : C.paper, color: preview ? C.orange : C.ink }}>{preview ? 'Edit' : 'Preview'}</button>
             </div>
@@ -226,22 +195,10 @@ export function BlogsAdmin() {
               </div>
             ) : (
               <textarea ref={bodyRef} value={content} onChange={e => setContent(e.target.value)}
-                onPaste={e => {
-                  const text = e.clipboardData.getData('text/plain')
-                  if (!text) return
-                  e.preventDefault()
-                  const el = e.currentTarget
-                  const s = el.selectionStart ?? content.length
-                  const en = el.selectionEnd ?? content.length
-                  const cleaned = normalizePastedText(text)
-                  const next = content.slice(0, s) + cleaned + content.slice(en)
-                  setContent(next)
-                  requestAnimationFrame(() => { const pos = s + cleaned.length; el.selectionStart = el.selectionEnd = pos })
-                }}
-                placeholder={'Write in Markdown.\n\n## A section heading\n\nA paragraph of text. Use **bold**, *italic*, [links](https://example.com).\n\n![Alt text](https://image-url.jpg)\n\n- A bullet\n- Another bullet'}
+                placeholder={'Describe the deal in Markdown.\n\n## What you get\n\n- Point one\n- Point two'}
                 style={{ ...field, minHeight: 420, resize: 'vertical', fontFamily: 'ui-monospace, monospace', fontSize: 14, lineHeight: 1.6 }} />
             )}
-            <p style={{ fontSize: 12, color: C.stone, marginTop: 8 }}>Markdown supported. Use <strong>🖼 Image</strong> to drop an image (by URL) between sections.</p>
+            <p style={{ fontSize: 12, color: C.stone, marginTop: 8 }}>Markdown supported. Select a word and press <strong>🔗 Link</strong> to add a link.</p>
           </Card>
         </div>
 
@@ -256,23 +213,21 @@ export function BlogsAdmin() {
             </div>
           </Card>
           <Card>
-            <label style={label}>Cover image URL</label>
-            <input style={field} value={cover} onChange={e => setCover(e.target.value)} placeholder="https://…/cover.jpg" />
-            {cover && <div style={{ marginTop: 10, aspectRatio: '16/9', borderRadius: 10, background: `#eee url(${cover}) center/cover` }} />}
+            <label style={label}>Badge (optional)</label>
+            <input style={field} value={badge} onChange={e => setBadge(e.target.value)} placeholder="Best value" />
+            <label style={{ ...label, marginTop: 12 }}>Card summary (optional)</label>
+            <textarea style={{ ...field, minHeight: 72, resize: 'vertical' }} value={summary} onChange={e => setSummary(e.target.value)} placeholder="Auto-generated from the body if left blank." />
           </Card>
           <Card>
-            <label style={label}>Category</label>
-            <input style={field} value={category} onChange={e => setCategory(e.target.value)} placeholder="Etsy SEO" />
-            <label style={{ ...label, marginTop: 12 }}>Tags (comma separated)</label>
-            <input style={field} value={tags} onChange={e => setTags(e.target.value)} placeholder="keywords, etsy, seo" />
-            <label style={{ ...label, marginTop: 12 }}>Excerpt (optional)</label>
-            <textarea style={{ ...field, minHeight: 64, resize: 'vertical' }} value={excerpt} onChange={e => setExcerpt(e.target.value)} placeholder="Auto-generated from the body if left blank." />
-          </Card>
-          <Card>
-            <label style={label}>SEO title (optional)</label>
-            <input style={field} value={seoTitle} onChange={e => setSeoTitle(e.target.value)} placeholder="Overrides the page <title>" />
-            <label style={{ ...label, marginTop: 12 }}>SEO description (optional)</label>
-            <textarea style={{ ...field, minHeight: 64, resize: 'vertical' }} value={seoDesc} onChange={e => setSeoDesc(e.target.value)} placeholder="Overrides the meta description" />
+            <label style={label}>CTA button text</label>
+            <input style={field} value={ctaLabel} onChange={e => setCtaLabel(e.target.value)} placeholder="Get 1-Year Plan" />
+            <label style={{ ...label, marginTop: 12 }}>Checkout plan (Lemon Squeezy)</label>
+            <select style={{ ...field, cursor: 'pointer' }} value={ctaPlan} onChange={e => setCtaPlan(e.target.value)}>
+              {PLAN_OPTIONS.map(pl => <option key={pl} value={pl}>{pl || '— none (use URL below) —'}</option>)}
+            </select>
+            <label style={{ ...label, marginTop: 12 }}>…or direct URL (used only if no plan)</label>
+            <input style={field} value={ctaUrl} onChange={e => setCtaUrl(e.target.value)} placeholder="https://…" />
+            <p style={{ fontSize: 11.5, color: C.stone, marginTop: 8, lineHeight: 1.5 }}>Pick a plan to send buyers straight to Lemon Squeezy checkout. If no plan is set, the button links to the URL.</p>
           </Card>
         </div>
       </div>

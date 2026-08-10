@@ -78,6 +78,75 @@ svg  { max-width: 100%; }
   .float-card { animation: none; }
 }
 
+/* ── Marching-ants moving border (Deals) ──────────────────────────────────────
+   A moving dashed border drawn as four repeating gradients that scroll along the
+   edges. Themeable via --ant (colour) and --ant-tile (dash size). */
+@keyframes rk-ants {
+  to { background-position: var(--ant-tile,16px) 0, calc(-1 * var(--ant-tile,16px)) 100%, 0 calc(-1 * var(--ant-tile,16px)), 100% var(--ant-tile,16px); }
+}
+.rk-ants::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 2;
+  background-image:
+    linear-gradient(90deg, var(--ant, #FB5E09) 50%, transparent 0),
+    linear-gradient(90deg, var(--ant, #FB5E09) 50%, transparent 0),
+    linear-gradient(0deg,  var(--ant, #FB5E09) 50%, transparent 0),
+    linear-gradient(0deg,  var(--ant, #FB5E09) 50%, transparent 0);
+  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+  background-size: var(--ant-tile,16px) 2px, var(--ant-tile,16px) 2px, 2px var(--ant-tile,16px), 2px var(--ant-tile,16px);
+  background-position: 0 0, 0 100%, 0 0, 100% 0;
+  animation: rk-ants 0.7s linear infinite;
+}
+
+/* Glass Deals nav pill — frosted background + moving dashed border. */
+.rk-deals-nav {
+  position: relative; overflow: hidden;
+  background: rgba(255,255,255,0.28);
+  -webkit-backdrop-filter: saturate(150%) blur(6px); backdrop-filter: saturate(150%) blur(6px);
+  --ant-tile: 12px;
+}
+.rk-deals-nav::before { animation-duration: 0.6s; }
+
+/* Deal card — frosted glass panel with a moving dashed border + soft glow. */
+.deal-card {
+  position: relative; border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.62), rgba(255,255,255,0.42));
+  -webkit-backdrop-filter: saturate(160%) blur(12px); backdrop-filter: saturate(160%) blur(12px);
+  box-shadow: 0 26px 60px -34px var(--glow, rgba(251,94,9,0.55));
+  --ant-tile: 20px;
+}
+.deal-card::before { animation-duration: 1s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rk-ants::before { animation: none; }
+}
+
+/* ── Popup ad ──────────────────────────────────────────────────────────────── */
+@keyframes rk-ad-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes rk-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+.rk-ad-overlay { animation: rk-overlay-in 0.2s ease both; }
+.rk-ad-card    { animation: rk-ad-in 0.34s cubic-bezier(0.16,1,0.3,1) both; }
+
+/* Swinging, popping price tag. */
+@keyframes rk-price-swing {
+  0%, 100% { transform: rotate(-4deg); }
+  50%      { transform: rotate(4deg); }
+}
+@keyframes rk-price-pop {
+  0%   { transform: scale(0.6); opacity: 0; }
+  60%  { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.rk-price-tag {
+  transform-origin: top center;
+  animation: rk-price-pop 0.5s cubic-bezier(0.16,1,0.3,1) both, rk-price-swing 2.8s ease-in-out 0.5s infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rk-ad-overlay, .rk-ad-card, .rk-price-tag { animation: none; }
+}
+
 /* ── Tablet ≤ 1024px ─────────────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
   .rgrid-4 { grid-template-columns: repeat(2, 1fr) !important; }
@@ -324,7 +393,8 @@ svg  { max-width: 100%; }
 .blogbody h3 { font-size: clamp(20px,2.4vw,25px); font-weight: 600; letter-spacing: -0.015em; color: #3D3E3B; margin-top: 1.5em; line-height: 1.25; }
 .blogbody h4 { font-size: 18px; font-weight: 600; color: #3D3E3B; margin-top: 1.3em; }
 .blogbody p  { color: #4A4A44; }
-.blogbody a  { color: #FB5E09; text-decoration: underline; text-underline-offset: 3px; }
+.blogbody a  { color: #2563EB; text-decoration: underline; text-underline-offset: 3px; }
+.blogbody a:hover { color: #1D4ED8; }
 .blogbody strong { color: #3D3E3B; font-weight: 600; }
 .blogbody ul, .blogbody ol { padding-left: 1.4em; }
 .blogbody li { margin: 0.4em 0; color: #4A4A44; }

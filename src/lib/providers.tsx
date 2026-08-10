@@ -6,6 +6,7 @@ import { useState, type ReactNode } from 'react'
 import axios from 'axios'
 import { attachCaptchaInterceptor } from '@/components/security/captchaController'
 import { CaptchaModal } from '@/components/security/CaptchaModal'
+import { PopupAdHost } from '@/components/landing/PopupAdHost'
 
 // Attach the "search-limit → captcha → retry" interceptor to the default axios
 // instance once (covers all `axios.get('/api/...')` calls in the dashboard tabs).
@@ -36,6 +37,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <QueryClientProvider client={queryClient}>
       {children}
       <CaptchaModal />
+      <PopupAdHost />
       {process.env.NODE_ENV === 'development' && (
         <ReactQueryDevtools initialIsOpen={false} />
       )}

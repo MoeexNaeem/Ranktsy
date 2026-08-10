@@ -628,6 +628,50 @@ export interface IBlog {
   updatedAt?: Date
 }
 
+// ─── Deal ──────────────────────────────────────────────────────────────────────
+// Admin-authored promotional offers shown on the public /deals page. The CTA
+// either kicks off a Lemon Squeezy checkout for `ctaPlan` (reuses the pricing
+// checkout flow) or, if `ctaUrl` is set instead, links straight out to it.
+export interface IDeal {
+  _id?: string
+  title: string
+  slug: string                // URL slug → /deals/<slug>
+  summary?: string            // short teaser shown on the deal card
+  content: string             // Markdown body for the detail page
+  badge?: string              // small label e.g. "Best value" / "Limited offer"
+  ctaLabel?: string           // button text, e.g. "Get 1-Year Plan"
+  ctaPlan?: string            // plan slug → Lemon Squeezy checkout (preferred)
+  ctaUrl?: string             // direct URL fallback when no ctaPlan
+  status: 'draft' | 'published'
+  seedKey?: string            // marks a system-seeded deal so it's created once
+  createdAt?: Date
+  updatedAt?: Date
+}
+
+// ─── Popup ad ──────────────────────────────────────────────────────────────────
+// Admin-managed promotional popup shown to visitors on the marketing site. Two
+// modes: a styled "card" (title/description/animated price/Learn-more button) or
+// an "image" (an uploaded/hosted Canva design that links out on click).
+export interface IPopupAd {
+  _id?: string
+  enabled: boolean
+  mode: 'card' | 'image'
+  // card mode
+  badge?: string
+  title?: string
+  description?: string
+  price?: string          // e.g. "$99.99"
+  priceNote?: string      // e.g. "per year · ~$7.50/mo"
+  ctaLabel?: string       // e.g. "Learn more"
+  ctaUrl?: string         // where Learn more / the card link goes (a deal, etc.)
+  // image mode
+  imageUrl?: string       // hosted image (Canva export link)
+  imageLink?: string      // click-through URL for the image
+  seedKey?: string        // marks the system-seeded ad so it's created once
+  createdAt?: Date
+  updatedAt?: Date
+}
+
 // ─── AI generators (Title / Tag / Description) ────────────────────────────────
 export interface AiTitleItem {
   title: string
