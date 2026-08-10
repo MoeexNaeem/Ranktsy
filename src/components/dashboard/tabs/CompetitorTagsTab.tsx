@@ -3,6 +3,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { C, formatNumber } from '@/utils'
+import { chargeCredits } from '@/lib/credits-client'
 import { SearchBar, SectionTitle, ErrorBox, EmptyState, Card, tableCard, tableHead, th, tableRow, tdMono, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import type { EtsyListing, AiFact } from '@/types'
@@ -22,7 +23,7 @@ export function CompetitorTagsTab() {
     enabled: shop.length > 1, staleTime: 1000 * 60 * 15, retry: false,
   })
 
-  const go = useCallback(() => { const v = input.trim(); if (v.length < 2) return; setShop(v) }, [input])
+  const go = useCallback(async () => { const v = input.trim(); if (v.length < 2) return; if (!(await chargeCredits('ctags'))) return; setShop(v) }, [input])
 
   const tags = useMemo(() => {
     if (!data?.listings?.length) return []

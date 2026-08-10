@@ -3,7 +3,7 @@ import { SNAPSHOT_RETENTION_DAYS } from '@/utils'
 import { PLAN_SLUGS, type PlanSlug } from '@/lib/plans'
 import type {
   IKeywordCache, IKeywordHistory, IOTP,
-  IShopSnapshot, IListingSnapshot, ITrackedShop,
+  IShopSnapshot, IListingSnapshot, ITrackedShop, IConnectedShop,
   ICollectiveKeywordData, IApiUsage, IBlog,
 } from '@/types'
 
@@ -22,6 +22,13 @@ export interface IUserDoc extends Document {
   lsVariantId?: string
   subscriptionStatus?: string   // active | on_trial | past_due | cancelled | paused | expired
   planRenewsAt?: Date
+  // Admin-set: blocks dashboard access with an explanatory screen. Checked
+  // fresh from the DB on dashboard load (never baked into the JWT) so it
+  // takes effect immediately, not after the access token expires.
+  restricted?: boolean
+  // DEPRECATED — superseded by the ConnectedShop collection (a user can now
+  // connect more than one shop). Kept only so lib/etsy-tokens.ts can migrate
+  // any pre-existing single-shop connection the first time it's read.
   etsyShopId?: string
   etsyAccessToken?: string
   etsyRefreshToken?: string
@@ -31,6 +38,13 @@ export interface IUserDoc extends Document {
   lastSearchReset: Date
   listingImageCount?: number   // Etsy Listing Pro images used this month
   listingImageReset?: Date
+  // Credit system — powers the "other tools" (no hard limit) at 10 credits/use.
+  // Daily allowance comes from the plan (see lib/credits.ts); balance = limit −
+  // creditsUsedToday. Resets on a UTC day rollover. creditsUsedTotal is lifetime
+  // spend, kept for the admin analytics.
+  creditsUsedToday?: number
+  creditsResetAt?: Date
+  creditsUsedTotal?: number
 }
 
 const UserSchema = new Schema<IUserDoc>({
@@ -46,6 +60,7 @@ const UserSchema = new Schema<IUserDoc>({
   lsVariantId:       { type: String },
   subscriptionStatus:{ type: String },
   planRenewsAt:      { type: Date },
+  restricted:        { type: Boolean, default: false },
   etsyShopId:       { type: String },
   etsyAccessToken:  { type: String, select: false },
   etsyRefreshToken: { type: String, select: false },
@@ -55,6 +70,9 @@ const UserSchema = new Schema<IUserDoc>({
   lastSearchReset:  { type: Date, default: Date.now },
   listingImageCount:{ type: Number, default: 0 },
   listingImageReset:{ type: Date, default: Date.now },
+  creditsUsedToday: { type: Number, default: 0 },
+  creditsResetAt:   { type: Date, default: Date.now },
+  creditsUsedTotal: { type: Number, default: 0 },
 }, { timestamps: true })
 
 // ─── OTP ──────────────────────────────────────────────────────────────────────
@@ -111,6 +129,8 @@ const ApiUsageSchema = new Schema<IApiUsage>({
   imageCalls:   { type: Number, default: 0 },
   imageTokens:  { type: Number, default: 0 },
   imageCostUsd: { type: Number, default: 0 },
+  // Credits spent today by this user on credit-metered tools (10 per use).
+  creditsSpent: { type: Number, default: 0 },
 }, { timestamps: true })
 ApiUsageSchema.index({ day: 1, userId: 1 }, { unique: true })
 ApiUsageSchema.index({ userId: 1, day: -1 })
@@ -195,6 +215,22 @@ const TrackedShopSchema = new Schema<ITrackedShop>({
 
 TrackedShopSchema.index({ userId: 1, shopId: 1 }, { unique: true })
 
+// ─── Connected Shop ────────────────────────────────────────────────────────────
+// A user's OWN Etsy shop(s), connected via OAuth. One row per (userId, shopId) —
+// a user can connect several shops; connecting a new one never disturbs another.
+// Always read fresh from here, never cached on the session/JWT, so a connection
+// persists across logout and only ever goes away when the user removes it.
+const ConnectedShopSchema = new Schema<IConnectedShop>({
+  userId:       { type: String, required: true, index: true },
+  shopId:       { type: String, required: true },
+  shopName:     { type: String, required: true, trim: true },
+  accessToken:  { type: String, required: true, select: false },
+  refreshToken: { type: String, required: true, select: false },
+  tokenExpiry:  { type: Date, required: true },
+}, { timestamps: true })
+
+ConnectedShopSchema.index({ userId: 1, shopId: 1 }, { unique: true })
+
 // ─── Blog ──────────────────────────────────────────────────────────────────────
 const BlogSchema = new Schema<IBlog>({
   title:          { type: String, required: true, trim: true, maxlength: 200 },
@@ -218,6 +254,7 @@ export const Blog          = (models.Blog as mongoose.Model<IBlog>) ?? model<IBl
 export const ShopSnapshot    = models.ShopSnapshot    ?? model<IShopSnapshot>('ShopSnapshot', ShopSnapshotSchema)
 export const ListingSnapshot = models.ListingSnapshot ?? model<IListingSnapshot>('ListingSnapshot', ListingSnapshotSchema)
 export const TrackedShop     = models.TrackedShop     ?? model<ITrackedShop>('TrackedShop', TrackedShopSchema)
+export const ConnectedShop   = models.ConnectedShop   ?? model<IConnectedShop>('ConnectedShop', ConnectedShopSchema)
 export const OTP           = models.OTP           ?? model<IOTP>('OTP', OTPSchema)
 export const KeywordCache  = models.KeywordCache  ?? model<IKeywordCache>('KeywordCache', KeywordCacheSchema)
 export const CollectiveKeywordData = models.CollectiveKeywordData ?? model<ICollectiveKeywordData>('CollectiveKeywordData', CollectiveKeywordDataSchema)

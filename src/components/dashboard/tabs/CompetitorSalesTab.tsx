@@ -7,6 +7,7 @@ import { ctrlBtn } from '../controls'
 import { Card, SearchBar, SectionTitle, ErrorBox, EmptyState, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import { C, D, flag, formatNumber } from '@/utils'
+import { chargeCredits } from '@/lib/credits-client'
 import type { ApiResponse, EtsyShop, AiFact } from '@/types'
 
 interface Tracked { shopId: number; shopName: string }
@@ -76,9 +77,11 @@ export function CompetitorSalesTab() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tracked-shops'] }),
   })
 
-  const go = useCallback(() => {
+  const go = useCallback(async () => {
     const v = input.trim()
-    if (v.length >= 2) setActive(v)
+    if (v.length < 2) return
+    if (!(await chargeCredits('compsales'))) return
+    setActive(v)
   }, [input])
 
   const isTracked = !!(shop && tracked?.some(t => t.shopId === shop.shop_id))

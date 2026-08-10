@@ -37,7 +37,6 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       role:       resolveRole(dbUser.email, dbUser.role),
       plan:       dbUser.plan,
       isVerified: dbUser.isVerified,
-      etsyShopId: dbUser.etsyShopId,
     }
 
     // Issue new tokens silently

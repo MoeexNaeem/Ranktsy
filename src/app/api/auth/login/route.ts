@@ -52,7 +52,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<A
       return NextResponse.json({ success: false, errors: { password: 'Incorrect password' } }, { status: 401 })
     }
 
-    const authUser: AuthUser = { id: user._id.toString(), name: user.name, email: user.email, role: resolveRole(user.email, user.role), plan: user.plan, isVerified: user.isVerified, etsyShopId: user.etsyShopId }
+    const authUser: AuthUser = { id: user._id.toString(), name: user.name, email: user.email, role: resolveRole(user.email, user.role), plan: user.plan, isVerified: user.isVerified }
     const [at, rt] = await Promise.all([signAccessToken(authUser), signRefreshToken(authUser.id)])
     await setAuthCookies(at, rt)
 

@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { resolveRole } from '@/lib/auth/roles'
 import { signAccessToken, signRefreshToken } from '@/lib/auth/jwt'
 import { setAuthCookies } from '@/lib/auth/cookies'
+import { listConnectedShops } from '@/lib/etsy-tokens'
 import type { AuthUser } from '@/types'
 
 export const runtime = 'nodejs'
@@ -16,7 +17,10 @@ export async function GET() {
   await connectDB()
   const u = await User.findById(auth.id).lean()
   if (!u) return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
-  const searches = await KeywordHistory.countDocuments({ userId: auth.id })
+  const [searches, connectedShops] = await Promise.all([
+    KeywordHistory.countDocuments({ userId: auth.id }),
+    listConnectedShops(auth.id),
+  ])
 
   return NextResponse.json({
     success: true,
@@ -27,7 +31,7 @@ export async function GET() {
       role: resolveRole(u.email, u.role),
       plan: u.plan,
       isVerified: u.isVerified,
-      etsyShopId: u.etsyShopId ?? null,
+      connectedShops: connectedShops.map(s => s.shopName),
       savedKeywords: (u.savedKeywords ?? []).length,
       searches,
       createdAt: u.createdAt ?? null,
@@ -50,7 +54,7 @@ export async function PATCH(req: NextRequest) {
   if (!u) return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
 
   // Re-issue tokens so the session (and header badge) reflect the new name immediately.
-  const authUser: AuthUser = { id: auth.id, name, email: u.email, role: resolveRole(u.email, u.role), plan: u.plan, isVerified: u.isVerified, etsyShopId: u.etsyShopId }
+  const authUser: AuthUser = { id: auth.id, name, email: u.email, role: resolveRole(u.email, u.role), plan: u.plan, isVerified: u.isVerified }
   const [at, rt] = await Promise.all([signAccessToken(authUser), signRefreshToken(auth.id)])
   await setAuthCookies(at, rt)
 

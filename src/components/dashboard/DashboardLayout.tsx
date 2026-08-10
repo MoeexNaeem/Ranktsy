@@ -3,7 +3,8 @@ import { useState, useCallback, useEffect, Suspense } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useAuth, useLogout } from '@/hooks/useAuth'
-import { C, ACCENT, withAlpha, type AccentName } from '@/utils'
+import { useCredits } from '@/hooks/useCredits'
+import { C, ACCENT, withAlpha, formatNumber, type AccentName } from '@/utils'
 import { UpgradeModalHost } from './UpgradeModal'
 import { triggerUpgrade } from '@/lib/upgrade'
 
@@ -166,6 +167,8 @@ export function DashboardLayout() {
   const [navOpen, setNavOpen] = useState(false)
   const { data: user } = useAuth()
   const logout = useLogout()
+  // Daily credit balance for the "other tools" — live-updated after each use.
+  const credits = useCredits()
   // Current plan, read fresh from the DB (not the possibly-stale JWT).
   const [planInfo, setPlanInfo] = useState<{ plan: string; label: string } | null>(null)
   useEffect(() => {
@@ -191,6 +194,26 @@ export function DashboardLayout() {
 
   const activeInfo = TABS.find(t => t.id === activeTab)!
   const activeHue = ACCENT[activeInfo.accent]
+
+  // Checked fresh from the DB on every /auth/me call (never cached in the
+  // JWT) — an admin restricting this account blocks it starting now, not
+  // after the access token expires.
+  if (user?.restricted) {
+    return (
+      <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', background: C.canvas, padding: 24 }}>
+        <div style={{ maxWidth: 460, textAlign: 'center' }}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>🚫</div>
+          <h1 style={{ fontSize: 24, fontWeight: 600, color: C.ink, marginBottom: 10, letterSpacing: '-0.02em' }}>Access restricted</h1>
+          <p style={{ fontSize: 14.5, color: C.graphite, lineHeight: 1.65, marginBottom: 24 }}>
+            You are unable to access the dashboard because your account has been restricted by an administrator. If you believe this is a mistake, please contact support.
+          </p>
+          <button onClick={() => logout.mutate()} style={{ background: C.orange, color: '#fff', border: 'none', borderRadius: 100, padding: '11px 26px', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+            Log out
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: C.canvas }}>
@@ -310,6 +333,13 @@ export function DashboardLayout() {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            {credits && (
+              <span className="rdash-badge" title={`${formatNumber(credits.credits)} of ${formatNumber(credits.limit)} daily credits left · 10 per tool use · resets midnight UTC`}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, background: C.paper, color: C.ink, padding: '6px 12px', borderRadius: 999, fontFamily: "'General Sans',monospace", border: `1px solid ${credits.credits <= 0 ? C.orange : C.ash}`, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={credits.credits <= 0 ? C.orange : C.charcoal} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                {formatNumber(credits.credits)}<span style={{ color: C.stone, fontWeight: 500 }}>/{formatNumber(credits.limit)}</span>
+              </span>
+            )}
             {planInfo && (
               <span className="rdash-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11.5, background: C.paper, color: C.ink, padding: '6px 13px', borderRadius: 999, fontFamily: "'General Sans',monospace", border: `1px solid ${C.ash}`, fontWeight: 600, whiteSpace: 'nowrap' }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: planInfo.plan === 'free' ? C.stone : C.orange }} />

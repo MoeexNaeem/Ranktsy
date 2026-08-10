@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Card, SectionTitle, SearchBar, EmptyState, ErrorBox, MONO } from '../kit'
 import { C, D } from '@/utils'
+import { chargeCredits } from '@/lib/credits-client'
 import type { AiTitleResult, AiTitleItem } from '@/types'
 
 function Chip({ children }: { children: React.ReactNode }) {
@@ -55,7 +56,6 @@ function TitleRow({ t, rank, best }: { t: AiTitleItem; rank: number; best?: bool
         <Score label="SEO" value={t.seoStrength} />
         <Score label="CTR" value={t.ctrPotential} />
         <Score label="Read" value={t.readabilityScore} />
-        <Score label="Spam" value={t.spamScore} invert />
         <span style={{ fontSize: 12.5, fontFamily: MONO, color: C.graphite }}>Intent <strong style={{ color: C.ink }}>{t.buyerIntent}</strong></span>
       </div>
     </div>
@@ -80,9 +80,10 @@ export function TitleGenTab() {
     retry: false,
   })
 
-  const run = () => {
+  const run = async () => {
     const q = input.trim()
     if (q.length < 2) return
+    if (!(await chargeCredits('titlegen'))) return
     savedInput = input; savedSubmitted = q
     setSubmitted(q)
   }

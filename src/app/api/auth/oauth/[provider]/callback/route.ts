@@ -68,7 +68,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ prov
       role: resolveRole(user.email, user.role),
       plan: user.plan,
       isVerified: user.isVerified,
-      etsyShopId: user.etsyShopId,
     }
     const [at, rt] = await Promise.all([signAccessToken(authUser), signRefreshToken(authUser.id)])
 

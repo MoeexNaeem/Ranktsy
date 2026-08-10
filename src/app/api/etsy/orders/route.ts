@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/session'
 import { getValidEtsyAuth } from '@/lib/etsy-tokens'
 import { getShopReceiptsPaged } from '@/lib/etsy'
@@ -25,11 +25,12 @@ const COUNTRY_NAMES: Record<string, string> = {
  * buyer-geography endpoint for arbitrary shops, which is why Searchers-by-Country
  * elsewhere in the app comes from Google Ads instead.
  */
-export async function GET(): Promise<NextResponse<ApiResponse<OrdersInsight>>> {
+export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<OrdersInsight>>> {
   const user = await getCurrentUser().catch(() => null)
   if (!user) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
 
-  const auth = await getValidEtsyAuth(user.id)
+  const shopId = req.nextUrl.searchParams.get('shopId') ?? undefined
+  const auth = await getValidEtsyAuth(user.id, shopId)
   if (!auth) return NextResponse.json({ success: true, data: { connected: false } as OrdersInsight })
 
   try {

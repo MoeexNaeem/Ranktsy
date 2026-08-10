@@ -3,6 +3,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { C, formatNumber } from '@/utils'
+import { chargeCredits } from '@/lib/credits-client'
 import { Card, SectionTitle, ErrorBox, Loading, EmptyState, primaryBtn, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import type { EtsyListing, AiFact } from '@/types'
@@ -38,9 +39,10 @@ export function CompareListingsTab() {
     enabled: !!ids, retry: false, staleTime: 1000 * 60 * 30,
   })
 
-  const go = useCallback(() => {
+  const go = useCallback(async () => {
     const a = extractId(aIn.trim()), b = extractId(bIn.trim())
     if (!a || !b) { setErr('Paste two Etsy listing URLs or IDs.'); return }
+    if (!(await chargeCredits('compare'))) return
     setErr(''); setIds({ a, b })
   }, [aIn, bIn])
 

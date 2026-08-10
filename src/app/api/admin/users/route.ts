@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
-import { User, KeywordHistory } from '@/lib/models'
+import { User, KeywordHistory, ConnectedShop } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin, resolveRole } from '@/lib/auth/roles'
+import { creditLimitFor } from '@/lib/credits'
+import { effectivePlan } from '@/lib/plans'
 
 export const runtime = 'nodejs'
+
+const sameUTCDay = (a?: Date | null, b?: Date | null) =>
+  !!a && !!b && a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth() && a.getUTCDate() === b.getUTCDate()
 
 export async function GET() {
   const auth = await getCurrentUser()
@@ -12,18 +17,27 @@ export async function GET() {
   if (!isAdmin(auth)) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
 
   await connectDB()
-  const [users, activity] = await Promise.all([
+  const [users, activity, shopCounts] = await Promise.all([
     User.find().sort({ createdAt: -1 }).lean(),
     KeywordHistory.aggregate([
       { $group: { _id: '$userId', count: { $sum: 1 }, last: { $max: '$searchedAt' } } },
     ]),
+    ConnectedShop.aggregate([
+      { $group: { _id: '$userId', count: { $sum: 1 } } },
+    ]),
   ])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const act = new Map<string, { count: number; last: Date }>(activity.map((a: any) => [String(a._id), { count: a.count, last: a.last }]))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const shops = new Map<string, number>(shopCounts.map((s: any) => [String(s._id), s.count]))
 
   const rows = users.map(u => {
     const id = u._id.toString()
     const a = act.get(id)
+    const plan = effectivePlan(u)
+    const creditsLimit = creditLimitFor(plan)
+    const now = new Date()
+    const creditsUsedToday = sameUTCDay(u.creditsResetAt, now) ? (u.creditsUsedToday ?? 0) : 0
     return {
       id,
       name: u.name,
@@ -31,12 +45,21 @@ export async function GET() {
       role: resolveRole(u.email, u.role),
       plan: u.plan,
       isVerified: u.isVerified,
-      etsyShopId: u.etsyShopId ?? null,
+      restricted: u.restricted ?? false,
+      // A REAL Lemon Squeezy purchase, not an admin-granted plan change — the
+      // webhook is the only writer of lsSubscriptionId; the admin PATCH route
+      // only ever touches role/plan/isVerified/restricted.
+      paidViaLemonSqueezy: !!u.lsSubscriptionId,
+      connectedShops: shops.get(id) ?? 0,
       createdAt: u.createdAt ?? null,
       searches: a?.count ?? 0,
       lastActive: a?.last ?? null,
       subscriptionStatus: u.subscriptionStatus ?? null,
       imagesThisMonth: u.listingImageCount ?? 0,
+      creditsUsedToday,
+      creditsLimit,
+      creditsRemaining: Math.max(0, creditsLimit - creditsUsedToday),
+      creditsUsedTotal: u.creditsUsedTotal ?? 0,
     }
   })
 

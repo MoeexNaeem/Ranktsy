@@ -1,8 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { C, D, flag, formatNumber } from '@/utils'
+import { chargeCredits } from '@/lib/credits-client'
 import { Card, SearchBar, StatCard, SectionTitle, ErrorBox, EmptyState, tableCard, tableHead, th, tableRow, tdMono, tdTitle, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import { BarChart } from '@/components/charts/BarChart'
@@ -34,6 +35,15 @@ function Stars({ rating, color = '#fff' }: { rating: number; color?: string }) {
   )
 }
 
+// Accepts a plain shop name/ID, or a full Etsy shop URL (with or without a
+// locale segment and any query string), e.g.
+// https://www.etsy.com/uk/shop/herlaughtersdream?ref=shop-header-name
+function extractShop(input: string): string {
+  const v = input.trim()
+  const m = v.match(/etsy\.com\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?shop\/([^/?#]+)/i)
+  return (m ? m[1] : v).trim()
+}
+
 export function ShopTab() {
   const [shopInput, setShopInput] = useState('')
   const [shopId,    setShopId]    = useState('')
@@ -53,6 +63,13 @@ export function ShopTab() {
     staleTime: 1000 * 60 * 15,
     retry: false,
   })
+
+  const go = useCallback(async () => {
+    const v = extractShop(shopInput)
+    if (v.length < 2) return
+    if (!(await chargeCredits('shop'))) return
+    setShopId(v)
+  }, [shopInput])
 
   const shop = (data?.shop ?? {}) as Record<string, unknown>
   const reviewAvg   = Number(shop.review_average ?? 0)
@@ -99,8 +116,8 @@ export function ShopTab() {
       <Card pad="20px">
         <p style={{ fontSize: 15, fontWeight: 500, color: C.ink, marginBottom: 4 }}>Analyze any Etsy shop</p>
         <p style={{ fontSize: 14, color: C.graphite, marginBottom: 16 }}>Enter a shop name or ID to see their listings, ratings, views, and performance metrics.</p>
-        <SearchBar value={shopInput} onChange={setShopInput} onSubmit={() => setShopId(shopInput.trim())}
-          placeholder="e.g. SilverCraftStudio or shop ID…" button="Analyze →" maxWidth={460} />
+        <SearchBar value={shopInput} onChange={setShopInput} onSubmit={go}
+          placeholder="Shop name, shop ID, or a full Etsy shop URL…" button="Analyze →" maxWidth={460} />
       </Card>
 
       {isLoading && (

@@ -17,8 +17,9 @@ import type { HotProduct, EtsyListing, AiFact, ApiResponse, BulkKeywordRow } fro
 
 const HUE = ACCENT.rose   // Hot Products' accent
 
-const CUR: Record<string, string> = { USD: '$', GBP: '£', EUR: '€', CAD: 'C$', AUD: 'A$', NZD: 'NZ$', JPY: '¥' }
-const sym = (c?: string) => CUR[c ?? 'USD'] ?? ((c ?? '') + ' ')
+// Always shown as $ — Etsy mixes currencies with no FX rate, and a raw amount
+// tagged with the wrong symbol reads worse than a consistent $ convention.
+const sym = (_c?: string) => '$'
 const fmtDate = (ts?: number | null) => ts ? new Date(ts * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '—'
 
 function Metric({ label, value, sub, color = C.ink }: { label: string; value: string; sub?: string; color?: string }) {

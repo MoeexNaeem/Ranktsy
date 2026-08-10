@@ -2,6 +2,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import axios from 'axios'
 import { C, formatNumber } from '@/utils'
+import { chargeCredits } from '@/lib/credits-client'
 import { Card, SectionTitle, ErrorBox, Loading, EmptyState, tableCard, tableHead, th, tableRow, tdMono, tdTitle, primaryBtn, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import type { AiFact } from '@/types'
@@ -29,6 +30,7 @@ export function RankCheckerTab() {
   const go = useCallback(async () => {
     const kws = kwText.split('\n').map(s => s.trim()).filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).slice(0, MAX)
     if (!shop.trim() || kws.length === 0) { setErr('Enter a shop and at least one keyword.'); return }
+    if (!(await chargeCredits('rank'))) return
     setLoading(true); setErr(''); setRows(null)
 
     const run = async (kw: string, shopParam: string): Promise<RankRow & { shopId: number }> => {

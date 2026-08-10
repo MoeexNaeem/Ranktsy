@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Card, SectionTitle, SearchBar, EmptyState, ErrorBox, MONO } from '../kit'
 import { C, D } from '@/utils'
+import { chargeCredits } from '@/lib/credits-client'
 import type { AiTagResult } from '@/types'
 
 let savedInput = ''
@@ -48,9 +49,10 @@ export function TagGenTab() {
     retry: false,
   })
 
-  const run = () => {
+  const run = async () => {
     const q = input.trim()
     if (q.length < 2) return
+    if (!(await chargeCredits('taggen'))) return
     savedInput = input; savedSubmitted = q
     setSubmitted(q)
   }

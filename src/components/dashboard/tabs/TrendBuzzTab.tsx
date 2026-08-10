@@ -9,6 +9,7 @@ import {
 } from '../kit'
 import { AiInsights } from '../AiInsights'
 import { C, D, formatNumber } from '@/utils'
+import { chargeCredits } from '@/lib/credits-client'
 import type { BuzzItem } from '@/lib/etsy'
 import type { AiFact } from '@/types'
 
@@ -19,7 +20,7 @@ export function TrendBuzzTab() {
   const [query, setQuery] = useState('')
   const { data, isLoading, isFetching, isError } = useTrendBuzz(query)
 
-  const go = useCallback(() => setQuery(input.trim()), [input])
+  const go = useCallback(async () => { if (!(await chargeCredits('buzz'))) return; setQuery(input.trim()) }, [input])
 
   const top12 = useMemo(() => (data ?? []).slice(0, 12), [data])
 

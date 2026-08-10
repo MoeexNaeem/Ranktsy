@@ -6,6 +6,7 @@ import { CountryChart }  from '@/components/charts/CountryChart'
 import { PlatformToggle } from '../PlatformToggle'
 import { Card, SearchBar, SectionTitle, ErrorBox, MONO } from '../kit'
 import { C } from '@/utils'
+import { chargeCredits } from '@/lib/credits-client'
 import type { TrendPlatform, TrendData, TrendPoint } from '@/types'
 
 export function TrendsTab() {
@@ -15,8 +16,10 @@ export function TrendsTab() {
 
   const { data: tr, isLoading, isError } = useTrends(query)
 
-  const go = useCallback(() => {
-    const v = input.trim(); if (v.length < 2) return; setQuery(v)
+  const go = useCallback(async () => {
+    const v = input.trim(); if (v.length < 2) return
+    if (!(await chargeCredits('trends'))) return
+    setQuery(v)
   }, [input])
 
   // Peak season is only knowable from a REAL volume series. Etsy publishes none,

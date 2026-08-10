@@ -21,7 +21,6 @@ export interface AuthUser {
   role: 'user' | 'admin'
   plan: import('@/lib/plans').PlanSlug
   isVerified: boolean
-  etsyShopId?: string
 }
 
 export interface IOTP {
@@ -497,6 +496,21 @@ export interface ITrackedShop {
   createdAt?: Date
 }
 
+// A user's OWN connected (OAuth) Etsy shop(s) — a user can connect more than
+// one. Lives in its own collection (not scalar User fields) precisely so a
+// connection is never tied to session/JWT freshness and never limited to one.
+export interface IConnectedShop {
+  _id?: string
+  userId: string
+  shopId: string
+  shopName: string
+  accessToken: string    // encrypted at rest
+  refreshToken: string   // encrypted at rest
+  tokenExpiry: Date
+  createdAt?: Date
+  updatedAt?: Date
+}
+
 /** A day-over-day delta derived from two snapshots. */
 export interface SalesPoint {
   day: string
@@ -589,6 +603,7 @@ export interface IApiUsage {
   imageCalls?: number         // Gemini images generated
   imageTokens?: number        // tokens burnt on image generation
   imageCostUsd?: number       // USD spent on image generation
+  creditsSpent?: number       // credits spent on credit-metered tools (10 per use)
   createdAt?: Date
   updatedAt?: Date
 }

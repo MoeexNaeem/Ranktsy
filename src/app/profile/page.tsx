@@ -9,7 +9,7 @@ const MONO = "'General Sans',monospace"
 
 interface Profile {
   name: string; email: string; role: 'user' | 'admin'; plan: string
-  isVerified: boolean; etsyShopId: string | null; savedKeywords: number; searches: number; createdAt: string | null
+  isVerified: boolean; connectedShops: string[]; savedKeywords: number; searches: number; createdAt: string | null
 }
 
 const label: React.CSSProperties = { display: 'block', fontSize: 11, fontFamily: MONO, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6E6E64', marginBottom: 8 }
@@ -41,6 +41,10 @@ export default function ProfilePage() {
   const [nameMsg, setNameMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [cur, setCur] = useState(''); const [nw, setNw] = useState('')
   const [pwdMsg, setPwdMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [showDelete, setShowDelete] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteErr, setDeleteErr] = useState('')
 
   useEffect(() => {
     fetch('/api/auth/profile').then(r => r.json()).then(d => {
@@ -66,6 +70,15 @@ export default function ProfilePage() {
     else setPwdMsg({ ok: false, text: d.errors?.currentPassword || d.errors?.newPassword || d.error || 'Failed' })
     setTimeout(() => setPwdMsg(null), 3500)
   }, [cur, nw])
+
+  const deleteAccount = useCallback(async () => {
+    if (!p || deleteConfirm.trim().toLowerCase() !== p.email.toLowerCase()) return
+    setDeleting(true); setDeleteErr('')
+    const r = await fetch('/api/auth/account', { method: 'DELETE' })
+    const d = await r.json().catch(() => null)
+    if (r.ok && d?.success) { window.location.href = '/' }
+    else { setDeleteErr(d?.error || 'Could not delete your account. Please try again.'); setDeleting(false) }
+  }, [p, deleteConfirm])
 
   return (
     <>
@@ -110,7 +123,7 @@ export default function ProfilePage() {
                   <Row k="Member since" v={fmtDate(p.createdAt)} />
                   <Row k="Plan" v={p.plan} />
                   <Row k="Role" v={p.role} />
-                  <Row k="Etsy shop" v={p.etsyShopId ?? 'Not linked'} />
+                  <Row k="Etsy shops" v={p.connectedShops.length ? p.connectedShops.join(', ') : 'Not linked'} />
                   <Row k="Keyword searches" v={p.searches} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 0' }}>
                     <span style={{ fontSize: 13, color: '#6E6E64' }}>Saved keywords</span>
@@ -119,6 +132,15 @@ export default function ProfilePage() {
                 </Card>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {/* Plan */}
+                  <Card pad="20px">
+                    <h3 style={{ fontSize: 15, fontWeight: 500, color: C.ink, marginBottom: 12 }}>Your plan</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                      <Pill tone="orange">{p.plan} plan</Pill>
+                      <Link href="/pricing" style={{ ...btn, padding: '9px 18px', fontSize: 13.5, textDecoration: 'none' }}>Upgrade plan →</Link>
+                    </div>
+                  </Card>
+
                   {/* Edit name */}
                   <Card pad="20px">
                     <h3 style={{ fontSize: 15, fontWeight: 500, color: C.ink, marginBottom: 14 }}>Edit profile</h3>
@@ -142,12 +164,54 @@ export default function ProfilePage() {
                       {pwdMsg && <span style={{ fontSize: 12.5, color: pwdMsg.ok ? C.success : C.danger }}>{pwdMsg.text}</span>}
                     </div>
                   </Card>
+
+                  {/* Danger zone */}
+                  <Card pad="20px" style={{ borderColor: C.dangerBg }}>
+                    <h3 style={{ fontSize: 15, fontWeight: 500, color: C.danger, marginBottom: 8 }}>Danger zone</h3>
+                    <p style={{ fontSize: 12.5, color: '#6E6E64', lineHeight: 1.55, marginBottom: 14 }}>
+                      Permanently delete your account, search history and connected shops. This cannot be undone.
+                    </p>
+                    <button onClick={() => { setShowDelete(true); setDeleteConfirm(''); setDeleteErr('') }}
+                      style={{ background: 'transparent', border: `1px solid ${C.dangerBg}`, color: C.danger, borderRadius: 100, padding: '9px 18px', fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', cursor: 'pointer' }}>
+                      Delete my account
+                    </button>
+                  </Card>
                 </div>
               </div>
             </>
           )}
         </div>
       </main>
+
+      {showDelete && p && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,18,14,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 20 }}
+          onClick={() => !deleting && setShowDelete(false)}>
+          <div style={{ background: C.paper, borderRadius: 16, padding: '26px 28px', maxWidth: 440, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}
+            onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 18, fontWeight: 600, color: C.ink, marginBottom: 10 }}>Delete your account?</h3>
+            <p style={{ fontSize: 13.5, color: '#6E6E64', lineHeight: 1.6, marginBottom: 16 }}>
+              This permanently deletes your account, search history and connected Etsy shops. This cannot be undone.
+              Type <strong style={{ color: C.ink }}>{p.email}</strong> to confirm.
+            </p>
+            <input value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder={p.email} style={input} />
+            {deleteErr && <p style={{ fontSize: 12.5, color: C.danger, marginTop: 10 }}>{deleteErr}</p>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+              <button onClick={() => setShowDelete(false)} disabled={deleting}
+                style={{ background: 'transparent', border: `1px solid ${C.hairInk}`, color: C.ink, borderRadius: 100, padding: '9px 18px', fontSize: 13.5, fontFamily: 'inherit', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={deleteAccount} disabled={deleting || deleteConfirm.trim().toLowerCase() !== p.email.toLowerCase()}
+                style={{
+                  background: C.danger, border: 'none', color: '#fff', borderRadius: 100, padding: '9px 18px', fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit',
+                  cursor: (deleting || deleteConfirm.trim().toLowerCase() !== p.email.toLowerCase()) ? 'not-allowed' : 'pointer',
+                  opacity: (deleting || deleteConfirm.trim().toLowerCase() !== p.email.toLowerCase()) ? 0.5 : 1,
+                }}>
+                {deleting ? 'Deleting…' : 'Delete permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

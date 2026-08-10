@@ -9,13 +9,15 @@ import { useState, useCallback, useMemo } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import axios from 'axios'
 import { C, D, ACCENT, withAlpha, formatNumber } from '@/utils'
+import { chargeCredits } from '@/lib/credits-client'
 import { SearchBar, Card, SectionTitle, ErrorBox, Loading, EmptyState, MONO } from '../kit'
 import { HotProductDetail } from '../hot/HotProductDetail'
 import type { HotProduct, HotProductsResponse, ApiResponse } from '@/types'
 
 const HUE = ACCENT.rose
-const CUR: Record<string, string> = { USD: '$', GBP: '£', EUR: '€', CAD: 'C$', AUD: 'A$', NZD: 'NZ$', JPY: '¥' }
-const sym = (c?: string) => CUR[c ?? 'USD'] ?? ((c ?? '') + ' ')
+// Always shown as $ — Etsy mixes currencies with no FX rate, and a raw amount
+// tagged with the wrong symbol reads worse than a consistent $ convention.
+const sym = (_c?: string) => '$'
 const fmtDate = (ts?: number | null) => ts ? new Date(ts * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
 
 const SORTS: { id: string; label: string }[] = [
@@ -99,8 +101,9 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
     retry: false,
   })
 
-  const apply = useCallback(() => {
+  const apply = useCallback(async () => {
     const q = input.trim(); if (q.length < 2) return
+    if (!(await chargeCredits('hotproducts'))) return
     setSelected(null)
     setApplied({ q, sort, cat, minP, maxP, minFav, release })
   }, [input, sort, cat, minP, maxP, minFav, release])

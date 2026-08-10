@@ -10,7 +10,7 @@ export function useAuth() {
   return useQuery({
     queryKey: ['auth', 'me'],
     queryFn: async () => {
-      const { data } = await api.get<ApiResponse<AuthUser>>('/auth/me')
+      const { data } = await api.get<ApiResponse<AuthUser & { restricted: boolean }>>('/auth/me')
       return data.data ?? null
     },
     staleTime: 1000 * 60 * 5,

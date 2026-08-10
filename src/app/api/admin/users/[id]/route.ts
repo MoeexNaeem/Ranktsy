@@ -15,15 +15,20 @@ async function requireAdmin() {
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { error } = await requireAdmin()
+  const { error, auth } = await requireAdmin()
   if (error) return error
   const { id } = await params
   const body = await req.json().catch(() => ({}))
+
+  if (typeof body.restricted === 'boolean' && body.restricted && auth?.id === id) {
+    return NextResponse.json({ success: false, error: "You can't restrict your own admin account." }, { status: 400 })
+  }
 
   const update: Record<string, unknown> = {}
   if (body.role === 'user' || body.role === 'admin') update.role = body.role
   if ((PLAN_SLUGS as string[]).includes(body.plan)) update.plan = body.plan
   if (typeof body.isVerified === 'boolean') update.isVerified = body.isVerified
+  if (typeof body.restricted === 'boolean') update.restricted = body.restricted
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ success: false, error: 'Nothing to update' }, { status: 400 })
   }

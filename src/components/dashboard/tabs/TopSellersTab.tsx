@@ -2,6 +2,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useTopSellers } from '@/hooks/useKeywords'
 import { useAppStore } from '@/store/app'
+import { chargeCredits } from '@/lib/credits-client'
 import { BarChart } from '@/components/charts/BarChart'
 import { BubbleChart } from '@/components/charts/InsightCharts'
 import { Star, Toggle, ExportBtn, Popover, PopItem, toCsv, downloadCsv, slugify, ctrlBtn } from '../controls'
@@ -51,7 +52,7 @@ export function TopSellersTab() {
   const { data, isLoading, isFetching, isError } = useTopSellers(query)
   const { isFavorite, toggle } = useFavorites()
 
-  const go = useCallback(() => { const v = input.trim(); if (v.length >= 2) setQuery(v) }, [input])
+  const go = useCallback(async () => { const v = input.trim(); if (v.length < 2) return; if (!(await chargeCredits('topsellers'))) return; setQuery(v) }, [input])
 
   const cols = useMemo(() => ALL_COLS.filter(c => !hidden.has(c.id)), [hidden])
   const grid = useMemo(() => `28px ${cols.map(c => c.width).join(' ')}`, [cols])

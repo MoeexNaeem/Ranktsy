@@ -3,6 +3,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import axios from 'axios'
 import { C, D, formatNumber } from '@/utils'
+import { chargeCredits } from '@/lib/credits-client'
 import { SearchBar, ErrorBox, Pagination, StatCard, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import { TopListingsTable } from '../keyword/TopListingsTable'
@@ -47,8 +48,9 @@ export function ListingsTab() {
     staleTime: 1000 * 60 * 30,
   })
 
-  const go = useCallback(() => {
+  const go = useCallback(async () => {
     const v = search.trim(); if (v.length < 2) return
+    if (!(await chargeCredits('listings'))) return
     setPage(1); setApplied({ q: v, min: minP, max: maxP, sort, cat })
   }, [search, minP, maxP, sort, cat])
 

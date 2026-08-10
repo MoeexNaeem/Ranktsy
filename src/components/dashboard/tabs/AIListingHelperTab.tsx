@@ -4,6 +4,7 @@ import { useMutation } from '@tanstack/react-query'
 import axios from 'axios'
 import { Card, SectionTitle, ErrorBox, Loading, MONO, primaryBtn } from '../kit'
 import { C } from '@/utils'
+import { chargeCredits } from '@/lib/credits-client'
 
 interface Result {
   titles: string[]
@@ -44,7 +45,11 @@ export function AIListingHelperTab() {
     },
   })
 
-  const run = useCallback(() => { if (seed.trim().length >= 2) gen.mutate() }, [seed, gen])
+  const run = useCallback(async () => {
+    if (seed.trim().length < 2) return
+    if (!(await chargeCredits('aihelper'))) return
+    gen.mutate()
+  }, [seed, gen])
   const r = gen.data
 
   return (

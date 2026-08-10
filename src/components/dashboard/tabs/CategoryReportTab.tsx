@@ -6,6 +6,7 @@ import { BarChart } from '@/components/charts/BarChart'
 import { SearchBar, Card, StatCard, SectionTitle, ErrorBox, Loading, EmptyState, CompBadge, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import { C, D, formatNumber } from '@/utils'
+import { chargeCredits } from '@/lib/credits-client'
 import type { EtsyListing, AiFact } from '@/types'
 
 function money(l: EtsyListing): number {
@@ -30,7 +31,7 @@ export function CategoryReportTab() {
     placeholderData: prev => prev,
   })
 
-  const go = useCallback(() => { const v = input.trim(); if (v.length >= 2) setQuery(v) }, [input])
+  const go = useCallback(async () => { const v = input.trim(); if (v.length < 2) return; if (!(await chargeCredits('catreport'))) return; setQuery(v) }, [input])
 
   const report = useMemo(() => {
     const listings = data?.listings ?? []

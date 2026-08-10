@@ -1,12 +1,17 @@
 'use client'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import axios from 'axios'
 import { Card, SectionTitle, EmptyState, ErrorBox, MONO, primaryBtn } from '../kit'
+import { MiniMarkdown } from '../MiniMarkdown'
 import { C, D } from '@/utils'
 import { triggerUpgrade } from '@/lib/upgrade'
 import type { ApiResponse } from '@/types'
 import type { ListingPro } from '@/app/api/ai/listing-pro/route'
+
+// Survives a page refresh — the tab otherwise loses the whole generated
+// listing + images because they only ever lived in React state.
+const LS_KEY = 'rk-listingpro-v1'
 
 const CUR: Record<string, string> = { USD: '$', GBP: '£', EUR: '€', CAD: 'C$', AUD: 'A$', PKR: '₨', INR: '₹' }
 const sym = (c?: string) => CUR[c ?? 'USD'] ?? (c ? `${c} ` : '$')
@@ -29,14 +34,35 @@ function CopyBtn({ text, label = 'Copy' }: { text: string; label?: string }) {
 }
 
 interface ImgState { loading: boolean; dataUrl?: string; error?: string; costUsd?: number }
+const BLANK_IMAGES: Record<ImageType, ImgState> = {
+  main: { loading: false }, mockup: { loading: false }, feature: { loading: false }, combo: { loading: false },
+}
+interface Persisted { product: string; details: string; listing: ListingPro | null; images: Record<ImageType, ImgState> }
+
+// Read once, synchronously, as each piece of state's lazy initial value —
+// avoids the empty-then-hydrated flash (and the extra render) a restore
+// effect would cause.
+function readPersisted(): Partial<Persisted> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(LS_KEY)
+    return raw ? JSON.parse(raw) as Partial<Persisted> : {}
+  } catch { return {} } // corrupt/unavailable storage — start fresh
+}
 
 export function EtsyListingProTab() {
-  const [product, setProduct] = useState('')
-  const [details, setDetails] = useState('')
+  const [product, setProduct] = useState(() => readPersisted().product ?? '')
+  const [details, setDetails] = useState(() => readPersisted().details ?? '')
   const [ref, setRef] = useState<{ dataUrl: string; mimeType: string } | null>(null)
-  const [images, setImages] = useState<Record<ImageType, ImgState>>({
-    main: { loading: false }, mockup: { loading: false }, feature: { loading: false }, combo: { loading: false },
-  })
+  const [images, setImages] = useState<Record<ImageType, ImgState>>(() => ({ ...BLANK_IMAGES, ...readPersisted().images }))
+  const [listing, setListing] = useState<ListingPro | null>(() => readPersisted().listing ?? null)
+
+  // Keep localStorage in sync with the latest generated listing + images.
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify({ product, details, listing, images } satisfies Persisted))
+    } catch { /* quota exceeded (e.g. a large image) — not fatal, just skip persisting this update */ }
+  }, [product, details, listing, images])
 
   const gen = useMutation({
     mutationFn: async () => {
@@ -44,9 +70,8 @@ export function EtsyListingProTab() {
       if (!data.success || !data.data) throw new Error(data.error ?? 'Generation failed')
       return data.data
     },
-    onSuccess: () => setImages({ main: { loading: false }, mockup: { loading: false }, feature: { loading: false }, combo: { loading: false } }),
+    onSuccess: (data) => { setListing(data); setImages(BLANK_IMAGES) },
   })
-  const listing = gen.data
 
   const onFile = useCallback((f: File | undefined) => {
     if (!f) return setRef(null)
@@ -160,7 +185,10 @@ export function EtsyListingProTab() {
             </Field>
 
             <Field label="Description" hint={<CopyBtn text={listing.description} />}>
-              <p style={{ fontSize: 15, color: C.ink, lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>{listing.description}</p>
+              {/* Rendered as real headings/bullets — same look as Description Gen. */}
+              <div style={{ background: C.canvas, borderRadius: 12, padding: '18px 20px', border: `1px solid ${C.hair}` }}>
+                <MiniMarkdown text={listing.description} />
+              </div>
             </Field>
 
             {listing.materials.length > 0 && (
@@ -181,7 +209,9 @@ export function EtsyListingProTab() {
             <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.6, marginTop: -6, marginBottom: 14 }}>
               A clean hero product image shot in a real Etsy style. Alt text: <span style={{ fontStyle: 'italic' }}>{listing.altText}</span>
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, maxWidth: 380 }}>
+            {/* Wide hero preview — the generated image is 4:3, so let it fill the
+                card (capped) instead of sitting small with empty space beside it. */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, maxWidth: 760, margin: '0 auto' }}>
               {IMAGE_TYPES.map(({ type, name, desc }) => {
                 const st = images[type]
                 return (

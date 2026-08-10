@@ -14,9 +14,9 @@ export interface PlanLimits {
 
 const U = Infinity
 export const PLAN_LIMITS: Record<PlanSlug, PlanLimits> = {
-  free:        { searchesPerDay: 5,    listingImagesPerMonth: 0,  auditsPerDay: 5,    competitors: 0 },
-  starter:     { searchesPerDay: 25,   listingImagesPerMonth: 0,  auditsPerDay: 20,   competitors: 2 },
-  basic:       { searchesPerDay: 100,  listingImagesPerMonth: 0,  auditsPerDay: 50,   competitors: 5 },
+  free:        { searchesPerDay: 5,    listingImagesPerMonth: 1,  auditsPerDay: 5,    competitors: 0 },
+  starter:     { searchesPerDay: 25,   listingImagesPerMonth: 2,  auditsPerDay: 20,   competitors: 2 },
+  basic:       { searchesPerDay: 100,  listingImagesPerMonth: 3,  auditsPerDay: 50,   competitors: 5 },
   pro:         { searchesPerDay: 200,  listingImagesPerMonth: 5,  auditsPerDay: 200,  competitors: 50 },
   'pro-1yr':   { searchesPerDay: 200,  listingImagesPerMonth: 20, auditsPerDay: 200,  competitors: 50 },
   business:    { searchesPerDay: 500,  listingImagesPerMonth: 15, auditsPerDay: 500,  competitors: 100 },

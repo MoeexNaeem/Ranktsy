@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/session'
 import { getValidEtsyAuth } from '@/lib/etsy-tokens'
 import { getShopByOwner, getOwnerListings, getShopReceipts } from '@/lib/etsy'
@@ -13,11 +13,12 @@ const COUNTRY_NAMES: Record<string, string> = {
   IE: 'Ireland', NZ: 'New Zealand', JP: 'Japan', CH: 'Switzerland', BE: 'Belgium', AT: 'Austria',
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
 
-  const auth = await getValidEtsyAuth(user.id)
+  const shopId = req.nextUrl.searchParams.get('shopId') ?? undefined
+  const auth = await getValidEtsyAuth(user.id, shopId)
   if (!auth) return NextResponse.json({ success: true, data: { connected: false } })
 
   try {

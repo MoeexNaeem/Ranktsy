@@ -180,12 +180,61 @@ async function historicalMetrics(keywords: string[], geoId: string | null): Prom
   return out
 }
 
+/**
+ * Global aggregate: sum real per-country historical metrics across the same
+ * fixed country set googleCountryBreakdown already uses, rather than omitting
+ * geoTargetConstants. Omitting it returns an EMPTY result for this endpoint in
+ * practice (unlike keyword-idea discovery, where "no geo" genuinely means
+ * worldwide) — that silently killed the trend line and every stat for Global.
+ * Sequential calls (not Promise.all) for the same rate-limit reason as
+ * googleCountryBreakdown.
+ */
+async function historicalMetricsGlobal(keywords: string[]): Promise<Map<string, GoogleMetric>> {
+  const isos = Object.keys(GEO_TARGETS)
+  const perGeo: Map<string, GoogleMetric>[] = []
+  for (const iso of isos) {
+    perGeo.push(await historicalMetrics(keywords, GEO_TARGETS[iso].id).catch(() => new Map<string, GoogleMetric>()))
+  }
+  const BAND_RANK: Record<string, number> = { UNSPECIFIED: 0, UNKNOWN: 0, LOW: 1, MEDIUM: 2, HIGH: 3 }
+  const out = new Map<string, GoogleMetric>()
+  for (const raw of new Set(keywords.map(k => k.toLowerCase().trim()).filter(Boolean))) {
+    let searches = 0, compIdxSum = 0, compIdxCount = 0, cpcLowSum = 0, cpcLowCount = 0, cpcHighSum = 0, cpcHighCount = 0
+    const monthly: number[] = []
+    let bestBand = 'UNSPECIFIED'
+    let found = false
+    for (const m of perGeo) {
+      const g = m.get(raw)
+      if (!g) continue
+      found = true
+      searches += g.searches
+      for (let i = 0; i < g.monthly.length; i++) monthly[i] = (monthly[i] ?? 0) + g.monthly[i]
+      if (g.competitionIndex != null) { compIdxSum += g.competitionIndex; compIdxCount++ }
+      if (g.cpcLow != null) { cpcLowSum += g.cpcLow; cpcLowCount++ }
+      if (g.cpcHigh != null) { cpcHighSum += g.cpcHigh; cpcHighCount++ }
+      if ((BAND_RANK[g.competition] ?? 0) > (BAND_RANK[bestBand] ?? 0)) bestBand = g.competition
+    }
+    if (!found) continue
+    out.set(raw, {
+      keyword: raw,
+      searches,
+      competition: bestBand,
+      competitionIndex: compIdxCount ? Math.round(compIdxSum / compIdxCount) : null,
+      cpcLow: cpcLowCount ? parseFloat((cpcLowSum / cpcLowCount).toFixed(2)) : null,
+      cpcHigh: cpcHighCount ? parseFloat((cpcHighSum / cpcHighCount).toFixed(2)) : null,
+      monthly,
+    })
+  }
+  return out
+}
+
 /** Google monthly search volume for many keywords (default geo US). Safe: returns
  *  an empty map (never throws) when Google Ads isn't configured or the call fails. */
 export async function googleKeywordMetrics(keywords: string[], geoIso = 'US'): Promise<Map<string, GoogleMetric>> {
   if (!isGoogleAdsConfigured()) return new Map()
+  const geo = normalizeGeo(geoIso)
   try {
-    return await historicalMetrics(keywords, geoIdFor(normalizeGeo(geoIso)))
+    if (geo === 'GLO') return await historicalMetricsGlobal(keywords)
+    return await historicalMetrics(keywords, geoIdFor(geo))
   } catch (e) {
     console.error('[GoogleAds] keyword metrics failed:', e)
     return new Map()

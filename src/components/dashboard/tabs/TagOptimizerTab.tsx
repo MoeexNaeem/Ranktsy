@@ -3,6 +3,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { C } from '@/utils'
+import { chargeCredits } from '@/lib/credits-client'
 import { Card, SearchBar, SectionTitle, EmptyState, tableCard, tableHead, th, tableRow, tdMono, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import type { EtsyListing, AiFact } from '@/types'
@@ -22,8 +23,10 @@ export function TagOptimizerTab() {
     staleTime: 1000 * 60 * 30,
   })
 
-  const go = useCallback(() => {
-    const v = input.trim(); if (v.length < 2) return; setQuery(v)
+  const go = useCallback(async () => {
+    const v = input.trim(); if (v.length < 2) return
+    if (!(await chargeCredits('tags'))) return
+    setQuery(v)
   }, [input])
 
   const tagAnalysis = useMemo(() => {

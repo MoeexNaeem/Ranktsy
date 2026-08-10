@@ -5,6 +5,7 @@ import axios from 'axios'
 import { Card, SearchBar, SectionTitle, ErrorBox, Loading, EmptyState, MONO } from '../kit'
 import { ExportBtn, toCsv, downloadCsv, slugify } from '../controls'
 import { C, D, formatNumber } from '@/utils'
+import { chargeCredits } from '@/lib/credits-client'
 import type { ApiResponse, KeywordGap, GapTag } from '@/types'
 
 function AdoptionBar({ pct, color }: { pct: number; color: string }) {
@@ -53,9 +54,11 @@ export function KeywordGapTab() {
     retry: false,
   })
 
-  const run = useCallback(() => {
+  const run = useCallback(async () => {
     const kw = kwInput.trim()
-    if (kw.length >= 2) { setQ(kw); setListing(listingInput.trim()) }
+    if (kw.length < 2) return
+    if (!(await chargeCredits('gap'))) return
+    setQ(kw); setListing(listingInput.trim())
   }, [kwInput, listingInput])
 
   const exportCsv = useCallback(() => {
