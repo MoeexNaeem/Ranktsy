@@ -79,13 +79,16 @@ export function AdminDashboard() {
   const [usersPage, setUsersPage] = useState(1)
   const [usagePage, setUsagePage] = useState(1)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
+  const [promoOn, setPromoOn] = useState(false)
+  const [promoBusy, setPromoBusy] = useState(false)
+  const [promoMsg, setPromoMsg] = useState('')
 
   const load = useCallback(() => {
     fetch('/api/admin/users').then(async r => {
       if (r.status === 401) { window.location.href = '/login?redirect=/admin'; return }
       if (r.status === 403) { setState('forbidden'); return }
       const d = await r.json().catch(() => null)
-      if (r.ok && d?.success) { setUsers(d.data.users); setStats(d.data.stats); setState('ok') }
+      if (r.ok && d?.success) { setUsers(d.data.users); setStats(d.data.stats); setPromoOn(!!d.data.freeToProPromo); setState('ok') }
       else setState('error')
     }).catch(() => setState('error'))
     // API-usage analytics (per-user + totals + 7-day) — independent of the user list.
@@ -106,6 +109,23 @@ export function AdminDashboard() {
       if ('plan' in patch) load()
     }
     setBusy(null)
+  }, [load])
+
+  // body: { enabled } to toggle, or { refresh: true } to re-convert new free users.
+  const callPromo = useCallback(async (body: { enabled?: boolean; refresh?: boolean }) => {
+    setPromoBusy(true); setPromoMsg('')
+    try {
+      const r = await fetch('/api/admin/free-to-pro', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const d = await r.json().catch(() => null)
+      if (r.ok && d?.success) {
+        setPromoOn(d.data.enabled)
+        if (body.enabled === false) setPromoMsg('Promo turned off.')
+        else setPromoMsg(`${d.data.affected} free user${d.data.affected === 1 ? '' : 's'} converted to Pro.`)
+        load()
+      } else setPromoMsg(d?.error || 'Failed.')
+    } catch { setPromoMsg('Failed.') }
+    setPromoBusy(false)
+    setTimeout(() => setPromoMsg(''), 6000)
   }, [load])
 
   const deleteUser = useCallback(async (u: AUser) => {
@@ -188,6 +208,29 @@ export function AdminDashboard() {
           <StatCard label="Verified" value={formatNumber(stats.verified)} accent={C.ink} />
         </div>
       )}
+
+      {/* ─── Free → Pro toggle + refresh ────────────────────────────────────── */}
+      <div style={{ ...tableCard, padding: '18px 22px', marginBottom: 22, display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap', borderColor: promoOn ? C.orange : C.ash, background: promoOn ? 'rgba(251,94,9,0.05)' : C.paper }}>
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <p style={{ fontSize: 15, fontWeight: 600, color: C.ink }}>Convert all free users to Pro</p>
+          <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.55, marginTop: 4 }}>
+            Turn on to upgrade every Free user to Pro. Use <strong>Refresh</strong> to convert any new free users since.
+          </p>
+          {promoMsg && <p style={{ fontSize: 12.5, color: C.orange, fontFamily: MONO, marginTop: 8 }}>{promoMsg}</p>}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+          <button onClick={() => callPromo({ refresh: true })} disabled={promoBusy}
+            title="Convert new free users to Pro now"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 500, fontFamily: MONO, color: C.orange, background: C.orangeFaint, border: `1px solid ${C.orange}`, borderRadius: 100, padding: '8px 15px', cursor: promoBusy ? 'wait' : 'pointer', opacity: promoBusy ? 0.6 : 1 }}>
+            ↻ Refresh
+          </button>
+          <button onClick={() => callPromo({ enabled: !promoOn })} disabled={promoBusy}
+            role="switch" aria-checked={promoOn} title={promoOn ? 'Turn off' : 'Turn on'}
+            style={{ position: 'relative', width: 58, height: 32, borderRadius: 100, border: 'none', cursor: promoBusy ? 'wait' : 'pointer', background: promoOn ? C.orange : C.ash, transition: 'background 0.18s', opacity: promoBusy ? 0.6 : 1 }}>
+            <span style={{ position: 'absolute', top: 3, left: promoOn ? 29 : 3, width: 26, height: 26, borderRadius: '50%', background: '#fff', transition: 'left 0.18s', boxShadow: '0 2px 5px rgba(0,0,0,0.25)' }} />
+          </button>
+        </div>
+      </div>
 
       {/* ─── All users — paying customers surface first, clearly marked ─────── */}
       <div style={{ marginBottom: 34 }}>
@@ -368,6 +411,7 @@ export function AdminDashboard() {
           </div>
         </div>
       )}
+
     </>
   )
 }

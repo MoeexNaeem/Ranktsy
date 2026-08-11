@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { searchEtsyListings, dominantCurrencyPrices } from '@/lib/etsy'
-import { geminiJSON, isGeminiConfigured } from '@/lib/gemini'
+import { geminiJSON, isGeminiConfigured, type GeminiMeta } from '@/lib/gemini'
 import type { ApiResponse } from '@/types'
 
 export const runtime = 'nodejs'
@@ -105,15 +105,24 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<L
       `- priceSuggested: a number in ${ctx.currency}${ctx.median != null ? ` near the ${ctx.median} market median` : ''}.\n` +
       `- priceReason: one sentence on the price.`
 
+    // This produces a LARGE JSON (title + 13 tags + a full multi-section
+    // description + altText + materials + features + visual + price). The model
+    // also spends "thinking" tokens before output, so a tight budget truncates
+    // the JSON mid-string → parse fails → intermittent 502s. 8192 gives headroom
+    // (same as the Title/Description generators).
+    const meta: GeminiMeta = {}
     const parsed = await geminiJSON<Omit<ListingPro, 'ai' | 'marketMedian' | 'currency'>>({
       prompt,
       schema: SCHEMA,
       system: 'You write Etsy listing copy grounded ONLY in the real competing tags and real market price provided. Never invent SEO metrics, search volume, keyword difficulty, ranking data or competitor prices. Never invent product features. Output only the requested JSON.',
       temperature: 0.85,
-      maxOutputTokens: 4096,
-    })
+      maxOutputTokens: 8192,
+    }, meta)
     if (!parsed) {
-      return NextResponse.json({ success: false, error: 'The AI model was unavailable or rate-limited. Try again.' }, { status: 502 })
+      const msg = meta.reason === 'quota'
+        ? 'AI is temporarily unavailable — the AI provider’s quota is used up. Please try again later.'
+        : 'The AI model was unavailable or rate-limited. Please try again.'
+      return NextResponse.json({ success: false, error: msg }, { status: meta.reason === 'quota' ? 503 : 502 })
     }
 
     const data: ListingPro = {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
-import { geminiJSON, isGeminiConfigured } from '@/lib/gemini'
+import { geminiJSON, isGeminiConfigured, type GeminiMeta } from '@/lib/gemini'
 import { normalizeGeo } from '@/lib/google-ads'
 import { buildGrounding, titlePrompt, TITLE_SYSTEM, TITLE_SCHEMA } from '@/lib/ai/etsy-prompts'
 import { withUsage } from '@/lib/track'
@@ -24,11 +24,13 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Ai
 
   try {
     const g = await buildGrounding(keyword, geo)
+    const meta: GeminiMeta = {}
     const result = await geminiJSON<AiTitleResult>({
       system: TITLE_SYSTEM, prompt: titlePrompt(keyword, g.text), schema: TITLE_SCHEMA,
       temperature: 0.85, maxOutputTokens: 8192,
-    })
+    }, meta)
     if (!result || !result.titles?.length) {
+      if (meta.reason === 'quota') return NextResponse.json({ success: false, error: 'AI is temporarily unavailable — the AI provider’s quota is used up. Please try again later.' }, { status: 503 })
       return NextResponse.json({ success: false, error: 'AI generation failed — please try again.' }, { status: 502 })
     }
     result.focusKeyword = keyword

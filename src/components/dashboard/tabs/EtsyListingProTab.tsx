@@ -66,9 +66,16 @@ export function EtsyListingProTab() {
 
   const gen = useMutation({
     mutationFn: async () => {
-      const { data } = await axios.post<ApiResponse<ListingPro>>('/api/ai/listing-pro', { product, details })
-      if (!data.success || !data.data) throw new Error(data.error ?? 'Generation failed')
-      return data.data
+      try {
+        const { data } = await axios.post<ApiResponse<ListingPro>>('/api/ai/listing-pro', { product, details })
+        if (!data.success || !data.data) throw new Error(data.error ?? 'Generation failed')
+        return data.data
+      } catch (e) {
+        // Surface the server's honest message (e.g. "AI temporarily unavailable")
+        // instead of axios's generic "Request failed with status code 502".
+        if (axios.isAxiosError(e)) throw new Error(e.response?.data?.error ?? e.message)
+        throw e
+      }
     },
     onSuccess: (data) => { setListing(data); setImages(BLANK_IMAGES) },
   })

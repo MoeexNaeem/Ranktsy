@@ -62,14 +62,20 @@ interface GenerateOpts {
   think?: boolean
 }
 
+/** Why a text generation failed — callers can turn 'quota' into an honest message. */
+export type GeminiReason = 'quota' | 'blocked' | 'unconfigured' | 'model_retired' | 'error'
+export interface GeminiMeta { reason?: GeminiReason }
+
 /**
  * One generation call. Returns the model's text (JSON string when a schema is
  * given), or null on any failure — callers fall back to their rule-based path
- * rather than surfacing a 500. Never throws.
+ * rather than surfacing a 500. Never throws. Pass an optional `meta` object to
+ * learn WHY it returned null (e.g. 'quota' when the provider's billing is out),
+ * so the UI can show an honest message instead of "please try again".
  */
-export async function geminiGenerate(opts: GenerateOpts): Promise<string | null> {
+export async function geminiGenerate(opts: GenerateOpts, meta?: GeminiMeta): Promise<string | null> {
   const key = geminiKey()
-  if (!key) return null
+  if (!key) { if (meta) meta.reason = 'unconfigured'; return null }
 
   const body: Record<string, unknown> = {
     contents: [{ role: 'user', parts: [{ text: opts.prompt }] }],
@@ -114,6 +120,7 @@ export async function geminiGenerate(opts: GenerateOpts): Promise<string | null>
         // 404 = pinned model retired; not retryable.
         if (res.status === 404) {
           console.error(`[Gemini] model "${MODEL}" returned 404 — likely retired. Set GEMINI_MODEL to a current one. ${errBody.slice(0, 160)}`)
+          if (meta) meta.reason = 'model_retired'
           return null
         }
         // 429 / 5xx are transient — retry with backoff.
@@ -123,6 +130,9 @@ export async function geminiGenerate(opts: GenerateOpts): Promise<string | null>
           continue
         }
         console.error(`[Gemini] ${res.status}: ${errBody.slice(0, 200)}`)
+        // A terminal 429 means the provider's quota/billing is exhausted — not a
+        // transient blip, so callers should say so rather than "try again".
+        if (meta) meta.reason = res.status === 429 ? 'quota' : 'error'
         return null
       }
 
@@ -133,6 +143,7 @@ export async function geminiGenerate(opts: GenerateOpts): Promise<string | null>
 
       if (json.promptFeedback?.blockReason) {
         console.error('[Gemini] blocked:', json.promptFeedback.blockReason)
+        if (meta) meta.reason = 'blocked'
         return null
       }
 
@@ -232,8 +243,8 @@ export async function geminiImage(prompt: string, refs?: GeminiRefImage[]): Prom
  * if the model is unconfigured, fails, or returns unparseable JSON — so every
  * caller keeps a clean fallback path.
  */
-export async function geminiJSON<T>(opts: GenerateOpts & { schema: GeminiSchema }): Promise<T | null> {
-  const raw = await geminiGenerate(opts)
+export async function geminiJSON<T>(opts: GenerateOpts & { schema: GeminiSchema }, meta?: GeminiMeta): Promise<T | null> {
+  const raw = await geminiGenerate(opts, meta)
   if (!raw) return null
   try {
     // responseSchema yields clean JSON, but strip a stray ```json fence defensively.

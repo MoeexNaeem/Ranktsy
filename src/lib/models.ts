@@ -231,6 +231,14 @@ const ConnectedShopSchema = new Schema<IConnectedShop>({
 
 ConnectedShopSchema.index({ userId: 1, shopId: 1 }, { unique: true })
 
+// ─── App Setting ─────────────────────────────────────────────────────────────
+// Tiny key/value store for global admin switches (e.g. the Free→Pro promo).
+interface IAppSetting { key: string; bool?: boolean }
+const AppSettingSchema = new Schema<IAppSetting>({
+  key:  { type: String, required: true, unique: true, index: true },
+  bool: { type: Boolean, default: false },
+}, { timestamps: true })
+
 // ─── Blog ──────────────────────────────────────────────────────────────────────
 const BlogSchema = new Schema<IBlog>({
   title:          { type: String, required: true, trim: true, maxlength: 200 },
@@ -285,6 +293,7 @@ export const User          = models.User          ?? model<IUserDoc>('User', Use
 export const Blog          = (models.Blog as mongoose.Model<IBlog>) ?? model<IBlog>('Blog', BlogSchema)
 export const Deal          = (models.Deal as mongoose.Model<IDeal>) ?? model<IDeal>('Deal', DealSchema)
 export const PopupAd       = (models.PopupAd as mongoose.Model<IPopupAd>) ?? model<IPopupAd>('PopupAd', PopupAdSchema)
+export const AppSetting     = (models.AppSetting as mongoose.Model<IAppSetting>) ?? model<IAppSetting>('AppSetting', AppSettingSchema)
 export const ShopSnapshot    = models.ShopSnapshot    ?? model<IShopSnapshot>('ShopSnapshot', ShopSnapshotSchema)
 export const ListingSnapshot = models.ListingSnapshot ?? model<IListingSnapshot>('ListingSnapshot', ListingSnapshotSchema)
 export const TrackedShop     = models.TrackedShop     ?? model<ITrackedShop>('TrackedShop', TrackedShopSchema)

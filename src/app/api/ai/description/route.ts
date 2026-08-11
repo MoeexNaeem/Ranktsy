@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
-import { geminiJSON, isGeminiConfigured } from '@/lib/gemini'
+import { geminiJSON, isGeminiConfigured, type GeminiMeta } from '@/lib/gemini'
 import { normalizeGeo } from '@/lib/google-ads'
 import { buildGrounding, descriptionPrompt, DESC_SYSTEM, DESC_SCHEMA } from '@/lib/ai/etsy-prompts'
 import { withUsage } from '@/lib/track'
@@ -39,17 +39,19 @@ async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<A
     const g = await buildGrounding(keyword, geo)
     const basePrompt = descriptionPrompt({ keyword, productName: body.productName, productType: body.productType, audience: body.audience, features: body.features }, g.text)
 
+    const meta: GeminiMeta = {}
     const settled = await Promise.all(VARIANTS.map(v =>
       geminiJSON<AiDescResult>({
         system: DESC_SYSTEM,
         prompt: `${basePrompt}\n\nVARIANT ANGLE: ${v.angle}\nMake this version DISTINCT from the other versions — vary the opening, the structure emphasis and the wording; do not reuse the same sentences.`,
         schema: DESC_SCHEMA, temperature: v.temperature, maxOutputTokens: 8192,
-      }).catch(() => null)
+      }, meta).catch(() => null)
     ))
 
     const results = settled.filter((r): r is AiDescResult => !!r && !!r.description)
     results.forEach(r => { r.focusKeyword = keyword })
     if (results.length === 0) {
+      if (meta.reason === 'quota') return NextResponse.json({ success: false, error: 'AI is temporarily unavailable — the AI provider’s quota is used up. Please try again later.' }, { status: 503 })
       return NextResponse.json({ success: false, error: 'AI generation failed — please try again.' }, { status: 502 })
     }
     memCache.set(key, results, CACHE_TTL.KEYWORD)

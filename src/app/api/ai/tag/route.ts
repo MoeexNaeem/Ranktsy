@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
-import { geminiJSON, isGeminiConfigured } from '@/lib/gemini'
+import { geminiJSON, isGeminiConfigured, type GeminiMeta } from '@/lib/gemini'
 import { normalizeGeo } from '@/lib/google-ads'
 import { buildGrounding, tagPrompt, TAG_SYSTEM, TAG_SCHEMA } from '@/lib/ai/etsy-prompts'
 import { withUsage } from '@/lib/track'
@@ -24,11 +24,13 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Ai
 
   try {
     const g = await buildGrounding(keyword, geo)
+    const meta: GeminiMeta = {}
     const result = await geminiJSON<AiTagResult>({
       system: TAG_SYSTEM, prompt: tagPrompt(keyword, g.text), schema: TAG_SCHEMA,
       temperature: 0.75, maxOutputTokens: 4096,
-    })
+    }, meta)
     if (!result || !result.tags?.length) {
+      if (meta.reason === 'quota') return NextResponse.json({ success: false, error: 'AI is temporarily unavailable — the AI provider’s quota is used up. Please try again later.' }, { status: 503 })
       return NextResponse.json({ success: false, error: 'AI generation failed — please try again.' }, { status: 502 })
     }
     // Enforce Etsy's rules defensively: ≤20 chars, unique, max 13.

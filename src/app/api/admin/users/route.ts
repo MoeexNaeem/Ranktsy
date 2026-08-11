@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin, resolveRole } from '@/lib/auth/roles'
 import { creditLimitFor } from '@/lib/credits'
 import { effectivePlan } from '@/lib/plans'
+import { isFreeToProPromoOn } from '@/lib/promo'
 
 export const runtime = 'nodejs'
 
@@ -17,7 +18,7 @@ export async function GET() {
   if (!isAdmin(auth)) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
 
   await connectDB()
-  const [users, activity, shopCounts] = await Promise.all([
+  const [users, activity, shopCounts, promoOn] = await Promise.all([
     User.find().sort({ createdAt: -1 }).lean(),
     KeywordHistory.aggregate([
       { $group: { _id: '$userId', count: { $sum: 1 }, last: { $max: '$searchedAt' } } },
@@ -25,6 +26,7 @@ export async function GET() {
     ConnectedShop.aggregate([
       { $group: { _id: '$userId', count: { $sum: 1 } } },
     ]),
+    isFreeToProPromoOn(),
   ])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const act = new Map<string, { count: number; last: Date }>(activity.map((a: any) => [String(a._id), { count: a.count, last: a.last }]))
@@ -71,5 +73,5 @@ export async function GET() {
     searches: totalSearches,
   }
 
-  return NextResponse.json({ success: true, data: { users: rows, stats } })
+  return NextResponse.json({ success: true, data: { users: rows, stats, freeToProPromo: promoOn } })
 }
