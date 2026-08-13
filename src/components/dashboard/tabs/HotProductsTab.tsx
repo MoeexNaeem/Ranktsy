@@ -8,11 +8,16 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import axios from 'axios'
+import { useListingReviews } from '@/hooks/useListingReviews'
+import { estimateListingSales } from '@/lib/salesEstimate'
 import { C, D, ACCENT, withAlpha, formatNumber } from '@/utils'
 import { chargeCredits } from '@/lib/credits-client'
 import { SearchBar, Card, SectionTitle, ErrorBox, Loading, EmptyState, MONO } from '../kit'
 import { HotProductDetail } from '../hot/HotProductDetail'
 import type { HotProduct, HotProductsResponse, ApiResponse } from '@/types'
+
+const ageDaysOf = (ts?: number | null) => ts ? Math.max(0, Math.floor((Date.now() - ts * 1000) / 86_400_000)) : null
+const fmtAge = (ts?: number | null) => { const d = ageDaysOf(ts); return d == null ? '—' : d >= 365 ? `${(d / 365).toFixed(1)}y` : d >= 30 ? `${Math.round(d / 30)}mo` : `${d}d` }
 
 const HUE = ACCENT.rose
 // Always shown as $ — Etsy mixes currencies with no FX rate, and a raw amount
@@ -31,14 +36,16 @@ const SORTS: { id: string; label: string }[] = [
   { id: 'price_high', label: 'Price: High → Low' },
 ]
 
-// Export the current results to CSV (real fields only — no fabricated sales).
-function exportCsv(rows: HotProduct[], query: string) {
-  const header = ['Title', 'Shop', 'Price', 'Currency', 'Views', 'Favorites', 'Engagement %', 'Favs/day', 'Hot Score', 'Quantity', 'Created', 'URL']
+// Export the current results to CSV. Real Etsy fields + the labelled review-based
+// estimates (est. columns are blank for rows past the review-fetch cap).
+function exportCsv(rows: HotProduct[], query: string, estimates: Record<number, { estMonthlySales: number | null; estMonthlyRevenue: number | null; estTotalSales: number | null; reviewCount: number | null }>) {
+  const header = ['Title', 'Shop', 'Price', 'Currency', 'Views', 'Favorites', 'Engagement %', 'Favs/day', 'Hot Score', 'Quantity', 'Created', 'Age (days)', 'Reviews', 'Est. Sales/mo', 'Est. Revenue/mo', 'Est. Total sales', 'URL']
   const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
-  const lines = rows.map(p => [
+  const lines = rows.map(p => { const e = estimates[p.listing_id]; return [
     p.title, p.shopName, p.price ?? '', p.currency, p.views, p.favorites, p.engagementPct,
-    p.favPerDay ?? '', p.hotScore, p.quantity, fmtDate(p.createdTimestamp), p.url,
-  ].map(esc).join(','))
+    p.favPerDay ?? '', p.hotScore, p.quantity, fmtDate(p.createdTimestamp), ageDaysOf(p.createdTimestamp) ?? '',
+    e?.reviewCount ?? '', e?.estMonthlySales ?? '', e?.estMonthlyRevenue ?? '', e?.estTotalSales ?? '', p.url,
+  ].map(esc).join(',') })
   const csv = [header.map(esc).join(','), ...lines].join('\n')
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
   const a = document.createElement('a')
@@ -50,7 +57,8 @@ const RELEASE: { id: string; label: string }[] = [
 ]
 
 const ctrl: React.CSSProperties = { background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 100, padding: '9px 14px', fontSize: 13.5, fontFamily: 'inherit', color: C.ink, outline: 'none' }
-const LIST_GRID = '2.2fr 1fr 0.7fr 0.85fr 0.7fr 0.85fr 1fr 0.5fr'
+const LIST_GRID = '2fr 0.9fr 0.55fr 0.7fr 0.75fr 0.85fr 0.9fr 0.95fr 0.45fr'
+const LIST_HEADS = ['Product', 'Shop', 'Age', 'Views', 'Favorites', '~ Sales/mo', 'Favs/day', 'Hot Score', '']
 
 function HotBar({ score }: { score: number }) {
   const color = score >= 55 ? D.hard : score >= 35 ? D.mid : D.good
@@ -112,7 +120,18 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
   const setSortNow = useCallback((s: string) => { setSort(s); setApplied(a => ({ ...a, sort: s })) }, [])
   const setReleaseNow = useCallback((r: string) => { setRelease(r); setApplied(a => ({ ...a, release: r })) }, [])
 
-  const products = data?.products ?? []
+  const products = useMemo(() => data?.products ?? [], [data])
+
+  // Review-based sales ESTIMATE for the shown products. Fetched lazily and capped
+  // to the first 30 rows (each id is its own Etsy call), same as the Top Listings
+  // table — the grid paints first and the ~Sales/mo column fills in.
+  const reviewIds = useMemo(() => products.slice(0, 30).map(p => p.listing_id), [products])
+  const reviewsQ = useListingReviews(reviewIds)
+  const estOf = useCallback((p: HotProduct) => {
+    const rs = reviewsQ.data?.[p.listing_id]
+    return estimateListingSales({ reviewCount: rs?.count ?? null, reviewsLast30d: rs?.last30d ?? null, price: p.price, ageDays: ageDaysOf(p.createdTimestamp) })
+  }, [reviewsQ.data])
+  const reviewsLoading = reviewsQ.isPending || reviewsQ.isFetching
 
   if (selected) {
     return <HotProductDetail product={selected} onBack={() => setSelected(null)} onNavigate={onNavigate} />
@@ -125,8 +144,8 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
         <SectionTitle right={<span style={{ fontSize: 11, fontFamily: MONO, color: C.stone }}>live Etsy data</span>}>Find Hot Products</SectionTitle>
         <p style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.55, marginTop: -8, marginBottom: 14 }}>
           Search Etsy&apos;s live catalog and rank products by a real <strong style={{ color: HUE }}>Hot Score</strong> — how fast a
-          listing gathers favorites for its age, plus its favorites-per-view. Click any product for a full breakdown. No sales
-          estimates: Etsy publishes none per listing, so we never invent them.
+          listing gathers favorites for its age, plus its favorites-per-view. Click any product for a full breakdown. Etsy publishes no
+          per-listing sales, so <strong style={{ color: D.mid }}>~ Sales/mo</strong> is a labelled estimate from review velocity.
         </p>
         <SearchBar value={input} onChange={setInput} onSubmit={apply} placeholder="Product, tag or niche — e.g. sticker, wall art…" button="Search →" />
       </Card>
@@ -182,7 +201,7 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
                   </button>
                 ))}
               </div>
-              <button onClick={() => exportCsv(products, applied.q)} disabled={products.length === 0}
+              <button onClick={() => exportCsv(products, applied.q, Object.fromEntries(products.map(p => [p.listing_id, estOf(p)])))} disabled={products.length === 0}
                 style={{ ...ctrl, cursor: products.length ? 'pointer' : 'default', opacity: products.length ? 1 : 0.5, whiteSpace: 'nowrap', fontFamily: MONO, fontSize: 12.5, padding: '9px 15px' }}>
                 ↓ Export CSV
               </button>
@@ -194,8 +213,8 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
           ) : view === 'list' ? (
             <Card pad={0}>
               <div style={{ display: 'grid', gridTemplateColumns: LIST_GRID, gap: 14, padding: '16px 22px', background: C.headerBg, borderBottom: `1px solid ${C.ash}` }}>
-                {['Product', 'Shop', 'Views', 'Favorites', 'Eng %', 'Favs/day', 'Hot Score', ''].map((h, i) => (
-                  <span key={h || i} style={{ fontSize: 12, fontFamily: MONO, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: C.graphite, textAlign: i === 0 || i === 1 || i === 7 ? 'left' : 'right' }}>{h}</span>
+                {LIST_HEADS.map((h, i) => (
+                  <span key={h || i} style={{ fontSize: 12, fontFamily: MONO, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: h === '~ Sales/mo' ? D.mid : C.graphite, textAlign: i === 0 || i === 1 || i === LIST_HEADS.length - 1 ? 'left' : 'right' }}>{h}</span>
                 ))}
               </div>
               {products.map(p => (
@@ -214,9 +233,13 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
                     </div>
                   </div>
                   <span style={{ fontSize: 13.5, color: C.graphite, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{p.shopName || '—'}</span>
+                  <span style={{ fontSize: 15, fontFamily: MONO, color: C.ink, textAlign: 'right' }}>{fmtAge(p.createdTimestamp)}</span>
                   <span style={{ fontSize: 16, fontFamily: MONO, color: D.series[1], textAlign: 'right' }}>{formatNumber(p.views)}</span>
                   <span style={{ fontSize: 16, fontFamily: MONO, color: D.series[5], textAlign: 'right' }}>{formatNumber(p.favorites)}</span>
-                  <span style={{ fontSize: 15, fontFamily: MONO, color: C.ink, textAlign: 'right' }}>{p.engagementPct}%</span>
+                  {(() => { const s = estOf(p).estMonthlySales; return (
+                    <span style={{ fontSize: 15, fontFamily: MONO, color: s != null ? D.mid : C.stone, fontWeight: s != null ? 600 : 400, textAlign: 'right' }} title="Estimated monthly sales — from review velocity, not real Etsy data">
+                      {s != null ? `~${formatNumber(s)}` : (reviewsLoading ? '…' : '—')}
+                    </span>) })()}
                   <span style={{ fontSize: 15, fontFamily: MONO, color: p.favPerDay != null ? D.good : C.stone, textAlign: 'right' }}>{p.favPerDay != null ? p.favPerDay : '—'}</span>
                   <HotBar score={p.hotScore} />
                   <span style={{ fontSize: 13.5, fontFamily: MONO, color: HUE, textAlign: 'right' }}>View →</span>
@@ -240,6 +263,10 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
                       {p.price != null ? <span style={{ color: HUE, fontWeight: 600, fontSize: 13 }}>{sym(p.currency)}{p.price}</span> : <span />}
                       <span style={{ color: C.graphite }}>👁 {formatNumber(p.views)} · ♥ {formatNumber(p.favorites)}</span>
                     </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, fontFamily: MONO, marginTop: 5 }}>
+                      <span style={{ color: C.stone }}>{fmtAge(p.createdTimestamp)} old</span>
+                      {(() => { const s = estOf(p).estMonthlySales; return <span style={{ color: s != null ? D.mid : C.stone }} title="Estimated monthly sales — from review velocity">{s != null ? `~${formatNumber(s)}/mo` : (reviewsLoading ? '…' : '—')}</span> })()}
+                    </div>
                   </div>
                 </button>
               ))}
@@ -247,8 +274,8 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
           )}
 
           <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6 }}>
-            Every figure is measured live from the Etsy API. Hot Score = favorite-velocity (favorites ÷ days live) + engagement (favorites ÷ views),
-            scored on the top matches for your search. Etsy exposes no per-listing sales, revenue, or history, so none are shown.
+            Views, favorites, age and Hot Score are measured live from the Etsy API. Hot Score = favorite-velocity (favorites ÷ days live) + engagement (favorites ÷ views),
+            scored on the top matches. Etsy exposes no per-listing sales, so <strong style={{ color: D.mid }}>~ Sales/mo</strong> is an <em>estimate</em> (reviews ÷ a review rate) — directional, not exact.
           </p>
         </>
       )}

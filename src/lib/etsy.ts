@@ -958,6 +958,32 @@ export async function getListingReviewCount(listingId: number): Promise<number |
   }
 }
 
+// ─── Listing review stats: lifetime count + 30-day velocity (public — key only) ─
+// One call → both a listing's total review `count` AND how many reviews landed in
+// the trailing 30 days. `/listings/{id}/reviews?limit=100` returns the total count
+// plus the ~100 most-recent reviews (each carries `created_timestamp`); we count the
+// ones inside the window. Reviews are verified purchases, so both figures are REAL —
+// the per-listing sales figure derived from them (saleEstimate.ts) is the estimate.
+// Same one Etsy call as the count-only path, just a larger response. Nulls, never
+// 0-as-unknown, when Etsy doesn't answer.
+export interface ListingReviewStatsResult { count: number | null; last30d: number | null }
+export async function getListingReviewStats(listingId: number, nowMs = Date.now()): Promise<ListingReviewStatsResult> {
+  try {
+    const data = await etsyFetch<{ count?: number; results?: { created_timestamp?: number }[] }>(
+      `/listings/${listingId}/reviews`, { limit: 100 })
+    const count = typeof data.count === 'number' ? data.count : null
+    let last30d: number | null = null
+    if (Array.isArray(data.results)) {
+      const cutoffSec = (nowMs - 30 * 86_400_000) / 1000
+      last30d = data.results.filter(r => (Number(r.created_timestamp) || 0) >= cutoffSec).length
+    }
+    return { count, last30d }
+  } catch (e) {
+    console.error(`[Etsy] listing review stats ${listingId}:`, e)
+    return { count: null, last30d: null }
+  }
+}
+
 // ─── Shop sections (public — key only) ────────────────────────────────────────
 // GET /v3/application/shops/{shop_id}/sections. The seller's own category tabs.
 export interface ShopSection { section_id: number; title: string; active_listing_count: number }

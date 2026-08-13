@@ -13,6 +13,17 @@
  */
 
 import { recordImage } from '@/lib/usage'
+import { createLimiter } from '@/lib/concurrency'
+
+// Cap simultaneous image generations per instance so a burst of requests is
+// smoothed into a steady stream instead of all hitting Google at once (which
+// trips the image rate limit → 429s, wasted retries and spiky cost). Excess
+// requests queue briefly. Tune with GEMINI_IMAGE_CONCURRENCY.
+const imageLimiter = createLimiter(Number(process.env.GEMINI_IMAGE_CONCURRENCY ?? 3))
+// Same idea for text generation (titles/tags/descriptions/listing copy): cap how
+// many run at once per instance so a burst doesn't stampede the provider. Text is
+// cheaper and faster than images, so the default is higher. Tune with GEMINI_TEXT_CONCURRENCY.
+const textLimiter = createLimiter(Number(process.env.GEMINI_TEXT_CONCURRENCY ?? 8))
 
 // The key was uploaded under the non-standard name `Gemini_API_KEY`; accept the
 // conventional GEMINI_API_KEY too so either works.
@@ -103,6 +114,12 @@ export async function geminiGenerate(opts: GenerateOpts, meta?: GeminiMeta): Pro
   // both are transient. Retry a few times with backoff so a single blip doesn't
   // surface as "AI generation failed" to the user.
   const url = `${BASE}/models/${MODEL}:generateContent?key=${encodeURIComponent(key)}`
+  // Queue behind the per-instance text-generation cap so a surge of searches +
+  // generations can't stampede Gemini into rate-limit failures.
+  return textLimiter.run(() => sendGemini(url, body, meta))
+}
+
+async function sendGemini(url: string, body: Record<string, unknown>, meta?: GeminiMeta): Promise<string | null> {
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
   const MAX_ATTEMPTS = 3
 
@@ -179,7 +196,12 @@ export type GeminiImageOutcome =
 export async function geminiImage(prompt: string, refs?: GeminiRefImage[]): Promise<GeminiImageOutcome> {
   const key = geminiKey()
   if (!key) return { ok: false, reason: 'unconfigured' }
+  // Queue behind the per-instance concurrency cap so a spike can't stampede the
+  // provider (the acquire is cheap when there's a free slot).
+  return imageLimiter.run(() => geminiImageInner(key, prompt, refs))
+}
 
+async function geminiImageInner(key: string, prompt: string, refs?: GeminiRefImage[]): Promise<GeminiImageOutcome> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const parts: any[] = [{ text: prompt }]
   for (const r of refs ?? []) parts.push({ inlineData: { mimeType: r.mimeType, data: r.data } })

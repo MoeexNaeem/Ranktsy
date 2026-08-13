@@ -29,10 +29,11 @@ export const CountryChart = memo(function CountryChart({ data }: { data: Country
       {data.map(d => {
         const m = META[d.country] ?? OTHER
         return (
-          <div key={d.country} style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          <div key={d.country} style={{ display: 'flex', flexDirection: 'column', gap: 7,
+            ...(d.selected ? { background: C.orangeFaint, borderRadius: 8, padding: '7px 9px', margin: '-3px -9px', boxShadow: `inset 0 0 0 1px ${C.orange}` } : null) }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
               <span style={{ fontSize: 16, lineHeight: 1, flexShrink: 0 }}>{m.flag}</span>
-              <span style={{ flex: 1, fontSize: 14.5, color: C.ink, fontWeight: 500 }}>{d.country}</span>
+              <span style={{ flex: 1, fontSize: 14.5, color: C.ink, fontWeight: d.selected ? 700 : 500 }}>{d.country}</span>
               <span style={{ fontSize: 14.5, fontFamily: MONO, fontWeight: 600, color: C.ink }}>{d.percentage}%</span>
             </div>
             {/* Track + rounded bar, width scaled to the largest share so small

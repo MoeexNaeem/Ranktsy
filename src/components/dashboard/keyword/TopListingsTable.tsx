@@ -2,14 +2,16 @@
 import { memo, useCallback, useMemo, useState } from 'react'
 import { Popover, PopItem, ExportBtn, toCsv, downloadCsv, slugify, ctrlBtn } from '../controls'
 import { useListingReviews } from '@/hooks/useListingReviews'
+import { estimateListingSales, type ListingSalesEstimate } from '@/lib/salesEstimate'
 import { C, D, formatNumber } from '@/utils'
 import { MONO, tableCard } from '../kit'
-import type { EtsyListing } from '@/types'
+import type { EtsyListing, ListingReviewStats } from '@/types'
 
-// eRank shows Est. Sales / Est. Revenue — but Etsy publishes NO per-listing sales,
-// so those are estimates (their own screenshot shows 1 sale × $22.99 = $0.00). We
-// don't fabricate them. Every column here is a real Etsy field or a ratio of two
-// real fields, and we add engagement/velocity columns eRank doesn't have.
+// Real columns are exact Etsy fields (or a ratio of two): Age, Views, Favs/View,
+// Hearts, Reviews, Price, Qty… The Est. Sales / Revenue columns are the Everbee-
+// style ESTIMATES — Etsy publishes no per-listing sales, so they're derived from
+// review count + 30-day review velocity ÷ a review rate (see salesEstimate.ts) and
+// clearly badged "~ est". Never presented as real Etsy sales.
 
 const CUR: Record<string, string> = { USD: '$', GBP: '£', EUR: '€', CAD: 'C$', AUD: 'A$', PKR: '₨', INR: '₹', JPY: '¥' }
 const sym = (c?: string) => CUR[c ?? 'USD'] ?? (c ? `${c} ` : '$')
@@ -24,9 +26,9 @@ interface Row {
   price: number
 }
 
-type SortKey = 'rank' | 'ageDays' | 'views' | 'dailyViews' | 'fpv' | 'hearts' | 'favsPerDay' | 'price' | 'quantity' | 'tags' | 'reviews'
+type SortKey = 'rank' | 'ageDays' | 'views' | 'dailyViews' | 'fpv' | 'hearts' | 'favsPerDay' | 'price' | 'quantity' | 'tags' | 'reviews' | 'rev30' | 'estSales' | 'estRev' | 'estTotal'
 
-interface Col { id: string; label: string; width: string; key?: SortKey; locked?: boolean; num?: boolean }
+interface Col { id: string; label: string; width: string; key?: SortKey; locked?: boolean; num?: boolean; est?: boolean }
 // Columns use minmax(px, fr): the px floor keeps every column readable, and when
 // the sum can't fit the container the table scrolls horizontally (see .rtable
 // overflowX below) instead of crushing the numbers into unreadable slivers.
@@ -39,13 +41,17 @@ const ALL_COLS: Col[] = [
   { id: 'fpv',     label: 'Favs / View', width: 'minmax(169px,0.9fr)',  key: 'fpv',        num: true },
   { id: 'hearts',  label: 'Hearts',      width: 'minmax(143px,0.8fr)',  key: 'hearts',     num: true },
   { id: 'reviews', label: 'Reviews',     width: 'minmax(153px,0.85fr)', key: 'reviews',    num: true },
+  { id: 'estSales',label: '~ Sales / mo', width: 'minmax(163px,0.9fr)', key: 'estSales',   num: true, est: true },
+  { id: 'estRev',  label: '~ Rev / mo',   width: 'minmax(166px,0.9fr)', key: 'estRev',     num: true, est: true },
+  { id: 'estTotal',label: '~ Total sales',width: 'minmax(171px,0.9fr)', key: 'estTotal',   num: true, est: true },
+  { id: 'rev30',   label: 'Reviews / 30d',width: 'minmax(171px,0.9fr)', key: 'rev30',      num: true },
   { id: 'fpd',     label: 'Favs / day',  width: 'minmax(159px,0.85fr)', key: 'favsPerDay', num: true },
   { id: 'price',   label: 'Price',       width: 'minmax(166px,0.9fr)',  key: 'price',      num: true },
   { id: 'qty',     label: 'Qty',         width: 'minmax(114px,0.6fr)',  key: 'quantity',   num: true },
   { id: 'ships',   label: 'Ships (d)',   width: 'minmax(151px,0.8fr)',  num: true },
   { id: 'tags',    label: 'Tags',        width: 'minmax(125px,0.7fr)',  key: 'tags',       num: true },
 ]
-const DEFAULT_HIDDEN = new Set(['fpd'])
+const DEFAULT_HIDDEN = new Set(['fpd', 'rev30'])
 
 // Sort indicators — mirror the Keyword table: an active column shows a single
 // caret (asc/desc); every other sortable column shows a faint up+down pair so the
@@ -84,20 +90,37 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
     })
   }, [listings, nowSec])
 
-  // Real per-listing review counts (a verified sold-floor). When the listings come
-  // from the shared Collective store they already carry `review_count`, so use those
-  // and skip the network entirely. Otherwise fetch lazily (capped to the top rows —
-  // each id is its own Etsy call).
+  // Real per-listing review stats (count = a verified sold-floor; last30d = recent
+  // velocity). When the listings come from the shared Collective store they already
+  // carry `review_count`, so use those (velocity unknown → null) and skip the network.
+  // Otherwise fetch lazily (capped to the top rows — each id is its own Etsy call).
   const storedReviews = useMemo(() => {
-    const m: Record<number, number | null> = {}
+    const m: Record<number, ListingReviewStats> = {}
     let has = false
-    for (const l of listings) { if (l.review_count != null) { m[l.listing_id] = l.review_count; has = true } }
+    for (const l of listings) { if (l.review_count != null) { m[l.listing_id] = { count: l.review_count, last30d: null }; has = true } }
     return has ? m : null
   }, [listings])
   const ids = useMemo(() => storedReviews ? [] : listings.slice(0, 30).map(l => l.listing_id), [listings, storedReviews])
   const reviewsQ = useListingReviews(ids)
   const reviews = storedReviews ?? reviewsQ.data
   const reviewsLoading = !storedReviews && (reviewsQ.isPending || reviewsQ.isFetching)
+
+  // Everbee-style per-listing sales ESTIMATE, from review count + 30-day velocity ÷
+  // a review rate. Recomputed as review stats arrive. estimateListingSales returns
+  // all-null when there's no review data yet, so cells read "—" until then.
+  const estimates = useMemo(() => {
+    const m: Record<number, ListingSalesEstimate> = {}
+    for (const r of rows) {
+      const rs = reviews?.[r.l.listing_id]
+      m[r.l.listing_id] = estimateListingSales({
+        reviewCount: rs?.count ?? null,
+        reviewsLast30d: rs?.last30d ?? null,
+        price: r.price,
+        ageDays: r.ageDays,
+      })
+    }
+    return m
+  }, [rows, reviews])
 
   const cols = useMemo(() => ALL_COLS.filter(c => !hidden.has(c.id)), [hidden])
   const grid = useMemo(() => cols.map(c => c.width).join(' ') + ' 34px', [cols])
@@ -130,7 +153,11 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
         case 'price': return r.price
         case 'quantity': return r.l.quantity ?? 0
         case 'tags': return r.l.tags?.length ?? 0
-        case 'reviews': return reviews?.[r.l.listing_id] ?? null
+        case 'reviews': return reviews?.[r.l.listing_id]?.count ?? null
+        case 'rev30': return reviews?.[r.l.listing_id]?.last30d ?? null
+        case 'estSales': return estimates[r.l.listing_id]?.estMonthlySales ?? null
+        case 'estRev': return estimates[r.l.listing_id]?.estMonthlyRevenue ?? null
+        case 'estTotal': return estimates[r.l.listing_id]?.estTotalSales ?? null
       }
     }
     const dir = sortDir === 'desc' ? -1 : 1
@@ -141,7 +168,7 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
       if (bv == null) return -1
       return dir * (av - bv)
     })
-  }, [rows, filter, sortKey, sortDir, reviews])
+  }, [rows, filter, sortKey, sortDir, reviews, estimates])
 
   const toggleRow = useCallback((id: number) => setExpanded(p => {
     const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n
@@ -149,15 +176,23 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
 
   const exportCsv = useCallback(() => {
     downloadCsv(`top-listings-${slugify(query)}.csv`, toCsv(
-      ['Rank', 'Title', 'Shop', 'URL', 'Age (days)', 'Views', 'Views/day', 'Favs/View %', 'Hearts', 'Reviews', 'Favs/day', 'Price', 'Currency', 'Quantity', 'Ships min (d)', 'Ships max (d)', 'Tag count', 'Tags'],
-      view.map(r => [r.rank, r.l.title, r.l.shop_name, r.l.url, r.ageDays ?? '', r.l.views ?? 0, r.dailyViews != null ? r.dailyViews.toFixed(1) : '', r.fpv != null ? r.fpv.toFixed(1) : '', r.l.num_favorers ?? 0, reviews?.[r.l.listing_id] ?? '', r.favsPerDay != null ? r.favsPerDay.toFixed(2) : '', r.price.toFixed(2), r.l.price.currency_code, r.l.quantity ?? '', r.l.processing_min ?? '', r.l.processing_max ?? '', r.l.tags?.length ?? 0, (r.l.tags ?? []).join('; ')]),
+      ['Rank', 'Title', 'Shop', 'URL', 'Age (days)', 'Views', 'Views/day', 'Favs/View %', 'Hearts', 'Reviews', 'Reviews/30d', 'Est. Sales/mo', 'Est. Revenue/mo', 'Est. Total sales', 'Favs/day', 'Price', 'Currency', 'Quantity', 'Ships min (d)', 'Ships max (d)', 'Tag count', 'Tags'],
+      view.map(r => { const e = estimates[r.l.listing_id]; return [r.rank, r.l.title, r.l.shop_name, r.l.url, r.ageDays ?? '', r.l.views ?? 0, r.dailyViews != null ? r.dailyViews.toFixed(1) : '', r.fpv != null ? r.fpv.toFixed(1) : '', r.l.num_favorers ?? 0, reviews?.[r.l.listing_id]?.count ?? '', reviews?.[r.l.listing_id]?.last30d ?? '', e?.estMonthlySales ?? '', e?.estMonthlyRevenue ?? '', e?.estTotalSales ?? '', r.favsPerDay != null ? r.favsPerDay.toFixed(2) : '', r.price.toFixed(2), r.l.price.currency_code, r.l.quantity ?? '', r.l.processing_min ?? '', r.l.processing_max ?? '', r.l.tags?.length ?? 0, (r.l.tags ?? []).join('; ')] }),
     ))
-  }, [view, query, reviews])
+  }, [view, query, reviews, estimates])
 
   const num = (v: number | null, opts?: { digits?: number; color?: string; suffix?: string }) =>
     v == null
       ? <span style={{ fontFamily: MONO, fontSize: 17.5, color: C.stone }}>—</span>
       : <span style={{ fontFamily: MONO, fontSize: 17.5, color: opts?.color ?? C.ink }}>{opts?.digits != null ? v.toFixed(opts.digits) : formatNumber(v)}{opts?.suffix ?? ''}</span>
+
+  // Estimate cell: a "~" prefix + amber tone flag it as a modelled figure, never a
+  // real Etsy number. `prefix` carries a currency symbol for the revenue column.
+  const estNum = (v: number | null, loading: boolean, prefix = '') => {
+    if (v == null && loading) return <span className="shimmer" style={{ height: 15, width: 46, borderRadius: 4, background: '#e8e7e2', display: 'inline-block' }} />
+    if (v == null) return <span style={{ fontFamily: MONO, fontSize: 17.5, color: C.stone }}>—</span>
+    return <span style={{ fontFamily: MONO, fontSize: 17.5, color: D.mid, fontWeight: 600 }} title="Estimated — from review count & velocity, not real Etsy sales">~{prefix}{formatNumber(v)}</span>
+  }
 
   const cell = (c: Col, r: Row) => {
     switch (c.id) {
@@ -195,10 +230,18 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
       case 'fpv':    return <span key={c.id}>{r.fpv != null ? num(r.fpv, { digits: 1, color: r.fpv >= 4 ? D.good : C.ink, suffix: '%' }) : num(null)}</span>
       case 'hearts': return <span key={c.id}>{num(r.l.num_favorers ?? 0, { color: D.hard })}</span>
       case 'reviews': {
-        const rc = reviews?.[r.l.listing_id]
+        const rc = reviews?.[r.l.listing_id]?.count
         if (rc === undefined && reviewsLoading) return <span key={c.id} className="shimmer" style={{ height: 15, width: 42, borderRadius: 4, background: '#e8e7e2', display: 'inline-block' }} />
         return <span key={c.id}>{num(rc ?? null, { color: (rc ?? 0) > 0 ? D.good : C.stone })}</span>
       }
+      case 'rev30': {
+        const v = reviews?.[r.l.listing_id]?.last30d
+        if (v === undefined && reviewsLoading) return <span key={c.id} className="shimmer" style={{ height: 15, width: 42, borderRadius: 4, background: '#e8e7e2', display: 'inline-block' }} />
+        return <span key={c.id}>{num(v ?? null, { color: (v ?? 0) > 0 ? D.good : C.stone })}</span>
+      }
+      case 'estSales': return <span key={c.id}>{estNum(estimates[r.l.listing_id]?.estMonthlySales ?? null, reviewsLoading && !reviews)}</span>
+      case 'estRev':   return <span key={c.id}>{estNum(estimates[r.l.listing_id]?.estMonthlyRevenue ?? null, reviewsLoading && !reviews, sym(r.l.price.currency_code))}</span>
+      case 'estTotal': return <span key={c.id}>{estNum(estimates[r.l.listing_id]?.estTotalSales ?? null, reviewsLoading && !reviews)}</span>
       case 'fpd':    return <span key={c.id}>{num(r.favsPerDay, { digits: 2 })}</span>
       case 'price':  return <span key={c.id} style={{ fontFamily: MONO, fontSize: 17.5, color: C.orange, fontWeight: 600 }}>{sym(r.l.price.currency_code)}{r.price.toFixed(2)}</span>
       case 'qty':    return <span key={c.id}>{num(r.l.quantity ?? null)}</span>
@@ -298,10 +341,11 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
       {/* Footer / honesty note */}
       <div className="rwrap-sm" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 12.5, fontFamily: MONO, color: C.graphite }}>{view.length} listing{view.length === 1 ? '' : 's'}</span>
-        <span style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.5, textAlign: 'right', maxWidth: 640 }}>
-          Every column is a real Etsy field or a ratio of two (Views/day = views ÷ age; Favs/View = hearts ÷ views).
-          <strong style={{ color: C.graphite }}> Reviews</strong> is the real review count — a verified <em>units-sold floor</em>,
-          shown instead of eRank’s invented “Est. Sales / Revenue” (Etsy publishes no per-listing sales).
+        <span style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.5, textAlign: 'right', maxWidth: 680 }}>
+          Real columns are exact Etsy fields or a ratio of two (Views/day = views ÷ age; Favs/View = hearts ÷ views).
+          <strong style={{ color: C.graphite }}> Reviews</strong> is the real review count — a verified <em>units-sold floor</em>.
+          The <strong style={{ color: D.mid }}>~ Sales / Revenue / Total</strong> columns are <em>estimates</em>: reviews ÷ a
+          review rate (Etsy publishes no per-listing sales), so treat them as directional, not exact.
         </span>
       </div>
     </div>

@@ -124,7 +124,7 @@ export function EtsyListingProTab() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* ─── Input ─────────────────────────────────────────────────────────── */}
       <Card>
-        <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: C.stone }}>AI · Gemini</span>}>Etsy Listing Pro</SectionTitle>
+        <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: C.stone }}>AI · Gemini + OpenAI</span>}>Etsy Listing Pro</SectionTitle>
         <p style={{ fontSize: 13, color: C.graphite, lineHeight: 1.6, marginTop: -6, marginBottom: 14 }}>
           Describe your product and get a <strong style={{ color: C.ink }}>complete listing</strong> — one optimized title,
           13 tags, a description, a price (anchored to the real market median), and a clean Etsy-style image.
@@ -257,9 +257,6 @@ export function EtsyListingProTab() {
                 )
               })}
             </div>
-            <p style={{ fontSize: 11, color: C.stone, marginTop: 12, lineHeight: 1.55 }}>
-              Images are AI-generated with Gemini Flash Image and need billing enabled on the Gemini key. Always review AI images before publishing — Etsy requires that listing photos represent the actual item.
-            </p>
           </Card>
         </>
       )}

@@ -18,8 +18,9 @@ import { Card, SearchBar, SectionTitle, ErrorBox, EmptyState, MONO } from '../ki
 import { AiInsights } from '../AiInsights'
 import { TableSkeleton, CardSkeleton, GridSkeleton, LoadingStages, Measuring, Shimmer } from '../skeletons'
 import { useFx } from '@/hooks/useFx'
+import { estimateEtsySearches, scaleEtsySearchesToCountry } from '@/lib/etsySearchEstimate'
 import { C, D, heatColor, formatNumber, formatPercent } from '@/utils'
-import type { TrendPlatform, KeywordStats, AiFact } from '@/types'
+import type { TrendPlatform, KeywordStats, AiFact, CountryData } from '@/types'
 
 const CUR: Record<string, string> = { USD: '$', GBP: '£', EUR: '€', CAD: 'C$', AUD: 'A$', PKR: '₨', INR: '₹' }
 const sym = (c?: string) => CUR[c ?? 'USD'] ?? (c ? c + ' ' : '$')
@@ -216,18 +217,28 @@ function DifficultyPanel({ s }: { s: KeywordStats }) {
 }
 
 // ─── Keyword Statistics panel (colored value chips, like the eRank layout) ─────
-// The three fabricated metrics (Avg. Searches from a made-up factor, Avg. Clicks =
-// favourites, CTR) are gone. Avg. Searches is now REAL Google volume; the other
-// rows are direct Etsy measurements. Every chip is a measured number or "—".
+// "Average Etsy Searches" is an ESTIMATE (Etsy publishes no search data — eRank's
+// is an estimate too). eRank's number tracks the Etsy listing count, NOT Google
+// volume, so this is modelled from our real competition via a power law fitted to
+// eRank (see lib/etsySearchEstimate.ts). "Google Searches" is the measured Google
+// figure. Every other row is a direct Etsy measurement.
 function InfoDot({ title }: { title: string }) {
   return (
     <span title={title} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 15, height: 15, borderRadius: '50%', border: `1.4px solid ${C.lightGray}`, color: C.stone, fontSize: 9.5, fontStyle: 'italic', fontWeight: 700, cursor: 'help', flexShrink: 0 }}>i</span>
   )
 }
 
-function KeywordStatsPanel({ s }: { s: KeywordStats }) {
+function KeywordStatsPanel({ s, countryShare, geoName }: { s: KeywordStats; countryShare: number | null; geoName: string }) {
+  // The estimate is calibrated to eRank's GLOBAL number. eRank's per-country
+  // "Avg. Searches" is that global figure × the country's share of search demand,
+  // so we scale by the selected country's real Google share (null share / Global →
+  // the unscaled global estimate; never a fabricated country figure).
+  const globalEtsy = estimateEtsySearches(s.totalResults)
+  const etsy = scaleEtsySearchesToCountry(globalEtsy, countryShare)
+  const scaled = etsy != null && globalEtsy != null && countryShare != null && countryShare < 1
   const rows = [
-    { label: 'Avg. Searches', tip: 'Real Google monthly search volume (US) from the Google Ads Keyword Planner. Etsy publishes no search volume of its own.', value: s.googleSearches != null ? formatNumber(s.googleSearches) : '—', color: s.googleSearches != null ? D.good : C.lightGray },
+    { label: 'Average Etsy Searches', tip: `Estimated monthly Etsy searches in ${geoName}. Etsy publishes no search-volume data to anyone, so — like eRank — this is an estimate: a global figure modelled from the keyword’s real live Etsy competition (calibrated to eRank), then${scaled ? '' : ' — for Global —'} split to the selected country by its real share of Google search demand. Because Etsy releases no per-country search data, the country split uses Google’s geographic demand, so it won’t match eRank’s proprietary numbers exactly.`, value: etsy != null ? formatNumber(etsy) : '—', color: etsy != null ? D.good : C.lightGray },
+    { label: 'Google Searches', tip: `Real Google monthly search volume (${geoName}) from the Google Ads Keyword Planner. This measures Google — not Etsy — searches, so it differs from the Etsy estimate above.`, value: s.googleSearches != null ? formatNumber(s.googleSearches) : '—', color: s.googleSearches != null ? '#2E6DB4' : C.lightGray },
     { label: 'Avg. Views',    tip: 'Mean lifetime views of the listings ranking for this keyword — Etsy’s own `views` field. This is real traffic, shown instead of a fabricated “Avg. Clicks”.', value: formatNumber(s.avgViews), color: '#2E6DB4' },
     { label: 'Favs / View',   tip: 'Favorites ÷ views, a real engagement ratio (~1–3% is typical on Etsy). Shown instead of “CTR”: Etsy exposes no clicks, so a real click-through rate can’t be computed.', value: `${s.favPerView}%`, color: s.favPerView >= 4 ? D.good : s.favPerView >= 1.5 ? D.mid : D.neutral },
     { label: 'Competition',   tip: 'Real total of live Etsy listings competing for this keyword.', value: formatNumber(s.totalResults), color: s.totalResults > 250_000 ? D.hard : s.totalResults > 25_000 ? D.mid : D.good },
@@ -347,6 +358,14 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
   const { data: tr } = useTrends(query, country)
   // Google-suggested keywords (generateKeywordIdeas) — real discovery beyond Etsy tags.
   const ideas = useKeywordIdeas(query, country)
+
+  // eRank-style per-country scaling of "Average Etsy Searches": the selected
+  // country's share of Google demand, read from the same Searchers-by-Country
+  // breakdown the trends panel shows (Global → 1; no breakdown yet → null, so the
+  // stat falls back to the unscaled global estimate rather than guess a share).
+  const geoName = COUNTRIES.find(c => c.code === country)?.name ?? country
+  const selShare = tr?.countries?.find((c: CountryData) => c.selected)?.percentage
+  const countryShare = country === 'GLO' ? 1 : (selShare != null ? selShare / 100 : null)
 
   // Related rows arrive unenriched with the core (competition: null) and are
   // replaced in place once probed — so the table shows keywords immediately and
@@ -479,7 +498,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
       {/* Overview — Keyword Statistics · Search Trends · Searchers by Country
           (the sample's three-panel row). Every figure is real or "—". */}
       <div className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1.55fr 1fr', gap: 12, alignItems: 'start' }}>
-        {kw ? <KeywordStatsPanel s={kw.stats} /> : <Card><Shimmer h={230} r={8} /></Card>}
+        {kw ? <KeywordStatsPanel s={kw.stats} countryShare={countryShare} geoName={geoName} /> : <Card><Shimmer h={230} r={8} /></Card>}
 
         <Card>
           <SectionTitle right={tr?.trends?.length ? <PlatformToggle active={plats} onChange={setPlats} /> : undefined}>

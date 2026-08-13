@@ -5,6 +5,7 @@ import { Footer } from '@/components/landing/Sections'
 import { C } from '@/utils'
 import { Icon } from '@/components/ui/Icon'
 import { SocialRow } from '@/components/ui/Social'
+import { WhatsAppIcon, WHATSAPP_HREF, WHATSAPP_DISPLAY } from '@/components/ui/WhatsApp'
 
 const SANS = "'General Sans',sans-serif"
 
@@ -19,7 +20,7 @@ const SANS = "'General Sans',sans-serif"
  * for it would just be a guess. `bg`/`fg`/`chip` carry the August colour block.
  */
 const CONTACT_CHANNELS: {
-  icon: 'mail' | 'phone' | 'pin'
+  icon: 'mail' | 'phone' | 'pin' | 'whatsapp'
   label: string
   value: string
   href?: string
@@ -45,6 +46,15 @@ const CONTACT_CHANNELS: {
     href: 'tel:+923297890000',
     desc: 'Pakistan Standard Time, business hours. Dial +92 329 7890000 from abroad.',
     bg: C.orange, fg: '#fff', chip: 'rgba(255,255,255,0.16)', chipIc: '#fff',
+  },
+  {
+    icon: 'whatsapp',
+    label: 'WhatsApp',
+    value: WHATSAPP_DISPLAY,
+    // Opens a WhatsApp chat (wa.me international form, with a prefilled greeting).
+    href: WHATSAPP_HREF,
+    desc: 'Message us on WhatsApp for a quick reply — tap to open a chat with a greeting ready to send.',
+    bg: '#25D366', fg: '#0B141A', chip: 'rgba(11,20,26,0.12)', chipIc: '#0B141A',
   },
   {
     icon: 'pin',
@@ -139,7 +149,7 @@ export function ContactContent() {
         {/* ── Channels — colourful blocks ── */}
         <section style={{ background: C.paper, padding: '64px 40px' }}>
           <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-            <div className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 18 }}>
+            <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 18 }}>
               {CONTACT_CHANNELS.map((ch) => {
                 // The address card has no href — render it as a plain div so it
                 // doesn't look clickable and go nowhere.
@@ -149,6 +159,7 @@ export function ContactContent() {
                   <Tag
                     key={ch.label}
                     {...(ch.href ? { href: ch.href } : {})}
+                    {...(ch.icon === 'whatsapp' ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                     style={{
                       background: ch.bg,
                       color: ch.fg,
@@ -164,7 +175,9 @@ export function ContactContent() {
                     onMouseLeave={(e) => { if (interactive) e.currentTarget.style.transform = 'none' }}
                   >
                     <span style={{ width: 50, height: 50, borderRadius: 15, background: ch.chip, display: 'grid', placeItems: 'center', marginBottom: 'auto' }}>
-                      <Icon name={ch.icon} size={23} color={ch.chipIc} />
+                      {ch.icon === 'whatsapp'
+                        ? <WhatsAppIcon size={23} color={ch.chipIc} />
+                        : <Icon name={ch.icon} size={23} color={ch.chipIc} />}
                     </span>
                     <p style={{ fontSize: 11, fontFamily: SANS, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 24, marginBottom: 8, opacity: 0.75 }}>
                       {ch.label}

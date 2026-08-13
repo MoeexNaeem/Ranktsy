@@ -21,8 +21,9 @@ import { connectDB } from '@/lib/db'
 import { KeywordCache } from '@/lib/models'
 import { getCollectivePackage } from '@/lib/collective-read'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
+import { singleFlight } from '@/lib/concurrency'
 import { searchEtsyListingsPaged, buildKeywordStats, buildSearchAnalysis, warmTaxonomy } from '@/lib/etsy'
-import { googleKeywordMetrics, googleAccountCurrency, isGoogleAdsConfigured } from '@/lib/google-ads'
+import { googleKeywordMetrics, googleAccountCurrency, isGoogleAdsConfigured, type GoogleMetricsMeta } from '@/lib/google-ads'
 import type { KeywordSearchResponse } from '@/types'
 
 // v9: core/related now carry Google competition + CPC (account currency), not just
@@ -75,13 +76,26 @@ function isStaleCore(d?: KeywordSearchResponse): boolean {
 export async function getKeywordCore(query: string, geo = 'US'): Promise<KeywordSearchResponse> {
   const key = coreKey(query, geo)
 
-  // Kick the taxonomy fetch off in the background on every request. It's needed
-  // only for category NAMES, so it must never block the response — but starting
-  // it now means it's usually ready before anyone opens the Analysis tab.
-  warmTaxonomy()
-
+  // Fast, cheap in-memory hit returns immediately (no need to coalesce).
   const memHit = memCache.get<KeywordSearchResponse>(key)
   if (memHit && !isStaleCore(memHit)) return memHit
+
+  // Otherwise collapse concurrent identical requests into ONE upstream fetch:
+  // when a keyword trends, N users don't each fire ~3 Etsy + Google calls — the
+  // first does the work and the rest await the same result.
+  return singleFlight(key, () => computeKeywordCore(query, geo, key))
+}
+
+async function computeKeywordCore(query: string, geo: string, key: string): Promise<KeywordSearchResponse> {
+  // Re-check the cache inside the flight — an earlier coalesced call may have
+  // just populated it.
+  const memHit = memCache.get<KeywordSearchResponse>(key)
+  if (memHit && !isStaleCore(memHit)) return memHit
+
+  // Kick the taxonomy fetch off in the background. It's needed only for category
+  // NAMES, so it must never block the response — but starting it now means it's
+  // usually ready before anyone opens the Analysis tab.
+  warmTaxonomy()
 
   // Shared permanent store first (populated by Ranktsy's Bulk Keyword Search). If
   // the keyword is there, serve the complete package with ZERO API calls. This is
@@ -89,6 +103,26 @@ export async function getKeywordCore(query: string, geo = 'US'): Promise<Keyword
   // carry images + reviews — a superset of the normal core, which the page renders.
   const shared = await getCollectivePackage(query, geo)
   if (shared) {
+    // The shared package can predate Google enrichment (or have been saved while
+    // Google was failing) → its Avg. Searches would be blank. Backfill the Google
+    // stats live so the keyword never shows empty just because the cached package
+    // lacked them.
+    if (isGoogleAdsConfigured() && shared.stats?.googleSearches == null) {
+      const gmeta: GoogleMetricsMeta = {}
+      const [metrics, currency] = await Promise.all([googleKeywordMetrics([query], geo, gmeta), googleAccountCurrency()])
+      const g = metrics.get(query)
+      if (g) {
+        shared.stats.googleSearches         = g.searches ?? null
+        shared.stats.googleCompetition      = g.competition as KeywordSearchResponse['stats']['googleCompetition']
+        shared.stats.googleCompetitionIndex = g.competitionIndex
+        shared.stats.googleCpcLow           = g.cpcLow
+        shared.stats.googleCpcHigh          = g.cpcHigh
+      }
+      shared.stats.googleCurrency = currency
+      // Only cache long-term once the backfill actually succeeded.
+      memCache.set(key, shared, gmeta.failed ? 120 : CACHE_TTL.KEYWORD)
+      return shared
+    }
     memCache.set(key, shared, CACHE_TTL.KEYWORD)
     return shared
   }
@@ -118,8 +152,13 @@ export async function getKeywordCore(query: string, geo = 'US'): Promise<Keyword
   data.analysis = await buildSearchAnalysis(listings, false)
     .catch(e => { console.error('[Keywords] analysis:', e); return undefined })
 
+  // Track whether the Google lookup actually FAILED (vs. genuinely no data) so a
+  // transient blip isn't cached for hours as permanent blanks.
+  let googleFailed = false
   if (isGoogleAdsConfigured()) {
-    const [metrics, currency] = await Promise.all([googleKeywordMetrics([query], geo), googleAccountCurrency()])
+    const gmeta: GoogleMetricsMeta = {}
+    const [metrics, currency] = await Promise.all([googleKeywordMetrics([query], geo, gmeta), googleAccountCurrency()])
+    googleFailed = !!gmeta.failed
     const g = metrics.get(query)
     if (g) {
       data.stats.googleSearches         = g.searches ?? null
@@ -129,6 +168,14 @@ export async function getKeywordCore(query: string, geo = 'US'): Promise<Keyword
       data.stats.googleCpcHigh          = g.cpcHigh
     }
     data.stats.googleCurrency = currency
+  }
+
+  // If Google failed, cache only BRIEFLY (2 min) in memory and do NOT persist to
+  // the DB — so the next request retries and can fill the real numbers, instead
+  // of the keyword staying blank for the full 5-hour TTL.
+  if (googleFailed) {
+    memCache.set(key, data, 120)
+    return data
   }
 
   memCache.set(key, data, CACHE_TTL.KEYWORD)

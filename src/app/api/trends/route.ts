@@ -51,8 +51,9 @@ async function getHandler(req: NextRequest) {
     // Real market detail measured from the same 100-listing sample.
     const market = buildListingMarketStats(listings)
 
-    // Searchers by Country, scoped to the selected filter (Global → full breakdown;
-    // a specific country → 100% that country).
+    // Searchers by Country — always the full breakdown (like eRank), with the
+    // selected country flagged so the UI can highlight it and scale the Etsy-search
+    // estimate to that country's real share of Google demand.
     const countries: CountryData[] = await countriesForGeo(query, geo)
 
     let googleAvailable = false

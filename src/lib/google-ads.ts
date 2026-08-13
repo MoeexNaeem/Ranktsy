@@ -100,6 +100,10 @@ async function getAccessToken(): Promise<string> {
 }
 
 // ─── Core call: historical metrics for a set of keywords in one geo ────────────
+/** Out-param so callers can tell a FAILED Google lookup apart from a keyword
+ *  that genuinely has no data — the two must be cached very differently. */
+export interface GoogleMetricsMeta { failed?: boolean }
+
 export interface GoogleMetric {
   keyword: string
   searches: number
@@ -132,22 +136,38 @@ async function historicalMetrics(keywords: string[], geoId: string | null): Prom
   const loginId = digits(process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID)
   if (loginId) headers['login-customer-id'] = loginId
 
-  recordGoogleCall()
-  const res = await fetch(
-    `https://googleads.googleapis.com/${V}/customers/${customerId}:generateKeywordHistoricalMetrics`,
-    {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        keywords: kws,
-        // null geo = Global: omit the target so Google returns worldwide volume.
-        ...(geoId ? { geoTargetConstants: [`geoTargetConstants/${geoId}`] } : {}),
-        keywordPlanNetwork: 'GOOGLE_SEARCH',
-        language: LANG_EN,
-      }),
-      cache: 'no-store',
-    },
-  )
+  // Retry transient failures (429 rate-limit / 5xx) with backoff. Without this a
+  // single blip blanked the keyword's Google stats — and the caller then cached
+  // that emptiness for hours.
+  const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+  const MAX_ATTEMPTS = 3
+  let res!: Response
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    recordGoogleCall()
+    res = await fetch(
+      `https://googleads.googleapis.com/${V}/customers/${customerId}:generateKeywordHistoricalMetrics`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          keywords: kws,
+          // null geo = Global: omit the target so Google returns worldwide volume.
+          ...(geoId ? { geoTargetConstants: [`geoTargetConstants/${geoId}`] } : {}),
+          keywordPlanNetwork: 'GOOGLE_SEARCH',
+          language: LANG_EN,
+        }),
+        cache: 'no-store',
+      },
+    )
+    if (res.ok) break
+    if ((res.status === 429 || res.status >= 500) && attempt < MAX_ATTEMPTS - 1) {
+      console.warn(`[GoogleAds] ${res.status} — retrying (${attempt + 1}/${MAX_ATTEMPTS - 1})`)
+      await sleep(700 * 2 ** attempt)
+      continue
+    }
+    break
+  }
+
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     // A sunset API version 404s on every endpoint. Without this the symptom is a
@@ -229,7 +249,11 @@ async function historicalMetricsGlobal(keywords: string[]): Promise<Map<string, 
 
 /** Google monthly search volume for many keywords (default geo US). Safe: returns
  *  an empty map (never throws) when Google Ads isn't configured or the call fails. */
-export async function googleKeywordMetrics(keywords: string[], geoIso = 'US'): Promise<Map<string, GoogleMetric>> {
+export async function googleKeywordMetrics(
+  keywords: string[],
+  geoIso = 'US',
+  meta?: GoogleMetricsMeta,
+): Promise<Map<string, GoogleMetric>> {
   if (!isGoogleAdsConfigured()) return new Map()
   const geo = normalizeGeo(geoIso)
   try {
@@ -237,6 +261,11 @@ export async function googleKeywordMetrics(keywords: string[], geoIso = 'US'): P
     return await historicalMetrics(keywords, geoIdFor(geo))
   } catch (e) {
     console.error('[GoogleAds] keyword metrics failed:', e)
+    // Signal FAILURE, not "no data". Callers must not cache a failed lookup for
+    // hours — an empty map here previously looked identical to a keyword that
+    // genuinely has no Google volume, so one transient blip blanked a keyword's
+    // Avg. Searches for the full cache TTL.
+    if (meta) meta.failed = true
     return new Map()
   }
 }
@@ -268,16 +297,18 @@ export async function googleCountryBreakdown(keyword: string): Promise<{ country
 }
 
 /**
- * Searchers-by-Country SCOPED to the selected country filter:
- *   • Global ('GLO') → the full breakdown across all tracked countries.
- *   • a specific country → just that country at 100% (no Google calls needed —
- *     you've filtered to one country, so 100% of the shown demand is that country).
+ * Searchers-by-Country for a keyword. Always the FULL breakdown across the tracked
+ * countries — like eRank, which shows the same distribution no matter which country
+ * you've selected. For a specific country we flag its row (`selected`) so the UI can
+ * highlight it, and the Keyword Statistics panel reads that row's share to scale the
+ * (global-calibrated) Etsy-search estimate down to the country — the way eRank's
+ * per-country "Avg. Searches" is its global number × the country's search share.
  */
-export async function countriesForGeo(keyword: string, geo: string): Promise<{ country: string; percentage: number; color: string }[]> {
-  if (geo === 'GLO') return googleCountryBreakdown(keyword)
-  const name = KEYWORD_GEOS[geo]?.name ?? geo
-  const color = GEO_TARGETS[geo]?.color ?? '#FB5E09'
-  return [{ country: name, percentage: 100, color }]
+export async function countriesForGeo(keyword: string, geo: string): Promise<{ country: string; percentage: number; color: string; selected?: boolean }[]> {
+  const breakdown = await googleCountryBreakdown(keyword)
+  if (geo === 'GLO' || !breakdown.length) return breakdown
+  const name = KEYWORD_GEOS[geo]?.name ?? GEO_TARGETS[geo]?.name ?? geo
+  return breakdown.map(c => (c.country === name ? { ...c, selected: true } : c))
 }
 
 // ─── Account currency (cached for the process) ────────────────────────────────

@@ -67,7 +67,13 @@ export async function connectDB(): Promise<typeof mongoose> {
   if (!cached.promise) {
     cached.promise = connectableUri().then(uri => mongoose.connect(uri, {
       bufferCommands: false,
-      maxPoolSize: 10,         // connection pool
+      // Pool sizing matters at scale: on serverless each instance keeps its own
+      // pool, so a burst of instances × maxPoolSize can exhaust Atlas's
+      // connection cap. Keep the per-instance pool modest and release idle
+      // sockets so scaled-down instances free their connections. Tune via env.
+      maxPoolSize: Number(process.env.MONGO_MAX_POOL_SIZE ?? 10),
+      minPoolSize: Number(process.env.MONGO_MIN_POOL_SIZE ?? 0),
+      maxIdleTimeMS: Number(process.env.MONGO_MAX_IDLE_MS ?? 30_000), // close idle conns after 30s
       serverSelectionTimeoutMS: 8000,
       socketTimeoutMS: 45000,
       family: 4,               // prefer IPv4 — avoids stalls on broken IPv6 setups

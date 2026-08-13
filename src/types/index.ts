@@ -88,7 +88,7 @@ export interface KeywordStats {
   difficultyLabel: 'Easy' | 'Medium' | 'Hard'
   avgPrice: number
   currency: string
-  /** Real Google monthly search volume. null unless Google Ads is configured — never faked. */
+  /** Real Google monthly search volume for the SELECTED country. null unless Google Ads is configured — never faked. */
   googleSearches: number | null
   /** Google advertiser-competition band for the exact keyword + its 0–100 index. */
   googleCompetition?: 'LOW' | 'MEDIUM' | 'HIGH' | 'UNSPECIFIED' | null
@@ -438,7 +438,12 @@ export interface EtsyShopAnalytics {
 export interface TrendPoint { month: string; value: number }
 export type TrendPlatform = 'etsy' | 'google' | 'amazon' | 'ebay'
 export interface TrendData { platform: TrendPlatform; points: TrendPoint[] }
-export interface CountryData { country: string; percentage: number; color: string }
+export interface CountryData { country: string; percentage: number; color: string; selected?: boolean }
+
+/** One listing's real review signals: lifetime count + trailing-30-day velocity.
+ *  Both are verified purchases; the per-listing sales ESTIMATE built on them lives
+ *  in `salesEstimate.ts`. Nulls mean Etsy didn't answer — never 0-as-unknown. */
+export interface ListingReviewStats { count: number | null; last30d: number | null }
 
 // The full payload /api/trends returns — saved into the shared Collective package
 // (by Ranktsy's Bulk search) so Rankkw serves Trends + Searchers-by-Country from

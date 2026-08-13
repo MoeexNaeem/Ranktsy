@@ -3,13 +3,15 @@
  * Find Hot Products — product detail. Opens from a database row and pulls the
  * full live listing + its shop's real record, an AI read, and a per-tag analysis
  * (real competition/views/favorites/Google). Every tag and the shop are
- * clickable → they fetch fresh real data. No sales/revenue is shown or invented
- * — Etsy publishes none per listing.
+ * clickable → they fetch fresh real data. Etsy publishes no per-listing sales, so
+ * the Est. Sales / Revenue figures here are review-based ESTIMATES, clearly badged.
  */
 import { useState, useMemo, useCallback } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import axios from 'axios'
 import { useAppStore } from '@/store/app'
+import { useListingReviews } from '@/hooks/useListingReviews'
+import { estimateListingSales } from '@/lib/salesEstimate'
 import { C, D, formatNumber, withAlpha, ACCENT } from '@/utils'
 import { Card, SectionTitle, Loading, MONO, primaryBtn } from '../kit'
 import { AiInsights } from '../AiInsights'
@@ -36,6 +38,9 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
   product: HotProduct; onBack: () => void; onNavigate?: (id: string) => void
 }) {
   const [activeImg, setActiveImg] = useState(0)
+  // Captured once (lazy init) so age stays stable across re-renders and we never
+  // call Date.now() during render.
+  const [nowMs] = useState(() => Date.now())
 
   // Full live listing — description, all images, quantity, taxonomy.
   const listingQ = useQuery({
@@ -51,6 +56,17 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
   })
   const shop = shopQ.data?.shop
   const listing = listingQ.data
+
+  // Real review signals for this one listing → the labelled per-listing sales estimate.
+  const reviewsQ = useListingReviews([product.listing_id])
+  const rstats = reviewsQ.data?.[product.listing_id]
+  const ageDays = product.createdTimestamp ? Math.max(1, Math.floor((nowMs - product.createdTimestamp * 1000) / 86_400_000)) : null
+  const est = useMemo(() => estimateListingSales({
+    reviewCount: rstats?.count ?? null,
+    reviewsLast30d: rstats?.last30d ?? null,
+    price: product.price,
+    ageDays,
+  }), [rstats, product.price, ageDays])
 
   const images = listing?.images?.length ? listing.images : (product.image ? [{ url_570xN: product.image, url_75x75: product.image }] : [])
   const shopSales = shop?.sales != null ? Number(shop.sales) : null
@@ -78,9 +94,12 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
     if (product.createdTimestamp) f.push({ label: 'Released', value: fmtDate(product.createdTimestamp) })
     if (shopSales != null) f.push({ label: 'Shop lifetime sales', value: formatNumber(shopSales), hint: 'shop-wide, real' })
     if (shopReviews) f.push({ label: 'Shop rating', value: `${shopRating.toFixed(2)}★`, hint: `${formatNumber(shopReviews)} reviews` })
+    if (rstats?.count != null) f.push({ label: 'Listing reviews', value: formatNumber(rstats.count), hint: 'real · verified-purchase floor' })
+    if (est.estMonthlySales != null) f.push({ label: 'Est. monthly sales', value: `~${formatNumber(est.estMonthlySales)}`, hint: 'ESTIMATE from review velocity' })
+    if (est.estMonthlyRevenue != null) f.push({ label: 'Est. monthly revenue', value: `~${sym(product.currency)}${formatNumber(est.estMonthlyRevenue)}`, hint: 'ESTIMATE' })
     if (product.tags[0]) f.push({ label: 'Top tag', value: product.tags[0] })
     return f
-  }, [product, shopSales, shopRating, shopReviews])
+  }, [product, shopSales, shopRating, shopReviews, rstats, est])
 
   // Clicking a tag seeds the Keyword tool with it and jumps there — real new data.
   const researchTag = useCallback((tag: string) => {
@@ -148,6 +167,22 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
           </div>
         </div>
       </div>
+
+      {/* Sales estimate — review-based, clearly labelled (Etsy publishes no per-listing sales) */}
+      <Card>
+        <SectionTitle right={<span style={{ fontSize: 11, fontFamily: MONO, color: D.mid }}>estimate · from reviews</span>}>Sales estimate</SectionTitle>
+        <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
+          <Metric label="Reviews" value={rstats?.count != null ? formatNumber(rstats.count) : (reviewsQ.isPending ? '…' : '—')} sub="real · units-sold floor" color={D.good} />
+          <Metric label="~ Sales / mo" value={est.estMonthlySales != null ? `~${formatNumber(est.estMonthlySales)}` : (reviewsQ.isPending ? '…' : '—')} sub={est.estMonthlySales != null ? (est.monthlyIsAverage ? 'lifetime avg' : 'recent velocity') : undefined} color={D.mid} />
+          <Metric label="~ Revenue / mo" value={est.estMonthlyRevenue != null ? `~${sym(product.currency)}${formatNumber(est.estMonthlyRevenue)}` : (reviewsQ.isPending ? '…' : '—')} sub="est · × price" color={D.mid} />
+          <Metric label="~ Total sales" value={est.estTotalSales != null ? `~${formatNumber(est.estTotalSales)}` : (reviewsQ.isPending ? '…' : '—')} sub="est · lifetime" color={D.mid} />
+        </div>
+        <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6, marginTop: 10 }}>
+          Etsy publishes no per-listing sales. These are <strong style={{ color: D.mid }}>estimates</strong>: a review is a verified purchase and
+          only a fraction of buyers review, so sales ≈ reviews ÷ review-rate. <strong style={{ color: D.good }}>Reviews</strong> is the real number
+          {rstats?.last30d != null ? <> ({formatNumber(rstats.last30d)} in the last 30 days)</> : null} — treat the estimates as directional.
+        </p>
+      </Card>
 
       {/* Tags — clickable */}
       {product.tags.length > 0 && (
@@ -224,7 +259,7 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
           tool="Hot Product"
           subject={product.title.slice(0, 60)}
           facts={aiFacts}
-          notes="All figures are real Etsy measurements (no per-listing sales exist — shop sales are shop-wide lifetime). Interpret why this product is performing, what makes it 'hot' (favorite-velocity + engagement), and what a seller entering this niche should learn from it. Never invent sales or revenue."
+          notes="Views/favorites/engagement and shop lifetime sales are real Etsy measurements. Etsy publishes no per-listing sales, so any 'Est. monthly sales/revenue' here are ESTIMATES derived from the listing's review count and velocity (sales ≈ reviews ÷ review-rate) — label them as estimates and never state them as exact. Interpret why this product is 'hot' (favorite-velocity + engagement) and what a seller entering this niche should learn."
         />
       )}
 

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { C } from "@/utils";
 import { SocialRow } from "@/components/ui/Social";
+import { WhatsAppIcon, WHATSAPP_HREF, WHATSAPP_DISPLAY } from "@/components/ui/WhatsApp";
 import { Reveal, RevealGroup, RevealItem } from "./Reveal";
 import { PlanScroller, PriceNote } from "./plans";
 
@@ -619,6 +620,16 @@ export function Footer() {
               Built on the official Etsy Open API v3
             </div>
             <SocialRow color={dim} hoverColor="#fff" />
+
+            {/* WhatsApp — opens a chat with support */}
+            <a href={WHATSAPP_HREF} target="_blank" rel="noopener noreferrer"
+              aria-label={`Chat with us on WhatsApp: ${WHATSAPP_DISPLAY}`}
+              style={{ display: "inline-flex", alignItems: "center", gap: 10, marginTop: 22, padding: "10px 16px", borderRadius: 100, background: "#25D366", color: "#0B141A", textDecoration: "none", fontSize: 14.5, fontWeight: 600, fontFamily: SANS, transition: "opacity 0.15s" }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.88")}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}>
+              <WhatsAppIcon size={20} color="#0B141A" />
+              {WHATSAPP_DISPLAY}
+            </a>
           </div>
           {cols.map((c) => (
             <div key={c.t}>
@@ -648,9 +659,6 @@ export function Footer() {
             ))}
           </div>
         </div>
-        <p style={{ fontSize: 12, color: "rgba(245,245,235,0.4)", margin: "16px 0 0", lineHeight: 1.6, maxWidth: 820 }}>
-          The term &apos;Etsy&apos; is a trademark of Etsy, Inc. This application uses the Etsy API but is not endorsed or certified by Etsy, Inc.
-        </p>
       </div>
     </footer>
   );
