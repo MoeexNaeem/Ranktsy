@@ -25,14 +25,42 @@ const imageLimiter = createLimiter(Number(process.env.GEMINI_IMAGE_CONCURRENCY ?
 // cheaper and faster than images, so the default is higher. Tune with GEMINI_TEXT_CONCURRENCY.
 const textLimiter = createLimiter(Number(process.env.GEMINI_TEXT_CONCURRENCY ?? 8))
 
-// The key was uploaded under the non-standard name `Gemini_API_KEY`; accept the
-// conventional GEMINI_API_KEY too so either works.
-function geminiKey(): string {
-  return (process.env.GEMINI_API_KEY || process.env.Gemini_API_KEY || '').trim()
+// One or more API keys. The key was first uploaded under the non-standard name
+// `Gemini_API_KEY`; accept the conventional GEMINI_API_KEY too. A SECOND key
+// (GEMINI_SECONDARY_API_KEY) — or any number via a comma-separated
+// GEMINI_API_KEYS — lets us spread load across keys and fail over when one is
+// rate-limited, so a busy moment on a single key doesn't surface as "Generation
+// failed". Duplicates and blanks are dropped; order is primary-first.
+function geminiKeys(): string[] {
+  const raw = [
+    process.env.GEMINI_API_KEY,
+    process.env.Gemini_API_KEY,
+    process.env.GEMINI_SECONDARY_API_KEY,
+    ...(process.env.GEMINI_API_KEYS?.split(',') ?? []),
+  ]
+  const seen = new Set<string>()
+  const keys: string[] = []
+  for (const k of raw) {
+    const t = (k ?? '').trim()
+    if (t && !seen.has(t)) { seen.add(t); keys.push(t) }
+  }
+  return keys
 }
 
 export function isGeminiConfigured(): boolean {
-  return geminiKey().length > 0
+  return geminiKeys().length > 0
+}
+
+// Round-robin so successive requests START on different keys — this spreads
+// steady load evenly instead of always hammering the first key (and only
+// spilling to the second on failure). Returns the keys rotated so the caller
+// tries them in a fresh order each call.
+let keyCursor = 0
+function keyOrder(): string[] {
+  const keys = geminiKeys()
+  if (keys.length <= 1) return keys
+  const start = keyCursor++ % keys.length
+  return [...keys.slice(start), ...keys.slice(0, start)]
 }
 
 // `gemini-flash-latest` is an ALIAS that always resolves to the current Flash
@@ -85,8 +113,7 @@ export interface GeminiMeta { reason?: GeminiReason }
  * so the UI can show an honest message instead of "please try again".
  */
 export async function geminiGenerate(opts: GenerateOpts, meta?: GeminiMeta): Promise<string | null> {
-  const key = geminiKey()
-  if (!key) { if (meta) meta.reason = 'unconfigured'; return null }
+  if (!isGeminiConfigured()) { if (meta) meta.reason = 'unconfigured'; return null }
 
   const body: Record<string, unknown> = {
     contents: [{ role: 'user', parts: [{ text: opts.prompt }] }],
@@ -113,17 +140,24 @@ export async function geminiGenerate(opts: GenerateOpts, meta?: GeminiMeta): Pro
   // Gemini is frequently overloaded (503) or drops the connection (fetch failed);
   // both are transient. Retry a few times with backoff so a single blip doesn't
   // surface as "AI generation failed" to the user.
-  const url = `${BASE}/models/${MODEL}:generateContent?key=${encodeURIComponent(key)}`
   // Queue behind the per-instance text-generation cap so a surge of searches +
-  // generations can't stampede Gemini into rate-limit failures.
-  return textLimiter.run(() => sendGemini(url, body, meta))
+  // generations can't stampede Gemini into rate-limit failures. sendGemini picks
+  // a key per attempt and rotates through all configured keys, failing over when
+  // one is rate-limited.
+  return textLimiter.run(() => sendGemini(MODEL, body, meta))
 }
 
-async function sendGemini(url: string, body: Record<string, unknown>, meta?: GeminiMeta): Promise<string | null> {
+async function sendGemini(model: string, body: Record<string, unknown>, meta?: GeminiMeta): Promise<string | null> {
+  const keys = keyOrder()
+  if (!keys.length) { if (meta) meta.reason = 'unconfigured'; return null }
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
-  const MAX_ATTEMPTS = 3
+  // At least 3 tries, and always enough attempts to visit every key at least once.
+  const MAX_ATTEMPTS = Math.max(3, keys.length)
+  let sawQuota = false
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const key = keys[attempt % keys.length]
+    const url = `${BASE}/models/${model}:generateContent?key=${encodeURIComponent(key)}`
     try {
       const res = await fetch(url, {
         method: 'POST',
@@ -134,22 +168,25 @@ async function sendGemini(url: string, body: Record<string, unknown>, meta?: Gem
 
       if (!res.ok) {
         const errBody = await res.text().catch(() => '')
-        // 404 = pinned model retired; not retryable.
+        // 404 = pinned model retired; not retryable (another key won't help).
         if (res.status === 404) {
-          console.error(`[Gemini] model "${MODEL}" returned 404 — likely retired. Set GEMINI_MODEL to a current one. ${errBody.slice(0, 160)}`)
+          console.error(`[Gemini] model "${model}" returned 404 — likely retired. Set GEMINI_MODEL to a current one. ${errBody.slice(0, 160)}`)
           if (meta) meta.reason = 'model_retired'
           return null
         }
-        // 429 / 5xx are transient — retry with backoff.
+        // 429 = this key is rate-limited/exhausted → fail over to the NEXT key
+        // right away (short pause); 5xx is transient → longer backoff.
+        if (res.status === 429) sawQuota = true
         if ((res.status === 429 || res.status >= 500) && attempt < MAX_ATTEMPTS - 1) {
-          console.warn(`[Gemini] ${res.status} — retrying (${attempt + 1}/${MAX_ATTEMPTS - 1})`)
-          await sleep(900 * 2 ** attempt)
+          const wait = res.status === 429 && keys.length > 1 ? 150 : 900 * 2 ** attempt
+          console.warn(`[Gemini] ${res.status} on key #${(attempt % keys.length) + 1}/${keys.length} — retrying (${attempt + 1}/${MAX_ATTEMPTS - 1})`)
+          await sleep(wait)
           continue
         }
         console.error(`[Gemini] ${res.status}: ${errBody.slice(0, 200)}`)
-        // A terminal 429 means the provider's quota/billing is exhausted — not a
-        // transient blip, so callers should say so rather than "try again".
-        if (meta) meta.reason = res.status === 429 ? 'quota' : 'error'
+        // A terminal 429 (every key exhausted) means quota is out — say so rather
+        // than "try again".
+        if (meta) meta.reason = (res.status === 429 || sawQuota) ? 'quota' : 'error'
         return null
       }
 
@@ -167,7 +204,7 @@ async function sendGemini(url: string, body: Record<string, unknown>, meta?: Gem
       const text = json.candidates?.[0]?.content?.parts?.map(p => p.text ?? '').join('') ?? ''
       return text || null
     } catch (e) {
-      // Network error (fetch failed) — retry, else give up.
+      // Network error (fetch failed) — retry on the next key, else give up.
       if (attempt < MAX_ATTEMPTS - 1) {
         console.warn(`[Gemini] request failed — retrying (${attempt + 1}/${MAX_ATTEMPTS - 1}):`, (e as Error)?.message)
         await sleep(900 * 2 ** attempt)
@@ -177,6 +214,7 @@ async function sendGemini(url: string, body: Record<string, unknown>, meta?: Gem
       return null
     }
   }
+  if (meta) meta.reason = sawQuota ? 'quota' : 'error'
   return null
 }
 
@@ -194,26 +232,28 @@ export type GeminiImageOutcome =
  * Never throws.
  */
 export async function geminiImage(prompt: string, refs?: GeminiRefImage[]): Promise<GeminiImageOutcome> {
-  const key = geminiKey()
-  if (!key) return { ok: false, reason: 'unconfigured' }
+  const keys = keyOrder()
+  if (!keys.length) return { ok: false, reason: 'unconfigured' }
   // Queue behind the per-instance concurrency cap so a spike can't stampede the
   // provider (the acquire is cheap when there's a free slot).
-  return imageLimiter.run(() => geminiImageInner(key, prompt, refs))
+  return imageLimiter.run(() => geminiImageInner(keys, prompt, refs))
 }
 
-async function geminiImageInner(key: string, prompt: string, refs?: GeminiRefImage[]): Promise<GeminiImageOutcome> {
+async function geminiImageInner(keys: string[], prompt: string, refs?: GeminiRefImage[]): Promise<GeminiImageOutcome> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const parts: any[] = [{ text: prompt }]
   for (const r of refs ?? []) parts.push({ inlineData: { mimeType: r.mimeType, data: r.data } })
 
   // Retry transient failures: 5xx, network errors, and — importantly — the case
   // where the model replies with only TEXT and no image (common for the
-  // feature-callout graphic). Quota (429) and safety blocks are NOT retried.
-  const MAX = 3
+  // feature-callout graphic). On 429 (rate-limited) we fail over to the next key;
+  // safety blocks are NOT retried. At least 3 tries, and enough to visit every key.
+  const MAX = Math.max(3, keys.length)
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
   let last: GeminiImageOutcome = { ok: false, reason: 'error', detail: 'unknown' }
 
   for (let attempt = 0; attempt < MAX; attempt++) {
+    const key = keys[attempt % keys.length]
     try {
       const res = await fetch(
         `${BASE}/models/${IMAGE_MODEL}:generateContent?key=${encodeURIComponent(key)}`,
@@ -221,8 +261,14 @@ async function geminiImageInner(key: string, prompt: string, refs?: GeminiRefIma
       )
       if (!res.ok) {
         const body = await res.text().catch(() => '')
-        console.error(`[Gemini image] ${res.status}: ${body.slice(0, 200)}`)
-        if (res.status === 429) return { ok: false, reason: 'quota', detail: 'Image-generation quota exhausted — enable billing on the Gemini API key.' }
+        console.error(`[Gemini image] ${res.status} on key #${(attempt % keys.length) + 1}/${keys.length}: ${body.slice(0, 200)}`)
+        if (res.status === 429) {
+          // This key is out — fail over to the next key; only give up (quota)
+          // once every key has been tried.
+          last = { ok: false, reason: 'quota', detail: 'Image-generation quota exhausted on all keys — enable billing or add another Gemini key.' }
+          if (attempt < MAX - 1) { await sleep(keys.length > 1 ? 150 : 700 * (attempt + 1)); continue }
+          return last
+        }
         last = { ok: false, reason: 'error', detail: `${res.status}` }
         if (res.status >= 500 && attempt < MAX - 1) { await sleep(700 * (attempt + 1)); continue }
         return last
