@@ -25,6 +25,7 @@
  * thrown below names the variable so the fix is obvious from the logs.
  */
 import { recordGoogleCall } from '@/lib/usage'
+import { singleFlight } from '@/lib/concurrency'
 
 const V = process.env.GOOGLE_ADS_API_VERSION || 'v24'
 const digits = (s?: string) => (s ?? '').replace(/\D/g, '')
@@ -81,22 +82,29 @@ let cachedToken: { token: string; expiresAt: number } | null = null
 
 async function getAccessToken(): Promise<string> {
   if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) return cachedToken.token
-  recordGoogleCall()
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id:     process.env.GOOGLE_ADS_CLIENT_ID!,
-      client_secret: process.env.GOOGLE_ADS_CLIENT_SECRET!,
-      refresh_token: process.env.GOOGLE_ADS_REFRESH_TOKEN!,
-      grant_type:    'refresh_token',
-    }).toString(),
-    cache: 'no-store',
+  // Coalesce concurrent refreshes: when the cached token expires, a burst of
+  // requests (e.g. many users generating titles at once) would each fire their
+  // own token refresh. singleFlight collapses them into ONE request whose result
+  // they all share — the second and later callers re-check the fresh cache.
+  return singleFlight('google-ads-token', async () => {
+    if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) return cachedToken.token
+    recordGoogleCall()
+    const res = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id:     process.env.GOOGLE_ADS_CLIENT_ID!,
+        client_secret: process.env.GOOGLE_ADS_CLIENT_SECRET!,
+        refresh_token: process.env.GOOGLE_ADS_REFRESH_TOKEN!,
+        grant_type:    'refresh_token',
+      }).toString(),
+      cache: 'no-store',
+    })
+    if (!res.ok) throw new Error(`Google OAuth token error ${res.status}: ${await res.text().catch(() => '')}`)
+    const j = await res.json() as { access_token: string; expires_in: number }
+    cachedToken = { token: j.access_token, expiresAt: Date.now() + j.expires_in * 1000 }
+    return j.access_token
   })
-  if (!res.ok) throw new Error(`Google OAuth token error ${res.status}: ${await res.text().catch(() => '')}`)
-  const j = await res.json() as { access_token: string; expires_in: number }
-  cachedToken = { token: j.access_token, expiresAt: Date.now() + j.expires_in * 1000 }
-  return j.access_token
 }
 
 // ─── Core call: historical metrics for a set of keywords in one geo ────────────

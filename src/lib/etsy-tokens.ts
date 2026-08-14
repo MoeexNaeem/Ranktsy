@@ -2,6 +2,7 @@ import { connectDB } from '@/lib/db'
 import { ConnectedShop, User } from '@/lib/models'
 import { encryptSecret, decryptSecret } from '@/lib/crypto'
 import { refreshEtsyToken, type EtsyTokenResponse } from '@/lib/etsy-oauth'
+import { singleFlight } from '@/lib/concurrency'
 
 /**
  * A user's connected Etsy shop(s) — always read fresh from the ConnectedShop
@@ -88,13 +89,21 @@ export async function getValidEtsyAuth(userId: string, shopId?: string | number)
     if (access) return { accessToken: access, shopId: numericShopId }
   }
 
-  // Refresh
+  // Refresh. Etsy ROTATES refresh tokens (each one is single-use — refreshing
+  // invalidates it and returns a new one), so two concurrent requests for the
+  // same shop must NOT both refresh with the same stored token: the first would
+  // succeed and the second would 400 on an already-spent token, intermittently
+  // breaking shop features (a dashboard loading several Etsy widgets at once is
+  // enough to trigger it). singleFlight collapses concurrent refreshes for the
+  // same shop into ONE call whose result every caller shares.
   const refresh = decryptSecret(doc.refreshToken)
   if (!refresh) return null
   try {
-    const tokens = await refreshEtsyToken(refresh)
-    await saveEtsyTokens(userId, tokens, numericShopId, doc.shopName)
-    return { accessToken: tokens.access_token, shopId: numericShopId }
+    return await singleFlight(`etsy-token:${userId}:${doc.shopId}`, async () => {
+      const tokens = await refreshEtsyToken(refresh)
+      await saveEtsyTokens(userId, tokens, numericShopId, doc.shopName)
+      return { accessToken: tokens.access_token, shopId: numericShopId }
+    })
   } catch (e) {
     console.error('[Etsy] token refresh failed:', e)
     return null
