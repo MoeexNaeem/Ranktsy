@@ -3,6 +3,7 @@ import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { geminiJSON, isGeminiConfigured, type GeminiMeta } from '@/lib/gemini'
 import { normalizeGeo } from '@/lib/google-ads'
 import { buildGrounding, tagPrompt, TAG_SYSTEM, TAG_SCHEMA } from '@/lib/ai/etsy-prompts'
+import { AI_BUSY, AI_UNAVAILABLE, AI_FAILED } from '@/lib/ai/messages'
 import { withUsage } from '@/lib/track'
 import type { ApiResponse, AiTagResult } from '@/types'
 
@@ -16,7 +17,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Ai
   const keyword = searchParams.get('q')?.trim().toLowerCase()
   const geo = normalizeGeo(searchParams.get('geo'))
   if (!keyword || keyword.length < 2) return NextResponse.json({ success: false, error: 'Keyword must be at least 2 characters' }, { status: 400 })
-  if (!isGeminiConfigured()) return NextResponse.json({ success: false, error: 'AI is not configured (Gemini API key missing).' }, { status: 503 })
+  if (!isGeminiConfigured()) return NextResponse.json({ success: false, error: AI_UNAVAILABLE }, { status: 503 })
 
   const key = cacheKey('ai-tag', 'v1', geo, keyword)
   const cached = memCache.get<AiTagResult>(key)
@@ -30,8 +31,8 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Ai
       temperature: 0.75, maxOutputTokens: 4096,
     }, meta)
     if (!result || !result.tags?.length) {
-      if (meta.reason === 'quota') return NextResponse.json({ success: false, error: 'AI is temporarily unavailable — the AI provider’s quota is used up. Please try again later.' }, { status: 503 })
-      return NextResponse.json({ success: false, error: 'AI generation failed — please try again.' }, { status: 502 })
+      if (meta.reason === 'quota') return NextResponse.json({ success: false, error: AI_BUSY }, { status: 503 })
+      return NextResponse.json({ success: false, error: AI_FAILED }, { status: 502 })
     }
     // Enforce Etsy's rules defensively: ≤20 chars, unique, max 13.
     result.tags = [...new Set(result.tags.map(t => String(t).trim()).filter(t => t && t.length <= 20))].slice(0, 13)

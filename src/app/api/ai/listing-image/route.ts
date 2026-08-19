@@ -4,6 +4,7 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { connectDB } from '@/lib/db'
 import { consumeMonthlyImage, refundMonthlyImage } from '@/lib/quota'
 import { withUsage } from '@/lib/track'
+import { AI_BUSY, AI_IMAGE_UNAVAILABLE, AI_FAILED } from '@/lib/ai/messages'
 import type { ApiResponse } from '@/types'
 
 export const runtime = 'nodejs'
@@ -86,7 +87,7 @@ async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<{
     return NextResponse.json({ success: false, error: 'Missing product.' }, { status: 400 })
   }
   if (!isOpenAIConfigured()) {
-    return NextResponse.json({ success: false, error: 'AI images are not configured (set the OpenAI API key).' }, { status: 503 })
+    return NextResponse.json({ success: false, error: AI_IMAGE_UNAVAILABLE }, { status: 503 })
   }
 
   // Per-plan MONTHLY image allowance. Consume before generating; refunded below
@@ -119,11 +120,11 @@ async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<{
   // Generation failed — give the consumed monthly image credit back.
   if (authUser) await refundMonthlyImage(authUser.id)
 
-  // Map the typed failure to an honest, actionable message.
+  // Map the typed failure to a neutral, provider-agnostic message.
   const msg = out.reason === 'quota'
-    ? 'Image quota / rate limit hit — check billing on the OpenAI API key to generate images.'
-    : out.reason === 'unconfigured' ? 'OpenAI API key is not set.'
+    ? AI_BUSY
+    : out.reason === 'unconfigured' ? AI_IMAGE_UNAVAILABLE
     : out.reason === 'blocked' ? 'The image request was blocked by the safety filter — try rephrasing the product.'
-    : 'Image generation failed. Please try again.'
+    : AI_FAILED
   return NextResponse.json({ success: false, error: msg }, { status: out.reason === 'quota' ? 429 : 502 })
 }

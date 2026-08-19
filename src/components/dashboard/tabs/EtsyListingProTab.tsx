@@ -2,10 +2,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import axios from 'axios'
-import { Card, SectionTitle, EmptyState, ErrorBox, MONO, primaryBtn } from '../kit'
+import { Card, SectionTitle, EmptyState, ErrorBox, BusyNote, GenSkeleton, MONO, primaryBtn } from '../kit'
 import { MiniMarkdown } from '../MiniMarkdown'
 import { C, D } from '@/utils'
 import { triggerUpgrade } from '@/lib/upgrade'
+import { busyRetry, busyRetryDelay, useSlow, isTerminal } from '@/lib/ai/busy'
 import type { ApiResponse } from '@/types'
 import type { ListingPro } from '@/app/api/ai/listing-pro/route'
 
@@ -78,7 +79,11 @@ export function EtsyListingProTab() {
       }
     },
     onSuccess: (data) => { setListing(data); setImages(BLANK_IMAGES) },
+    retry: busyRetry,
+    retryDelay: busyRetryDelay,
   })
+  const slow = useSlow(gen.isPending)
+  const busy = gen.isPending && (slow || gen.failureCount > 0)
 
   const onFile = useCallback((f: File | undefined) => {
     if (!f) return setRef(null)
@@ -90,20 +95,34 @@ export function EtsyListingProTab() {
   const genImage = useCallback(async (type: ImageType) => {
     if (!listing) return
     setImages(p => ({ ...p, [type]: { loading: true } }))
-    try {
-      const { data } = await axios.post<ApiResponse<{ dataUrl: string; costUsd?: number }>>('/api/ai/listing-image', {
-        type, product, visual: listing.visual, features: listing.features,
-        refImage: ref ? { data: ref.dataUrl, mimeType: ref.mimeType } : undefined,
-      })
-      if (!data.success || !data.data) throw new Error(data.error ?? 'Image failed')
-      setImages(p => ({ ...p, [type]: { loading: false, dataUrl: data.data!.dataUrl } }))
-    } catch (e) {
-      const resp = axios.isAxiosError(e) ? e.response : undefined
-      if (resp?.status === 402 && resp.data?.code === 'plan_limit') {
-        triggerUpgrade({ title: 'Image limit reached', message: resp.data.error, plan: resp.data.plan })
+    // Retry transient failures a few times on top of the backend's own key
+    // rotation, so a busy provider doesn't surface as an error — the image just
+    // takes a little longer. Plan limits and other terminal errors stop at once.
+    const MAX = 3
+    for (let attempt = 0; attempt < MAX; attempt++) {
+      try {
+        const { data } = await axios.post<ApiResponse<{ dataUrl: string; costUsd?: number }>>('/api/ai/listing-image', {
+          type, product, visual: listing.visual, features: listing.features,
+          refImage: ref ? { data: ref.dataUrl, mimeType: ref.mimeType } : undefined,
+        })
+        if (!data.success || !data.data) throw new Error(data.error ?? 'Image failed')
+        setImages(p => ({ ...p, [type]: { loading: false, dataUrl: data.data!.dataUrl } }))
+        return
+      } catch (e) {
+        const resp = axios.isAxiosError(e) ? e.response : undefined
+        if (resp?.status === 402 && resp.data?.code === 'plan_limit') {
+          triggerUpgrade({ title: 'Image limit reached', message: resp.data.error, plan: resp.data.plan })
+          setImages(p => ({ ...p, [type]: { loading: false, error: resp.data.error } }))
+          return
+        }
+        // Terminal error, or out of attempts → show the message. Otherwise back off and retry.
+        if (isTerminal(e) || attempt === MAX - 1) {
+          const msg = axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : (e instanceof Error ? e.message : 'Image failed')
+          setImages(p => ({ ...p, [type]: { loading: false, error: msg } }))
+          return
+        }
+        await new Promise(r => setTimeout(r, 1500 * (attempt + 1)))
       }
-      const msg = axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : (e instanceof Error ? e.message : 'Image failed')
-      setImages(p => ({ ...p, [type]: { loading: false, error: msg } }))
     }
   }, [listing, product, ref])
 
@@ -124,7 +143,7 @@ export function EtsyListingProTab() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* ─── Input ─────────────────────────────────────────────────────────── */}
       <Card>
-        <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: C.stone }}>AI · Gemini + OpenAI</span>}>Etsy Listing Pro</SectionTitle>
+        <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: C.stone }}>AI-powered</span>}>Etsy Listing Pro</SectionTitle>
         <p style={{ fontSize: 13, color: C.graphite, lineHeight: 1.6, marginTop: -6, marginBottom: 14 }}>
           Describe your product and get a <strong style={{ color: C.ink }}>complete listing</strong> — one optimized title,
           13 tags, a description, a price (anchored to the real market median), and a clean Etsy-style image.
@@ -153,9 +172,16 @@ export function EtsyListingProTab() {
         </p>
       </Card>
 
-      {gen.isError && <ErrorBox>{gen.error instanceof Error ? gen.error.message : 'Generation failed.'}</ErrorBox>}
+      {gen.isPending && (
+        <>
+          {busy && <BusyNote>{"Please wait — we're a little busy. Your full listing is coming up…"}</BusyNote>}
+          <GenSkeleton height={280} />
+        </>
+      )}
 
-      {!listing && !gen.isPending && (
+      {gen.isError && !gen.isPending && <ErrorBox>{gen.error instanceof Error ? gen.error.message : 'Generation failed.'}</ErrorBox>}
+
+      {!listing && !gen.isPending && !gen.isError && (
         <EmptyState icon="✨" title="Your full listing appears here" sub="Title, 13 tags, description, price and a clean Etsy-style image — all in one." />
       )}
 
@@ -239,7 +265,7 @@ export function EtsyListingProTab() {
                       {st.loading ? (
                         <>
                           <div className="shimmer" style={{ position: 'absolute', inset: 0, background: '#e8e7e2' }} />
-                          <p style={{ position: 'relative', fontSize: 12.5, color: C.graphite }}>Generating…</p>
+                          <p style={{ position: 'relative', fontSize: 12.5, color: C.graphite, fontWeight: 500 }}>Your Etsy image is coming up…</p>
                         </>
                       ) : st.dataUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element

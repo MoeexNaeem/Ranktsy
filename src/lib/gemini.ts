@@ -151,8 +151,9 @@ async function sendGemini(model: string, body: Record<string, unknown>, meta?: G
   const keys = keyOrder()
   if (!keys.length) { if (meta) meta.reason = 'unconfigured'; return null }
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
-  // At least 3 tries, and always enough attempts to visit every key at least once.
-  const MAX_ATTEMPTS = Math.max(3, keys.length)
+  // Visit every key at least once, plus a couple of extra passes for a purely
+  // transient blip. With N keys we try all N fast before ever backing off.
+  const MAX_ATTEMPTS = Math.max(4, keys.length + 2)
   let sawQuota = false
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -174,11 +175,16 @@ async function sendGemini(model: string, body: Record<string, unknown>, meta?: G
           if (meta) meta.reason = 'model_retired'
           return null
         }
-        // 429 = this key is rate-limited/exhausted → fail over to the NEXT key
-        // right away (short pause); 5xx is transient → longer backoff.
+        // 429 = rate-limited/exhausted; 5xx = overloaded. Both are transient and
+        // both fail over to the NEXT key. While we still have un-tried keys this
+        // pass, move on almost immediately; only once we've cycled through every
+        // key do we back off (capped) before trying again.
         if (res.status === 429) sawQuota = true
         if ((res.status === 429 || res.status >= 500) && attempt < MAX_ATTEMPTS - 1) {
-          const wait = res.status === 429 && keys.length > 1 ? 150 : 900 * 2 ** attempt
+          const cycledAllKeys = attempt >= keys.length - 1
+          const wait = keys.length > 1 && !cycledAllKeys
+            ? 150
+            : Math.min(700 * 2 ** Math.max(0, attempt - keys.length + 1), 4000)
           console.warn(`[Gemini] ${res.status} on key #${(attempt % keys.length) + 1}/${keys.length} — retrying (${attempt + 1}/${MAX_ATTEMPTS - 1})`)
           await sleep(wait)
           continue
@@ -206,8 +212,10 @@ async function sendGemini(model: string, body: Record<string, unknown>, meta?: G
     } catch (e) {
       // Network error (fetch failed) — retry on the next key, else give up.
       if (attempt < MAX_ATTEMPTS - 1) {
+        const cycledAllKeys = attempt >= keys.length - 1
+        const wait = keys.length > 1 && !cycledAllKeys ? 150 : Math.min(700 * 2 ** Math.max(0, attempt - keys.length + 1), 4000)
         console.warn(`[Gemini] request failed — retrying (${attempt + 1}/${MAX_ATTEMPTS - 1}):`, (e as Error)?.message)
-        await sleep(900 * 2 ** attempt)
+        await sleep(wait)
         continue
       }
       console.error('[Gemini] request failed:', e)
@@ -248,8 +256,11 @@ async function geminiImageInner(keys: string[], prompt: string, refs?: GeminiRef
   // where the model replies with only TEXT and no image (common for the
   // feature-callout graphic). On 429 (rate-limited) we fail over to the next key;
   // safety blocks are NOT retried. At least 3 tries, and enough to visit every key.
-  const MAX = Math.max(3, keys.length)
+  const MAX = Math.max(4, keys.length + 1)
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+  const backoff = (attempt: number) => keys.length > 1 && attempt < keys.length - 1
+    ? 150
+    : Math.min(700 * 2 ** Math.max(0, attempt - keys.length + 1), 4000)
   let last: GeminiImageOutcome = { ok: false, reason: 'error', detail: 'unknown' }
 
   for (let attempt = 0; attempt < MAX; attempt++) {
@@ -270,7 +281,7 @@ async function geminiImageInner(keys: string[], prompt: string, refs?: GeminiRef
           return last
         }
         last = { ok: false, reason: 'error', detail: `${res.status}` }
-        if (res.status >= 500 && attempt < MAX - 1) { await sleep(700 * (attempt + 1)); continue }
+        if (res.status >= 500 && attempt < MAX - 1) { await sleep(backoff(attempt)); continue }
         return last
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

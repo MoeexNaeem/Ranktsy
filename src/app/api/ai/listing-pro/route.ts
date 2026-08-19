@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { searchEtsyListings, dominantCurrencyPrices } from '@/lib/etsy'
 import { geminiJSON, isGeminiConfigured, type GeminiMeta } from '@/lib/gemini'
+import { AI_BUSY, AI_UNAVAILABLE, AI_FAILED } from '@/lib/ai/messages'
 import type { ApiResponse } from '@/types'
 
 export const runtime = 'nodejs'
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<L
     return NextResponse.json({ success: false, error: 'Describe your product (2+ characters).' }, { status: 400 })
   }
   if (!isGeminiConfigured()) {
-    return NextResponse.json({ success: false, error: 'AI is not configured (set the Gemini API key).' }, { status: 503 })
+    return NextResponse.json({ success: false, error: AI_UNAVAILABLE }, { status: 503 })
   }
 
   try {
@@ -119,10 +120,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<L
       maxOutputTokens: 8192,
     }, meta)
     if (!parsed) {
-      const msg = meta.reason === 'quota'
-        ? 'AI is temporarily unavailable — the AI provider’s quota is used up. Please try again later.'
-        : 'The AI model was unavailable or rate-limited. Please try again.'
-      return NextResponse.json({ success: false, error: msg }, { status: meta.reason === 'quota' ? 503 : 502 })
+      return NextResponse.json({ success: false, error: meta.reason === 'quota' ? AI_BUSY : AI_FAILED }, { status: meta.reason === 'quota' ? 503 : 502 })
     }
 
     const data: ListingPro = {

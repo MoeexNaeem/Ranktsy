@@ -14,9 +14,35 @@
 import { recordImage } from '@/lib/usage'
 import { createLimiter } from '@/lib/concurrency'
 
-const OPENAI_KEY = () => (process.env.OPENAI_API_KEY ?? '').trim()
+// One or more API keys. A single OPENAI_API_KEY still works; add more via a
+// comma-separated OPENAI_API_KEYS to spread image load across keys and fail over
+// when one is rate-limited (429) — so a busy moment on one key doesn't surface as
+// "image generation failed". Duplicates and blanks are dropped; order is primary-first.
+function openaiKeys(): string[] {
+  const raw = [
+    process.env.OPENAI_API_KEY,
+    ...(process.env.OPENAI_API_KEYS?.split(',') ?? []),
+  ]
+  const seen = new Set<string>()
+  const keys: string[] = []
+  for (const k of raw) {
+    const t = (k ?? '').trim()
+    if (t && !seen.has(t)) { seen.add(t); keys.push(t) }
+  }
+  return keys
+}
 export function isOpenAIConfigured(): boolean {
-  return OPENAI_KEY().length > 0
+  return openaiKeys().length > 0
+}
+
+// Round-robin so successive requests START on different keys — spreads steady
+// load evenly instead of always hammering the first and only spilling on failure.
+let keyCursor = 0
+function keyOrder(): string[] {
+  const keys = openaiKeys()
+  if (keys.length <= 1) return keys
+  const start = keyCursor++ % keys.length
+  return [...keys.slice(start), ...keys.slice(0, start)]
 }
 
 const MODEL   = (process.env.OPENAI_IMAGE_MODEL   ?? 'gpt-image-1').trim()
@@ -47,18 +73,23 @@ const limiter = createLimiter(Number(process.env.OPENAI_IMAGE_CONCURRENCY ?? 3))
  * caller can show an honest, actionable message (quota / blocked / error).
  */
 export async function openaiImage(prompt: string, refs?: OpenAIRefImage[]): Promise<OpenAIImageOutcome> {
-  const key = OPENAI_KEY()
-  if (!key) return { ok: false, reason: 'unconfigured' }
+  const keys = keyOrder()
+  if (!keys.length) return { ok: false, reason: 'unconfigured' }
   // Queue behind the per-instance concurrency cap so a spike can't stampede OpenAI.
-  return limiter.run(() => openaiImageInner(key, prompt, refs))
+  return limiter.run(() => openaiImageInner(keys, prompt, refs))
 }
 
-async function openaiImageInner(key: string, prompt: string, refs?: OpenAIRefImage[]): Promise<OpenAIImageOutcome> {
-  const MAX = 3
+async function openaiImageInner(keys: string[], prompt: string, refs?: OpenAIRefImage[]): Promise<OpenAIImageOutcome> {
+  // At least 3 tries, and always enough attempts to visit every key at least once.
+  const MAX = Math.max(3, keys.length)
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+  const backoff = (attempt: number) => keys.length > 1 && attempt < keys.length - 1
+    ? 150
+    : Math.min(700 * 2 ** Math.max(0, attempt - keys.length + 1), 4000)
   let last: OpenAIImageOutcome = { ok: false, reason: 'error', detail: 'unknown' }
 
   for (let attempt = 0; attempt < MAX; attempt++) {
+    const key = keys[attempt % keys.length]
     try {
       const res = refs && refs.length > 0
         ? await callEdits(key, prompt, refs)
@@ -66,12 +97,18 @@ async function openaiImageInner(key: string, prompt: string, refs?: OpenAIRefIma
 
       if (!res.ok) {
         const body = await res.text().catch(() => '')
-        console.error(`[OpenAI image] ${res.status}: ${body.slice(0, 300)}`)
-        if (res.status === 429) return { ok: false, reason: 'quota', detail: 'OpenAI image quota / rate limit hit — check billing on the OpenAI key.' }
+        console.error(`[OpenAI image] ${res.status} on key #${(attempt % keys.length) + 1}/${keys.length}: ${body.slice(0, 300)}`)
+        // 429 = this key is rate-limited/out → fail over to the NEXT key; only
+        // give up (quota) once every key has been tried.
+        if (res.status === 429) {
+          last = { ok: false, reason: 'quota', detail: 'OpenAI image quota / rate limit hit on all keys — check billing or add another OpenAI key.' }
+          if (attempt < MAX - 1) { await sleep(keys.length > 1 ? 150 : 700 * (attempt + 1)); continue }
+          return last
+        }
         // Content policy / safety: don't retry, surface it.
         if (res.status === 400 && /content_policy|safety|moderation/i.test(body)) return { ok: false, reason: 'blocked', detail: 'blocked by OpenAI safety filter' }
         last = { ok: false, reason: 'error', detail: `${res.status}` }
-        if (res.status >= 500 && attempt < MAX - 1) { await sleep(700 * (attempt + 1)); continue }
+        if (res.status >= 500 && attempt < MAX - 1) { await sleep(backoff(attempt)); continue }
         return last
       }
 

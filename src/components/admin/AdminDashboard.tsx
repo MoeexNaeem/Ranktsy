@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
-import { C, formatNumber } from '@/utils'
+import { C } from '@/utils'
 import { StatCard, SectionTitle, Pagination, tableCard, tableHead, th, tableRow, tdMono, EmptyState, MONO } from '@/components/dashboard/kit'
 
 interface AUser {
@@ -22,11 +22,13 @@ interface UsageData {
   last7Days: { day: string; etsyCalls: number; googleCalls: number; searches: number; imageCalls: number; imageCostUsd: number; creditsSpent: number }[]
 }
 
-const GRID = '1.5fr 0.6fr 0.8fr 0.6fr 0.55fr 0.75fr 0.8fr 1.2fr'
+const GRID = '0.4fr 1.5fr 0.6fr 0.8fr 0.6fr 0.55fr 0.75fr 0.8fr 1.2fr'
 // Consistent "this account pays us" signal — deliberately NOT one of the
 // per-plan hues, so it reads as one visual class regardless of tier.
 const PAID_GOLD = '#B7791F'
 const UGRID = '1.7fr 0.7fr 0.7fr 0.8fr 0.9fr 0.85fr 0.9fr'
+// Last-7-days table: Day + 6 numeric columns.
+const D7GRID = '1.4fr 0.8fr 0.8fr 1fr 0.8fr 0.8fr 0.9fr'
 const USERS_PAGE_SIZE = 20
 const USAGE_PAGE_SIZE = 15
 
@@ -55,7 +57,15 @@ function statusPill(s: string | null): { label: string; fg: string; bg: string }
   }
   return { label: s.replace(/_/g, ' '), ...(map[s] ?? { fg: '#6E6E64', bg: 'rgba(110,110,100,0.10)' }) }
 }
+// Admin wants EXACT figures (1,300 — not "1.3k"), so numbers are shown with
+// thousands separators rather than the app-wide abbreviating formatNumber().
+const exact = (n: number) => (n ?? 0).toLocaleString('en-US')
 const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }) : '—'
+// "YYYY-MM-DD" (UTC bucket) → e.g. "Wed, Aug 13" for the 7-day table.
+const fmtDay = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+// Right-aligned numeric cell (header + body share it) so figures line up cleanly.
+const numCell: React.CSSProperties = { ...tdMono, textAlign: 'right' }
+const numTh: React.CSSProperties = { ...th, textAlign: 'right' }
 /** USD with enough precision for tiny per-image costs. */
 const usd = (n: number) => `$${(n || 0).toFixed(n < 1 ? 4 : 2)}`
 const timeAgo = (d: string | null) => {
@@ -78,6 +88,8 @@ export function AdminDashboard() {
   const [err, setErr] = useState('')
   const [usersPage, setUsersPage] = useState(1)
   const [usagePage, setUsagePage] = useState(1)
+  const [userQuery, setUserQuery] = useState('')
+  const [copiedId, setCopiedId] = useState<string | null>(null)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
   const [promoOn, setPromoOn] = useState(false)
   const [promoBusy, setPromoBusy] = useState(false)
@@ -161,11 +173,26 @@ export function AdminDashboard() {
     })
   }, [users])
   const paidCount = useMemo(() => users.filter(isRealPaid).length, [users])
-  const usersPageCount = Math.max(1, Math.ceil(sortedUsers.length / USERS_PAGE_SIZE))
+  // Search by name, email OR unique ID (case-insensitive substring).
+  const filteredUsers = useMemo(() => {
+    const q = userQuery.trim().toLowerCase()
+    if (!q) return sortedUsers
+    return sortedUsers.filter(u =>
+      u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || u.id.toLowerCase().includes(q))
+  }, [sortedUsers, userQuery])
+  // Searching resets to page 1 via the input handlers (below), so a narrowing
+  // result never leaves us stranded on an out-of-range page.
+  const usersPageCount = Math.max(1, Math.ceil(filteredUsers.length / USERS_PAGE_SIZE))
   const usersPageRows = useMemo(
-    () => sortedUsers.slice((usersPage - 1) * USERS_PAGE_SIZE, usersPage * USERS_PAGE_SIZE),
-    [sortedUsers, usersPage],
+    () => filteredUsers.slice((usersPage - 1) * USERS_PAGE_SIZE, usersPage * USERS_PAGE_SIZE),
+    [filteredUsers, usersPage],
   )
+  const copyId = useCallback((id: string) => {
+    navigator.clipboard?.writeText(id).then(() => {
+      setCopiedId(id)
+      setTimeout(() => setCopiedId(c => (c === id ? null : c)), 1400)
+    }).catch(() => {})
+  }, [])
   const usagePerUser = usage?.today.perUser ?? []
   const usagePageCount = Math.max(1, Math.ceil(usagePerUser.length / USAGE_PAGE_SIZE))
   const usagePageRows = useMemo(
@@ -193,19 +220,19 @@ export function AdminDashboard() {
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
         <h1 style={{ fontSize: 'clamp(30px,3.8vw,46px)', fontWeight: 500, color: C.ink, letterSpacing: '-0.03em', lineHeight: 1.02 }}>User management</h1>
         <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-          <Link href="/admin/ads" style={{ fontSize: 13.5, fontWeight: 500, color: C.orange, background: C.orangeFaint, border: `1px solid ${C.orange}`, borderRadius: 100, padding: '8px 18px', textDecoration: 'none' }}>📣 Manage ads</Link>
-          <Link href="/admin/deals" style={{ fontSize: 13.5, fontWeight: 500, color: C.orange, background: C.orangeFaint, border: `1px solid ${C.orange}`, borderRadius: 100, padding: '8px 18px', textDecoration: 'none' }}>🎁 Manage deals</Link>
-          <Link href="/admin/blogs" style={{ fontSize: 13.5, fontWeight: 500, color: '#fff', background: C.orange, borderRadius: 100, padding: '9px 18px', textDecoration: 'none' }}>✍ Manage blog</Link>
+          <Link href="/admin/ads" style={{ fontSize: 13.5, fontWeight: 500, color: C.orange, background: C.orangeFaint, border: `1px solid ${C.orange}`, borderRadius: 100, padding: '8px 18px', textDecoration: 'none' }}>Manage ads</Link>
+          <Link href="/admin/deals" style={{ fontSize: 13.5, fontWeight: 500, color: C.orange, background: C.orangeFaint, border: `1px solid ${C.orange}`, borderRadius: 100, padding: '8px 18px', textDecoration: 'none' }}>Manage deals</Link>
+          <Link href="/admin/blogs" style={{ fontSize: 13.5, fontWeight: 500, color: '#fff', background: C.orange, borderRadius: 100, padding: '9px 18px', textDecoration: 'none' }}>Manage blog</Link>
           <Link href="/dashboard" style={{ fontSize: 13, color: C.ink, textDecoration: 'underline', textUnderlineOffset: 4 }}>← Back to dashboard</Link>
         </div>
       </div>
 
       {stats && (
         <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
-          <StatCard label="Total users" value={formatNumber(stats.total)} accent={C.ink} />
-          <StatCard label="Paying customers" value={formatNumber(paidCount)} accent={C.orange} sub={`${stats.total ? Math.round((paidCount / stats.total) * 100) : 0}% of total`} />
-          <StatCard label="Admins" value={formatNumber(stats.admins)} accent={C.ink} />
-          <StatCard label="Verified" value={formatNumber(stats.verified)} accent={C.ink} />
+          <StatCard label="Total users" value={exact(stats.total)} accent={C.ink} />
+          <StatCard label="Paying customers" value={exact(paidCount)} accent={C.orange} sub={`${stats.total ? Math.round((paidCount / stats.total) * 100) : 0}% of total`} />
+          <StatCard label="Admins" value={exact(stats.admins)} accent={C.ink} />
+          <StatCard label="Verified" value={exact(stats.verified)} accent={C.ink} />
         </div>
       )}
 
@@ -222,7 +249,7 @@ export function AdminDashboard() {
           <button onClick={() => callPromo({ refresh: true })} disabled={promoBusy}
             title="Convert new free users to Pro now"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 500, fontFamily: MONO, color: C.orange, background: C.orangeFaint, border: `1px solid ${C.orange}`, borderRadius: 100, padding: '8px 15px', cursor: promoBusy ? 'wait' : 'pointer', opacity: promoBusy ? 0.6 : 1 }}>
-            ↻ Refresh
+            Refresh
           </button>
           <button onClick={() => callPromo({ enabled: !promoOn })} disabled={promoBusy}
             role="switch" aria-checked={promoOn} title={promoOn ? 'Turn off' : 'Turn on'}
@@ -234,10 +261,30 @@ export function AdminDashboard() {
 
       {/* ─── All users — paying customers surface first, clearly marked ─────── */}
       <div style={{ marginBottom: 34 }}>
-        <SectionTitle right={err ? <span style={{ fontSize: 12, color: C.danger }}>{err}</span> : <span style={{ fontSize: 11, fontFamily: MONO, color: '#808080' }}>{formatNumber(paidCount)} paying · {formatNumber(users.length)} total · page {usersPage}/{usersPageCount}</span>}>All users</SectionTitle>
+        <SectionTitle right={err ? <span style={{ fontSize: 12, color: C.danger }}>{err}</span> : <span style={{ fontSize: 11, fontFamily: MONO, color: '#808080' }}>{userQuery.trim() ? `${exact(filteredUsers.length)} match${filteredUsers.length === 1 ? '' : 'es'}` : `${exact(paidCount)} paying · ${exact(users.length)} total`} · page {usersPage}/{usersPageCount}</span>}>All users</SectionTitle>
+
+        {/* Search — name, email or unique ID */}
+        <div style={{ position: 'relative', marginBottom: 12, maxWidth: 420 }}>
+          <span aria-hidden style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: '#8a8a82', pointerEvents: 'none' }}>🔍</span>
+          <input
+            value={userQuery}
+            onChange={e => { setUserQuery(e.target.value); setUsersPage(1) }}
+            placeholder="Search users by name, email or ID…"
+            aria-label="Search users by name, email or ID"
+            style={{
+              width: '100%', background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 100,
+              padding: '10px 38px 10px 38px', fontSize: 13.5, fontFamily: MONO, color: C.ink, outline: 'none',
+            }}
+          />
+          {userQuery && (
+            <button onClick={() => { setUserQuery(''); setUsersPage(1) }} aria-label="Clear search"
+              style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, color: '#8a8a82', lineHeight: 1 }}>×</button>
+          )}
+        </div>
+
         <div className="rtable" style={{ ...tableCard, overflow: 'hidden' }}>
           <div style={{ ...tableHead(GRID), padding: '15px 22px' }}>
-            {['User', 'Role', 'Plan', 'Status', 'Joined', 'Activity', 'Credits', ''].map((h, i) => <span key={i} style={{ ...th, fontSize: 12 }}>{h}</span>)}
+            {['#', 'User', 'Role', 'Plan', 'Status', 'Joined', 'Activity', 'Credits', ''].map((h, i) => <span key={i} style={{ ...th, fontSize: 12 }}>{h}</span>)}
           </div>
           {usersPageRows.map((u, i) => {
             const sp = statusPill(u.subscriptionStatus)
@@ -255,6 +302,7 @@ export function AdminDashboard() {
               }}
               onMouseEnter={e => (e.currentTarget.style.background = rowBgHover)}
               onMouseLeave={e => (e.currentTarget.style.background = rowBg)}>
+              <span style={{ ...tdMono, fontSize: 13, color: '#8a8a82' }}>{(usersPage - 1) * USERS_PAGE_SIZE + i + 1}</span>
               <div style={{ minWidth: 0 }}>
                 <p style={{ fontSize: 15, fontWeight: 600, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 7 }}>
                   {u.name}
@@ -262,6 +310,11 @@ export function AdminDashboard() {
                   {u.role === 'admin' && <span style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, color: C.orange, background: C.orangeFaint, padding: '2.5px 8px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}>Admin</span>}
                 </p>
                 <p style={{ fontSize: 13, color: '#6E6E64', fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 3 }}>{u.email}</p>
+                <button onClick={() => copyId(u.id)} title="Click to copy user ID"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, maxWidth: '100%', marginTop: 4, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: MONO, fontSize: 11, color: copiedId === u.id ? '#1F8A4C' : '#a2a29a', overflow: 'hidden' }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>ID {u.id}</span>
+                  <span style={{ flexShrink: 0 }}>{copiedId === u.id ? '✓ copied' : '⧉'}</span>
+                </button>
                 {/* Restricted is shown here (it's the account's access state); "Paid"
                     lives only in the Status column so it's never written twice. */}
                 {u.restricted && (
@@ -296,12 +349,12 @@ export function AdminDashboard() {
                 : <span style={{ color: '#b7b7ae', fontSize: 14 }}>—</span>}
               <span style={{ ...tdMono, fontSize: 13.5, color: C.graphite }}>{fmtDate(u.createdAt)}</span>
               <div style={{ fontFamily: MONO, minWidth: 0, lineHeight: 1.6 }}>
-                <div style={{ fontSize: 13.5, color: C.ink, fontWeight: 500 }}>{formatNumber(u.searches)} searches</div>
+                <div style={{ fontSize: 13.5, color: C.ink, fontWeight: 500 }}>{exact(u.searches)} searches</div>
                 <div style={{ fontSize: 12, color: '#8a8a82', marginTop: 2 }}>{u.imagesThisMonth} img · {u.connectedShops} shop{u.connectedShops === 1 ? '' : 's'} · {timeAgo(u.lastActive)}</div>
               </div>
-              <div style={{ fontFamily: MONO, minWidth: 0, lineHeight: 1.6 }} title={`${formatNumber(u.creditsUsedTotal)} credits spent lifetime`}>
-                <div style={{ fontSize: 13.5, color: u.creditsRemaining <= 0 ? C.danger : C.ink, fontWeight: 600 }}>{formatNumber(u.creditsUsedToday)} <span style={{ color: '#8a8a82', fontWeight: 500 }}>/ {formatNumber(u.creditsLimit)}</span></div>
-                <div style={{ fontSize: 12, color: '#8a8a82', marginTop: 2 }}>{formatNumber(u.creditsUsedTotal)} lifetime</div>
+              <div style={{ fontFamily: MONO, minWidth: 0, lineHeight: 1.6 }} title={`${exact(u.creditsUsedTotal)} credits spent lifetime`}>
+                <div style={{ fontSize: 13.5, color: u.creditsRemaining <= 0 ? C.danger : C.ink, fontWeight: 600 }}>{exact(u.creditsUsedToday)} <span style={{ color: '#8a8a82', fontWeight: 500 }}>/ {exact(u.creditsLimit)}</span></div>
+                <div style={{ fontSize: 12, color: '#8a8a82', marginTop: 2 }}>{exact(u.creditsUsedTotal)} lifetime</div>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {/* Colored: amber "Restrict" (a warning action) vs green "Unrestrict" (restores access). */}
@@ -332,18 +385,18 @@ export function AdminDashboard() {
         <div style={{ marginBottom: 30 }}>
           <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>today · {usage.today.day} (UTC) · resets at midnight</span>}>API usage — today</SectionTitle>
           <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 12 }}>
-            <StatCard label="Etsy API calls" value={formatNumber(usage.today.totals.etsyCalls)} accent={C.orange} />
-            <StatCard label="Google API calls" value={formatNumber(usage.today.totals.googleCalls)} accent={C.ink} />
-            <StatCard label="Searches" value={formatNumber(usage.today.totals.searches)} accent={C.ink} />
-            <StatCard label="Cache hits / API" value={`${formatNumber(usage.today.totals.cacheHits)} / ${formatNumber(usage.today.totals.apiHits)}`} accent={C.ink} />
+            <StatCard label="Etsy API calls" value={exact(usage.today.totals.etsyCalls)} accent={C.orange} />
+            <StatCard label="Google API calls" value={exact(usage.today.totals.googleCalls)} accent={C.ink} />
+            <StatCard label="Searches" value={exact(usage.today.totals.searches)} accent={C.ink} />
+            <StatCard label="Cache hits / API" value={`${exact(usage.today.totals.cacheHits)} / ${exact(usage.today.totals.apiHits)}`} accent={C.ink} />
           </div>
 
           {/* Gemini image generation — count, tokens burnt, USD spent */}
           <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 14 }}>
-            <StatCard label="AI images generated" value={formatNumber(usage.today.totals.imageCalls)} accent={C.orange} />
-            <StatCard label="Image tokens burnt" value={formatNumber(usage.today.totals.imageTokens)} accent={C.ink} />
+            <StatCard label="AI images generated" value={exact(usage.today.totals.imageCalls)} accent={C.orange} />
+            <StatCard label="Image tokens burnt" value={exact(usage.today.totals.imageTokens)} accent={C.ink} />
             <StatCard label="Image cost (today)" value={usd(usage.today.totals.imageCostUsd)} accent={C.orange} />
-            <StatCard label="Credits spent (today)" value={formatNumber(usage.today.totals.creditsSpent)} accent={C.orange} />
+            <StatCard label="Credits spent (today)" value={exact(usage.today.totals.creditsSpent)} accent={C.orange} />
           </div>
 
           <div className="rtable" style={tableCard}>
@@ -357,25 +410,37 @@ export function AdminDashboard() {
                 <span style={{ fontSize: 12.5, color: C.ink, fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {u.userEmail || (u.userId === 'anonymous' ? 'anonymous (logged-out)' : u.userId)}
                 </span>
-                <span style={tdMono}>{formatNumber(u.etsyCalls)}</span>
-                <span style={tdMono}>{formatNumber(u.googleCalls)}</span>
-                <span style={tdMono}>{formatNumber(u.searches)}</span>
-                <span style={tdMono}>{formatNumber(u.cacheHits)} / {formatNumber(u.apiHits)}</span>
-                <span style={{ ...tdMono, color: u.creditsSpent > 0 ? C.orange : '#808080' }}>{formatNumber(u.creditsSpent)}</span>
-                <span style={{ ...tdMono, color: u.imageCalls > 0 ? C.orange : '#808080' }}>{formatNumber(u.imageCalls)} · {usd(u.imageCostUsd)}</span>
+                <span style={tdMono}>{exact(u.etsyCalls)}</span>
+                <span style={tdMono}>{exact(u.googleCalls)}</span>
+                <span style={tdMono}>{exact(u.searches)}</span>
+                <span style={tdMono}>{exact(u.cacheHits)} / {exact(u.apiHits)}</span>
+                <span style={{ ...tdMono, color: u.creditsSpent > 0 ? C.orange : '#808080' }}>{exact(u.creditsSpent)}</span>
+                <span style={{ ...tdMono, color: u.imageCalls > 0 ? C.orange : '#808080' }}>{exact(u.imageCalls)} · {usd(u.imageCostUsd)}</span>
               </div>
             ))}
           </div>
           <Pagination page={usagePage} pageCount={usagePageCount} onChange={setUsagePage} />
 
-          <p style={{ fontSize: 11.5, fontFamily: MONO, color: '#808080', margin: '16px 0 8px' }}>LAST 7 DAYS</p>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {usage.last7Days.map(d => (
-              <div key={d.day} style={{ flex: '1 1 96px', minWidth: 96, background: C.canvas, borderRadius: 10, padding: '9px 11px' }}>
-                <p style={{ fontSize: 10, fontFamily: MONO, color: '#808080', marginBottom: 5 }}>{d.day.slice(5)}</p>
-                <p style={{ fontSize: 12.5, color: C.ink, fontFamily: MONO }}>E {formatNumber(d.etsyCalls)} · G {formatNumber(d.googleCalls)}</p>
-                <p style={{ fontSize: 10.5, color: '#808080', fontFamily: MONO, marginTop: 2 }}>{formatNumber(d.searches)} searches · {formatNumber(d.creditsSpent)} credits</p>
-                <p style={{ fontSize: 10.5, color: d.imageCalls > 0 ? C.orange : '#808080', fontFamily: MONO, marginTop: 2 }}>{formatNumber(d.imageCalls)} img · {usd(d.imageCostUsd)}</p>
+          <p style={{ fontSize: 11.5, fontFamily: MONO, color: '#808080', margin: '18px 0 10px' }}>LAST 7 DAYS</p>
+          <div className="rtable" style={tableCard}>
+            <div style={tableHead(D7GRID)}>
+              <span style={th}>Day</span>
+              <span style={numTh}>Etsy</span>
+              <span style={numTh}>Google</span>
+              <span style={numTh}>Searches</span>
+              <span style={numTh}>Credits</span>
+              <span style={numTh}>Images</span>
+              <span style={numTh}>Cost</span>
+            </div>
+            {usage.last7Days.map((d, i) => (
+              <div key={d.day} style={{ ...tableRow(D7GRID), background: i % 2 ? C.canvas : 'transparent' }}>
+                <span style={{ fontSize: 13, fontFamily: MONO, fontWeight: 500, color: C.ink }}>{fmtDay(d.day)}</span>
+                <span style={numCell}>{exact(d.etsyCalls)}</span>
+                <span style={numCell}>{exact(d.googleCalls)}</span>
+                <span style={numCell}>{exact(d.searches)}</span>
+                <span style={{ ...numCell, color: d.creditsSpent > 0 ? C.orange : C.ink }}>{exact(d.creditsSpent)}</span>
+                <span style={{ ...numCell, color: d.imageCalls > 0 ? C.orange : C.ink }}>{exact(d.imageCalls)}</span>
+                <span style={{ ...numCell, color: C.graphite }}>{usd(d.imageCostUsd)}</span>
               </div>
             ))}
           </div>

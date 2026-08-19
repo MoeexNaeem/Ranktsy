@@ -1,10 +1,11 @@
 'use client'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Card, SectionTitle, EmptyState, ErrorBox, TagPill, primaryBtn, MONO } from '../kit'
+import { Card, SectionTitle, EmptyState, ErrorBox, BusyNote, GenSkeleton, TagPill, primaryBtn, MONO } from '../kit'
 import { MiniMarkdown } from '../MiniMarkdown'
 import { C, D } from '@/utils'
 import { chargeCredits } from '@/lib/credits-client'
+import { genFetch, busyRetry, busyRetryDelay, useSlow } from '@/lib/ai/busy'
 import type { AiDescResult } from '@/types'
 
 interface DescParams { q: string; productName: string; productType: string; audience: string; features: string }
@@ -42,22 +43,19 @@ export function DescriptionGenTab() {
   const [copied, setCopied] = useState(false)
   const [active, setActive] = useState(0) // which of the 3 versions is shown
 
-  const { data, isFetching, isError, error } = useQuery({
+  const { data, isFetching, isError, error, failureCount } = useQuery({
     queryKey: ['ai-desc', submitted ? JSON.stringify(submitted) : ''],
-    queryFn: async ({ signal }) => {
-      const r = await fetch('/api/ai/description', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal,
-        body: JSON.stringify(submitted),
-      })
-      const d = await r.json().catch(() => null)
-      if (!r.ok || !d?.success) throw new Error(d?.error || 'Generation failed.')
-      return d.data as AiDescResult[]
-    },
+    queryFn: ({ signal }) => genFetch<AiDescResult[]>('/api/ai/description', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, signal,
+      body: JSON.stringify(submitted),
+    }),
     enabled: !!submitted && submitted.q.trim().length >= 2,
     staleTime: Infinity,
     gcTime: 1000 * 60 * 60,
-    retry: false,
+    retry: busyRetry,
+    retryDelay: busyRetryDelay,
   })
+  const busy = useSlow(isFetching) || failureCount > 0
 
   const run = async () => {
     if (q.trim().length < 2) return
@@ -71,7 +69,7 @@ export function DescriptionGenTab() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Card>
-        <SectionTitle right={<span style={{ fontSize: 12, fontFamily: MONO, color: C.stone }}>AI · grounded in real Google + Etsy data</span>}>
+        <SectionTitle right={<span style={{ fontSize: 12, fontFamily: MONO, color: C.stone }}>AI · grounded in real data</span>}>
           Generate an Etsy description
         </SectionTitle>
         <p style={{ fontSize: 14, color: C.graphite, lineHeight: 1.55, margin: '2px 0 14px' }}>
@@ -97,8 +95,9 @@ export function DescriptionGenTab() {
         </button>
       </Card>
 
-      {isError && <ErrorBox>{(error as Error)?.message || 'Generation failed.'}</ErrorBox>}
-      {isFetching && <Card><div className="shimmer" style={{ height: 320, borderRadius: 10, background: '#e8e7e2' }} /></Card>}
+      {isFetching && busy && <BusyNote>{"Please wait — we're a little busy. Your 3 descriptions are coming up…"}</BusyNote>}
+      {isFetching && <GenSkeleton height={320} />}
+      {isError && !isFetching && <ErrorBox>{(error as Error)?.message || 'Generation failed.'}</ErrorBox>}
       {!isFetching && !data && !isError && <EmptyState icon="📝" title="No description yet" sub="Fill in your keyword and hit Generate — you'll get 3 versions to choose from." />}
 
       {data && data.length > 0 && !isFetching && (() => {

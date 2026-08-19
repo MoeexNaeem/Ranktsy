@@ -3,6 +3,7 @@ import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { geminiJSON, isGeminiConfigured, type GeminiMeta } from '@/lib/gemini'
 import { normalizeGeo } from '@/lib/google-ads'
 import { buildGrounding, descriptionPrompt, DESC_SYSTEM, DESC_SCHEMA } from '@/lib/ai/etsy-prompts'
+import { AI_BUSY, AI_UNAVAILABLE, AI_FAILED } from '@/lib/ai/messages'
 import { withUsage } from '@/lib/track'
 import type { ApiResponse, AiDescResult } from '@/types'
 
@@ -26,7 +27,7 @@ async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<A
   const keyword = body.q?.trim().toLowerCase()
   const geo = normalizeGeo(body.geo)
   if (!keyword || keyword.length < 2) return NextResponse.json({ success: false, error: 'Keyword must be at least 2 characters' }, { status: 400 })
-  if (!isGeminiConfigured()) return NextResponse.json({ success: false, error: 'AI is not configured (Gemini API key missing).' }, { status: 503 })
+  if (!isGeminiConfigured()) return NextResponse.json({ success: false, error: AI_UNAVAILABLE }, { status: 503 })
 
   // Cache key includes the extra inputs so different products don't collide. Bumped
   // to v2 because the payload shape changed from one description to an array of three.
@@ -51,8 +52,8 @@ async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<A
     const results = settled.filter((r): r is AiDescResult => !!r && !!r.description)
     results.forEach(r => { r.focusKeyword = keyword })
     if (results.length === 0) {
-      if (meta.reason === 'quota') return NextResponse.json({ success: false, error: 'AI is temporarily unavailable — the AI provider’s quota is used up. Please try again later.' }, { status: 503 })
-      return NextResponse.json({ success: false, error: 'AI generation failed — please try again.' }, { status: 502 })
+      if (meta.reason === 'quota') return NextResponse.json({ success: false, error: AI_BUSY }, { status: 503 })
+      return NextResponse.json({ success: false, error: AI_FAILED }, { status: 502 })
     }
     memCache.set(key, results, CACHE_TTL.KEYWORD)
     return NextResponse.json({ success: true, data: results })

@@ -12,7 +12,8 @@
 import { useMutation } from '@tanstack/react-query'
 import axios from 'axios'
 import { C } from '@/utils'
-import { Card, MONO, primaryBtn } from './kit'
+import { Card, MONO, primaryBtn, BusyNote } from './kit'
+import { busyRetry, busyRetryDelay, useSlow } from '@/lib/ai/busy'
 import type { ApiResponse, AiInsightsResult, AiFact, InsightTone } from '@/types'
 
 const TONE: Record<InsightTone, { fg: string; bg: string; icon: string }> = {
@@ -30,9 +31,15 @@ export function AiInsights({ tool, subject, facts, notes }: {
       if (!data.success || !data.data) throw new Error(data.error ?? 'Failed')
       return data.data
     },
+    retry: busyRetry,
+    retryDelay: busyRetryDelay,
   })
   const r = gen.data
   const enoughData = facts.length >= 2
+  // Show the calm "busy" note while the analysis is slow or a retry is in flight
+  // (the backend is failing over across Gemini keys), instead of nothing/an error.
+  const slow = useSlow(gen.isPending)
+  const busy = gen.isPending && (slow || gen.failureCount > 0)
 
   return (
     <Card style={{ borderColor: 'var(--accent, #FB5E09)' }}>
@@ -43,13 +50,13 @@ export function AiInsights({ tool, subject, facts, notes }: {
           </span>
           <div style={{ minWidth: 0 }}>
             <h3 style={{ fontSize: 17, fontWeight: 600, color: C.ink, letterSpacing: '-0.02em' }}>AI Analysis</h3>
-            <p style={{ fontSize: 12, color: C.graphite }}>Gemini reads the real numbers above — it interprets, never invents.</p>
+            <p style={{ fontSize: 12, color: C.graphite }}>The numbers above are real and measured — AI only interprets them, never invents.</p>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
           {r && (
             <span style={{ fontSize: 10.5, fontFamily: MONO, fontWeight: 600, letterSpacing: '0.05em', color: r.ai ? 'var(--accent, #FB5E09)' : C.graphite, background: r.ai ? 'var(--accent-soft, rgba(251,94,9,0.12))' : C.bone, padding: '4px 10px', borderRadius: 100 }}>
-              {r.ai ? 'AI · GEMINI' : 'RULE-BASED'}
+              {r.ai ? 'AI' : 'STANDARD'}
             </span>
           )}
           <button onClick={() => gen.mutate()} disabled={gen.isPending || !enoughData}
@@ -59,7 +66,9 @@ export function AiInsights({ tool, subject, facts, notes }: {
         </div>
       </div>
 
-      {gen.isError && (
+      {busy && <div style={{ marginTop: 14 }}><BusyNote>{"Please wait — we're a little busy. Your AI analysis is coming up…"}</BusyNote></div>}
+
+      {gen.isError && !gen.isPending && (
         <p style={{ marginTop: 14, fontSize: 13.5, color: C.danger }}>Couldn&apos;t generate analysis. Please try again.</p>
       )}
 

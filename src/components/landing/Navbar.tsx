@@ -56,21 +56,21 @@ const FEATURES_COLS: Col[] = [
   {
     title: 'Research',
     items: [
-      { href: '/keyword-research',    label: 'Keyword Research',    icon: 'search' },
-      { href: '/competitor-analysis', label: 'Competitor Analysis', icon: 'users' },
-      { href: '/trend-analysis',      label: 'Trends & Demand',     icon: 'trend' },
-      { href: '/top-sellers',         label: 'Top Sellers',         icon: 'trophy' },
-      { href: '/find-hot-products',   label: 'Find Hot Products',   icon: 'flame' },
+      { href: '/etsy-keyword-research',    label: 'Keyword Research',    icon: 'search' },
+      { href: '/etsy-competitor-analysis', label: 'Competitor Analysis', icon: 'users' },
+      { href: '/etsy-trend-analysis',      label: 'Trends & Demand',     icon: 'trend' },
+      { href: '/etsy-top-sellers',         label: 'Top Sellers',         icon: 'trophy' },
+      { href: '/etsy-find-hot-products',   label: 'Find Hot Products',   icon: 'flame' },
     ],
   },
   {
     title: 'Optimize',
     items: [
-      { href: '/tag-optimizer',           label: 'Tag Optimizer',    icon: 'tag' },
+      { href: '/etsy-tag-optimizer',           label: 'Tag Optimizer',    icon: 'tag' },
       { href: '/etsy-listing-generator',  label: 'Etsy Listing Pro', icon: 'wand' },
-      { href: '/ai-title-tag-generator',  label: 'AI Title & Tags',  icon: 'sparkle' },
-      { href: '/listing-audit',           label: 'Listing Audit',    icon: 'check' },
-      { href: '/shop-analytics',          label: 'Shop Analytics',   icon: 'bars' },
+      { href: '/etsy-ai-title-tag-generator',  label: 'AI Title & Tags',  icon: 'sparkle' },
+      { href: '/etsy-listing-audit',           label: 'Listing Audit',    icon: 'check' },
+      { href: '/etsy-shop-analytics',          label: 'Shop Analytics',   icon: 'bars' },
     ],
   },
   {

@@ -146,6 +146,34 @@ export function Loading({ label = 'Fetching from Etsy…' }: { label?: string })
     </div>
   )
 }
+// A calm, non-alarming "still working" note — shown while an AI result is slow
+// or the provider is momentarily busy (the backend is failing over across keys).
+// Deliberately warm/amber, NOT the red ErrorBox: nothing has gone wrong.
+export function BusyNote({ children }: { children?: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(194,129,17,0.10)', border: '1px solid rgba(194,129,17,0.35)', borderRadius: 12, padding: '13px 16px', color: '#8a5a12', fontSize: 14.5 }}>
+      <span className="shimmer" style={{ width: 9, height: 9, borderRadius: '50%', background: '#C28111', flexShrink: 0 }} />
+      {children ?? "Please wait — we're a little busy. Your results are coming up…"}
+    </div>
+  )
+}
+
+// Generation skeleton — a few shimmering lines that read as "content is loading"
+// rather than a plain block. Used in place of a spinner/"Generating…" text.
+export function GenSkeleton({ lines = 4, height }: { lines?: number; height?: number }) {
+  if (height) return <Card><div className="shimmer" style={{ height, borderRadius: 10, background: '#e8e7e2' }} /></Card>
+  const widths = ['92%', '78%', '85%', '64%', '88%', '72%']
+  return (
+    <Card>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {Array.from({ length: lines }).map((_, i) => (
+          <div key={i} className="shimmer" style={{ height: 16, width: widths[i % widths.length], borderRadius: 8, background: '#e8e7e2' }} />
+        ))}
+      </div>
+    </Card>
+  )
+}
+
 export function EmptyState({ icon = '🔎', title, sub }: { icon?: string; title: string; sub?: string }) {
   return (
     <div style={{ textAlign: 'center', padding: '56px 0', color: C.graphite }}>

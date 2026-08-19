@@ -1,9 +1,10 @@
 'use client'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Card, SectionTitle, SearchBar, EmptyState, ErrorBox, MONO } from '../kit'
+import { Card, SectionTitle, SearchBar, EmptyState, ErrorBox, BusyNote, GenSkeleton, MONO } from '../kit'
 import { C, D } from '@/utils'
 import { chargeCredits } from '@/lib/credits-client'
+import { genFetch, busyRetry, busyRetryDelay, useSlow } from '@/lib/ai/busy'
 import type { AiTagResult } from '@/types'
 
 let savedInput = ''
@@ -35,19 +36,16 @@ export function TagGenTab() {
   const [submitted, setSubmitted] = useState(savedSubmitted)
   const [copiedAll, setCopiedAll] = useState(false)
 
-  const { data, isFetching, isError, error } = useQuery({
+  const { data, isFetching, isError, error, failureCount } = useQuery({
     queryKey: ['ai-tag', submitted],
-    queryFn: async ({ signal }) => {
-      const r = await fetch(`/api/ai/tag?q=${encodeURIComponent(submitted)}`, { signal })
-      const d = await r.json().catch(() => null)
-      if (!r.ok || !d?.success) throw new Error(d?.error || 'Generation failed.')
-      return d.data as AiTagResult
-    },
+    queryFn: ({ signal }) => genFetch<AiTagResult>(`/api/ai/tag?q=${encodeURIComponent(submitted)}`, { signal }),
     enabled: submitted.trim().length >= 2,
     staleTime: Infinity,
     gcTime: 1000 * 60 * 60,
-    retry: false,
+    retry: busyRetry,
+    retryDelay: busyRetryDelay,
   })
+  const busy = useSlow(isFetching) || failureCount > 0
 
   const run = async () => {
     const q = input.trim()
@@ -66,7 +64,7 @@ export function TagGenTab() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Card>
-        <SectionTitle right={<span style={{ fontSize: 12, fontFamily: MONO, color: C.stone }}>AI · grounded in real Google + Etsy data</span>}>
+        <SectionTitle right={<span style={{ fontSize: 12, fontFamily: MONO, color: C.stone }}>AI · grounded in real data</span>}>
           Generate 13 Etsy tags
         </SectionTitle>
         <p style={{ fontSize: 14, color: C.graphite, lineHeight: 1.55, margin: '2px 0 12px' }}>
@@ -75,8 +73,9 @@ export function TagGenTab() {
         <SearchBar value={input} onChange={v => { setInput(v); savedInput = v }} onSubmit={run} placeholder="e.g. boho earrings" button={isFetching ? 'Generating…' : 'Generate →'} />
       </Card>
 
-      {isError && <ErrorBox>{(error as Error)?.message || 'Generation failed.'}</ErrorBox>}
-      {isFetching && <Card><div className="shimmer" style={{ height: 180, borderRadius: 10, background: '#e8e7e2' }} /></Card>}
+      {isFetching && busy && <BusyNote />}
+      {isFetching && <GenSkeleton height={180} />}
+      {isError && !isFetching && <ErrorBox>{(error as Error)?.message || 'Generation failed.'}</ErrorBox>}
       {!isFetching && !data && !isError && <EmptyState icon="🏷" title="No tags yet" sub="Enter a focus keyword and hit Generate." />}
 
       {data && !isFetching && (

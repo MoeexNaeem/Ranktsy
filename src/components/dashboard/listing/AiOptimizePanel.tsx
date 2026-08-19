@@ -11,7 +11,8 @@ import { useMemo, useState, useCallback } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import axios from 'axios'
 import { C } from '@/utils'
-import { Card, SectionTitle, ErrorBox, MONO, primaryBtn } from '../kit'
+import { Card, SectionTitle, ErrorBox, MONO, primaryBtn, BusyNote } from '../kit'
+import { busyRetry, busyRetryDelay, useSlow } from '@/lib/ai/busy'
 import type { ApiResponse, AiOptimization, AiSuggestion, EtsyListing } from '@/types'
 
 interface Finding { label: string; status: 'pass' | 'warn' | 'fail'; detail: string }
@@ -64,8 +65,12 @@ export function AiOptimizePanel({ listing, findings }: { listing: EtsyListing; f
       if (!data.success || !data.data) throw new Error(data.error ?? 'Generation failed')
       return data.data
     },
+    retry: busyRetry,
+    retryDelay: busyRetryDelay,
   })
   const r = gen.data
+  const slow = useSlow(gen.isPending)
+  const busy = gen.isPending && (slow || gen.failureCount > 0)
 
   const fullListing = r
     ? `TITLE\n${r.title}\n\nTAGS (${r.tags.length})\n${r.tags.join(', ')}\n\nDESCRIPTION\n${r.description}`
@@ -76,7 +81,7 @@ export function AiOptimizePanel({ listing, findings }: { listing: EtsyListing; f
       <SectionTitle
         right={r && (
           <span style={{ fontSize: 11, fontFamily: MONO, fontWeight: 600, color: r.ai ? C.orange : C.graphite, background: r.ai ? C.orangeFaint : C.bone, padding: '3px 11px', borderRadius: 100, letterSpacing: '0.05em' }}>
-            {r.ai ? 'AI · GEMINI' : 'RULE-BASED'}
+            {r.ai ? 'AI' : 'STANDARD'}
           </span>
         )}>
         AI Improvement Suggestions
@@ -101,7 +106,13 @@ export function AiOptimizePanel({ listing, findings }: { listing: EtsyListing; f
           </button>
         </div>
 
-        {gen.isError && (
+        {busy && (
+          <div style={{ marginTop: 14 }}>
+            <BusyNote>{"Please wait — we're a little busy. Your optimized rewrite is coming up…"}</BusyNote>
+          </div>
+        )}
+
+        {gen.isError && !gen.isPending && (
           <div style={{ marginTop: 14 }}>
             <ErrorBox>{gen.error instanceof Error ? gen.error.message : 'Could not generate improvements. Please try again.'}</ErrorBox>
           </div>
@@ -191,7 +202,7 @@ export function AiOptimizePanel({ listing, findings }: { listing: EtsyListing; f
             <p style={{ fontSize: 11.5, color: C.stone, marginTop: 14, lineHeight: 1.55 }}>
               {r.ai
                 ? 'Copy written by AI from your real audit findings and the measured tags of top-ranking listings — review before publishing. Etsy caps: title 140 chars, 13 tags of 20 chars.'
-                : 'AI is unavailable right now (no key or rate-limited) — this rewrite keeps your own copy and tops up your tags with the measured high-adoption ones. Try again for the full AI rewrite.'}
+                : 'AI is a little busy right now — this rewrite keeps your own copy and tops up your tags with the measured high-adoption ones. Try again in a moment for the full AI rewrite.'}
             </p>
           </Card>
         </div>

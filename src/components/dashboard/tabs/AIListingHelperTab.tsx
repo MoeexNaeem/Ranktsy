@@ -2,9 +2,10 @@
 import { useState, useCallback } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import axios from 'axios'
-import { Card, SectionTitle, ErrorBox, Loading, MONO, primaryBtn } from '../kit'
+import { Card, SectionTitle, ErrorBox, BusyNote, GenSkeleton, MONO, primaryBtn } from '../kit'
 import { C } from '@/utils'
 import { chargeCredits } from '@/lib/credits-client'
+import { busyRetry, busyRetryDelay, useSlow } from '@/lib/ai/busy'
 
 interface Result {
   titles: string[]
@@ -43,6 +44,8 @@ export function AIListingHelperTab() {
       if (!data.success) throw new Error(data.error ?? 'Generation failed')
       return data.data as Result
     },
+    retry: busyRetry,
+    retryDelay: busyRetryDelay,
   })
 
   const run = useCallback(async () => {
@@ -51,6 +54,8 @@ export function AIListingHelperTab() {
     gen.mutate()
   }, [seed, gen])
   const r = gen.data
+  const slow = useSlow(gen.isPending)
+  const busy = gen.isPending && (slow || gen.failureCount > 0)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -82,15 +87,20 @@ export function AIListingHelperTab() {
         </div>
       </Card>
 
-      {gen.isPending && <Loading label="Writing your optimized listing…" />}
-      {gen.isError && <ErrorBox>{(gen.error as Error)?.message ?? 'Something went wrong. Try again.'}</ErrorBox>}
+      {gen.isPending && (
+        <>
+          {busy && <BusyNote>{"Please wait — we're a little busy. Your optimized listing is coming up…"}</BusyNote>}
+          <GenSkeleton height={260} />
+        </>
+      )}
+      {gen.isError && !gen.isPending && <ErrorBox>{(gen.error as Error)?.message ?? 'Something went wrong. Try again.'}</ErrorBox>}
 
       {r && !gen.isPending && (
         <>
           {/* mode banner */}
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, alignSelf: 'flex-start', fontSize: 11.5, fontFamily: MONO, padding: '5px 12px', borderRadius: 999, background: r.ai ? C.orangeFaint : C.bone, color: r.ai ? C.orange : '#6a6a62', border: `1px solid ${r.ai ? 'rgba(251,94,9,0.22)' : C.hair}` }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: r.ai ? C.orange : '#a9a79f', display: 'inline-block' }} />
-            {r.ai ? 'Generated with AI' : 'Smart generation · add ANTHROPIC_API_KEY for full AI'}
+            {r.ai ? 'Generated with AI' : 'Standard generation'}
           </div>
 
           {/* Titles */}

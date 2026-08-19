@@ -594,10 +594,10 @@ export function CTA() {
 export function Footer() {
   const cols = [
     { t: "Etsy Tools", l: [
-      ["Keyword Research", "/keyword-research"], ["Competitor Analysis", "/competitor-analysis"],
-      ["Trends & Demand", "/trend-analysis"], ["Top Sellers", "/top-sellers"], ["Find Hot Products", "/find-hot-products"],
-      ["Tag Optimizer", "/tag-optimizer"], ["Etsy Listing Pro", "/etsy-listing-generator"], ["AI Title & Tags", "/ai-title-tag-generator"],
-      ["Listing Audit", "/listing-audit"], ["Shop Analytics", "/shop-analytics"],
+      ["Keyword Research", "/etsy-keyword-research"], ["Competitor Analysis", "/etsy-competitor-analysis"],
+      ["Trends & Demand", "/etsy-trend-analysis"], ["Top Sellers", "/etsy-top-sellers"], ["Find Hot Products", "/etsy-find-hot-products"],
+      ["Tag Optimizer", "/etsy-tag-optimizer"], ["Etsy Listing Pro", "/etsy-listing-generator"], ["AI Title & Tags", "/etsy-ai-title-tag-generator"],
+      ["Listing Audit", "/etsy-listing-audit"], ["Shop Analytics", "/etsy-shop-analytics"],
     ] as [string, string][] },
     { t: "Product",  l: [["Live Keyword Tool", "/#keywords"], ["Pricing", "/pricing"], ["Blog", "/blogs"], ["Fee Calculator", "/fee-calculator"], ["Dashboard", "/dashboard"]] as [string, string][] },
     { t: "Company",  l: [["About", "/about"], ["Contact", "/contact"], ["Data & Methodology", "/methodology"]] as [string, string][] },
