@@ -1,10 +1,10 @@
 'use client'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Card, SectionTitle, SearchBar, EmptyState, ErrorBox, BusyNote, GenSkeleton, MONO } from '../kit'
+import { Card, SectionTitle, SearchBar, EmptyState, GenNote, GenSkeleton, MONO } from '../kit'
 import { C, D } from '@/utils'
 import { chargeCredits } from '@/lib/credits-client'
-import { genFetch, busyRetry, busyRetryDelay, useSlow } from '@/lib/ai/busy'
+import { genFetch, busyRetry, busyRetryDelay, useWaitPhase } from '@/lib/ai/busy'
 import type { AiTagResult } from '@/types'
 
 let savedInput = ''
@@ -36,7 +36,7 @@ export function TagGenTab() {
   const [submitted, setSubmitted] = useState(savedSubmitted)
   const [copiedAll, setCopiedAll] = useState(false)
 
-  const { data, isFetching, isError, error, failureCount } = useQuery({
+  const { data, isFetching, isError, refetch } = useQuery({
     queryKey: ['ai-tag', submitted],
     queryFn: ({ signal }) => genFetch<AiTagResult>(`/api/ai/tag?q=${encodeURIComponent(submitted)}`, { signal }),
     enabled: submitted.trim().length >= 2,
@@ -45,7 +45,7 @@ export function TagGenTab() {
     retry: busyRetry,
     retryDelay: busyRetryDelay,
   })
-  const busy = useSlow(isFetching) || failureCount > 0
+  const phase = useWaitPhase(isFetching)
 
   const run = async () => {
     const q = input.trim()
@@ -73,9 +73,9 @@ export function TagGenTab() {
         <SearchBar value={input} onChange={v => { setInput(v); savedInput = v }} onSubmit={run} placeholder="e.g. boho earrings" button={isFetching ? 'Generating…' : 'Generate →'} />
       </Card>
 
-      {isFetching && busy && <BusyNote />}
+      {isFetching && <GenNote phase={phase} onRetry={() => refetch()} />}
       {isFetching && <GenSkeleton height={180} />}
-      {isError && !isFetching && <ErrorBox>{(error as Error)?.message || 'Generation failed.'}</ErrorBox>}
+      {isError && !isFetching && <GenNote phase="normal" error onRetry={() => refetch()} />}
       {!isFetching && !data && !isError && <EmptyState icon="🏷" title="No tags yet" sub="Enter a focus keyword and hit Generate." />}
 
       {data && !isFetching && (

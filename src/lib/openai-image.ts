@@ -81,7 +81,8 @@ export async function openaiImage(prompt: string, refs?: OpenAIRefImage[]): Prom
 
 async function openaiImageInner(keys: string[], prompt: string, refs?: OpenAIRefImage[]): Promise<OpenAIImageOutcome> {
   // At least 3 tries, and always enough attempts to visit every key at least once.
-  const MAX = Math.max(3, keys.length)
+  // Single key → 2 attempts (1 quick retry); the client retries, spaced, beyond that.
+  const MAX = keys.length > 1 ? Math.max(3, keys.length) : 2
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
   const backoff = (attempt: number) => keys.length > 1 && attempt < keys.length - 1
     ? 150

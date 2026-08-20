@@ -12,6 +12,7 @@ export function GET() {
     { loc: abs('/features-sitemap.xml'), lastmod: now },
     { loc: abs('/pages-sitemap.xml'), lastmod: now },
     { loc: abs('/blogs-sitemap.xml'), lastmod: now },
+    { loc: abs('/deals-sitemap.xml'), lastmod: now },
   ])
   return new Response(body, { headers: XML_HEADERS })
 }

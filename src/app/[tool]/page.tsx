@@ -113,7 +113,7 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
               <Link href="/register" style={{ background: C.orange, color: '#fff', textDecoration: 'none', fontSize: 16, fontWeight: 600, padding: '14px 28px', borderRadius: 30, boxShadow: '0 14px 30px rgba(251,94,9,0.28)', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                 Start free — try it now <Arrow color="#fff" />
               </Link>
-              <Link href={`/dashboard?tab=${t.dashTab}`} style={{ background: C.paper, color: C.ink, textDecoration: 'none', fontSize: 16, fontWeight: 600, padding: '14px 26px', borderRadius: 30, border: `1px solid ${C.ash}` }}>
+              <Link href={`/dashboard?tab=${t.dashTab}`} rel="nofollow" style={{ background: C.paper, color: C.ink, textDecoration: 'none', fontSize: 16, fontWeight: 600, padding: '14px 26px', borderRadius: 30, border: `1px solid ${C.ash}` }}>
                 Open in dashboard
               </Link>
             </div>

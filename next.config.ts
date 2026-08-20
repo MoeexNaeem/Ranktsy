@@ -44,6 +44,7 @@ const nextConfig: NextConfig = {
     ]
     return [
       { source: '/app', destination: '/dashboard', permanent: false },
+      { source: '/fee-calculator', destination: '/etsy-fee-calculator', permanent: true },
       ...RENAMED_TOOLS.map(slug => ({
         source: `/${slug}`, destination: `/etsy-${slug}`, permanent: true,
       })),

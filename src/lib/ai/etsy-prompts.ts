@@ -10,6 +10,7 @@
  */
 import { searchEtsyListingsPaged } from '@/lib/etsy'
 import { googleKeywordIdeas, isGoogleAdsConfigured } from '@/lib/google-ads'
+import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import type { GeminiSchema } from '@/lib/gemini'
 
 // ─── Real-data grounding ──────────────────────────────────────────────────────
@@ -19,8 +20,15 @@ export interface Grounding {
   topTags: { tag: string; usedPct: number }[]
 }
 
-/** Fetch real Google demand + top-listing tags for the focus keyword. */
+/** Fetch real Google demand + top-listing tags for the focus keyword.
+ *  Cached per (keyword, geo): the SAME grounding feeds Title/Tag/Description and
+ *  every re-run, so this turns a ~5s live fetch into an instant hit after the
+ *  first generation. TTL stays under Etsy's 6h listing-content limit. */
 export async function buildGrounding(keyword: string, geo = 'US'): Promise<Grounding> {
+  const key = cacheKey('ai-grounding', 'v1', geo, keyword)
+  const cached = memCache.get<Grounding>(key)
+  if (cached) return cached
+
   const [ideas, search] = await Promise.all([
     isGoogleAdsConfigured() ? googleKeywordIdeas(keyword, geo).catch(() => []) : Promise.resolve([]),
     searchEtsyListingsPaged(keyword, 50, 0, { skipImages: true }).catch(() => ({ listings: [], count: 0 })),
@@ -57,7 +65,9 @@ ${volLines}
 TAGS USED BY THE TOP LIVE ETSY LISTINGS (real, ranked by adoption):
 ${tagLines}`
 
-  return { text, volumeKeywords, topTags }
+  const result: Grounding = { text, volumeKeywords, topTags }
+  memCache.set(key, result, CACHE_TTL.KEYWORD)
+  return result
 }
 
 // ─── TITLE ────────────────────────────────────────────────────────────────────

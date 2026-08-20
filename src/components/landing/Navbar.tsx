@@ -77,7 +77,7 @@ const FEATURES_COLS: Col[] = [
     title: 'Tools',
     items: [
       { href: '/#keywords',      label: 'Live Keyword Tool', icon: 'bolt' },
-      { href: '/fee-calculator', label: 'Fee Calculator',    icon: 'calc' },
+      { href: '/etsy-fee-calculator', label: 'Fee Calculator',    icon: 'calc' },
       { href: '/#dashboard',     label: 'Dashboard Preview', icon: 'grid' },
       { href: '/pricing',        label: 'Pricing Plans',     icon: 'dollar' },
     ],

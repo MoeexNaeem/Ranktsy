@@ -5,6 +5,7 @@
  */
 import React from 'react'
 import { C, compColor } from '@/utils'
+import type { WaitPhase } from '@/lib/ai/busy'
 
 export const MONO = "'General Sans', sans-serif"
 
@@ -146,16 +147,35 @@ export function Loading({ label = 'Fetching from Etsy…' }: { label?: string })
     </div>
   )
 }
-// A calm, non-alarming "still working" note — shown while an AI result is slow
-// or the provider is momentarily busy (the backend is failing over across keys).
-// Deliberately warm/amber, NOT the red ErrorBox: nothing has gone wrong.
-export function BusyNote({ children }: { children?: React.ReactNode }) {
+// A calm, non-alarming note — shown while an AI result is slow/busy, or in place
+// of a red error box when a generation needs to be retried. Deliberately warm
+// amber, NEVER the red ErrorBox: to the user, nothing has "gone wrong".
+// Pass `onRetry` to turn it into a gentle "please try again" with a button.
+export function BusyNote({ children, onRetry }: { children?: React.ReactNode; onRetry?: () => void }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(194,129,17,0.10)', border: '1px solid rgba(194,129,17,0.35)', borderRadius: 12, padding: '13px 16px', color: '#8a5a12', fontSize: 14.5 }}>
-      <span className="shimmer" style={{ width: 9, height: 9, borderRadius: '50%', background: '#C28111', flexShrink: 0 }} />
-      {children ?? "Please wait — we're a little busy. Your results are coming up…"}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(194,129,17,0.10)', border: '1px solid rgba(194,129,17,0.35)', borderRadius: 12, padding: '13px 16px', color: '#8a5a12', fontSize: 14.5 }}>
+      {!onRetry && <span className="shimmer" style={{ width: 9, height: 9, borderRadius: '50%', background: '#C28111', flexShrink: 0 }} />}
+      <span style={{ flex: 1, minWidth: 0 }}>{children ?? "Please wait — we're a little busy. Your results are coming up…"}</span>
+      {onRetry && (
+        <button onClick={onRetry}
+          style={{ flexShrink: 0, background: '#C28111', color: '#fff', border: 'none', borderRadius: 100, padding: '7px 16px', fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
+          Try again
+        </button>
+      )}
     </div>
   )
+}
+
+// The single decision point for what (if anything) to show ABOVE a generation
+// skeleton, driven purely by how long we've waited — never a red error box:
+//   • first ~30s (phase 'normal', no error): nothing — just the skeleton.
+//   • past 30s ('busy'): "we're a little busy today".
+//   • past ~2 min ('long') OR a failure (`error`): a calm "please try again" + button.
+export function GenNote({ phase, error, onRetry }: { phase: WaitPhase; error?: boolean; onRetry: () => void }) {
+  if (error) return <BusyNote onRetry={onRetry}>{"We couldn't finish that just now — please try again."}</BusyNote>
+  if (phase === 'long') return <BusyNote onRetry={onRetry}>{"This is taking longer than usual. Please try again."}</BusyNote>
+  if (phase === 'busy') return <BusyNote>{"Please wait — we're a little busy today. Your results are coming up…"}</BusyNote>
+  return null
 }
 
 // Generation skeleton — a few shimmering lines that read as "content is loading"

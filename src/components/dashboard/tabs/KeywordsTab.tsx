@@ -264,7 +264,9 @@ function KeywordStatsPanel({ s, countryShare, geoName }: { s: KeywordStats; coun
 // converts with a REAL live rate (/api/fx); if the rate is unknown the toggle is
 // hidden and we keep the account-currency figure — never a fabricated conversion.
 function CpcDisplay({ low, high, currency }: { low: number | null; high: number | null; currency: string | null }) {
-  const [usd, setUsd] = useState(false)
+  // Default to USD: the Ads account currency (e.g. PKR) is an internal detail, so
+  // shoppers see dollars unless they deliberately toggle back to the local currency.
+  const [usd, setUsd] = useState(true)
   const fx = useFx(currency)
   const rate = fx.data?.rate ?? null
   const canConvert = !!currency && currency !== 'USD' && rate != null
@@ -283,7 +285,7 @@ function CpcDisplay({ low, high, currency }: { low: number | null; high: number 
           <button onClick={() => setUsd(u => !u)}
             title={`Live rate: 1 ${currency} = ${rate?.toFixed(5)} USD`}
             style={{ marginLeft: 'auto', fontSize: 9.5, fontFamily: MONO, fontWeight: 700, padding: '2px 8px', borderRadius: 100, border: `1px solid ${showUsd ? C.orange : C.ash}`, background: showUsd ? C.orangeFaint : C.paper, color: showUsd ? C.orange : C.graphite, cursor: 'pointer' }}>
-            {showUsd ? '✓ USD' : '→ USD'}
+            {showUsd ? `↺ ${currency}` : '→ USD'}
           </button>
         )}
       </div>

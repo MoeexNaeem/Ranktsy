@@ -11,8 +11,8 @@ import { useMemo, useState, useCallback } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import axios from 'axios'
 import { C } from '@/utils'
-import { Card, SectionTitle, ErrorBox, MONO, primaryBtn, BusyNote } from '../kit'
-import { busyRetry, busyRetryDelay, useSlow } from '@/lib/ai/busy'
+import { Card, SectionTitle, MONO, primaryBtn, GenNote } from '../kit'
+import { busyRetry, busyRetryDelay, useWaitPhase } from '@/lib/ai/busy'
 import type { ApiResponse, AiOptimization, AiSuggestion, EtsyListing } from '@/types'
 
 interface Finding { label: string; status: 'pass' | 'warn' | 'fail'; detail: string }
@@ -69,8 +69,7 @@ export function AiOptimizePanel({ listing, findings }: { listing: EtsyListing; f
     retryDelay: busyRetryDelay,
   })
   const r = gen.data
-  const slow = useSlow(gen.isPending)
-  const busy = gen.isPending && (slow || gen.failureCount > 0)
+  const phase = useWaitPhase(gen.isPending)
 
   const fullListing = r
     ? `TITLE\n${r.title}\n\nTAGS (${r.tags.length})\n${r.tags.join(', ')}\n\nDESCRIPTION\n${r.description}`
@@ -106,15 +105,15 @@ export function AiOptimizePanel({ listing, findings }: { listing: EtsyListing; f
           </button>
         </div>
 
-        {busy && (
+        {gen.isPending && (
           <div style={{ marginTop: 14 }}>
-            <BusyNote>{"Please wait — we're a little busy. Your optimized rewrite is coming up…"}</BusyNote>
+            <GenNote phase={phase} onRetry={() => gen.mutate()} />
           </div>
         )}
 
         {gen.isError && !gen.isPending && (
           <div style={{ marginTop: 14 }}>
-            <ErrorBox>{gen.error instanceof Error ? gen.error.message : 'Could not generate improvements. Please try again.'}</ErrorBox>
+            <GenNote phase="normal" error onRetry={() => gen.mutate()} />
           </div>
         )}
       </Card>

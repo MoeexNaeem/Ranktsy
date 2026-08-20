@@ -7,6 +7,7 @@ import { useCredits } from '@/hooks/useCredits'
 import { C, ACCENT, withAlpha, formatNumber, type AccentName } from '@/utils'
 import { UpgradeModalHost } from './UpgradeModal'
 import { triggerUpgrade } from '@/lib/upgrade'
+import { AnimIcon, DASH_ICON } from '@/components/ui/AnimIcon'
 
 const KeywordsTab      = dynamic(() => import('./tabs/KeywordsTab').then(m => ({ default: m.KeywordsTab })), { ssr: false })
 const ListingsTab      = dynamic(() => import('./tabs/ListingsTab').then(m => ({ default: m.ListingsTab })), { ssr: false })
@@ -44,77 +45,42 @@ const HotProductsTab       = dynamic(() => import('./tabs/HotProductsTab').then(
 
 type TabId = 'overview' | 'myshop' | 'hotproducts' | 'keywords' | 'gap' | 'listings' | 'competitors' | 'compsales' | 'trends' | 'buzz' | 'monthly' | 'topsellers' | 'catreport' | 'bulk' | 'rank' | 'shop' | 'salesmap' | 'delivery' | 'tags' | 'aihelper' | 'listingpro' | 'ctags' | 'titlegen' | 'taggen' | 'descgen' | 'audit' | 'compare' | 'spell' | 'fees' | 'adsroi' | 'category' | 'calendar' | 'lists'
 
-const ICON = (d: React.ReactNode) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
-
-const TABS: { id: TabId; label: string; icon: React.ReactNode; description: string; group: string; accent: AccentName }[] = [
-  { id: 'overview',    label: 'Overview',      group: 'Home',        accent: 'indigo',  description: 'Your Etsy SEO command center',
-    icon: ICON(<><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></>) },
-  { id: 'myshop',      label: 'My Shop',       group: 'Home',        accent: 'orange',  description: 'Your connected shop\'s sales & insights',
-    icon: ICON(<><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/><path d="M3 9h18"/><path d="M9 21v-6h6v6"/></>) },
-  { id: 'hotproducts', label: 'Find Hot Products',group: 'Research', accent: 'rose',    description: 'Discover trending products by real engagement',
-    icon: ICON(<><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></>) },
-  { id: 'keywords',    label: 'Keywords',      group: 'Research',    accent: 'blue',    description: 'Research search volume & CTR',
-    icon: ICON(<><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></>) },
-  { id: 'listings',    label: 'Listings',      group: 'Research',    accent: 'cyan',    description: 'Browse live Etsy listings',
-    icon: ICON(<><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></>) },
-  { id: 'competitors', label: 'Competitors',   group: 'Research',    accent: 'violet',  description: 'Analyze top sellers',
-    icon: ICON(<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></>) },
-  { id: 'trends',      label: 'Trends',        group: 'Research',    accent: 'teal',    description: 'Track search trends',
-    icon: ICON(<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>) },
-  { id: 'buzz',        label: 'Trend Buzz',    group: 'Research',    accent: 'rose',    description: 'Emerging keywords heating up on Etsy',
-    icon: ICON(<><path d="M12 2a7 7 0 0 0-4 12.7V17a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.3A7 7 0 0 0 12 2z"/><line x1="9" y1="22" x2="15" y2="22"/></>) },
-  { id: 'monthly',     label: 'Monthly Trends',group: 'Research',    accent: 'sky',     description: 'Seasonal, month-by-month demand',
-    icon: ICON(<><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14l2 2 4-4"/></>) },
-  { id: 'topsellers',  label: 'Top Sellers',   group: 'Research',    accent: 'amber',   description: 'Leading shops in any niche',
-    icon: ICON(<><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></>) },
-  { id: 'catreport',   label: 'Category Report',group: 'Research',   accent: 'emerald', description: 'Market snapshot for a niche',
-    icon: ICON(<><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="4" width="3" height="14"/></>) },
-  { id: 'compsales',   label: 'Competitor Sales',group: 'Research',  accent: 'green',   description: 'Real sales & daily velocity',
-    icon: ICON(<><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></>) },
-  { id: 'gap',         label: 'Keyword Gap',   group: 'Research',    accent: 'fuchsia', description: 'Find the hidden keywords you\'re missing',
-    icon: ICON(<><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></>) },
-  { id: 'bulk',        label: 'Bulk Keywords', group: 'Research',    accent: 'purple',  description: 'Compare keywords in bulk',
-    icon: ICON(<><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></>) },
-  { id: 'rank',        label: 'Rank Checker',  group: 'Research',    accent: 'red',     description: 'Find where your shop ranks',
-    icon: ICON(<><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></>) },
-  { id: 'shop',        label: 'Shop Analytics',group: 'Optimize',    accent: 'violet',  description: 'Analyze any Etsy shop',
-    icon: ICON(<><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></>) },
+const TABS: { id: TabId; label: string; description: string; group: string; accent: AccentName }[] = [
+  { id: 'overview',    label: 'Overview',      group: 'Home',        accent: 'indigo',  description: 'Your Etsy SEO command center' },
+  { id: 'myshop',      label: 'My Shop',       group: 'Home',        accent: 'orange',  description: 'Your connected shop\'s sales & insights' },
+  { id: 'hotproducts', label: 'Find Hot Products',group: 'Research', accent: 'rose',    description: 'Discover trending products by real engagement' },
+  { id: 'keywords',    label: 'Keywords',      group: 'Research',    accent: 'blue',    description: 'Research search volume & CTR' },
+  { id: 'listings',    label: 'Listings',      group: 'Research',    accent: 'cyan',    description: 'Browse live Etsy listings' },
+  { id: 'competitors', label: 'Competitors',   group: 'Research',    accent: 'violet',  description: 'Analyze top sellers' },
+  { id: 'trends',      label: 'Trends',        group: 'Research',    accent: 'teal',    description: 'Track search trends' },
+  { id: 'buzz',        label: 'Trend Buzz',    group: 'Research',    accent: 'rose',    description: 'Emerging keywords heating up on Etsy' },
+  { id: 'monthly',     label: 'Monthly Trends',group: 'Research',    accent: 'sky',     description: 'Seasonal, month-by-month demand' },
+  { id: 'topsellers',  label: 'Top Sellers',   group: 'Research',    accent: 'amber',   description: 'Leading shops in any niche' },
+  { id: 'catreport',   label: 'Category Report',group: 'Research',   accent: 'emerald', description: 'Market snapshot for a niche' },
+  { id: 'compsales',   label: 'Competitor Sales',group: 'Research',  accent: 'green',   description: 'Real sales & daily velocity' },
+  { id: 'gap',         label: 'Keyword Gap',   group: 'Research',    accent: 'fuchsia', description: 'Find the hidden keywords you\'re missing' },
+  { id: 'bulk',        label: 'Bulk Keywords', group: 'Research',    accent: 'purple',  description: 'Compare keywords in bulk' },
+  { id: 'rank',        label: 'Rank Checker',  group: 'Research',    accent: 'red',     description: 'Find where your shop ranks' },
+  { id: 'shop',        label: 'Shop Analytics',group: 'Optimize',    accent: 'violet',  description: 'Analyze any Etsy shop' },
   // Own-shop tools — these read your Etsy receipts over OAuth, which is the only
   // place Etsy exposes buyer country and fulfilment state.
-  { id: 'salesmap',    label: 'Sales Map',     group: 'Shop Insights', accent: 'pink',  description: 'Where your buyers are',
-    icon: ICON(<><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></>) },
-  { id: 'delivery',    label: 'Delivery Status',group: 'Shop Insights', accent: 'cyan', description: 'Orders awaiting shipment',
-    icon: ICON(<><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></>) },
-  { id: 'tags',        label: 'Tag Optimizer', group: 'Optimize',    accent: 'emerald', description: 'Find best-performing tags',
-    icon: ICON(<><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></>) },
-  { id: 'titlegen',    label: 'Title Generator',group: 'Optimize',   accent: 'amber',   description: 'AI Etsy titles from real data',
-    icon: ICON(<><path d="M4 7V5h16v2"/><path d="M9 20h6"/><path d="M12 5v15"/></>) },
-  { id: 'taggen',      label: 'Tag Generator', group: 'Optimize',    accent: 'amber',   description: 'AI Etsy tags from real data',
-    icon: ICON(<><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></>) },
-  { id: 'descgen',     label: 'Description Gen',group: 'Optimize',    accent: 'amber',   description: 'AI Etsy descriptions from real data',
-    icon: ICON(<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></>) },
-  { id: 'listingpro',  label: 'Etsy Listing Pro', group: 'Optimize', accent: 'rose',    description: 'A whole listing + AI images in one click',
-    icon: ICON(<><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/><path d="M16 3.5l.7 1.6 1.8.3-1.3 1.3.3 1.8-1.5-.9-1.5.9.3-1.8-1.3-1.3 1.8-.3z"/></>) },
-  { id: 'aihelper',    label: 'AI Listing Helper',group: 'Optimize', accent: 'fuchsia', description: 'AI title, tags & description',
-    icon: ICON(<><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.2"/></>) },
-  { id: 'audit',       label: 'Listing Audit', group: 'Optimize',    accent: 'green',   description: 'Score a listing\'s SEO',
-    icon: ICON(<><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></>) },
-  { id: 'ctags',       label: 'Competitor Tags',group: 'Optimize',   accent: 'teal',    description: 'Extract a shop\'s tags',
-    icon: ICON(<><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></>) },
-  { id: 'compare',     label: 'Compare Listings',group: 'Optimize',  accent: 'blue',    description: 'Two listings side by side',
-    icon: ICON(<><rect x="3" y="3" width="7" height="18"/><rect x="14" y="3" width="7" height="18"/></>) },
-  { id: 'spell',       label: 'Spell Checker', group: 'Optimize',    accent: 'red',     description: 'Catch tag typos',
-    icon: ICON(<><path d="M2 6h13"/><path d="M2 12h9"/><path d="M2 18h6"/><path d="m15 16 2 2 5-5"/></>) },
-  { id: 'fees',        label: 'Fee Calculator',group: 'Tools',       accent: 'green',   description: 'Estimate Etsy fees & profit',
-    icon: ICON(<><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="14" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="10" y2="18"/></>) },
-  { id: 'adsroi',      label: 'Ads ROI',       group: 'Tools',       accent: 'amber',   description: 'Etsy Ads ROI & CPC calculator',
-    icon: ICON(<><path d="M3 3v18h18"/><path d="M7 15l3-3 3 3 5-6"/></>) },
-  { id: 'category',    label: 'Category Finder',group: 'Tools',      accent: 'sky',     description: 'Browse Etsy categories',
-    icon: ICON(<><path d="M4 4h5l2 2h9a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></>) },
-  { id: 'calendar',    label: 'Seasonal Calendar',group: 'Tools',   accent: 'purple',  description: 'Plan for selling events',
-    icon: ICON(<><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>) },
-  { id: 'lists',       label: 'Keyword Lists', group: 'Tools',       accent: 'slate',   description: 'Save & organize keywords',
-    icon: ICON(<><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></>) },
+  { id: 'salesmap',    label: 'Sales Map',     group: 'Shop Insights', accent: 'pink',  description: 'Where your buyers are' },
+  { id: 'delivery',    label: 'Delivery Status',group: 'Shop Insights', accent: 'cyan', description: 'Orders awaiting shipment' },
+  { id: 'tags',        label: 'Tag Optimizer', group: 'Optimize',    accent: 'emerald', description: 'Find best-performing tags' },
+  { id: 'titlegen',    label: 'Title Generator',group: 'Optimize',   accent: 'amber',   description: 'AI Etsy titles from real data' },
+  { id: 'taggen',      label: 'Tag Generator', group: 'Optimize',    accent: 'amber',   description: 'AI Etsy tags from real data' },
+  { id: 'descgen',     label: 'Description Gen',group: 'Optimize',    accent: 'amber',   description: 'AI Etsy descriptions from real data' },
+  { id: 'listingpro',  label: 'Etsy Listing Pro', group: 'Optimize', accent: 'rose',    description: 'A whole listing + AI images in one click' },
+  { id: 'aihelper',    label: 'AI Listing Helper',group: 'Optimize', accent: 'fuchsia', description: 'AI title, tags & description' },
+  { id: 'audit',       label: 'Listing Audit', group: 'Optimize',    accent: 'green',   description: 'Score a listing\'s SEO' },
+  { id: 'ctags',       label: 'Competitor Tags',group: 'Optimize',   accent: 'teal',    description: 'Extract a shop\'s tags' },
+  { id: 'compare',     label: 'Compare Listings',group: 'Optimize',  accent: 'blue',    description: 'Two listings side by side' },
+  { id: 'spell',       label: 'Spell Checker', group: 'Optimize',    accent: 'red',     description: 'Catch tag typos' },
+  { id: 'fees',        label: 'Fee Calculator',group: 'Tools',       accent: 'green',   description: 'Estimate Etsy fees & profit' },
+  { id: 'adsroi',      label: 'Ads ROI',       group: 'Tools',       accent: 'amber',   description: 'Etsy Ads ROI & CPC calculator' },
+  { id: 'category',    label: 'Category Finder',group: 'Tools',      accent: 'sky',     description: 'Browse Etsy categories' },
+  { id: 'calendar',    label: 'Seasonal Calendar',group: 'Tools',   accent: 'purple',  description: 'Plan for selling events' },
+  { id: 'lists',       label: 'Keyword Lists', group: 'Tools',       accent: 'slate',   description: 'Save & organize keywords' },
 ]
 
 const GROUPS = ['Home', 'Research', 'Shop Insights', 'Optimize', 'Tools']
@@ -261,7 +227,7 @@ export function DashboardLayout() {
                       background: active ? withAlpha(hue, 0.14) : 'transparent',
                       color: hue,
                       transition: 'background 0.15s',
-                    }}>{tab.icon}</span>
+                    }}><AnimIcon src={DASH_ICON[tab.id]} size={20} color={hue} active={active} target="button" /></span>
                     <span className="rlabel" style={{ fontSize: 14, fontWeight: active ? 600 : 500, color: active ? C.ink : C.inkSoft, letterSpacing: '-0.01em' }}>{tab.label}</span>
                   </button>
                 )
@@ -325,7 +291,7 @@ export function DashboardLayout() {
             </button>
             {/* Active-tool icon in its own hue — no background chip */}
             <span className="rdash-titleicon" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 34, flexShrink: 0, color: activeHue }}>
-              {activeInfo.icon}
+              <AnimIcon key={activeTab} src={DASH_ICON[activeTab]} size={26} color={activeHue} active />
             </span>
             <div style={{ minWidth: 0 }}>
               <h1 style={{ fontSize: 22, fontWeight: 600, color: C.ink, letterSpacing: '-0.03em', marginBottom: 2 }}>{activeInfo.label}</h1>

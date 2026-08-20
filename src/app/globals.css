@@ -160,6 +160,26 @@ svg  { max-width: 100%; }
   .rgrid-5 { grid-template-columns: repeat(2, 1fr) !important; }
 }
 
+/* ── Admin sidebar → horizontal top nav ≤ 900px ──────────────────────────────── */
+@media (max-width: 900px) {
+  .admin-shell { flex-direction: column !important; }
+  .admin-sidebar {
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    flex-direction: row !important;
+    align-items: center;
+    overflow-x: auto;
+    border-right: none !important;
+    border-bottom: 1px solid #e6e3db;
+    gap: 6px !important;
+    padding: 12px 16px !important;
+  }
+  .admin-sidebar > div:first-child { display: none !important; }
+  .admin-sidebar button { width: auto !important; white-space: nowrap; flex-shrink: 0; }
+  .admin-sidebar > div:last-child { margin-top: 0 !important; margin-left: auto; padding-top: 0 !important; }
+}
+
 /* ── Dashboard sidebar → off-canvas drawer ≤ 900px ───────────────────────────── */
 @media (max-width: 900px) {
   /* Lift the sidebar out of flow so the main column takes the full width. */

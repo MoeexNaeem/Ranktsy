@@ -2,11 +2,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import axios from 'axios'
-import { Card, SectionTitle, EmptyState, ErrorBox, BusyNote, GenSkeleton, MONO, primaryBtn } from '../kit'
+import { Card, SectionTitle, EmptyState, GenNote, GenSkeleton, MONO, primaryBtn } from '../kit'
 import { MiniMarkdown } from '../MiniMarkdown'
 import { C, D } from '@/utils'
 import { triggerUpgrade } from '@/lib/upgrade'
-import { busyRetry, busyRetryDelay, useSlow, isTerminal } from '@/lib/ai/busy'
+import { busyRetry, busyRetryDelay, useWaitPhase, isTerminal } from '@/lib/ai/busy'
 import type { ApiResponse } from '@/types'
 import type { ListingPro } from '@/app/api/ai/listing-pro/route'
 
@@ -82,8 +82,7 @@ export function EtsyListingProTab() {
     retry: busyRetry,
     retryDelay: busyRetryDelay,
   })
-  const slow = useSlow(gen.isPending)
-  const busy = gen.isPending && (slow || gen.failureCount > 0)
+  const phase = useWaitPhase(gen.isPending)
 
   const onFile = useCallback((f: File | undefined) => {
     if (!f) return setRef(null)
@@ -174,12 +173,12 @@ export function EtsyListingProTab() {
 
       {gen.isPending && (
         <>
-          {busy && <BusyNote>{"Please wait — we're a little busy. Your full listing is coming up…"}</BusyNote>}
+          <GenNote phase={phase} onRetry={() => gen.mutate()} />
           <GenSkeleton height={280} />
         </>
       )}
 
-      {gen.isError && !gen.isPending && <ErrorBox>{gen.error instanceof Error ? gen.error.message : 'Generation failed.'}</ErrorBox>}
+      {gen.isError && !gen.isPending && <GenNote phase="normal" error onRetry={() => gen.mutate()} />}
 
       {!listing && !gen.isPending && !gen.isError && (
         <EmptyState icon="✨" title="Your full listing appears here" sub="Title, 13 tags, description, price and a clean Etsy-style image — all in one." />
@@ -272,7 +271,7 @@ export function EtsyListingProTab() {
                         <img src={st.dataUrl} alt={name} style={{ width: '100%', height: 'auto', display: 'block' }} />
                       ) : st.error ? (
                         <div style={{ padding: 20, textAlign: 'center' }}>
-                          <p style={{ fontSize: 12.5, color: D.hard, lineHeight: 1.5, marginBottom: 10 }}>{st.error}</p>
+                          <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.5, marginBottom: 10 }}>{st.error}</p>
                           <button onClick={() => genImage(type)} style={miniBtn}>Try again</button>
                         </div>
                       ) : (

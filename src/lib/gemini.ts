@@ -63,12 +63,15 @@ function keyOrder(): string[] {
   return [...keys.slice(start), ...keys.slice(0, start)]
 }
 
-// `gemini-flash-latest` is an ALIAS that always resolves to the current Flash
-// model, so it can't be sunset out from under us the way a pinned version can —
-// verified 2026-07-16 that pinned `gemini-2.5-flash` 404s "no longer available
-// to new users" while this alias returns 200. Override via GEMINI_MODEL if you
-// later want to pin a specific model.
-const MODEL = process.env.GEMINI_MODEL || 'gemini-flash-latest'
+// Text model. Benchmarked 2026-08-21 on this key: `gemini-flash-latest` (and
+// gemini-3.7-flash) return 503 "high demand" ~75% of the time and are slow when
+// they do answer — that was the "generations are very slow" report. `gemini-3.1-
+// flash-lite` returns 200 in ~2s, reliably (3/3), for the same structured task —
+// a ~20× speedup — so it is now the default. FALLBACK_MODEL is tried when the
+// primary is overloaded (gemini-3.5-flash: ~3s, also reliable). Override either
+// via GEMINI_MODEL / GEMINI_FALLBACK_MODEL.
+const MODEL = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite'
+const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.5-flash'
 // Flash Image ("Nano Banana"). The `-preview` alias 404s on this key; the stable
 // `gemini-2.5-flash-image` works. Override with GEMINI_IMAGE_MODEL to use a newer
 // one (e.g. gemini-3.1-flash-image). Verified 2026-07-28.
@@ -124,10 +127,12 @@ export async function geminiGenerate(opts: GenerateOpts, meta?: GeminiMeta): Pro
       // thinkingBudget:0 with a 400 — see below), so the budget must cover the
       // thinking AND the full JSON or structured output truncates mid-string.
       maxOutputTokens: opts.maxOutputTokens ?? 4096,
-      // Only send thinkingConfig to request MORE reasoning (dynamic). We must
-      // never send thinkingBudget:0 — the current model 400s on it
-      // ("INVALID_ARGUMENT"). Omitting it lets the model use its default.
-      ...(opts.think ? { thinkingConfig: { thinkingBudget: -1 } } : {}),
+      // Thinking OFF by default (`thinkingBudget: 0`). Benchmarked 2026-08-21:
+      // budget:0 returns 200 in ~2s, while OMITTING thinkingConfig routes to the
+      // model's dynamic-thinking path which is heavily overloaded (503s) and
+      // slow. (The old "budget:0 400s" note is stale — it works now on the
+      // 3.1-flash-lite / 3.5-flash models we use.) `think:true` → dynamic (-1).
+      thinkingConfig: { thinkingBudget: opts.think ? -1 : 0 },
       ...(opts.schema
         ? { responseMimeType: 'application/json', responseSchema: opts.schema }
         : {}),
@@ -137,23 +142,32 @@ export async function geminiGenerate(opts: GenerateOpts, meta?: GeminiMeta): Pro
     body.systemInstruction = { parts: [{ text: opts.system }] }
   }
 
-  // Gemini is frequently overloaded (503) or drops the connection (fetch failed);
-  // both are transient. Retry a few times with backoff so a single blip doesn't
-  // surface as "AI generation failed" to the user.
-  // Queue behind the per-instance text-generation cap so a surge of searches +
-  // generations can't stampede Gemini into rate-limit failures. sendGemini picks
-  // a key per attempt and rotates through all configured keys, failing over when
-  // one is rate-limited.
-  return textLimiter.run(() => sendGemini(MODEL, body, meta))
+  // Try the fast primary model first; if it's overloaded/errors, fall back to the
+  // secondary model (a busy moment on one model no longer surfaces as a failure).
+  // Terminal outcomes (blocked / retired / unconfigured) don't try the fallback —
+  // it wouldn't help. Queue behind the per-instance text cap so a surge can't
+  // stampede the provider; each sendGemini also rotates configured keys.
+  const models = [MODEL, FALLBACK_MODEL].filter((m, i, a) => m && a.indexOf(m) === i)
+  return textLimiter.run(async () => {
+    for (let i = 0; i < models.length; i++) {
+      const isLast = i === models.length - 1
+      const out = await sendGemini(models[i], body, meta)
+      if (out != null) return out
+      // Only overloaded/error is worth retrying on the next model.
+      if (isLast || (meta && (meta.reason === 'blocked' || meta.reason === 'model_retired' || meta.reason === 'unconfigured'))) return out
+    }
+    return null
+  })
 }
 
 async function sendGemini(model: string, body: Record<string, unknown>, meta?: GeminiMeta): Promise<string | null> {
   const keys = keyOrder()
   if (!keys.length) { if (meta) meta.reason = 'unconfigured'; return null }
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
-  // Visit every key at least once, plus a couple of extra passes for a purely
-  // transient blip. With N keys we try all N fast before ever backing off.
-  const MAX_ATTEMPTS = Math.max(4, keys.length + 2)
+  // With MULTIPLE keys: visit every key once, plus a couple of passes for a
+  // transient blip. With a SINGLE key: just 1 quick retry — the client owns the
+  // longer, SPACED retry loop, so hammering one key here only wastes requests.
+  const MAX_ATTEMPTS = keys.length > 1 ? Math.max(4, keys.length + 2) : 2
   let sawQuota = false
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -256,7 +270,8 @@ async function geminiImageInner(keys: string[], prompt: string, refs?: GeminiRef
   // where the model replies with only TEXT and no image (common for the
   // feature-callout graphic). On 429 (rate-limited) we fail over to the next key;
   // safety blocks are NOT retried. At least 3 tries, and enough to visit every key.
-  const MAX = Math.max(4, keys.length + 1)
+  // Single key → 2 attempts (1 quick retry); the client retries, spaced, beyond that.
+  const MAX = keys.length > 1 ? Math.max(4, keys.length + 1) : 2
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
   const backoff = (attempt: number) => keys.length > 1 && attempt < keys.length - 1
     ? 150

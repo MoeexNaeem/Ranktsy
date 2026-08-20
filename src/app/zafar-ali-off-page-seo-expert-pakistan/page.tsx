@@ -168,7 +168,10 @@ export default function ZafarAliProfilePage() {
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'ProfilePage',
-    dateCreated: '2026-08-18',
+    // Full ISO 8601 datetime with timezone — a date-only value ("2026-08-18") is
+    // what Google Search Console flagged as "Invalid datetime value for dateCreated".
+    dateCreated: '2026-08-18T00:00:00+00:00',
+    dateModified: '2026-08-18T00:00:00+00:00',
     mainEntity: {
       '@type': 'Person',
       name: 'Zafar Ali',

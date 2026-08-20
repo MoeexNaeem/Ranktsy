@@ -12,8 +12,8 @@
 import { useMutation } from '@tanstack/react-query'
 import axios from 'axios'
 import { C } from '@/utils'
-import { Card, MONO, primaryBtn, BusyNote } from './kit'
-import { busyRetry, busyRetryDelay, useSlow } from '@/lib/ai/busy'
+import { Card, MONO, primaryBtn, GenNote } from './kit'
+import { busyRetry, busyRetryDelay, useWaitPhase } from '@/lib/ai/busy'
 import type { ApiResponse, AiInsightsResult, AiFact, InsightTone } from '@/types'
 
 const TONE: Record<InsightTone, { fg: string; bg: string; icon: string }> = {
@@ -36,10 +36,7 @@ export function AiInsights({ tool, subject, facts, notes }: {
   })
   const r = gen.data
   const enoughData = facts.length >= 2
-  // Show the calm "busy" note while the analysis is slow or a retry is in flight
-  // (the backend is failing over across Gemini keys), instead of nothing/an error.
-  const slow = useSlow(gen.isPending)
-  const busy = gen.isPending && (slow || gen.failureCount > 0)
+  const phase = useWaitPhase(gen.isPending)
 
   return (
     <Card style={{ borderColor: 'var(--accent, #FB5E09)' }}>
@@ -66,10 +63,10 @@ export function AiInsights({ tool, subject, facts, notes }: {
         </div>
       </div>
 
-      {busy && <div style={{ marginTop: 14 }}><BusyNote>{"Please wait — we're a little busy. Your AI analysis is coming up…"}</BusyNote></div>}
+      {gen.isPending && <div style={{ marginTop: 14 }}><GenNote phase={phase} onRetry={() => gen.mutate()} /></div>}
 
       {gen.isError && !gen.isPending && (
-        <p style={{ marginTop: 14, fontSize: 13.5, color: C.danger }}>Couldn&apos;t generate analysis. Please try again.</p>
+        <div style={{ marginTop: 14 }}><GenNote phase="normal" error onRetry={() => gen.mutate()} /></div>
       )}
 
       {r && (

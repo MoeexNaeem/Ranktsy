@@ -599,7 +599,7 @@ export function Footer() {
       ["Tag Optimizer", "/etsy-tag-optimizer"], ["Etsy Listing Pro", "/etsy-listing-generator"], ["AI Title & Tags", "/etsy-ai-title-tag-generator"],
       ["Listing Audit", "/etsy-listing-audit"], ["Shop Analytics", "/etsy-shop-analytics"],
     ] as [string, string][] },
-    { t: "Product",  l: [["Live Keyword Tool", "/#keywords"], ["Pricing", "/pricing"], ["Blog", "/blogs"], ["Fee Calculator", "/fee-calculator"], ["Dashboard", "/dashboard"]] as [string, string][] },
+    { t: "Product",  l: [["Live Keyword Tool", "/#keywords"], ["Pricing", "/pricing"], ["Blog", "/blogs"], ["Fee Calculator", "/etsy-fee-calculator"], ["Dashboard", "/dashboard"]] as [string, string][] },
     { t: "Company",  l: [["About", "/about"], ["Contact", "/contact"], ["Data & Methodology", "/methodology"]] as [string, string][] },
     { t: "Legal",    l: [["Privacy Policy", "/privacy"], ["Terms", "/terms"], ["Service Policy", "/service-policy"], ["Refund & Return Policy", "/refund-policy"]] as [string, string][] },
   ];

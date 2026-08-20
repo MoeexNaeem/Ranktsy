@@ -1,11 +1,11 @@
 'use client'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Card, SectionTitle, EmptyState, ErrorBox, BusyNote, GenSkeleton, TagPill, primaryBtn, MONO } from '../kit'
+import { Card, SectionTitle, EmptyState, GenNote, GenSkeleton, TagPill, primaryBtn, MONO } from '../kit'
 import { MiniMarkdown } from '../MiniMarkdown'
 import { C, D } from '@/utils'
 import { chargeCredits } from '@/lib/credits-client'
-import { genFetch, busyRetry, busyRetryDelay, useSlow } from '@/lib/ai/busy'
+import { genFetch, busyRetry, busyRetryDelay, useWaitPhase } from '@/lib/ai/busy'
 import type { AiDescResult } from '@/types'
 
 interface DescParams { q: string; productName: string; productType: string; audience: string; features: string }
@@ -43,7 +43,7 @@ export function DescriptionGenTab() {
   const [copied, setCopied] = useState(false)
   const [active, setActive] = useState(0) // which of the 3 versions is shown
 
-  const { data, isFetching, isError, error, failureCount } = useQuery({
+  const { data, isFetching, isError, refetch } = useQuery({
     queryKey: ['ai-desc', submitted ? JSON.stringify(submitted) : ''],
     queryFn: ({ signal }) => genFetch<AiDescResult[]>('/api/ai/description', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, signal,
@@ -55,7 +55,7 @@ export function DescriptionGenTab() {
     retry: busyRetry,
     retryDelay: busyRetryDelay,
   })
-  const busy = useSlow(isFetching) || failureCount > 0
+  const phase = useWaitPhase(isFetching)
 
   const run = async () => {
     if (q.trim().length < 2) return
@@ -95,9 +95,9 @@ export function DescriptionGenTab() {
         </button>
       </Card>
 
-      {isFetching && busy && <BusyNote>{"Please wait — we're a little busy. Your 3 descriptions are coming up…"}</BusyNote>}
+      {isFetching && <GenNote phase={phase} onRetry={() => refetch()} />}
       {isFetching && <GenSkeleton height={320} />}
-      {isError && !isFetching && <ErrorBox>{(error as Error)?.message || 'Generation failed.'}</ErrorBox>}
+      {isError && !isFetching && <GenNote phase="normal" error onRetry={() => refetch()} />}
       {!isFetching && !data && !isError && <EmptyState icon="📝" title="No description yet" sub="Fill in your keyword and hit Generate — you'll get 3 versions to choose from." />}
 
       {data && data.length > 0 && !isFetching && (() => {

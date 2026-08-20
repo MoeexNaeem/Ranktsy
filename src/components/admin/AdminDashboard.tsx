@@ -2,7 +2,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { C } from '@/utils'
-import { StatCard, SectionTitle, Pagination, tableCard, tableHead, th, tableRow, tdMono, EmptyState, MONO } from '@/components/dashboard/kit'
+import { SectionTitle, Pagination, tableCard, tableHead, th, tableRow, tdMono, EmptyState, MONO, cardStyle } from '@/components/dashboard/kit'
+import { AnimIcon, ICON } from '@/components/ui/AnimIcon'
+import { Kpi, Bars, Donut } from './AdminCharts'
+import { UserDetailPanel } from './UserDetailPanel'
 
 interface AUser {
   id: string; name: string; email: string; role: 'user' | 'admin'; plan: string
@@ -11,9 +14,6 @@ interface AUser {
   creditsUsedToday: number; creditsLimit: number; creditsRemaining: number; creditsUsedTotal: number
 }
 type ConfirmAction = { user: AUser; kind: 'delete' | 'restrict' | 'unrestrict' }
-// A REAL paying customer: an actual Lemon Squeezy purchase behind their
-// current plan — NOT just "plan !== free", which an admin can set for free
-// via the Plan dropdown below with no purchase involved.
 const isRealPaid = (u: AUser) => u.paidViaLemonSqueezy && u.plan !== 'free'
 interface Stats { total: number; admins: number; verified: number; searches: number }
 interface UsageUser { userId: string; userEmail: string | null; etsyCalls: number; googleCalls: number; searches: number; cacheHits: number; apiHits: number; imageCalls: number; imageTokens: number; imageCostUsd: number; creditsSpent: number }
@@ -23,21 +23,16 @@ interface UsageData {
 }
 
 const GRID = '0.4fr 1.5fr 0.6fr 0.8fr 0.6fr 0.55fr 0.75fr 0.8fr 1.2fr'
-// Consistent "this account pays us" signal — deliberately NOT one of the
-// per-plan hues, so it reads as one visual class regardless of tier.
 const PAID_GOLD = '#B7791F'
 const UGRID = '1.7fr 0.7fr 0.7fr 0.8fr 0.9fr 0.85fr 0.9fr'
-// Last-7-days table: Day + 6 numeric columns.
 const D7GRID = '1.4fr 0.8fr 0.8fr 1fr 0.8fr 0.8fr 0.9fr'
 const USERS_PAGE_SIZE = 20
 const USAGE_PAGE_SIZE = 15
 
-// Per-tier accent dot + subscription-status pill colours (professional, no rainbow).
 const PLAN_HUE: Record<string, string> = {
   free: '#6E6E64', starter: '#2563EB', basic: '#0EA5E9', pro: '#FB5E09', 'pro-1yr': '#B7791F',
   business: '#0D9488', agency: '#7C3AED', enterprise: '#4F46E5', custom: '#5B6472',
 }
-// Higher = shown first / more prominent. Free is deliberately lowest.
 const PLAN_RANK: Record<string, number> = {
   custom: 9, enterprise: 8, agency: 7, business: 6, 'pro-1yr': 5, pro: 4, basic: 3, starter: 2, free: 0,
 }
@@ -45,6 +40,8 @@ const PLAN_LABEL: Record<string, string> = {
   free: 'Free', starter: 'Starter', basic: 'Basic', pro: 'Pro', 'pro-1yr': 'Pro · 1yr',
   business: 'Business', agency: 'Agency', enterprise: 'Enterprise', custom: 'Custom',
 }
+const PLAN_ORDER = ['custom', 'enterprise', 'agency', 'business', 'pro-1yr', 'pro', 'basic', 'starter', 'free']
+
 function statusPill(s: string | null): { label: string; fg: string; bg: string } | null {
   if (!s) return null
   const map: Record<string, { fg: string; bg: string }> = {
@@ -57,21 +54,31 @@ function statusPill(s: string | null): { label: string; fg: string; bg: string }
   }
   return { label: s.replace(/_/g, ' '), ...(map[s] ?? { fg: '#6E6E64', bg: 'rgba(110,110,100,0.10)' }) }
 }
-// Admin wants EXACT figures (1,300 — not "1.3k"), so numbers are shown with
-// thousands separators rather than the app-wide abbreviating formatNumber().
+// Admin wants EXACT figures (1,300 — not "1.3k").
 const exact = (n: number) => (n ?? 0).toLocaleString('en-US')
 const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }) : '—'
-// "YYYY-MM-DD" (UTC bucket) → e.g. "Wed, Aug 13" for the 7-day table.
 const fmtDay = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-// Right-aligned numeric cell (header + body share it) so figures line up cleanly.
 const numCell: React.CSSProperties = { ...tdMono, textAlign: 'right' }
 const numTh: React.CSSProperties = { ...th, textAlign: 'right' }
-/** USD with enough precision for tiny per-image costs. */
 const usd = (n: number) => `$${(n || 0).toFixed(n < 1 ? 4 : 2)}`
 const timeAgo = (d: string | null) => {
   if (!d) return 'never'
   const days = Math.floor((Date.now() - new Date(d).getTime()) / 86400000)
   return days <= 0 ? 'today' : days === 1 ? '1d ago' : days < 30 ? `${days}d ago` : `${Math.floor(days / 30)}mo ago`
+}
+const dayKeyLocal = (d: Date) => d.toISOString().slice(0, 10)
+
+// Time-reading kept in plain module functions (not the component render body) so
+// the render-purity lint stays happy — same pattern as timeAgo/fmtDate above.
+function countNewThisWeek(users: { createdAt: string | null }[]): number {
+  const cutoff = Date.now() - 7 * 86400000
+  return users.filter(u => u.createdAt && new Date(u.createdAt).getTime() >= cutoff).length
+}
+function buildSignups(users: { createdAt: string | null }[]): { label: string; value: number }[] {
+  const days = Array.from({ length: 14 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (13 - i)); return d })
+  const counts = new Map(days.map(d => [dayKeyLocal(d), 0]))
+  users.forEach(u => { if (u.createdAt) { const k = dayKeyLocal(new Date(u.createdAt)); if (counts.has(k)) counts.set(k, (counts.get(k) ?? 0) + 1) } })
+  return days.map(d => ({ label: d.toLocaleDateString('en-US', { day: 'numeric' }), value: counts.get(dayKeyLocal(d)) ?? 0 }))
 }
 
 const selectStyle: React.CSSProperties = {
@@ -79,11 +86,22 @@ const selectStyle: React.CSSProperties = {
   fontSize: 12.5, fontFamily: MONO, color: C.ink, outline: 'none', cursor: 'pointer', width: '100%', minWidth: 0,
 }
 
+type Section = 'overview' | 'users' | 'analytics' | 'content' | 'settings'
+const NAV: { id: Section; label: string; icon: string }[] = [
+  { id: 'overview',  label: 'Overview',  icon: ICON.home },
+  { id: 'users',     label: 'Users',     icon: ICON.account },
+  { id: 'analytics', label: 'Analytics', icon: ICON.coins },
+  { id: 'content',   label: 'Content',   icon: ICON.book },
+  { id: 'settings',  label: 'Settings',  icon: ICON.settings },
+]
+
 export function AdminDashboard() {
   const [users, setUsers] = useState<AUser[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [usage, setUsage] = useState<UsageData | null>(null)
   const [state, setState] = useState<'loading' | 'ok' | 'forbidden' | 'error'>('loading')
+  const [section, setSection] = useState<Section>('overview')
+  const [detailUserId, setDetailUserId] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState('')
   const [usersPage, setUsersPage] = useState(1)
@@ -103,7 +121,6 @@ export function AdminDashboard() {
       if (r.ok && d?.success) { setUsers(d.data.users); setStats(d.data.stats); setPromoOn(!!d.data.freeToProPromo); setState('ok') }
       else setState('error')
     }).catch(() => setState('error'))
-    // API-usage analytics (per-user + totals + 7-day) — independent of the user list.
     fetch('/api/admin/usage').then(async r => {
       const d = await r.json().catch(() => null)
       if (r.ok && d?.success) setUsage(d.data)
@@ -117,13 +134,11 @@ export function AdminDashboard() {
     const d = await r.json().catch(() => null)
     if (r.ok && d?.success) {
       setUsers(us => us.map(u => u.id === id ? { ...u, ...patch } : u))
-      // A plan change also changes the daily credit limit — refetch for the true value.
       if ('plan' in patch) load()
     }
     setBusy(null)
   }, [load])
 
-  // body: { enabled } to toggle, or { refresh: true } to re-convert new free users.
   const callPromo = useCallback(async (body: { enabled?: boolean; refresh?: boolean }) => {
     setPromoBusy(true); setPromoMsg('')
     try {
@@ -159,9 +174,6 @@ export function AdminDashboard() {
     else await patchUser(u.id, { restricted: kind === 'restrict' })
   }, [confirmAction, deleteUser, patchUser])
 
-  // REAL paying customers (Lemon Squeezy purchase) surface first, then
-  // admin-granted plans, then free — each group newest-joined-first, and
-  // higher-tier plans first within a group.
   const sortedUsers = useMemo(() => {
     const t = (d: string | null) => (d ? new Date(d).getTime() : 0)
     return [...users].sort((a, b) => {
@@ -173,15 +185,13 @@ export function AdminDashboard() {
     })
   }, [users])
   const paidCount = useMemo(() => users.filter(isRealPaid).length, [users])
-  // Search by name, email OR unique ID (case-insensitive substring).
+  const newThisWeek = useMemo(() => countNewThisWeek(users), [users])
   const filteredUsers = useMemo(() => {
     const q = userQuery.trim().toLowerCase()
     if (!q) return sortedUsers
     return sortedUsers.filter(u =>
       u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || u.id.toLowerCase().includes(q))
   }, [sortedUsers, userQuery])
-  // Searching resets to page 1 via the input handlers (below), so a narrowing
-  // result never leaves us stranded on an out-of-range page.
   const usersPageCount = Math.max(1, Math.ceil(filteredUsers.length / USERS_PAGE_SIZE))
   const usersPageRows = useMemo(
     () => filteredUsers.slice((usersPage - 1) * USERS_PAGE_SIZE, usersPage * USERS_PAGE_SIZE),
@@ -189,294 +199,322 @@ export function AdminDashboard() {
   )
   const copyId = useCallback((id: string) => {
     navigator.clipboard?.writeText(id).then(() => {
-      setCopiedId(id)
-      setTimeout(() => setCopiedId(c => (c === id ? null : c)), 1400)
+      setCopiedId(id); setTimeout(() => setCopiedId(c => (c === id ? null : c)), 1400)
     }).catch(() => {})
   }, [])
-  const usagePerUser = usage?.today.perUser ?? []
+  const usagePerUser = useMemo(() => usage?.today.perUser ?? [], [usage])
   const usagePageCount = Math.max(1, Math.ceil(usagePerUser.length / USAGE_PAGE_SIZE))
   const usagePageRows = useMemo(
     () => usagePerUser.slice((usagePage - 1) * USAGE_PAGE_SIZE, usagePage * USAGE_PAGE_SIZE),
     [usagePerUser, usagePage],
   )
 
-  const shell = (children: React.ReactNode) => (
+  // ─── Overview derived series ────────────────────────────────────────────────
+  const signups = useMemo(() => buildSignups(users), [users])
+  const planDist = useMemo(() => {
+    const counts: Record<string, number> = {}
+    users.forEach(u => { counts[u.plan] = (counts[u.plan] ?? 0) + 1 })
+    return PLAN_ORDER.filter(p => counts[p]).map(p => ({ label: PLAN_LABEL[p] ?? p, value: counts[p], color: PLAN_HUE[p] ?? C.stone }))
+  }, [users])
+
+  // ─── Loading / gate states ──────────────────────────────────────────────────
+  const gate = (children: React.ReactNode) => (
     <main className="rpage" style={{ background: C.canvas, minHeight: '100vh', padding: '150px 40px 96px' }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 11.5, fontWeight: 500, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.09em', color: '#6E6E64', marginBottom: 18 }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.orange, display: 'inline-block' }} /> Admin
-        </div>
-        {children}
-      </div>
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>{children}</div>
     </main>
   )
+  if (state === 'loading') return gate(<div className="shimmer" style={{ height: 420, borderRadius: 12, background: '#e8e7e2' }} />)
+  if (state === 'forbidden') return gate(<EmptyState icon="🔒" title="Admins only" sub="You don't have access to this page." />)
+  if (state === 'error') return gate(<EmptyState icon="⚠️" title="Couldn't load the admin data" sub="Please try again." />)
 
-  if (state === 'loading') return shell(<div className="shimmer" style={{ height: 380, borderRadius: 8, background: '#e8e7e2' }} />)
-  if (state === 'forbidden') return shell(<EmptyState icon="🔒" title="Admins only" sub="You don't have access to this page." />)
-  if (state === 'error') return shell(<EmptyState icon="⚠️" title="Couldn't load users" sub="Please try again." />)
+  const navBtn = (item: typeof NAV[number]) => {
+    const on = section === item.id
+    return (
+      <button key={item.id} onClick={() => setSection(item.id)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
+          padding: '11px 14px', borderRadius: 12, border: 'none', cursor: 'pointer',
+          background: on ? C.orangeFaint : 'transparent', color: on ? C.orange : C.graphite,
+          fontSize: 14.5, fontWeight: on ? 600 : 500, fontFamily: 'inherit', transition: 'background 0.15s, color 0.15s',
+        }}
+        onMouseEnter={e => { if (!on) e.currentTarget.style.background = C.bone }}
+        onMouseLeave={e => { if (!on) e.currentTarget.style.background = 'transparent' }}>
+        <AnimIcon src={item.icon} size={22} color={on ? C.orange : '#6E6E64'} active={on} />
+        {item.label}
+      </button>
+    )
+  }
 
-  return shell(
-    <>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
-        <h1 style={{ fontSize: 'clamp(30px,3.8vw,46px)', fontWeight: 500, color: C.ink, letterSpacing: '-0.03em', lineHeight: 1.02 }}>User management</h1>
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-          <Link href="/admin/ads" style={{ fontSize: 13.5, fontWeight: 500, color: C.orange, background: C.orangeFaint, border: `1px solid ${C.orange}`, borderRadius: 100, padding: '8px 18px', textDecoration: 'none' }}>Manage ads</Link>
-          <Link href="/admin/deals" style={{ fontSize: 13.5, fontWeight: 500, color: C.orange, background: C.orangeFaint, border: `1px solid ${C.orange}`, borderRadius: 100, padding: '8px 18px', textDecoration: 'none' }}>Manage deals</Link>
-          <Link href="/admin/blogs" style={{ fontSize: 13.5, fontWeight: 500, color: '#fff', background: C.orange, borderRadius: 100, padding: '9px 18px', textDecoration: 'none' }}>Manage blog</Link>
-          <Link href="/dashboard" style={{ fontSize: 13, color: C.ink, textDecoration: 'underline', textUnderlineOffset: 4 }}>← Back to dashboard</Link>
-        </div>
-      </div>
+  return (
+    <main className="rpage" style={{ background: C.canvas, minHeight: '100vh', paddingTop: 92 }}>
+      <div className="admin-shell" style={{ display: 'flex', maxWidth: 1440, margin: '0 auto', alignItems: 'flex-start' }}>
+        {/* ─── Sidebar ─────────────────────────────────────────────────────── */}
+        <aside className="admin-sidebar" style={{ width: 236, flexShrink: 0, position: 'sticky', top: 92, alignSelf: 'flex-start', padding: '28px 16px', height: 'calc(100vh - 92px)', borderRight: `1px solid ${C.ash}`, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px 18px', fontSize: 11.5, fontFamily: MONO, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#6E6E64' }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.orange }} /> Admin
+          </div>
+          {NAV.map(navBtn)}
+          <div style={{ marginTop: 'auto', paddingTop: 16 }}>
+            <Link href="/dashboard" style={{ display: 'block', padding: '10px 14px', fontSize: 13, color: C.ink, textDecoration: 'none', borderRadius: 12, border: `1px solid ${C.ash}`, textAlign: 'center' }}>← Dashboard</Link>
+          </div>
+        </aside>
 
-      {stats && (
-        <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
-          <StatCard label="Total users" value={exact(stats.total)} accent={C.ink} />
-          <StatCard label="Paying customers" value={exact(paidCount)} accent={C.orange} sub={`${stats.total ? Math.round((paidCount / stats.total) * 100) : 0}% of total`} />
-          <StatCard label="Admins" value={exact(stats.admins)} accent={C.ink} />
-          <StatCard label="Verified" value={exact(stats.verified)} accent={C.ink} />
-        </div>
-      )}
+        {/* ─── Content ─────────────────────────────────────────────────────── */}
+        <div style={{ flex: 1, minWidth: 0, padding: '30px 34px 90px' }}>
+          <h1 style={{ fontSize: 'clamp(26px,3vw,38px)', fontWeight: 600, color: C.ink, letterSpacing: '-0.03em', marginBottom: 24, textTransform: 'capitalize' }}>{section}</h1>
 
-      {/* ─── Free → Pro toggle + refresh ────────────────────────────────────── */}
-      <div style={{ ...tableCard, padding: '18px 22px', marginBottom: 22, display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap', borderColor: promoOn ? C.orange : C.ash, background: promoOn ? 'rgba(251,94,9,0.05)' : C.paper }}>
-        <div style={{ flex: 1, minWidth: 240 }}>
-          <p style={{ fontSize: 15, fontWeight: 600, color: C.ink }}>Convert all free users to Pro</p>
-          <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.55, marginTop: 4 }}>
-            Turn on to upgrade every Free user to Pro. Use <strong>Refresh</strong> to convert any new free users since.
-          </p>
-          {promoMsg && <p style={{ fontSize: 12.5, color: C.orange, fontFamily: MONO, marginTop: 8 }}>{promoMsg}</p>}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-          <button onClick={() => callPromo({ refresh: true })} disabled={promoBusy}
-            title="Convert new free users to Pro now"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 500, fontFamily: MONO, color: C.orange, background: C.orangeFaint, border: `1px solid ${C.orange}`, borderRadius: 100, padding: '8px 15px', cursor: promoBusy ? 'wait' : 'pointer', opacity: promoBusy ? 0.6 : 1 }}>
-            Refresh
-          </button>
-          <button onClick={() => callPromo({ enabled: !promoOn })} disabled={promoBusy}
-            role="switch" aria-checked={promoOn} title={promoOn ? 'Turn off' : 'Turn on'}
-            style={{ position: 'relative', width: 58, height: 32, borderRadius: 100, border: 'none', cursor: promoBusy ? 'wait' : 'pointer', background: promoOn ? C.orange : C.ash, transition: 'background 0.18s', opacity: promoBusy ? 0.6 : 1 }}>
-            <span style={{ position: 'absolute', top: 3, left: promoOn ? 29 : 3, width: 26, height: 26, borderRadius: '50%', background: '#fff', transition: 'left 0.18s', boxShadow: '0 2px 5px rgba(0,0,0,0.25)' }} />
-          </button>
-        </div>
-      </div>
+          {section === 'overview' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+              <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+                <Kpi label="Total users" value={stats?.total ?? 0} accent={C.ink} delay={0} />
+                <Kpi label="Paying customers" value={paidCount} accent={C.orange} delay={60} sub={`${stats?.total ? Math.round((paidCount / stats.total) * 100) : 0}% of total`} />
+                <Kpi label="New this week" value={newThisWeek} accent="#0D9488" delay={120} />
+                <Kpi label="Verified" value={stats?.verified ?? 0} accent="#2563EB" delay={180} />
+              </div>
+              <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+                <Kpi label="Searches (all time)" value={stats?.searches ?? 0} accent={C.ink} delay={0} />
+                <Kpi label="API calls today" value={(usage?.today.totals.etsyCalls ?? 0) + (usage?.today.totals.googleCalls ?? 0)} accent={C.orange} delay={60} />
+                <Kpi label="AI images today" value={usage?.today.totals.imageCalls ?? 0} accent="#7C3AED" delay={120} />
+                <Kpi label="Image cost today" value={usage?.today.totals.imageCostUsd ?? 0} accent="#B7791F" delay={180} format={usd} />
+              </div>
 
-      {/* ─── All users — paying customers surface first, clearly marked ─────── */}
-      <div style={{ marginBottom: 34 }}>
-        <SectionTitle right={err ? <span style={{ fontSize: 12, color: C.danger }}>{err}</span> : <span style={{ fontSize: 11, fontFamily: MONO, color: '#808080' }}>{userQuery.trim() ? `${exact(filteredUsers.length)} match${filteredUsers.length === 1 ? '' : 'es'}` : `${exact(paidCount)} paying · ${exact(users.length)} total`} · page {usersPage}/{usersPageCount}</span>}>All users</SectionTitle>
+              <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16, alignItems: 'start' }}>
+                <div style={{ ...cardStyle, padding: '20px 22px' }}>
+                  <SectionTitle>New signups · last 14 days</SectionTitle>
+                  <Bars data={signups} height={170} accent={C.orange} />
+                </div>
+                <div style={{ ...cardStyle, padding: '20px 22px' }}>
+                  <SectionTitle>Plan distribution</SectionTitle>
+                  {planDist.length ? <Donut segments={planDist} /> : <p style={{ fontSize: 13, color: C.graphite }}>No users yet.</p>}
+                </div>
+              </div>
 
-        {/* Search — name, email or unique ID */}
-        <div style={{ position: 'relative', marginBottom: 12, maxWidth: 420 }}>
-          <span aria-hidden style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: '#8a8a82', pointerEvents: 'none' }}>🔍</span>
-          <input
-            value={userQuery}
-            onChange={e => { setUserQuery(e.target.value); setUsersPage(1) }}
-            placeholder="Search users by name, email or ID…"
-            aria-label="Search users by name, email or ID"
-            style={{
-              width: '100%', background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 100,
-              padding: '10px 38px 10px 38px', fontSize: 13.5, fontFamily: MONO, color: C.ink, outline: 'none',
-            }}
-          />
-          {userQuery && (
-            <button onClick={() => { setUserQuery(''); setUsersPage(1) }} aria-label="Clear search"
-              style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, color: '#8a8a82', lineHeight: 1 }}>×</button>
+              {usage && (
+                <div style={{ ...cardStyle, padding: '20px 22px' }}>
+                  <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>searches / day</span>}>API usage · last 7 days</SectionTitle>
+                  <Bars data={[...usage.last7Days].reverse().map(d => ({ label: fmtDay(d.day).split(',')[0], value: d.searches }))} height={150} accent="#2563EB" />
+                </div>
+              )}
+            </div>
+          )}
+
+          {section === 'users' && (
+            <div>
+              <SectionTitle right={err ? <span style={{ fontSize: 12, color: C.danger }}>{err}</span> : <span style={{ fontSize: 11, fontFamily: MONO, color: '#808080' }}>{userQuery.trim() ? `${exact(filteredUsers.length)} match${filteredUsers.length === 1 ? '' : 'es'}` : `${exact(paidCount)} paying · ${exact(users.length)} total`} · page {usersPage}/{usersPageCount}</span>}>All users</SectionTitle>
+
+              <div style={{ position: 'relative', marginBottom: 12, maxWidth: 420 }}>
+                <span aria-hidden style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: '#8a8a82', pointerEvents: 'none' }}>🔍</span>
+                <input value={userQuery} onChange={e => { setUserQuery(e.target.value); setUsersPage(1) }}
+                  placeholder="Search users by name, email or ID…" aria-label="Search users by name, email or ID"
+                  style={{ width: '100%', background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 100, padding: '10px 38px', fontSize: 13.5, fontFamily: MONO, color: C.ink, outline: 'none' }} />
+                {userQuery && <button onClick={() => { setUserQuery(''); setUsersPage(1) }} aria-label="Clear search" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, color: '#8a8a82', lineHeight: 1 }}>×</button>}
+              </div>
+
+              <div className="rtable" style={{ ...tableCard, overflow: 'hidden' }}>
+                <div style={{ ...tableHead(GRID), padding: '15px 22px' }}>
+                  {['#', 'User', 'Role', 'Plan', 'Status', 'Joined', 'Activity', 'Credits', ''].map((h, i) => <span key={i} style={{ ...th, fontSize: 12 }}>{h}</span>)}
+                </div>
+                {usersPageRows.map((u, i) => {
+                  const sp = statusPill(u.subscriptionStatus)
+                  const paid = isRealPaid(u)
+                  const hue = PLAN_HUE[u.plan] ?? C.stone
+                  const rowBg = u.restricted ? 'rgba(207,70,58,0.06)' : paid ? 'rgba(183,121,31,0.07)' : (i % 2 ? C.canvas : 'transparent')
+                  const rowBgHover = u.restricted ? 'rgba(207,70,58,0.11)' : paid ? 'rgba(183,121,31,0.12)' : C.headerBg
+                  const barColor = u.restricted ? C.danger : paid ? PAID_GOLD : 'transparent'
+                  return (
+                    <div key={u.id} className="admin-user-row"
+                      style={{ ...tableRow(GRID), padding: '18px 22px', opacity: busy === u.id ? 0.5 : 1, transition: 'background 0.12s', background: rowBg, borderLeft: `4px solid ${barColor}` }}
+                      onMouseEnter={e => (e.currentTarget.style.background = rowBgHover)}
+                      onMouseLeave={e => (e.currentTarget.style.background = rowBg)}>
+                      <span style={{ ...tdMono, fontSize: 13, color: '#8a8a82' }}>{(usersPage - 1) * USERS_PAGE_SIZE + i + 1}</span>
+                      <div style={{ minWidth: 0 }}>
+                        <button onClick={() => setDetailUserId(u.id)} title="View full detail"
+                          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit', display: 'flex', alignItems: 'center', gap: 7, maxWidth: '100%' }}>
+                          <span style={{ fontSize: 15, fontWeight: 600, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'underline', textUnderlineOffset: 3, textDecorationColor: C.ash }}>{u.name}</span>
+                          {u.isVerified && <span title="Verified" style={{ display: 'inline-grid', placeItems: 'center', width: 16, height: 16, borderRadius: '50%', background: 'rgba(31,138,76,0.14)', color: '#1F7A42', fontSize: 10.5, flexShrink: 0 }}>✓</span>}
+                          {u.role === 'admin' && <span style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, color: C.orange, background: C.orangeFaint, padding: '2.5px 8px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}>Admin</span>}
+                        </button>
+                        <p style={{ fontSize: 13, color: '#6E6E64', fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 3 }}>{u.email}</p>
+                        <button onClick={() => copyId(u.id)} title="Click to copy user ID"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, maxWidth: '100%', marginTop: 4, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: MONO, fontSize: 11, color: copiedId === u.id ? '#1F8A4C' : '#a2a29a', overflow: 'hidden' }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>ID {u.id}</span>
+                          <span style={{ flexShrink: 0 }}>{copiedId === u.id ? '✓ copied' : '⧉'}</span>
+                        </button>
+                        {u.restricted && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, fontFamily: MONO, color: C.danger, background: C.dangerBg, padding: '3px 9px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 6 }}>⛔ Restricted</span>}
+                      </div>
+                      <select value={u.role} onChange={e => patchUser(u.id, { role: e.target.value as AUser['role'] })} style={selectStyle}>
+                        <option value="user">user</option>
+                        <option value="admin">admin</option>
+                      </select>
+                      <div style={{ position: 'relative', minWidth: 0 }}>
+                        <select value={u.plan} onChange={e => patchUser(u.id, { plan: e.target.value })}
+                          style={{ width: '100%', appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer', outline: 'none', fontSize: 11.5, fontWeight: 700, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.04em', color: paid ? '#fff' : hue, background: paid ? hue : 'transparent', border: paid ? 'none' : `1px solid ${hue}`, borderRadius: 100, padding: '6px 22px 6px 12px' }}>
+                          {['free', 'starter', 'basic', 'pro', 'pro-1yr', 'business', 'agency', 'enterprise', 'custom'].map(pl => (
+                            <option key={pl} value={pl} style={{ color: C.ink, background: C.paper }}>{PLAN_LABEL[pl] ?? pl}</option>
+                          ))}
+                        </select>
+                        <span aria-hidden style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', fontSize: 9, color: paid ? '#fff' : hue, pointerEvents: 'none' }}>▾</span>
+                      </div>
+                      {paid
+                        ? <span title="Paid via Lemon Squeezy" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, width: 'fit-content', fontSize: 11.5, fontWeight: 700, color: '#fff', background: PAID_GOLD, padding: '4px 12px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>★ Paid</span>
+                        : sp ? <span style={{ display: 'inline-flex', alignItems: 'center', width: 'fit-content', fontSize: 11.5, fontWeight: 600, color: sp.fg, background: sp.bg, padding: '4px 11px', borderRadius: 100, textTransform: 'capitalize', whiteSpace: 'nowrap' }}>{sp.label}</span>
+                        : <span style={{ color: '#b7b7ae', fontSize: 14 }}>—</span>}
+                      <span style={{ ...tdMono, fontSize: 13.5, color: C.graphite }}>{fmtDate(u.createdAt)}</span>
+                      <div style={{ fontFamily: MONO, minWidth: 0, lineHeight: 1.6 }}>
+                        <div style={{ fontSize: 13.5, color: C.ink, fontWeight: 500 }}>{exact(u.searches)} searches</div>
+                        <div style={{ fontSize: 12, color: '#8a8a82', marginTop: 2 }}>{u.imagesThisMonth} img · {u.connectedShops} shop{u.connectedShops === 1 ? '' : 's'} · {timeAgo(u.lastActive)}</div>
+                      </div>
+                      <div style={{ fontFamily: MONO, minWidth: 0, lineHeight: 1.6 }} title={`${exact(u.creditsUsedTotal)} credits spent lifetime`}>
+                        <div style={{ fontSize: 13.5, color: u.creditsRemaining <= 0 ? C.danger : C.ink, fontWeight: 600 }}>{exact(u.creditsUsedToday)} <span style={{ color: '#8a8a82', fontWeight: 500 }}>/ {exact(u.creditsLimit)}</span></div>
+                        <div style={{ fontSize: 12, color: '#8a8a82', marginTop: 2 }}>{exact(u.creditsUsedTotal)} lifetime</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button onClick={() => setConfirmAction({ user: u, kind: u.restricted ? 'unrestrict' : 'restrict' })} title={u.restricted ? 'Lift restriction' : 'Restrict this user'}
+                          style={{ background: u.restricted ? 'rgba(31,138,76,0.10)' : 'rgba(194,129,17,0.12)', border: `1px solid ${u.restricted ? '#1F8A4C' : '#C28111'}`, color: u.restricted ? '#1F8A4C' : '#C28111', borderRadius: 100, padding: '8px 14px', fontSize: 12.5, fontWeight: 500, fontFamily: MONO, cursor: 'pointer', width: 'fit-content' }}>
+                          {u.restricted ? 'Unrestrict' : 'Restrict'}
+                        </button>
+                        <button onClick={() => setConfirmAction({ user: u, kind: 'delete' })} title="Delete user"
+                          style={{ background: C.dangerBg, border: `1px solid ${C.danger}`, color: C.danger, borderRadius: 100, padding: '8px 16px', fontSize: 12.5, fontWeight: 500, fontFamily: MONO, cursor: 'pointer', width: 'fit-content' }}>
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              <Pagination page={usersPage} pageCount={usersPageCount} onChange={setUsersPage} />
+              <p style={{ fontSize: 12.5, color: '#808080', marginTop: 12, lineHeight: 1.5 }}>
+                Click a name to open the full profile. Role/plan changes save instantly. &ldquo;★ Paid&rdquo; marks a real Lemon Squeezy purchase; changing a plan here does not add it. Emails in <code style={{ fontFamily: MONO }}>ADMIN_EMAILS</code> are always admin.
+              </p>
+            </div>
+          )}
+
+          {section === 'analytics' && (
+            usage ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>today · {usage.today.day} (UTC) · resets at midnight</span>}>API usage — today</SectionTitle>
+                <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+                  <Kpi label="Etsy API calls" value={usage.today.totals.etsyCalls} accent={C.orange} />
+                  <Kpi label="Google API calls" value={usage.today.totals.googleCalls} accent={C.ink} />
+                  <Kpi label="Searches" value={usage.today.totals.searches} accent="#2563EB" />
+                  <Kpi label="Credits spent" value={usage.today.totals.creditsSpent} accent="#7C3AED" />
+                </div>
+                <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+                  <Kpi label="Cache hits" value={usage.today.totals.cacheHits} accent="#0D9488" />
+                  <Kpi label="Live API hits" value={usage.today.totals.apiHits} accent={C.ink} />
+                  <Kpi label="AI images" value={usage.today.totals.imageCalls} accent={C.orange} />
+                  <Kpi label="Image cost" value={usage.today.totals.imageCostUsd} accent="#B7791F" format={usd} />
+                </div>
+
+                <div style={{ ...cardStyle, padding: '20px 22px' }}>
+                  <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>Etsy + Google calls / day</span>}>API calls · last 7 days</SectionTitle>
+                  <Bars data={[...usage.last7Days].reverse().map(d => ({ label: fmtDay(d.day).split(',')[0], value: d.etsyCalls + d.googleCalls }))} height={160} accent={C.orange} />
+                </div>
+
+                <div>
+                  <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>page {usagePage}/{usagePageCount}</span>}>Top consumers today</SectionTitle>
+                  <div className="rtable" style={tableCard}>
+                    <div style={tableHead(UGRID)}>
+                      {['User', 'Etsy', 'Google', 'Searches', 'Cache / API', 'Credits', 'Images · $'].map((h, i) => <span key={i} style={th}>{h}</span>)}
+                    </div>
+                    {usagePerUser.length === 0 ? (
+                      <div style={{ padding: '16px 18px', fontSize: 13, color: '#808080' }}>No API usage recorded yet today.</div>
+                    ) : usagePageRows.map(u => (
+                      <div key={u.userId} style={tableRow(UGRID)}>
+                        <span style={{ fontSize: 12.5, color: C.ink, fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.userEmail || (u.userId === 'anonymous' ? 'anonymous (logged-out)' : u.userId)}</span>
+                        <span style={tdMono}>{exact(u.etsyCalls)}</span>
+                        <span style={tdMono}>{exact(u.googleCalls)}</span>
+                        <span style={tdMono}>{exact(u.searches)}</span>
+                        <span style={tdMono}>{exact(u.cacheHits)} / {exact(u.apiHits)}</span>
+                        <span style={{ ...tdMono, color: u.creditsSpent > 0 ? C.orange : '#808080' }}>{exact(u.creditsSpent)}</span>
+                        <span style={{ ...tdMono, color: u.imageCalls > 0 ? C.orange : '#808080' }}>{exact(u.imageCalls)} · {usd(u.imageCostUsd)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <Pagination page={usagePage} pageCount={usagePageCount} onChange={setUsagePage} />
+                </div>
+
+                <div>
+                  <SectionTitle>Daily totals · last 7 days</SectionTitle>
+                  <div className="rtable" style={tableCard}>
+                    <div style={tableHead(D7GRID)}>
+                      <span style={th}>Day</span><span style={numTh}>Etsy</span><span style={numTh}>Google</span><span style={numTh}>Searches</span><span style={numTh}>Credits</span><span style={numTh}>Images</span><span style={numTh}>Cost</span>
+                    </div>
+                    {usage.last7Days.map((d, i) => (
+                      <div key={d.day} style={{ ...tableRow(D7GRID), background: i % 2 ? C.canvas : 'transparent' }}>
+                        <span style={{ fontSize: 13, fontFamily: MONO, fontWeight: 500, color: C.ink }}>{fmtDay(d.day)}</span>
+                        <span style={numCell}>{exact(d.etsyCalls)}</span>
+                        <span style={numCell}>{exact(d.googleCalls)}</span>
+                        <span style={numCell}>{exact(d.searches)}</span>
+                        <span style={{ ...numCell, color: d.creditsSpent > 0 ? C.orange : C.ink }}>{exact(d.creditsSpent)}</span>
+                        <span style={{ ...numCell, color: d.imageCalls > 0 ? C.orange : C.ink }}>{exact(d.imageCalls)}</span>
+                        <span style={{ ...numCell, color: C.graphite }}>{usd(d.imageCostUsd)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : <EmptyState icon="📊" title="No usage data yet" sub="Analytics appear once the app records API activity." />
+          )}
+
+          {section === 'content' && (
+            <div className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
+              {[
+                { href: '/admin/ads', title: 'Popup ads', desc: 'Create and toggle the site-wide promotional popup.' },
+                { href: '/admin/deals', title: 'Deals', desc: 'Publish special-offer pages shown at /deals.' },
+                { href: '/admin/blogs', title: 'Blog', desc: 'Write and manage Markdown blog posts.' },
+              ].map(c => (
+                <Link key={c.href} href={c.href} style={{ ...cardStyle, padding: '22px', textDecoration: 'none', display: 'flex', flexDirection: 'column', gap: 8, transition: 'transform 0.15s, border-color 0.15s' }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.borderColor = C.orange }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = C.ash }}>
+                  <span style={{ fontSize: 17, fontWeight: 600, color: C.ink }}>{c.title}</span>
+                  <span style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.5 }}>{c.desc}</span>
+                  <span style={{ fontSize: 13, color: C.orange, fontWeight: 600, marginTop: 4 }}>Manage →</span>
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {section === 'settings' && (
+            <div style={{ ...tableCard, padding: '20px 24px', maxWidth: 640, display: 'flex', alignItems: 'flex-start', gap: 18, flexWrap: 'wrap', borderColor: promoOn ? C.orange : C.ash, background: promoOn ? 'rgba(251,94,9,0.05)' : C.paper }}>
+              <div style={{ flex: 1, minWidth: 240 }}>
+                <p style={{ fontSize: 15, fontWeight: 600, color: C.ink }}>Convert all free users to Pro</p>
+                <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.55, marginTop: 4 }}>Turn on to upgrade every Free user to Pro. Use <strong>Refresh</strong> to convert any new free users since.</p>
+                {promoMsg && <p style={{ fontSize: 12.5, color: C.orange, fontFamily: MONO, marginTop: 8 }}>{promoMsg}</p>}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                <button onClick={() => callPromo({ refresh: true })} disabled={promoBusy} title="Convert new free users to Pro now"
+                  style={{ fontSize: 13, fontWeight: 500, fontFamily: MONO, color: C.orange, background: C.orangeFaint, border: `1px solid ${C.orange}`, borderRadius: 100, padding: '8px 15px', cursor: promoBusy ? 'wait' : 'pointer', opacity: promoBusy ? 0.6 : 1 }}>Refresh</button>
+                <button onClick={() => callPromo({ enabled: !promoOn })} disabled={promoBusy} role="switch" aria-checked={promoOn} title={promoOn ? 'Turn off' : 'Turn on'}
+                  style={{ position: 'relative', width: 58, height: 32, borderRadius: 100, border: 'none', cursor: promoBusy ? 'wait' : 'pointer', background: promoOn ? C.orange : C.ash, transition: 'background 0.18s', opacity: promoBusy ? 0.6 : 1 }}>
+                  <span style={{ position: 'absolute', top: 3, left: promoOn ? 29 : 3, width: 26, height: 26, borderRadius: '50%', background: '#fff', transition: 'left 0.18s', boxShadow: '0 2px 5px rgba(0,0,0,0.25)' }} />
+                </button>
+              </div>
+            </div>
           )}
         </div>
-
-        <div className="rtable" style={{ ...tableCard, overflow: 'hidden' }}>
-          <div style={{ ...tableHead(GRID), padding: '15px 22px' }}>
-            {['#', 'User', 'Role', 'Plan', 'Status', 'Joined', 'Activity', 'Credits', ''].map((h, i) => <span key={i} style={{ ...th, fontSize: 12 }}>{h}</span>)}
-          </div>
-          {usersPageRows.map((u, i) => {
-            const sp = statusPill(u.subscriptionStatus)
-            const paid = isRealPaid(u)
-            const hue = PLAN_HUE[u.plan] ?? C.stone
-            // Restricted is the more urgent state — it overrides the paid tint.
-            const rowBg = u.restricted ? 'rgba(207,70,58,0.06)' : paid ? 'rgba(183,121,31,0.07)' : (i % 2 ? C.canvas : 'transparent')
-            const rowBgHover = u.restricted ? 'rgba(207,70,58,0.11)' : paid ? 'rgba(183,121,31,0.12)' : C.headerBg
-            const barColor = u.restricted ? C.danger : paid ? PAID_GOLD : 'transparent'
-            return (
-            <div key={u.id} className="admin-user-row"
-              style={{
-                ...tableRow(GRID), padding: '18px 22px', opacity: busy === u.id ? 0.5 : 1, transition: 'background 0.12s',
-                background: rowBg, borderLeft: `4px solid ${barColor}`,
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = rowBgHover)}
-              onMouseLeave={e => (e.currentTarget.style.background = rowBg)}>
-              <span style={{ ...tdMono, fontSize: 13, color: '#8a8a82' }}>{(usersPage - 1) * USERS_PAGE_SIZE + i + 1}</span>
-              <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: 15, fontWeight: 600, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 7 }}>
-                  {u.name}
-                  {u.isVerified && <span title="Verified" style={{ display: 'inline-grid', placeItems: 'center', width: 16, height: 16, borderRadius: '50%', background: 'rgba(31,138,76,0.14)', color: '#1F7A42', fontSize: 10.5, flexShrink: 0 }}>✓</span>}
-                  {u.role === 'admin' && <span style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, color: C.orange, background: C.orangeFaint, padding: '2.5px 8px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}>Admin</span>}
-                </p>
-                <p style={{ fontSize: 13, color: '#6E6E64', fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 3 }}>{u.email}</p>
-                <button onClick={() => copyId(u.id)} title="Click to copy user ID"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, maxWidth: '100%', marginTop: 4, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: MONO, fontSize: 11, color: copiedId === u.id ? '#1F8A4C' : '#a2a29a', overflow: 'hidden' }}>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>ID {u.id}</span>
-                  <span style={{ flexShrink: 0 }}>{copiedId === u.id ? '✓ copied' : '⧉'}</span>
-                </button>
-                {/* Restricted is shown here (it's the account's access state); "Paid"
-                    lives only in the Status column so it's never written twice. */}
-                {u.restricted && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, fontFamily: MONO, color: C.danger, background: C.dangerBg, padding: '3px 9px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 6 }}>⛔ Restricted</span>
-                )}
-              </div>
-              <select value={u.role} onChange={e => patchUser(u.id, { role: e.target.value as AUser['role'] })} style={selectStyle}>
-                <option value="user">user</option>
-                <option value="admin">admin</option>
-              </select>
-              {/* A single styled control — the pill IS the select, not a separate badge above it. */}
-              <div style={{ position: 'relative', minWidth: 0 }}>
-                <select value={u.plan} onChange={e => patchUser(u.id, { plan: e.target.value })}
-                  style={{
-                    width: '100%', appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer', outline: 'none',
-                    fontSize: 11.5, fontWeight: 700, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.04em',
-                    color: paid ? '#fff' : hue, background: paid ? hue : 'transparent', border: paid ? 'none' : `1px solid ${hue}`,
-                    borderRadius: 100, padding: '6px 22px 6px 12px',
-                  }}>
-                  {['free','starter','basic','pro','pro-1yr','business','agency','enterprise','custom'].map(pl => (
-                    <option key={pl} value={pl} style={{ color: C.ink, background: C.paper }}>{PLAN_LABEL[pl] ?? pl}</option>
-                  ))}
-                </select>
-                <span aria-hidden style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', fontSize: 9, color: paid ? '#fff' : hue, pointerEvents: 'none' }}>▾</span>
-              </div>
-              {/* Status = the single "Paid" indicator (real Lemon Squeezy purchase),
-                  gold-highlighted; falls back to the LS subscription state, then —. */}
-              {paid
-                ? <span title="Paid via Lemon Squeezy" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, width: 'fit-content', fontSize: 11.5, fontWeight: 700, color: '#fff', background: PAID_GOLD, padding: '4px 12px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>★ Paid</span>
-                : sp
-                ? <span style={{ display: 'inline-flex', alignItems: 'center', width: 'fit-content', fontSize: 11.5, fontWeight: 600, color: sp.fg, background: sp.bg, padding: '4px 11px', borderRadius: 100, textTransform: 'capitalize', whiteSpace: 'nowrap' }}>{sp.label}</span>
-                : <span style={{ color: '#b7b7ae', fontSize: 14 }}>—</span>}
-              <span style={{ ...tdMono, fontSize: 13.5, color: C.graphite }}>{fmtDate(u.createdAt)}</span>
-              <div style={{ fontFamily: MONO, minWidth: 0, lineHeight: 1.6 }}>
-                <div style={{ fontSize: 13.5, color: C.ink, fontWeight: 500 }}>{exact(u.searches)} searches</div>
-                <div style={{ fontSize: 12, color: '#8a8a82', marginTop: 2 }}>{u.imagesThisMonth} img · {u.connectedShops} shop{u.connectedShops === 1 ? '' : 's'} · {timeAgo(u.lastActive)}</div>
-              </div>
-              <div style={{ fontFamily: MONO, minWidth: 0, lineHeight: 1.6 }} title={`${exact(u.creditsUsedTotal)} credits spent lifetime`}>
-                <div style={{ fontSize: 13.5, color: u.creditsRemaining <= 0 ? C.danger : C.ink, fontWeight: 600 }}>{exact(u.creditsUsedToday)} <span style={{ color: '#8a8a82', fontWeight: 500 }}>/ {exact(u.creditsLimit)}</span></div>
-                <div style={{ fontSize: 12, color: '#8a8a82', marginTop: 2 }}>{exact(u.creditsUsedTotal)} lifetime</div>
-              </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {/* Colored: amber "Restrict" (a warning action) vs green "Unrestrict" (restores access). */}
-                <button onClick={() => setConfirmAction({ user: u, kind: u.restricted ? 'unrestrict' : 'restrict' })} title={u.restricted ? 'Lift restriction' : 'Restrict this user'}
-                  style={{
-                    background: u.restricted ? 'rgba(31,138,76,0.10)' : 'rgba(194,129,17,0.12)',
-                    border: `1px solid ${u.restricted ? '#1F8A4C' : '#C28111'}`, color: u.restricted ? '#1F8A4C' : '#C28111',
-                    borderRadius: 100, padding: '8px 14px', fontSize: 12.5, fontWeight: 500, fontFamily: MONO, cursor: 'pointer', width: 'fit-content',
-                  }}>
-                  {u.restricted ? 'Unrestrict' : 'Restrict'}
-                </button>
-                <button onClick={() => setConfirmAction({ user: u, kind: 'delete' })} title="Delete user"
-                  style={{ background: C.dangerBg, border: `1px solid ${C.danger}`, color: C.danger, borderRadius: 100, padding: '8px 16px', fontSize: 12.5, fontWeight: 500, fontFamily: MONO, cursor: 'pointer', width: 'fit-content' }}>
-                  Delete
-                </button>
-              </div>
-            </div>
-            )
-          })}
-        </div>
-        <Pagination page={usersPage} pageCount={usersPageCount} onChange={setUsersPage} />
-        <p style={{ fontSize: 12.5, color: '#808080', marginTop: 12, lineHeight: 1.5 }}>
-          Role/plan changes save instantly. The &ldquo;★ Paid&rdquo; status marks a real Lemon Squeezy purchase — changing someone&apos;s plan here does not add it. Emails in the server&apos;s <code style={{ fontFamily: MONO }}>ADMIN_EMAILS</code> are always admin regardless of this setting.
-        </p>
       </div>
 
-      {usage && (
-        <div style={{ marginBottom: 30 }}>
-          <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>today · {usage.today.day} (UTC) · resets at midnight</span>}>API usage — today</SectionTitle>
-          <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 12 }}>
-            <StatCard label="Etsy API calls" value={exact(usage.today.totals.etsyCalls)} accent={C.orange} />
-            <StatCard label="Google API calls" value={exact(usage.today.totals.googleCalls)} accent={C.ink} />
-            <StatCard label="Searches" value={exact(usage.today.totals.searches)} accent={C.ink} />
-            <StatCard label="Cache hits / API" value={`${exact(usage.today.totals.cacheHits)} / ${exact(usage.today.totals.apiHits)}`} accent={C.ink} />
-          </div>
+      {/* User detail drawer */}
+      <UserDetailPanel userId={detailUserId} onClose={() => setDetailUserId(null)} />
 
-          {/* Gemini image generation — count, tokens burnt, USD spent */}
-          <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 14 }}>
-            <StatCard label="AI images generated" value={exact(usage.today.totals.imageCalls)} accent={C.orange} />
-            <StatCard label="Image tokens burnt" value={exact(usage.today.totals.imageTokens)} accent={C.ink} />
-            <StatCard label="Image cost (today)" value={usd(usage.today.totals.imageCostUsd)} accent={C.orange} />
-            <StatCard label="Credits spent (today)" value={exact(usage.today.totals.creditsSpent)} accent={C.orange} />
-          </div>
-
-          <div className="rtable" style={tableCard}>
-            <div style={tableHead(UGRID)}>
-              {['User', 'Etsy', 'Google', 'Searches', 'Cache / API', 'Credits', 'Images · $'].map((h, i) => <span key={i} style={th}>{h}</span>)}
-            </div>
-            {usagePerUser.length === 0 ? (
-              <div style={{ padding: '16px 18px', fontSize: 13, color: '#808080' }}>No API usage recorded yet today.</div>
-            ) : usagePageRows.map(u => (
-              <div key={u.userId} style={tableRow(UGRID)}>
-                <span style={{ fontSize: 12.5, color: C.ink, fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {u.userEmail || (u.userId === 'anonymous' ? 'anonymous (logged-out)' : u.userId)}
-                </span>
-                <span style={tdMono}>{exact(u.etsyCalls)}</span>
-                <span style={tdMono}>{exact(u.googleCalls)}</span>
-                <span style={tdMono}>{exact(u.searches)}</span>
-                <span style={tdMono}>{exact(u.cacheHits)} / {exact(u.apiHits)}</span>
-                <span style={{ ...tdMono, color: u.creditsSpent > 0 ? C.orange : '#808080' }}>{exact(u.creditsSpent)}</span>
-                <span style={{ ...tdMono, color: u.imageCalls > 0 ? C.orange : '#808080' }}>{exact(u.imageCalls)} · {usd(u.imageCostUsd)}</span>
-              </div>
-            ))}
-          </div>
-          <Pagination page={usagePage} pageCount={usagePageCount} onChange={setUsagePage} />
-
-          <p style={{ fontSize: 11.5, fontFamily: MONO, color: '#808080', margin: '18px 0 10px' }}>LAST 7 DAYS</p>
-          <div className="rtable" style={tableCard}>
-            <div style={tableHead(D7GRID)}>
-              <span style={th}>Day</span>
-              <span style={numTh}>Etsy</span>
-              <span style={numTh}>Google</span>
-              <span style={numTh}>Searches</span>
-              <span style={numTh}>Credits</span>
-              <span style={numTh}>Images</span>
-              <span style={numTh}>Cost</span>
-            </div>
-            {usage.last7Days.map((d, i) => (
-              <div key={d.day} style={{ ...tableRow(D7GRID), background: i % 2 ? C.canvas : 'transparent' }}>
-                <span style={{ fontSize: 13, fontFamily: MONO, fontWeight: 500, color: C.ink }}>{fmtDay(d.day)}</span>
-                <span style={numCell}>{exact(d.etsyCalls)}</span>
-                <span style={numCell}>{exact(d.googleCalls)}</span>
-                <span style={numCell}>{exact(d.searches)}</span>
-                <span style={{ ...numCell, color: d.creditsSpent > 0 ? C.orange : C.ink }}>{exact(d.creditsSpent)}</span>
-                <span style={{ ...numCell, color: d.imageCalls > 0 ? C.orange : C.ink }}>{exact(d.imageCalls)}</span>
-                <span style={{ ...numCell, color: C.graphite }}>{usd(d.imageCostUsd)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
+      {/* Confirm modal */}
       {confirmAction && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,18,14,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 20 }}
-          onClick={() => setConfirmAction(null)}>
-          <div style={{ background: C.paper, borderRadius: 16, padding: '26px 28px', maxWidth: 420, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}
-            onClick={e => e.stopPropagation()}>
-            <h3 style={{ fontSize: 18, fontWeight: 600, color: C.ink, marginBottom: 10 }}>
-              {confirmAction.kind === 'delete' ? 'Delete this user?' : confirmAction.kind === 'restrict' ? 'Restrict this user?' : 'Lift restriction?'}
-            </h3>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,18,14,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: 20 }} onClick={() => setConfirmAction(null)}>
+          <div style={{ background: C.paper, borderRadius: 16, padding: '26px 28px', maxWidth: 420, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 18, fontWeight: 600, color: C.ink, marginBottom: 10 }}>{confirmAction.kind === 'delete' ? 'Delete this user?' : confirmAction.kind === 'restrict' ? 'Restrict this user?' : 'Lift restriction?'}</h3>
             <p style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.6, marginBottom: 22 }}>
               {confirmAction.kind === 'delete' && <>Permanently delete <strong style={{ color: C.ink }}>{confirmAction.user.email}</strong>? This removes their account and search history and cannot be undone.</>}
-              {confirmAction.kind === 'restrict' && <>Restrict <strong style={{ color: C.ink }}>{confirmAction.user.email}</strong>? They&apos;ll be signed out of the dashboard immediately and see a message explaining they&apos;ve been restricted, until you lift it.</>}
+              {confirmAction.kind === 'restrict' && <>Restrict <strong style={{ color: C.ink }}>{confirmAction.user.email}</strong>? They&apos;ll be signed out of the dashboard immediately until you lift it.</>}
               {confirmAction.kind === 'unrestrict' && <>Lift the restriction on <strong style={{ color: C.ink }}>{confirmAction.user.email}</strong>? They&apos;ll regain dashboard access right away.</>}
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button onClick={() => setConfirmAction(null)}
-                style={{ background: 'transparent', border: `1px solid ${C.hairInk}`, color: C.ink, borderRadius: 100, padding: '9px 18px', fontSize: 13.5, fontFamily: 'inherit', cursor: 'pointer' }}>
-                Cancel
-              </button>
-              <button onClick={runConfirmed}
-                style={{
-                  background: confirmAction.kind === 'unrestrict' ? C.orange : C.danger, border: 'none', color: '#fff',
-                  borderRadius: 100, padding: '9px 18px', fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', cursor: 'pointer',
-                }}>
-                {confirmAction.kind === 'delete' ? 'Delete' : confirmAction.kind === 'restrict' ? 'Restrict' : 'Unrestrict'}
-              </button>
+              <button onClick={() => setConfirmAction(null)} style={{ background: 'transparent', border: `1px solid ${C.hairInk}`, color: C.ink, borderRadius: 100, padding: '9px 18px', fontSize: 13.5, fontFamily: 'inherit', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={runConfirmed} style={{ background: confirmAction.kind === 'unrestrict' ? C.orange : C.danger, border: 'none', color: '#fff', borderRadius: 100, padding: '9px 18px', fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', cursor: 'pointer' }}>{confirmAction.kind === 'delete' ? 'Delete' : confirmAction.kind === 'restrict' ? 'Restrict' : 'Unrestrict'}</button>
             </div>
           </div>
         </div>
       )}
-
-    </>
+    </main>
   )
 }

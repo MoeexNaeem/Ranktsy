@@ -2,10 +2,10 @@
 import { useState, useCallback } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import axios from 'axios'
-import { Card, SectionTitle, ErrorBox, BusyNote, GenSkeleton, MONO, primaryBtn } from '../kit'
+import { Card, SectionTitle, GenNote, GenSkeleton, MONO, primaryBtn } from '../kit'
 import { C } from '@/utils'
 import { chargeCredits } from '@/lib/credits-client'
-import { busyRetry, busyRetryDelay, useSlow } from '@/lib/ai/busy'
+import { busyRetry, busyRetryDelay, useWaitPhase } from '@/lib/ai/busy'
 
 interface Result {
   titles: string[]
@@ -54,8 +54,7 @@ export function AIListingHelperTab() {
     gen.mutate()
   }, [seed, gen])
   const r = gen.data
-  const slow = useSlow(gen.isPending)
-  const busy = gen.isPending && (slow || gen.failureCount > 0)
+  const phase = useWaitPhase(gen.isPending)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -89,11 +88,11 @@ export function AIListingHelperTab() {
 
       {gen.isPending && (
         <>
-          {busy && <BusyNote>{"Please wait — we're a little busy. Your optimized listing is coming up…"}</BusyNote>}
+          <GenNote phase={phase} onRetry={() => gen.mutate()} />
           <GenSkeleton height={260} />
         </>
       )}
-      {gen.isError && !gen.isPending && <ErrorBox>{(gen.error as Error)?.message ?? 'Something went wrong. Try again.'}</ErrorBox>}
+      {gen.isError && !gen.isPending && <GenNote phase="normal" error onRetry={() => gen.mutate()} />}
 
       {r && !gen.isPending && (
         <>
