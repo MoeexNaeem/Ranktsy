@@ -18,7 +18,7 @@ type SortKey = 'competition' | 'difficulty' | 'avgViews' | 'avgFavorites' | 'fav
 const CUR: Record<string, string> = { USD: '$', GBP: '£', EUR: '€', CAD: 'C$', AUD: 'A$', PKR: '₨', INR: '₹' }
 const sym = (c?: string) => CUR[c ?? 'USD'] ?? (c ? c + ' ' : '$')
 
-// Google advertiser-competition band → semantic colour (distinct from Etsy competition).
+// Google advertiser-competition band → semantic colour (distinct live competition).
 const GCOMP: Record<string, { fg: string; bg: string; label: string }> = {
   LOW:    { fg: D.good, bg: D.goodBg, label: 'Low' },
   MEDIUM: { fg: D.mid,  bg: D.midBg,  label: 'Med' },
@@ -34,7 +34,7 @@ const COLS: { label: string; key?: SortKey }[] = [
   // Not "CTR" — Etsy exposes no clicks. This is favourites ÷ views.
   { label: 'Favs / View', key: 'favPerView' },
   { label: 'Median Price', key: 'medianPrice' },
-  // Real Google Ads data — shown only when Google Ads is connected (else "—").
+  // Real search data — shown only when Google Ads is connected (else "—").
   { label: 'Google Vol', key: 'googleSearches' },
   { label: 'Google Comp.' },
 ]
@@ -135,7 +135,7 @@ export function BulkKeywordTab() {
   const exportCsv = useCallback(() => {
     if (!view.length) return
     downloadCsv('bulk-keywords.csv', toCsv(
-      ['Keyword', 'Etsy competition', 'Competition level', 'KD', 'Avg views', 'Avg favorites', 'Favs per view %', 'Median price', 'Currency', 'Chars', 'Words', 'Google searches', 'Google competition', 'Google CPC low', 'Google CPC high'],
+      ['Keyword', 'Etsy competition', 'Competition level', 'KD', 'Avg views', 'Avg favorites', 'Favs per view %', 'Median price', 'Currency', 'Chars', 'Words', 'searches', 'Google competition', 'Google CPC low', 'Google CPC high'],
       view.map(r => [r.keyword, r.competition, r.competitionLevel, r.difficulty, r.avgViews, r.avgFavorites, r.favPerView, r.medianPrice, r.currency, r.charCount, r.wordCount, r.googleSearches, r.googleCompetition ?? '', r.googleCpcLow ?? '', r.googleCpcHigh ?? '']),
     ))
   }, [view])

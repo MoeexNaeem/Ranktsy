@@ -66,7 +66,9 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
     reviewsLast30d: rstats?.last30d ?? null,
     price: product.price,
     ageDays,
-  }), [rstats, product.price, ageDays])
+    views: product.views ?? null,
+    favorites: product.favorites ?? null,
+  }), [rstats, product.price, ageDays, product.views, product.favorites])
 
   const images = listing?.images?.length ? listing.images : (product.image ? [{ url_570xN: product.image, url_75x75: product.image }] : [])
   const shopSales = shop?.sales != null ? Number(shop.sales) : null
@@ -205,12 +207,12 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
       {(tagAnalysis.data || tagAnalysis.isPending) && (
         <Card pad={0}>
           <div style={{ padding: '16px 18px 12px' }}>
-            <SectionTitle right={<span style={{ fontSize: 11, fontFamily: MONO, color: C.stone }}>real Etsy + Google</span>}>Tag analysis</SectionTitle>
+            <SectionTitle right={<span style={{ fontSize: 11, fontFamily: MONO, color: C.stone }}>real, measured + Google</span>}>Tag analysis</SectionTitle>
           </div>
           {tagAnalysis.isPending ? <div style={{ padding: '0 18px 18px' }}><Loading label="Running a live Etsy search for each tag…" /></div> : (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr 0.9fr 0.9fr 0.9fr 0.9fr', gap: 10, padding: '10px 18px', background: C.headerBg, borderTop: `1px solid ${C.ash}`, borderBottom: `1px solid ${C.ash}` }}>
-                {['Tag', 'Competition', 'Avg views', 'Avg favs', 'Favs/view', 'Google/mo'].map((h, i) => (
+                {['Tag', 'Competition', 'Avg views', 'Avg favs', 'Favs/view', 'Search/mo'].map((h, i) => (
                   <span key={h} style={{ fontSize: 10.5, fontFamily: MONO, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: C.graphite, textAlign: i === 0 ? 'left' : 'right' }}>{h}</span>
                 ))}
               </div>
@@ -226,7 +228,7 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
                 </button>
               ))}
               <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6, padding: '12px 18px' }}>
-                Competition = real live-listing count per tag. Views/favorites are the real averages of the listings ranking for it. Google/mo is real Google Ads volume when connected. No sales column — Etsy publishes none per listing.
+                Competition = real live-listing count per tag. Views/favorites are the real averages of the listings ranking for it. Search/mo is real search volume when connected. No sales column — Etsy publishes none per listing.
               </p>
             </>
           )}
@@ -259,7 +261,7 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
           tool="Hot Product"
           subject={product.title.slice(0, 60)}
           facts={aiFacts}
-          notes="Views/favorites/engagement and shop lifetime sales are real Etsy measurements. Etsy publishes no per-listing sales, so any 'Est. monthly sales/revenue' here are ESTIMATES derived from the listing's review count and velocity (sales ≈ reviews ÷ review-rate) — label them as estimates and never state them as exact. Interpret why this product is 'hot' (favorite-velocity + engagement) and what a seller entering this niche should learn."
+          notes="Views/favorites/engagement and shop lifetime sales are real, measured measurements. Etsy publishes no per-listing sales, so any 'Est. monthly sales/revenue' here are ESTIMATES derived from the listing's review count and velocity (sales ≈ reviews ÷ review-rate) — label them as estimates and never state them as exact. Interpret why this product is 'hot' (favorite-velocity + engagement) and what a seller entering this niche should learn."
         />
       )}
 

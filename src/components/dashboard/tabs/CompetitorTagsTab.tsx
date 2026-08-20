@@ -85,7 +85,7 @@ export function CompetitorTagsTab() {
               ))}
             </div>
             <p style={{ fontSize: 13, color: C.graphite, marginTop: 12, lineHeight: 1.55 }}>
-              For market research — see which tags a shop uses across its active listings and how those tags correlate with views &amp; favorites. Tags come from the official Etsy API. Always write your own tags that genuinely describe your product.
+              For market research — see which tags a shop uses across its active listings and how those tags correlate with views &amp; favorites. Tags come from the official live data. Always write your own tags that genuinely describe your product.
             </p>
           </div>
 

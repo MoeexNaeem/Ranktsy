@@ -128,7 +128,7 @@ export function TagOptimizerTab() {
               tool="Tag Optimizer"
               subject={query}
               facts={aiFacts}
-              notes="Each tag is ranked by the average views of the listings using it (real Etsy figures) — high avg views on a tag signals it's associated with discoverable listings, not proof of causation. Recommend a balanced 13-tag strategy (mix of broad + long-tail), explain which tags are strongest and why, and remind the seller to use tags that genuinely describe their product."
+              notes="Each tag is ranked by the average views of the listings using it (real, measured figures) — high avg views on a tag signals it's associated with discoverable listings, not proof of causation. Recommend a balanced 13-tag strategy (mix of broad + long-tail), explain which tags are strongest and why, and remind the seller to use tags that genuinely describe their product."
             />
           )}
         </>

@@ -88,7 +88,7 @@ function CountrySelect({ value, onChange }: { value: string; onChange: (c: strin
 
   return (
     <div ref={ref} style={{ position: 'relative', display: 'flex', flexShrink: 0 }}
-      title="Country for Google search volume, CPC & competition">
+      title="Country for search volume, CPC & competition">
       <button type="button" onClick={() => setOpen(o => !o)} aria-label={`Country: ${cur.name}`}
         style={{ display: 'flex', alignItems: 'center', gap: 9, height: '100%', minHeight: 50, padding: '0 15px', borderRadius: 100, border: `1px solid ${open ? C.orange : C.ash}`, background: C.paper, color: C.ink, fontSize: 14.5, fontFamily: 'inherit', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap' }}>
         <FlagIcon code={cur.code} />
@@ -123,7 +123,7 @@ function Skel({ h = 82 }: { h?: number }) {
 }
 
 // ─── Honest signal badges ─────────────────────────────────────────────────────
-// eRank shows a "Trending in Search!" chip. The Etsy Open API exposes no search
+// eRank shows a "Trending in Search!" chip. Our data exposes no search
 // volume over time, so a trend chip here would be decoration. These read off
 // metrics we genuinely have: real listing supply and real favorites-per-view.
 function Badge({ color, bg, children, title }: {
@@ -220,7 +220,7 @@ function DifficultyPanel({ s }: { s: KeywordStats }) {
 // "Average Etsy Searches" is an ESTIMATE (Etsy publishes no search data — eRank's
 // is an estimate too). eRank's number tracks the Etsy listing count, NOT Google
 // volume, so this is modelled from our real competition via a power law fitted to
-// eRank (see lib/etsySearchEstimate.ts). "Google Searches" is the measured Google
+// eRank (see lib/etsySearchEstimate.ts). "Searches" is the measured Google
 // figure. Every other row is a direct Etsy measurement.
 function InfoDot({ title }: { title: string }) {
   return (
@@ -231,14 +231,14 @@ function InfoDot({ title }: { title: string }) {
 function KeywordStatsPanel({ s, countryShare, geoName }: { s: KeywordStats; countryShare: number | null; geoName: string }) {
   // The estimate is calibrated to eRank's GLOBAL number. eRank's per-country
   // "Avg. Searches" is that global figure × the country's share of search demand,
-  // so we scale by the selected country's real Google share (null share / Global →
+  // so we scale by the selected country's real search share (null share / Global →
   // the unscaled global estimate; never a fabricated country figure).
   const globalEtsy = estimateEtsySearches(s.totalResults)
   const etsy = scaleEtsySearchesToCountry(globalEtsy, countryShare)
   const scaled = etsy != null && globalEtsy != null && countryShare != null && countryShare < 1
   const rows = [
-    { label: 'Average Etsy Searches', tip: `Estimated monthly Etsy searches in ${geoName}. Etsy publishes no search-volume data to anyone, so — like eRank — this is an estimate: a global figure modelled from the keyword’s real live Etsy competition (calibrated to eRank), then${scaled ? '' : ' — for Global —'} split to the selected country by its real share of Google search demand. Because Etsy releases no per-country search data, the country split uses Google’s geographic demand, so it won’t match eRank’s proprietary numbers exactly.`, value: etsy != null ? formatNumber(etsy) : '—', color: etsy != null ? D.good : C.lightGray },
-    { label: 'Google Searches', tip: `Real Google monthly search volume (${geoName}) from the Google Ads Keyword Planner. This measures Google — not Etsy — searches, so it differs from the Etsy estimate above.`, value: s.googleSearches != null ? formatNumber(s.googleSearches) : '—', color: s.googleSearches != null ? '#2E6DB4' : C.lightGray },
+    { label: 'Average Etsy Searches', tip: `Estimated monthly Etsy searches in ${geoName}. Etsy publishes no search-volume data to anyone, so — like eRank — this is an estimate: a global figure modelled from the keyword’s real live Etsy competition (calibrated to eRank), then${scaled ? '' : ' — for Global —'} split to the selected country by its real share of search demand. Because Etsy releases no per-country search data, the country split uses Google’s geographic demand, so it won’t match eRank’s proprietary numbers exactly.`, value: etsy != null ? formatNumber(etsy) : '—', color: etsy != null ? D.good : C.lightGray },
+    { label: 'Searches', tip: `Real monthly search-engine volume (${geoName}) — broad web search demand, distinct from the on-Etsy search estimate above.`, value: s.googleSearches != null ? formatNumber(s.googleSearches) : '—', color: s.googleSearches != null ? '#2E6DB4' : C.lightGray },
     { label: 'Avg. Views',    tip: 'Mean lifetime views of the listings ranking for this keyword — Etsy’s own `views` field. This is real traffic, shown instead of a fabricated “Avg. Clicks”.', value: formatNumber(s.avgViews), color: '#2E6DB4' },
     { label: 'Favs / View',   tip: 'Favorites ÷ views, a real engagement ratio (~1–3% is typical on Etsy). Shown instead of “CTR”: Etsy exposes no clicks, so a real click-through rate can’t be computed.', value: `${s.favPerView}%`, color: s.favPerView >= 4 ? D.good : s.favPerView >= 1.5 ? D.mid : D.neutral },
     { label: 'Competition',   tip: 'Real total of live Etsy listings competing for this keyword.', value: formatNumber(s.totalResults), color: s.totalResults > 250_000 ? D.hard : s.totalResults > 25_000 ? D.mid : D.good },
@@ -385,7 +385,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
 
   const insights = useMemo(() => {
     if (!relatedRows.length) return null
-    // X axis = real demand: Google search volume when Google Ads is connected,
+    // X axis = real demand: search volume when Google Ads is connected,
     // otherwise buyer pull (avg favourites of the listings ranking for the keyword).
     // Both are REAL — never a fabricated "searches" figure. Y = difficulty (KD).
     const useVol = relatedRows.some(r => r.googleSearches != null && (r.googleSearches ?? 0) > 0)
@@ -428,7 +428,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
       { label: 'Favorites per view', value: formatPercent(s.favPerView), hint: 'real engagement ratio; ~1–3% is typical on Etsy' },
       { label: 'Median price', value: `${sym(s.currency)}${s.avgPrice.toFixed(0)}` },
     ]
-    if (s.googleSearches != null) f.push({ label: 'Google monthly searches', value: formatNumber(s.googleSearches), hint: 'US, real Google Ads volume' })
+    if (s.googleSearches != null) f.push({ label: 'Monthly searches', value: formatNumber(s.googleSearches), hint: 'US, real search volume' })
     if (s.googleCompetition && s.googleCompetition !== 'UNSPECIFIED') f.push({ label: 'Google advertiser competition', value: `${s.googleCompetition}${s.googleCompetitionIndex != null ? ` (${s.googleCompetitionIndex}/100)` : ''}`, hint: 'advertiser competition on Google, not Etsy listing competition' })
     // Lowest-difficulty related ideas that still show real buyer pull = the openings.
     relatedRows
@@ -515,20 +515,20 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '30px 0' }}>
                 <p style={{ fontSize: 13.5, color: C.ink, fontWeight: 500 }}>No search-volume series for Etsy</p>
                 <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.6 }}>
-                  Etsy&apos;s API doesn&apos;t publish search volume or history. The <strong style={{ color: C.ink }}>Search
+                  Etsy doesn&apos;t publish search volume or history. The <strong style={{ color: C.ink }}>Search
                   Results Analysis</strong> tab below shows real listing age and demand signals for &ldquo;{query}&rdquo;;
-                  connecting Google Ads adds a real monthly volume line here.
+                  a real monthly search-volume line appears here when available.
                 </p>
               </div>
             )}
         </Card>
 
         <Card>
-          <SectionTitle right={<span style={{ fontSize: 10, fontFamily: MONO, color: C.stone }}>Google</span>}>Searchers by Country</SectionTitle>
+          <SectionTitle>Searchers by Country</SectionTitle>
           {!tr ? <Shimmer h={200} r={8} />
             : tr.countries && tr.countries.length > 0
               ? <CountryChart data={tr.countries} />
-              : <EmptyState icon="🌍" title="No country data" sub="Google Ads returned no country breakdown for this keyword yet." />}
+              : <EmptyState icon="🌍" title="No country data" sub="No country breakdown for this keyword yet." />}
         </Card>
       </div>
 
@@ -539,7 +539,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
           {kw ? <DifficultyPanel s={kw.stats} /> : <Shimmer h={200} r={8} />}
         </Card>
         <Card>
-          <SectionTitle right={<span style={{ fontSize: 10, fontFamily: MONO, color: C.stone }}>Google</span>}>Google Search Volume</SectionTitle>
+          <SectionTitle>Search Volume</SectionTitle>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, padding: '8px 0' }}>
             <span style={{ fontSize: 38, fontWeight: 400, color: '#2E6DB4', letterSpacing: '-1px', lineHeight: 1 }}>
               {kw?.stats.googleSearches != null ? formatNumber(kw.stats.googleSearches) : '—'}
@@ -563,8 +563,8 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
             </div>
           </div>
           <p style={{ fontSize: 11.5, color: C.stone, lineHeight: 1.55, marginTop: 10 }}>
-            Real Google monthly search volume, advertiser competition and top-of-page CPC for &ldquo;{query}&rdquo; (US),
-            from the Google Ads Keyword Planner.
+            Real monthly search volume, advertiser competition and top-of-page CPC for &ldquo;{query}&rdquo; (US),
+            from the Keyword Planner.
           </p>
         </Card>
       </div>
@@ -585,7 +585,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
         </Card>
       )}
 
-      {isError && <ErrorBox>Failed to load keyword data from Etsy. Please try again.</ErrorBox>}
+      {isError && <ErrorBox>Failed to load keyword data live. Please try again.</ErrorBox>}
 
       {/* AI read of the whole keyword picture — Gemini interprets the real
           measured signals above into a "how to win this keyword" analysis. */}
@@ -594,7 +594,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
           tool="Keyword Research"
           subject={kw.query}
           facts={aiFacts}
-          notes="Difficulty is an estimate from real competition + engagement. Views/favorites are lifetime figures from the listings ranking for this keyword. Favorites-per-view is a real engagement ratio, not CTR. Etsy publishes no search volume; any Google figure is real Google Ads data."
+          notes="Difficulty is an estimate from real competition + engagement. Views/favorites are lifetime figures from the listings ranking for this keyword. Favorites-per-view is a real engagement ratio, not CTR. Etsy publishes no search volume; any Google figure is real search data."
         />
       )}
 
@@ -665,15 +665,15 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
                 ? <KeywordTable rows={relatedRows} query={kw.query} onSelect={r => run(r.keyword)} measuring={relatedPending} currency={kw.stats.googleCurrency} />
                 : <TableSkeleton
                     grid="26px 24px 1.9fr 1fr 1fr 0.7fr 0.85fr 0.85fr 0.75fr 0.8fr 0.55fr 0.85fr"
-                    columns={['', '', 'Keywords', 'Listings / month', 'Etsy Competition', 'KD', 'Avg. Views', 'Avg. Favorites', 'Favs / View', 'Tag Occurrences', 'Chars', 'Google Searches']}
+                    columns={['', '', 'Keywords', 'Listings / month', 'Etsy Competition', 'KD', 'Avg. Views', 'Avg. Favorites', 'Favs / View', 'Tag Occurrences', 'Chars', 'Searches']}
                     rows={10}
                     label="Running a live Etsy search for each related keyword…" />}
 
               <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6 }}>
-                Every Etsy column is measured from the Etsy API: competition is the real total of live listings for that
+                Every listing column is measured live: competition is the real total of live listings for that
                 exact keyword, views and favourites come from the listings ranking for it. KD is an estimate computed from
-                those real inputs. The Google Searches / Comp. / CPC columns are real Google Ads data (US), shown only when
-                Google Ads is connected.
+                those real inputs. The Searches / Comp. / CPC columns are real search data (US), shown only when
+                available.
               </p>
 
               {/* Google keyword DISCOVERY — terms Google suggests that an Etsy-tag
@@ -717,7 +717,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
             listingImgs.data?.length
               ? <TopListingsTable listings={listingImgs.data} query={kw.query} />
               : listingImgs.isError
-                ? <ErrorBox>Couldn&apos;t load listings from Etsy. Please try again.</ErrorBox>
+                ? <ErrorBox>Couldn&apos;t load listings live. Please try again.</ErrorBox>
                 : <GridSkeleton n={12} />
           )}
           {sub === 'markets'  && <MarketplacesPanel query={kw.query} stats={kw.stats} />}

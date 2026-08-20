@@ -22,6 +22,25 @@ a { color: inherit; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #FB5E09; border-radius: 9999px; opacity: 0.5; }
 
+/* Wide data tables (listings, keyword tables) scroll sideways — give them a
+   clearly-visible, professional horizontal scrollbar instead of the 4px sliver. */
+.rtable { scrollbar-width: thin; scrollbar-color: #FB5E09 #e9e6de; }
+.rtable::-webkit-scrollbar        { height: 12px; width: 12px; }
+.rtable::-webkit-scrollbar-track  { background: #efece5; border-radius: 9999px; margin: 0 6px; }
+.rtable::-webkit-scrollbar-thumb  { background: #FB5E09; border-radius: 9999px; border: 3px solid #efece5; opacity: 1; }
+.rtable::-webkit-scrollbar-thumb:hover { background: #e35100; }
+
+/* Top-mounted horizontal scrollbar: the table body hides its own bottom bar
+   (.rtable-hidescroll) and a synced strip above it (.rtable-topscroll) carries
+   the visible scrollbar, so users see the control at the TOP of the data. */
+.rtable-hidescroll { scrollbar-width: none; -ms-overflow-style: none; }
+.rtable-hidescroll::-webkit-scrollbar { height: 0; }
+.rtable-topscroll { scrollbar-width: thin; scrollbar-color: #FB5E09 #e9e6de; }
+.rtable-topscroll::-webkit-scrollbar        { height: 12px; }
+.rtable-topscroll::-webkit-scrollbar-track  { background: #efece5; border-radius: 9999px; margin: 0 6px; }
+.rtable-topscroll::-webkit-scrollbar-thumb  { background: #FB5E09; border-radius: 9999px; border: 3px solid #efece5; }
+.rtable-topscroll::-webkit-scrollbar-thumb:hover { background: #e35100; }
+
 /* ─── Animations ────────────────────────────────────────────────────────────── */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(24px); }

@@ -24,3 +24,29 @@ export function useFx(from: string | null | undefined) {
     gcTime:    1000 * 60 * 60 * 12,
   })
 }
+
+/**
+ * Live "1 <code> → USD" rates for a whole SET of currencies at once — so a table
+ * of listings priced in mixed currencies (USD, EUR, GBP, VND…) can show every
+ * money value in one currency (USD). Returns a `{ CODE: rate|null }` map; a null
+ * rate means "unknown" and callers keep the original currency rather than guess.
+ */
+export function useUsdRates(codes: (string | null | undefined)[]) {
+  const distinct = [...new Set(codes.map(c => (c ?? 'USD').toUpperCase()).filter(c => c.length === 3))]
+  return useQuery({
+    queryKey: ['fx-usd-rates', [...distinct].sort().join(',')] as const,
+    queryFn: async ({ signal }) => {
+      const entries = await Promise.all(distinct.map(async code => {
+        if (code === 'USD') return [code, 1] as const
+        try {
+          const { data } = await axios.get<ApiResponse<FxData>>(`/api/fx?from=${code}`, { signal })
+          return [code, data.success && data.data ? data.data.rate : null] as const
+        } catch { return [code, null] as const }
+      }))
+      return Object.fromEntries(entries) as Record<string, number | null>
+    },
+    enabled:   distinct.length > 0,
+    staleTime: 1000 * 60 * 60 * 6,
+    gcTime:    1000 * 60 * 60 * 12,
+  })
+}

@@ -176,7 +176,7 @@ export function CompetitorSalesTab() {
               tool="Competitor Sales"
               subject={shop.shop_name}
               facts={aiFacts}
-              notes="Figures are from the competitor's real Etsy shop record (transaction_sold_count is genuine lifetime sales; Etsy publishes no daily history — that only builds once the shop is tracked). Interpret the competitor's scale, maturity and efficiency, and how a seller can compete against them."
+              notes="Figures are from the competitor's real, measured shop record (transaction_sold_count is genuine lifetime sales; Etsy publishes no daily history — that only builds once the shop is tracked). Interpret the competitor's scale, maturity and efficiency, and how a seller can compete against them."
             />
           )}
 

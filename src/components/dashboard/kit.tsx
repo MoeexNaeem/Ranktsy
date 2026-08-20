@@ -139,11 +139,27 @@ export const tdTitle: React.CSSProperties = { fontSize: 15, fontWeight: 500, col
 export function ErrorBox({ children }: { children: React.ReactNode }) {
   return <div style={{ background: C.dangerBg, border: `1px solid ${C.danger}`, borderRadius: 12, padding: '15px 18px', color: C.danger, fontSize: 14.5 }}>⚠ {children}</div>
 }
-export function Loading({ label = 'Fetching from Etsy…' }: { label?: string }) {
+// Generic loading SKELETON (a KPI row + a content block), so any tool clearly
+// shows "content is loading" rather than a lone spinner. An optional label reads
+// above it. Every tab that renders <Loading/> gets a skeleton from this one place.
+export function Loading({ label }: { label?: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '34px 0', fontSize: 15, color: C.graphite }}>
-      <span className="shimmer" style={{ width: 8, height: 8, borderRadius: '50%', background: C.orange }} />
-      {label}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 0' }} aria-busy="true" aria-label={label || 'Loading'}>
+      {label && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: C.graphite }}>
+          <span className="shimmer" style={{ width: 8, height: 8, borderRadius: '50%', background: C.orange }} />
+          {label}
+        </div>
+      )}
+      <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} style={{ ...cardStyle, padding: '18px 20px' }}>
+            <div className="shimmer" style={{ height: 11, width: '55%', borderRadius: 6, background: '#e8e7e2', marginBottom: 12 }} />
+            <div className="shimmer" style={{ height: 26, width: '70%', borderRadius: 8, background: '#e8e7e2' }} />
+          </div>
+        ))}
+      </div>
+      <div className="shimmer" style={{ height: 150, borderRadius: 14, background: '#e8e7e2' }} />
     </div>
   )
 }

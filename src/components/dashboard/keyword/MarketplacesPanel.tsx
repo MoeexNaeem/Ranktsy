@@ -16,9 +16,9 @@ interface Market {
 }
 
 const MARKETS: Market[] = [
-  { id: 'etsy',   name: 'Etsy',   color: C.orange, note: 'Live via the official Etsy Open API',
+  { id: 'etsy',   name: 'Etsy',   color: C.orange, note: 'Live via the official our live data',
     url: q => `https://www.etsy.com/search?q=${encodeURIComponent(q)}` },
-  { id: 'google', name: 'Google', color: '#2E6DB4', note: 'Needs Google Ads credentials',
+  { id: 'google', name: 'Google', color: '#2E6DB4', note: 'Search-data source',
     url: q => `https://www.google.com/search?q=${encodeURIComponent(q)}` },
   { id: 'amazon', name: 'Amazon', color: '#C08A12', note: 'No public API connected',
     url: q => `https://www.amazon.com/s?k=${encodeURIComponent(q)}` },
@@ -92,9 +92,9 @@ export const MarketplacesPanel = memo(function MarketplacesPanel({
       <Card>
         <SectionTitle>Where &ldquo;{query}&rdquo; sells</SectionTitle>
         <p style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.6, marginTop: -8 }}>
-          Rankkw is built on the <strong style={{ color: C.ink }}>official Etsy Open API</strong>{' '}— that&apos;s the only marketplace
+          Rankkw is built on the <strong style={{ color: C.ink }}>official our live data</strong>{' '}— that&apos;s the only marketplace
           we can report real numbers for, and we won&apos;t invent the rest. Amazon and eBay open a live search in a new tab so you
-          can eyeball demand yourself. Google fills in automatically once Google Ads credentials are configured.
+          can eyeball demand yourself. Search demand fills in automatically once available.
         </p>
       </Card>
 

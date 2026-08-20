@@ -74,8 +74,8 @@ export function MonthlyTrendsTab() {
   // Real facts handed to Gemini for interpretation — nothing modelled.
   const aiFacts = useMemo<AiFact[]>(() => {
     const f: AiFact[] = []
-    if (demand?.peak) f.push({ label: 'Peak search month', value: demand.peak.month, hint: 'highest Google Ads volume' })
-    if (demand?.low) f.push({ label: 'Quietest search month', value: demand.low.month, hint: 'lowest Google Ads volume' })
+    if (demand?.peak) f.push({ label: 'Peak search month', value: demand.peak.month, hint: 'highest search volume' })
+    if (demand?.low) f.push({ label: 'Quietest search month', value: demand.low.month, hint: 'lowest search volume' })
     if (supplyChart?.peak) f.push({ label: 'Sellers list most in', value: supplyChart.peak.month, hint: 'listing-creation timing, seller behaviour not demand' })
     if (market) {
       f.push({ label: 'Competing listings', value: String(market.sample), hint: 'live sample analysed' })
@@ -91,7 +91,7 @@ export function MonthlyTrendsTab() {
   }, [demand, supplyChart, market, cur])
 
   const aiNotes =
-    'Prices/views/favorites are real medians from a live Etsy listing sample. Search-month data (if present) is real Google Ads volume. ' +
+    'Prices/views/favorites are real medians from a live Etsy listing sample. Search-month data (if present) is real search volume. ' +
     '"Sellers list most in" is listing-creation timing — seller behaviour, not buyer demand. Etsy itself publishes no search volume or history.'
 
   return (
@@ -120,7 +120,7 @@ export function MonthlyTrendsTab() {
           {demand ? (
             <>
               <div className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-                <StatCard label="Peak month" value={demand.peak?.month ?? '—'} accent={C.orange} sub="Highest Google search volume" />
+                <StatCard label="Peak month" value={demand.peak?.month ?? '—'} accent={C.orange} sub="Highest search volume" />
                 <StatCard label="Quietest month" value={demand.low?.month ?? '—'} accent={C.graphite} sub="Lowest search volume" />
                 <StatCard label="Prep by" value={prepMonth(demand.peak?.month)} accent={D.good} sub="List ~6 weeks before peak" />
               </div>
@@ -130,7 +130,7 @@ export function MonthlyTrendsTab() {
                 </SectionTitle>
                 <BarChart axis="x" height={240} labels={demand.labels} values={demand.values} colors={demand.colors} />
                 <p style={{ fontSize: 11.5, color: C.stone, marginTop: 8 }}>
-                  Real monthly search volume from the Google Ads Keyword Planner. Etsy publishes no search volume of its own.
+                  Real monthly search volume from the Keyword Planner. Etsy publishes no search volume of its own.
                 </p>
               </Card>
             </>
@@ -142,9 +142,8 @@ export function MonthlyTrendsTab() {
                   Buyer-demand seasonality isn&apos;t available for &ldquo;{query}&rdquo;
                 </p>
                 <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.65, maxWidth: 660 }}>
-                  Etsy&apos;s API publishes no search volume and no history, so there is no honest way to chart when Etsy
-                  shoppers search for this. Connecting <strong style={{ color: C.ink }}>Google Ads</strong> fills this in
-                  with real monthly volume. Below is what Etsy <em>does</em> tell us — a full market snapshot.
+                  Etsy publishes no search volume and no history, so there is no honest way to chart when Etsy
+                  shoppers search for this. Real monthly search volume appears here when available. Below is what Etsy <em>does</em> tell us — a full market snapshot.
                 </p>
               </div>
             </div>

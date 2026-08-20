@@ -114,7 +114,7 @@ export function CompareListingsTab() {
           tool="Compare Listings"
           subject="Listing A vs Listing B"
           facts={aiFacts}
-          notes="Two real Etsy listings compared. Views/favorites are lifetime; engagement is favorites ÷ views. More tags (up to 13), photos, description length and a fuller title generally help SEO/conversion. Call which listing is stronger overall and why, then give specific fixes for the weaker one."
+          notes="Two real, measured listings compared. Views/favorites are lifetime; engagement is favorites ÷ views. More tags (up to 13), photos, description length and a fuller title generally help SEO/conversion. Call which listing is stronger overall and why, then give specific fixes for the weaker one."
         />
       )}
 

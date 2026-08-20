@@ -76,7 +76,7 @@ export function MyShopTab() {
             Connect your Etsy shop to unlock real sales insights.
           </h2>
           <p style={{ fontSize: 14.5, color: 'rgba(252,252,247,0.75)', lineHeight: 1.6, maxWidth: 520, marginBottom: 24 }}>
-            See your revenue, orders, best-selling listings, and a map of where your buyers are — pulled securely from the official Etsy API. You can connect more than one shop, and your data is never shared — disconnect anytime.
+            See your revenue, orders, best-selling listings, and a map of where your buyers are — pulled securely from the official live data. You can connect more than one shop, and your data is never shared — disconnect anytime.
           </p>
           <a href="/api/etsy/oauth/connect"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: C.orange, color: '#fff', textDecoration: 'none', padding: '13px 26px', borderRadius: 28, fontSize: 15, fontWeight: 500, transition: 'opacity 0.18s' }}
@@ -223,7 +223,7 @@ export function MyShopTab() {
               tool="My Shop"
               subject={s.shop_name}
               facts={aiFacts}
-              notes="These are the seller's OWN connected-shop figures from the official Etsy API (receipts, listings, shop stats — Etsy exposes no page-traffic analytics). Interpret the shop's recent performance, best markets and listings, and give prioritised growth actions."
+              notes="These are the seller's OWN connected-shop figures from the official live data (receipts, listings, shop stats — Etsy exposes no page-traffic analytics). Interpret the shop's recent performance, best markets and listings, and give prioritised growth actions."
             />
 
             {data.note && <p style={{ fontSize: 11.5, color: '#9a9a92', fontFamily: MONO, lineHeight: 1.6 }}>{data.note}</p>}

@@ -69,7 +69,7 @@ export function CategoryReportTab() {
     }
     const topTags = Object.entries(tagCount).sort((a, b) => b[1] - a[1]).slice(0, 12)
 
-    // Competition level from Etsy's total match count
+    // Competition level live's total match count
     const total = data?.count ?? listings.length
     const comp: 'Low' | 'Med' | 'High' = total > 50000 ? 'High' : total > 8000 ? 'Med' : 'Low'
 
@@ -109,7 +109,7 @@ export function CategoryReportTab() {
       </div>
 
       {isLoading && <Loading label="Analyzing the category…" />}
-      {isError && <ErrorBox>Couldn&apos;t load category data from Etsy. Please try again.</ErrorBox>}
+      {isError && <ErrorBox>Couldn&apos;t load category data live. Please try again.</ErrorBox>}
       {data && !isLoading && !report && <EmptyState icon="🗂️" title="No listings found" sub="Try a broader term." />}
 
       {report && (

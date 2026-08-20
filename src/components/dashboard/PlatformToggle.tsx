@@ -4,7 +4,7 @@ import { C } from '@/utils'
 import type { TrendPlatform } from '@/types'
 
 // Only platforms we actually have data for (Etsy via the official API; Google via
-// the Google Ads Keyword Planner when configured). No phantom Amazon/eBay toggles.
+// the Keyword Planner when configured). No phantom Amazon/eBay toggles.
 const PLAT: { key:TrendPlatform; label:string; color:string }[] = [
   { key:'etsy',   label:'Etsy',   color:C.orange },
   { key:'google', label:'Google', color:C.charcoal },

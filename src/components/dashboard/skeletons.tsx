@@ -130,7 +130,7 @@ export function LoadingStages({ stages, note }: { stages: Stage[]; note?: string
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         {done < stages.length && <Dot />}
         <span style={{ fontSize: 13.5, fontWeight: 500, color: C.ink }}>
-          {done < stages.length ? 'Measuring against the live Etsy API…' : 'All data measured'}
+          {done < stages.length ? 'Measuring against live data…' : 'All data measured'}
         </span>
         <span style={{ fontSize: 11.5, fontFamily: MONO, color: C.stone, marginLeft: 'auto' }}>{done}/{stages.length}</span>
       </div>

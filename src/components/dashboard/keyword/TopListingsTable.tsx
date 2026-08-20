@@ -1,8 +1,10 @@
 'use client'
-import { memo, useCallback, useMemo, useState } from 'react'
+import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import { Popover, PopItem, ExportBtn, toCsv, downloadCsv, slugify, ctrlBtn } from '../controls'
 import { useListingReviews } from '@/hooks/useListingReviews'
+import { useUsdRates } from '@/hooks/useFx'
 import { estimateListingSales, type ListingSalesEstimate } from '@/lib/salesEstimate'
+import { ListingDetailPanel } from './ListingDetailPanel'
 import { C, D, formatNumber } from '@/utils'
 import { MONO, tableCard } from '../kit'
 import type { EtsyListing, ListingReviewStats } from '@/types'
@@ -11,7 +13,7 @@ import type { EtsyListing, ListingReviewStats } from '@/types'
 // Hearts, Reviews, Price, Qty… The Est. Sales / Revenue columns are the Everbee-
 // style ESTIMATES — Etsy publishes no per-listing sales, so they're derived from
 // review count + 30-day review velocity ÷ a review rate (see salesEstimate.ts) and
-// clearly badged "~ est". Never presented as real Etsy sales.
+// clearly badged "~ est". Never presented as real, measured sales.
 
 const CUR: Record<string, string> = { USD: '$', GBP: '£', EUR: '€', CAD: 'C$', AUD: 'A$', PKR: '₨', INR: '₹', JPY: '¥' }
 const sym = (c?: string) => CUR[c ?? 'USD'] ?? (c ? `${c} ` : '$')
@@ -71,6 +73,7 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
   const [hidden, setHidden]   = useState<Set<string>>(new Set(DEFAULT_HIDDEN))
   const [expanded, setExpanded] = useState<Set<number>>(new Set())
   const [allTags, setAllTags] = useState(false)
+  const [detail, setDetail] = useState<Row | null>(null)
   // Captured once at mount (lazy init) — keeps age stable across re-renders and
   // avoids calling Date.now() during render.
   const [nowSec] = useState(() => Date.now() / 1000)
@@ -102,6 +105,9 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
   }, [listings])
   const ids = useMemo(() => storedReviews ? [] : listings.slice(0, 30).map(l => l.listing_id), [listings, storedReviews])
   const reviewsQ = useListingReviews(ids)
+  // Live rates so the estimated-revenue column can be shown in ONE currency (USD),
+  // regardless of each listing's own currency. Null rate → keep the local figure.
+  const usdRates = useUsdRates(useMemo(() => listings.map(l => l.price.currency_code), [listings])).data
   const reviews = storedReviews ?? reviewsQ.data
   const reviewsLoading = !storedReviews && (reviewsQ.isPending || reviewsQ.isFetching)
 
@@ -117,6 +123,8 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
         reviewsLast30d: rs?.last30d ?? null,
         price: r.price,
         ageDays: r.ageDays,
+        views: r.l.views ?? null,
+        favorites: r.l.num_favorers ?? null,
       })
     }
     return m
@@ -150,7 +158,7 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
         case 'fpv': return r.fpv
         case 'hearts': return r.l.num_favorers ?? 0
         case 'favsPerDay': return r.favsPerDay
-        case 'price': return r.price
+        case 'price': { const rate = usdRates?.[(r.l.price.currency_code ?? 'USD').toUpperCase()]; return rate != null ? r.price * rate : r.price }
         case 'quantity': return r.l.quantity ?? 0
         case 'tags': return r.l.tags?.length ?? 0
         case 'reviews': return reviews?.[r.l.listing_id]?.count ?? null
@@ -168,7 +176,7 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
       if (bv == null) return -1
       return dir * (av - bv)
     })
-  }, [rows, filter, sortKey, sortDir, reviews, estimates])
+  }, [rows, filter, sortKey, sortDir, reviews, estimates, usdRates])
 
   const toggleRow = useCallback((id: number) => setExpanded(p => {
     const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n
@@ -187,11 +195,11 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
       : <span style={{ fontFamily: MONO, fontSize: 17.5, color: opts?.color ?? C.ink }}>{opts?.digits != null ? v.toFixed(opts.digits) : formatNumber(v)}{opts?.suffix ?? ''}</span>
 
   // Estimate cell: a "~" prefix + amber tone flag it as a modelled figure, never a
-  // real Etsy number. `prefix` carries a currency symbol for the revenue column.
+  // real, measured number. `prefix` carries a currency symbol for the revenue column.
   const estNum = (v: number | null, loading: boolean, prefix = '') => {
     if (v == null && loading) return <span className="shimmer" style={{ height: 15, width: 46, borderRadius: 4, background: '#e8e7e2', display: 'inline-block' }} />
     if (v == null) return <span style={{ fontFamily: MONO, fontSize: 17.5, color: C.stone }}>—</span>
-    return <span style={{ fontFamily: MONO, fontSize: 17.5, color: D.mid, fontWeight: 600 }} title="Estimated — from review count & velocity, not real Etsy sales">~{prefix}{formatNumber(v)}</span>
+    return <span style={{ fontFamily: MONO, fontSize: 17.5, color: D.mid, fontWeight: 600 }} title="Estimated — from review count & velocity, not real, measured sales">~{prefix}{formatNumber(v)}</span>
   }
 
   const cell = (c: Col, r: Row) => {
@@ -207,13 +215,14 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
               ? <img src={r.l.images[0].url_75x75} alt="" style={{ width: 60, height: 60, borderRadius: 11, objectFit: 'cover', flexShrink: 0, background: C.bone }} />
               : <div style={{ width: 60, height: 60, borderRadius: 11, background: C.bone, flexShrink: 0 }} />}
             <div style={{ minWidth: 0 }}>
-              <a href={r.l.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-                title={r.l.title}
-                style={{ display: 'block', fontSize: 17.5, color: C.ink, fontWeight: 500, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}
+              {/* Title opens the in-app detail panel (NOT Etsy) — the row click does
+                  the same; only "See on Etsy" below leaves the app. */}
+              <span title="Click for full details"
+                style={{ display: 'block', fontSize: 17.5, color: C.ink, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3, cursor: 'pointer' }}
                 onMouseEnter={e => (e.currentTarget.style.color = C.orange)}
                 onMouseLeave={e => (e.currentTarget.style.color = C.ink)}>
                 {r.l.title}
-              </a>
+              </span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 5 }}>
                 <span style={{ fontSize: 15, color: C.stone, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{r.l.shop_name}</span>
                 <a href={r.l.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
@@ -240,10 +249,25 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
         return <span key={c.id}>{num(v ?? null, { color: (v ?? 0) > 0 ? D.good : C.stone })}</span>
       }
       case 'estSales': return <span key={c.id}>{estNum(estimates[r.l.listing_id]?.estMonthlySales ?? null, reviewsLoading && !reviews)}</span>
-      case 'estRev':   return <span key={c.id}>{estNum(estimates[r.l.listing_id]?.estMonthlyRevenue ?? null, reviewsLoading && !reviews, sym(r.l.price.currency_code))}</span>
+      case 'estRev': {
+        // Show estimated revenue in USD when we have a live rate; otherwise fall
+        // back to the listing's own currency (never a guessed conversion).
+        const revLocal = estimates[r.l.listing_id]?.estMonthlyRevenue ?? null
+        const rate = usdRates?.[(r.l.price.currency_code ?? 'USD').toUpperCase()]
+        const revUsd = revLocal != null && rate != null ? Math.round(revLocal * rate) : null
+        return <span key={c.id}>{revUsd != null
+          ? estNum(revUsd, false, '$')
+          : estNum(revLocal, reviewsLoading && !reviews, sym(r.l.price.currency_code))}</span>
+      }
       case 'estTotal': return <span key={c.id}>{estNum(estimates[r.l.listing_id]?.estTotalSales ?? null, reviewsLoading && !reviews)}</span>
       case 'fpd':    return <span key={c.id}>{num(r.favsPerDay, { digits: 2 })}</span>
-      case 'price':  return <span key={c.id} style={{ fontFamily: MONO, fontSize: 17.5, color: C.orange, fontWeight: 600 }}>{sym(r.l.price.currency_code)}{r.price.toFixed(2)}</span>
+      case 'price': {
+        // Show price in USD when a live rate is available (else the listing's own
+        // currency — never a guessed conversion).
+        const rate = usdRates?.[(r.l.price.currency_code ?? 'USD').toUpperCase()]
+        const usd = rate != null ? r.price * rate : null
+        return <span key={c.id} style={{ fontFamily: MONO, fontSize: 17.5, color: C.orange, fontWeight: 600 }}>{usd != null ? `$${usd.toFixed(2)}` : `${sym(r.l.price.currency_code)}${r.price.toFixed(2)}`}</span>
+      }
       case 'qty':    return <span key={c.id}>{num(r.l.quantity ?? null)}</span>
       case 'ships':  return <span key={c.id} style={{ fontFamily: MONO, fontSize: 17.5, color: (r.l.processing_min != null || r.l.processing_max != null) ? C.ink : C.stone }}>{r.l.processing_min != null && r.l.processing_max != null ? `${r.l.processing_min}–${r.l.processing_max}` : (r.l.processing_min ?? r.l.processing_max ?? '—')}</span>
       case 'tags':   return <span key={c.id} style={{ fontFamily: MONO, fontSize: 17.5, color: (r.l.tags?.length ?? 0) > 0 ? C.ink : C.stone }}>{r.l.tags?.length ?? 0}</span>
@@ -252,6 +276,20 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
   }
 
   const rowGrid = { display: 'grid', gridTemplateColumns: grid, gap: 15, alignItems: 'center', padding: '16px 20px', minWidth: minTableW } as const
+
+  // Top-mounted horizontal scrollbar: a strip above the table mirrors its scroll,
+  // so the control sits at the TOP. A lock avoids the mirror-echo feedback loop.
+  const tableRef = useRef<HTMLDivElement>(null)
+  const topRef = useRef<HTMLDivElement>(null)
+  const lock = useRef(false)
+  const onTopScroll = useCallback(() => {
+    if (lock.current) { lock.current = false; return }
+    if (tableRef.current && topRef.current) { lock.current = true; tableRef.current.scrollLeft = topRef.current.scrollLeft }
+  }, [])
+  const onTableScroll = useCallback(() => {
+    if (lock.current) { lock.current = false; return }
+    if (tableRef.current && topRef.current) { lock.current = true; topRef.current.scrollLeft = tableRef.current.scrollLeft }
+  }, [])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -273,9 +311,15 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
         <ExportBtn onClick={exportCsv} />
       </div>
 
+      {/* Top-mounted horizontal scrollbar — mirrors the table's scroll so the
+          control is visible at the TOP, not hidden at the bottom of a long table. */}
+      <div ref={topRef} onScroll={onTopScroll} className="rtable-topscroll" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
+        <div style={{ width: minTableW, height: 1 }} />
+      </div>
+
       {/* Table — scrolls horizontally when the columns need more room than the
-          container has, so nothing gets squeezed into an unreadable width. */}
-      <div className="rtable" style={{ ...tableCard, overflowX: 'auto' }}>
+          container has; its own bottom bar is hidden (the top strip drives it). */}
+      <div ref={tableRef} onScroll={onTableScroll} className="rtable rtable-hidescroll" style={{ ...tableCard, overflowX: 'auto' }}>
         {/* Header */}
         <div style={{ ...rowGrid, position: 'sticky', top: 0, background: C.canvas, borderBottom: `1px solid ${C.ash}`, zIndex: 1 }}>
           {cols.map(c => (
@@ -298,13 +342,15 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
           return (
             <div key={r.l.listing_id} style={{ borderBottom: `1px solid ${C.hair}`, minWidth: minTableW }}>
               <div style={{ ...rowGrid, cursor: 'pointer', transition: 'background 0.12s', background: open ? C.orangeFaint : 'transparent' }}
-                onClick={() => toggleRow(r.l.listing_id)}
+                onClick={() => setDetail(r)}
                 onMouseEnter={e => { if (!open) e.currentTarget.style.background = C.rowHover }}
                 onMouseLeave={e => (e.currentTarget.style.background = open ? C.orangeFaint : 'transparent')}>
                 {cols.map(c => (
                   <div key={c.id} style={{ display: 'flex', justifyContent: c.num ? 'flex-end' : 'flex-start', minWidth: 0 }}>{cell(c, r)}</div>
                 ))}
-                <button aria-label="Toggle tags" style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.graphite, display: 'flex', justifyContent: 'center' }}>
+                {/* Chevron peeks the tags inline without leaving; row/title click opens full detail. */}
+                <button aria-label="Toggle tags" title="Quick-peek tags" onClick={e => { e.stopPropagation(); toggleRow(r.l.listing_id) }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.graphite, display: 'flex', justifyContent: 'center' }}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}><polyline points="6 9 12 15 18 9" /></svg>
                 </button>
               </div>
@@ -342,12 +388,21 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
       <div className="rwrap-sm" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 12.5, fontFamily: MONO, color: C.graphite }}>{view.length} listing{view.length === 1 ? '' : 's'}</span>
         <span style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.5, textAlign: 'right', maxWidth: 680 }}>
-          Real columns are exact Etsy fields or a ratio of two (Views/day = views ÷ age; Favs/View = hearts ÷ views).
+          Real columns are exact live fields or a ratio of two (Views/day = views ÷ age; Favs/View = hearts ÷ views).
           <strong style={{ color: C.graphite }}> Reviews</strong> is the real review count — a verified <em>units-sold floor</em>.
-          The <strong style={{ color: D.mid }}>~ Sales / Revenue / Total</strong> columns are <em>estimates</em>: reviews ÷ a
-          review rate (Etsy publishes no per-listing sales), so treat them as directional, not exact.
+          The <strong style={{ color: D.mid }}>~ Sales / Revenue / Total</strong> columns are <em>estimates</em> — modelled from the
+          strongest real signal (reviews, views × conversion, or favorites), since Etsy publishes no per-listing sales.
+          Directional, not exact. Click a row for the full breakdown.
         </span>
       </div>
+
+      {/* In-app detail drawer — opened by clicking a row/title (NOT Etsy). */}
+      <ListingDetailPanel
+        row={detail}
+        reviewStats={detail ? (reviews?.[detail.l.listing_id] ?? null) : null}
+        estimate={detail ? (estimates[detail.l.listing_id] ?? null) : null}
+        onClose={() => setDetail(null)}
+      />
     </div>
   )
 })

@@ -20,7 +20,7 @@ const KIND_LABEL: Record<NearMatch['kind'], string> = {
 
 type SortKey = 'avgViews' | 'avgFavorites' | 'favPerView' | 'competition' | 'difficulty' | 'tagOccurrences'
 
-// Real Etsy measurements only — no searches/clicks/CTR, which Etsy doesn't publish.
+// Real, measured measurements only — no searches/clicks/CTR, which Etsy doesn't publish.
 const COLS: { label: string; key?: SortKey }[] = [
   { label: 'Keywords' },
   { label: 'Listings / month' },

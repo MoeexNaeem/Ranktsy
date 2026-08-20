@@ -131,7 +131,7 @@ export const ShopHealthPanel = memo(function ShopHealthPanel({ input }: { input:
       </div>
 
       <p style={{ fontSize: 11, color: C.stone, marginTop: 16, fontFamily: MONO, lineHeight: 1.6 }}>
-        A weighted blend of the shop&apos;s real Etsy record — rating, reviews, sales-per-listing, catalog size and
+        A weighted blend of the shop&apos;s real, measured record — rating, reviews, sales-per-listing, catalog size and
         availability. An estimate to compare shops at a glance, not an official Etsy metric.
       </p>
     </Card>

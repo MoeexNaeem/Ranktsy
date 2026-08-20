@@ -10,7 +10,7 @@ import { BarChart } from '@/components/charts/BarChart'
 import type { EtsyListing, AiFact } from '@/types'
 
 const GRID = '2.6fr 1fr 0.85fr 0.75fr 0.8fr 1.3fr'
-const FETCH = 48        // fetched once from Etsy
+const FETCH = 48        // fetched once live
 const PER_PAGE = 12     // paginated client-side
 
 function priceStr(l: EtsyListing) {
@@ -90,7 +90,7 @@ export function CompetitorsTab() {
       <SearchBar value={search} onChange={setSearch} onSubmit={go} placeholder="Analyze competition for any keyword…" button="Analyze →" />
 
       {isLoading && <div className="shimmer" style={{ height: 400, borderRadius: 8, background: '#e8e7e2' }} />}
-      {isError && <ErrorBox>Failed to load competitor data from Etsy. Please try again.</ErrorBox>}
+      {isError && <ErrorBox>Failed to load competitor data live. Please try again.</ErrorBox>}
 
       {sorted.length > 0 && !isLoading && (
         <>

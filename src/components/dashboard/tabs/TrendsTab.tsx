@@ -44,13 +44,13 @@ export function TrendsTab() {
           <span style={{ fontSize: 18 }}>📈</span>
           <div>
             <p style={{ fontSize: 13, fontWeight: 500, color: C.snow }}>Peak season: {peak}</p>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.92)' }}>Google searches for &ldquo;{query}&rdquo; peak in {peak}. Start preparing listings 4–6 weeks earlier.</p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.92)' }}>searches for &ldquo;{query}&rdquo; peak in {peak}. Start preparing listings 4–6 weeks earlier.</p>
           </div>
         </div>
       )}
 
       {isLoading && <div className="shimmer" style={{ height: 200, borderRadius: 10, background: '#e8e7e2' }} />}
-      {isError && <ErrorBox>Failed to load trend data from Etsy. Please try again.</ErrorBox>}
+      {isError && <ErrorBox>Failed to load trend data live. Please try again.</ErrorBox>}
 
       {tr && !isLoading && (
         <>
@@ -66,8 +66,8 @@ export function TrendsTab() {
                 <div>
                   <p style={{ fontSize: 14, fontWeight: 500, color: C.ink, marginBottom: 6 }}>No search-volume series available</p>
                   <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.65, maxWidth: 640 }}>
-                    Etsy&apos;s API publishes no search volume and no history, so there is no honest Etsy demand curve to
-                    plot. Connect <strong style={{ color: C.ink }}>Google Ads</strong> for real monthly volume, or see{' '}
+                    Etsy publishes no search volume and no history, so there is no honest Etsy demand curve to
+                    plot. Real monthly search volume appears when available, or see{' '}
                     <strong style={{ color: C.ink }}>Monthly Trends</strong> for when sellers actually list in this niche.
                   </p>
                 </div>

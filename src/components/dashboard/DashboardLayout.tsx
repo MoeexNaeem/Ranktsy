@@ -338,7 +338,8 @@ export function DashboardLayout() {
           <TabContent active={activeTab} onNavigate={handleTab} />
         </div>
 
-        {/* Etsy API attribution — required by Etsy API Terms of Use (Section 6) */}
+        {/* Etsy attribution — REQUIRED VERBATIM by Etsy API Terms of Use (Section 6).
+            This is a legal disclaimer, NOT a data-source "footprint": do not genericise it. */}
         <div className="rdash-footer" style={{ padding: '12px 28px', borderTop: `1px solid ${C.hair}`, background: C.paper, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <p style={{ fontSize: 11.5, color: '#8a8a82', fontFamily: "'General Sans',monospace", lineHeight: 1.5, margin: 0 }}>
             The term &apos;Etsy&apos; is a trademark of Etsy, Inc. This application uses the Etsy API but is not endorsed or certified by Etsy, Inc.

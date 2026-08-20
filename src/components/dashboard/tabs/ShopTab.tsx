@@ -183,7 +183,7 @@ export function ShopTab() {
               tool="Shop Analytics"
               subject={String(shop.shop_name ?? shopId)}
               facts={aiFacts}
-              notes="All figures are from the shop's real Etsy record — transaction_sold_count is genuine lifetime sales. Etsy exposes no per-listing sales, so 'sales per listing' is lifetime sales ÷ active listings. Interpret the shop's strengths, risks, and growth opportunities."
+              notes="All figures are from the shop's real, measured record — transaction_sold_count is genuine lifetime sales. Etsy exposes no per-listing sales, so 'sales per listing' is lifetime sales ÷ active listings. Interpret the shop's strengths, risks, and growth opportunities."
             />
           )}
 

@@ -187,7 +187,7 @@ export function TopSellersTab() {
       </div>
 
       {isLoading && <Loading label="Ranking shops by real sales…" />}
-      {isError && <ErrorBox>Couldn&apos;t load top sellers from Etsy. Please try again.</ErrorBox>}
+      {isError && <ErrorBox>Couldn&apos;t load top sellers live. Please try again.</ErrorBox>}
       {data && !isLoading && data.length === 0 && <EmptyState icon="🏆" title="No shops found" sub="Try a broader keyword." />}
 
       {data && data.length > 0 && (

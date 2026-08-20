@@ -239,7 +239,7 @@ export function EtsyListingProTab() {
               </button>
             }>Etsy-style image</SectionTitle>
             <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.6, marginTop: -6, marginBottom: 14 }}>
-              A clean hero product image shot in a real Etsy style. Alt text: <span style={{ fontStyle: 'italic' }}>{listing.altText}</span>
+              A clean hero product image shot in a real, measured style. Alt text: <span style={{ fontStyle: 'italic' }}>{listing.altText}</span>
             </p>
             {/* Wide hero preview — the generated image is 4:3, so let it fill the
                 card (capped) instead of sitting small with empty space beside it. */}

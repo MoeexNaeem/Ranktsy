@@ -89,7 +89,7 @@ export function KeywordGapTab() {
         </div>
       </Card>
 
-      {isLoading && <Loading label="Reading the top listings from Etsy…" />}
+      {isLoading && <Loading label="Reading the top listings live…" />}
       {isError && <ErrorBox>Couldn&apos;t analyse that keyword. Please try again.</ErrorBox>}
 
       {data && !isLoading && (
@@ -98,18 +98,23 @@ export function KeywordGapTab() {
           {data.hasTarget && (
             <Card style={{ borderColor: data.topMissingTags.length ? C.orange : C.ash }}>
               <SectionTitle right={<span style={{ fontSize: 11, fontFamily: MONO, color: C.stone }}>your listing · {data.targetTagCount}/13 tags</span>}>
-                {data.topMissingTags.length ? `${data.topMissingTags.length} hidden keywords to add` : 'No obvious gaps'}
+                {data.topMissingTags.length ? `${data.topMissingTags.length} tags the top “${data.query}” listings use — that yours is missing` : 'No obvious gaps'}
               </SectionTitle>
-              <p style={{ fontSize: 12.5, color: C.graphite, marginTop: -8, marginBottom: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                Comparing against: <strong style={{ color: C.ink }}>{data.targetTitle}</strong>
+              <p style={{ fontSize: 12.5, color: C.graphite, marginTop: -8, marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                Your listing: <strong style={{ color: C.ink }}>{data.targetTitle}</strong>
               </p>
+              {data.topMissingTags.length > 0 && (
+                <p style={{ fontSize: 12, color: C.stone, marginBottom: 14, lineHeight: 1.5 }}>
+                  The <strong style={{ color: C.graphite }}>%</strong> is how many of the top-ranking “{data.query}” listings already use that tag — higher = more important to add. Click any to copy.
+                </p>
+              )}
               {data.topMissingTags.length ? (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {data.topMissingTags.map(t => (
-                    <button key={t.tag} onClick={() => navigator.clipboard?.writeText(t.tag)} title="Click to copy"
+                    <button key={t.tag} onClick={() => navigator.clipboard?.writeText(t.tag)} title={`${t.usedPct}% of the top “${data.query}” listings use “${t.tag}” — click to copy`}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontFamily: MONO, color: C.orange, background: C.orangeFaint, border: `1px solid ${C.orange}`, padding: '6px 13px', borderRadius: 100, cursor: 'pointer' }}>
                       {t.tag}
-                      <span style={{ fontSize: 11, color: C.graphite }}>{t.usedPct}%</span>
+                      <span style={{ fontSize: 11, color: C.graphite }} title={`${t.usedPct}% adoption`}>{t.usedPct}%</span>
                     </button>
                   ))}
                 </div>

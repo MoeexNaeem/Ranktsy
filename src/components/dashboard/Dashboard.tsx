@@ -36,7 +36,7 @@ export function Dashboard() {
 
   const search = useCallback(()=>{ const q=input.trim(); if(q.length<2)return; setQuery(q); addR(q) },[input,addR])
 
-  // Real Etsy measurements only. "Avg. Searches"/"Avg. Clicks" are gone: Etsy
+  // Real, measured measurements only. "Avg. Searches"/"Avg. Clicks" are gone: Etsy
   // publishes no search volume and no clicks — those cards showed listing views
   // and favourites under borrowed names.
   const stats = useMemo(()=>{
@@ -122,7 +122,7 @@ export function Dashboard() {
                     {!tr ? <Skel h={108} />
                       : tr.trends?.length ? <TrendChart data={tr.trends} activePlatforms={plats} />
                       : <p style={{ fontSize:11, color:C.charcoalMid, lineHeight:1.5, padding:'28px 4px', textAlign:'center' }}>
-                          Etsy publishes no search-volume history.<br />Connect Google Ads for a real trend line.
+                          Etsy publishes no search-volume history.<br />Real search-volume trend appears here when available.
                         </p>}
                   </div>
                   <div style={{ background:C.warmGray, borderRadius:10, padding:'11px 13px' }}>

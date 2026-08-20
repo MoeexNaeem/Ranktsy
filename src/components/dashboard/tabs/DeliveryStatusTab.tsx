@@ -43,7 +43,7 @@ export function DeliveryStatusTab() {
   }
 
   if (isLoading) return <Loading label="Reading your Etsy orders…" />
-  if (isError) return <ErrorBox>Couldn&apos;t load your orders from Etsy. Try reconnecting your shop.</ErrorBox>
+  if (isError) return <ErrorBox>Couldn&apos;t load your orders live. Try reconnecting your shop.</ErrorBox>
   if (!data?.connected) return <ConnectShopPrompt what="Your delivery status" needsAuth={data?.needsAuth} />
   if (!data.orders) return <EmptyState icon="📦" title="No orders yet" sub="Fulfilment status appears once you've made a sale." />
 

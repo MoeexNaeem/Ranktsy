@@ -123,7 +123,7 @@ export function ListingsTab() {
           ))}
         </div>
       )}
-      {isError && <ErrorBox>Failed to load listings from Etsy. Please try again.</ErrorBox>}
+      {isError && <ErrorBox>Failed to load listings live. Please try again.</ErrorBox>}
       {!isLoading && !isError && (
         <>
           <p style={{ fontSize: 13.5, color: C.graphite, fontFamily: MONO }}>

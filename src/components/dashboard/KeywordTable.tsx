@@ -52,7 +52,7 @@ const ALL_COLS: Col[] = [
   { id: 'tags',     label: 'Tag Occurrences', width: '0.8fr', key: 'tagOccurrences' },
   { id: 'chars',    label: 'Chars',           width: '0.55fr', key: 'charCount' },
   { id: 'words',    label: 'Words',           width: '0.55fr', key: 'wordCount' },
-  { id: 'google',   label: 'Google Searches', width: '0.85fr', key: 'googleSearches' },
+  { id: 'google',   label: 'Searches', width: '0.85fr', key: 'googleSearches' },
   { id: 'gcomp',    label: 'Google Comp.',    width: '0.95fr', key: 'googleCompetitionIndex' },
   { id: 'gcpc',     label: 'Google CPC',      width: '0.9fr',  key: 'googleCpcHigh' },
 ]
@@ -241,7 +241,7 @@ export const KeywordTable = memo(function KeywordTable({
     // Export honours the current view, and narrows to the selection if there is one.
     const target = selected.size ? view.filter(r => selected.has(r.keyword)) : view
     const csv = toCsv(
-      ['Keyword', 'Etsy competition', 'Competition level', 'KD', 'Avg views', 'Avg favorites', 'Favs per view %', 'Tag occurrences', 'Chars', 'Words', 'Google searches', 'Google competition', 'Google comp. index', `Google CPC low (${currency || 'acct'})`, `Google CPC high (${currency || 'acct'})`],
+      ['Keyword', 'Etsy competition', 'Competition level', 'KD', 'Avg views', 'Avg favorites', 'Favs per view %', 'Tag occurrences', 'Chars', 'Words', 'searches', 'Google competition', 'Google comp. index', `Google CPC low (${currency || 'acct'})`, `Google CPC high (${currency || 'acct'})`],
       target.map(r => [r.keyword, r.competition, r.competitionLevel, r.difficulty, r.avgViews, r.avgFavorites, r.favPerView, r.tagOccurrences, r.charCount, r.wordCount, r.googleSearches, r.googleCompetition ?? '', r.googleCompetitionIndex ?? '', r.googleCpcLow ?? '', r.googleCpcHigh ?? '']),
     )
     downloadCsv(`keywords-${slugify(query)}.csv`, csv)

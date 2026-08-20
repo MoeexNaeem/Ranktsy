@@ -2,7 +2,7 @@
 /**
  * Find Hot Products — a product-research database over LIVE Etsy listings.
  * Ranks products by a real "Hot Score" (favorite-velocity + engagement); every
- * filter and sort hits the Etsy API for fresh real data. NO per-listing sales or
+ * filter and sort hits our live data for fresh real data. NO per-listing sales or
  * revenue is shown — Etsy publishes none, and this product never fabricates.
  */
 import { useState, useCallback, useMemo } from 'react'
@@ -36,7 +36,7 @@ const SORTS: { id: string; label: string }[] = [
   { id: 'price_high', label: 'Price: High → Low' },
 ]
 
-// Export the current results to CSV. Real Etsy fields + the labelled review-based
+// Export the current results to CSV. Real, measured fields + the labelled review-based
 // estimates (est. columns are blank for rows past the review-fetch cap).
 function exportCsv(rows: HotProduct[], query: string, estimates: Record<number, { estMonthlySales: number | null; estMonthlyRevenue: number | null; estTotalSales: number | null; reviewCount: number | null }>) {
   const header = ['Title', 'Shop', 'Price', 'Currency', 'Views', 'Favorites', 'Engagement %', 'Favs/day', 'Hot Score', 'Quantity', 'Created', 'Age (days)', 'Reviews', 'Est. Sales/mo', 'Est. Revenue/mo', 'Est. Total sales', 'URL']
@@ -129,7 +129,7 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
   const reviewsQ = useListingReviews(reviewIds)
   const estOf = useCallback((p: HotProduct) => {
     const rs = reviewsQ.data?.[p.listing_id]
-    return estimateListingSales({ reviewCount: rs?.count ?? null, reviewsLast30d: rs?.last30d ?? null, price: p.price, ageDays: ageDaysOf(p.createdTimestamp) })
+    return estimateListingSales({ reviewCount: rs?.count ?? null, reviewsLast30d: rs?.last30d ?? null, price: p.price, ageDays: ageDaysOf(p.createdTimestamp), views: p.views ?? null, favorites: p.favorites ?? null })
   }, [reviewsQ.data])
   const reviewsLoading = reviewsQ.isPending || reviewsQ.isFetching
 
@@ -178,7 +178,7 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
         </div>
       </Card>
 
-      {isError && <ErrorBox>Couldn&apos;t load products from Etsy. Try a different search or loosen the filters.</ErrorBox>}
+      {isError && <ErrorBox>Couldn&apos;t load products live. Try a different search or loosen the filters.</ErrorBox>}
       {isLoading && <Loading label="Scanning Etsy for hot products…" />}
 
       {data && !isLoading && (
@@ -237,7 +237,7 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
                   <span style={{ fontSize: 16, fontFamily: MONO, color: D.series[1], textAlign: 'right' }}>{formatNumber(p.views)}</span>
                   <span style={{ fontSize: 16, fontFamily: MONO, color: D.series[5], textAlign: 'right' }}>{formatNumber(p.favorites)}</span>
                   {(() => { const s = estOf(p).estMonthlySales; return (
-                    <span style={{ fontSize: 15, fontFamily: MONO, color: s != null ? D.mid : C.stone, fontWeight: s != null ? 600 : 400, textAlign: 'right' }} title="Estimated monthly sales — from review velocity, not real Etsy data">
+                    <span style={{ fontSize: 15, fontFamily: MONO, color: s != null ? D.mid : C.stone, fontWeight: s != null ? 600 : 400, textAlign: 'right' }} title="Estimated monthly sales — from review velocity, not real, measured data">
                       {s != null ? `~${formatNumber(s)}` : (reviewsLoading ? '…' : '—')}
                     </span>) })()}
                   <span style={{ fontSize: 15, fontFamily: MONO, color: p.favPerDay != null ? D.good : C.stone, textAlign: 'right' }}>{p.favPerDay != null ? p.favPerDay : '—'}</span>
@@ -274,7 +274,7 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
           )}
 
           <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6 }}>
-            Views, favorites, age and Hot Score are measured live from the Etsy API. Hot Score = favorite-velocity (favorites ÷ days live) + engagement (favorites ÷ views),
+            Views, favorites, age and Hot Score are measured live measured live. Hot Score = favorite-velocity (favorites ÷ days live) + engagement (favorites ÷ views),
             scored on the top matches. Etsy exposes no per-listing sales, so <strong style={{ color: D.mid }}>~ Sales/mo</strong> is an <em>estimate</em> (reviews ÷ a review rate) — directional, not exact.
           </p>
         </>

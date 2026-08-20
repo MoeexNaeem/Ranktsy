@@ -1,29 +1,32 @@
 /**
- * Estimated per-listing sales, from REAL review signals — the honest version of
- * Everbee's "Monthly Sales / Total Sales / Revenue" columns.
+ * Estimated per-listing sales — the honest, multi-signal version of Everbee's
+ * "Monthly Sales / Total Sales / Revenue" columns.
  *
- * Etsy publishes NO per-listing sales. What it does expose is **reviews**, and a
- * review is a *verified purchase* — you can only review what you bought. Only a
- * fraction of buyers leave one, so:
+ * Etsy publishes NO per-listing sales, so every estimator (Everbee, eRank, us)
+ * MODELS it. We blend the three real signals Etsy DOES expose, and take the
+ * strongest — so a listing whose reviews are under-reported (Etsy pools an item's
+ * reviews across relisted/variant listings, leaving the per-listing API count low)
+ * is still measured by its real traffic, instead of collapsing to ~0:
  *
- *     sales ≈ reviews ÷ reviewRate
+ *   • reviews  → sales ≈ reviews ÷ reviewRate        (a hard, verified-purchase floor)
+ *   • views    → sales ≈ views × conversionRate      (traffic model; Etsy's avg CR)
+ *   • favorites→ sales ≈ favorites × favToSales       (purchase-intent proxy)
  *
- * That single `reviewRate` (share of buyers who review) is the whole assumption,
- * and the dominant source of error — it varies by category, price and shop. So the
- * OUTPUT IS AN ESTIMATE and must always be labelled as one (see the no-fabricated-
- * data rule). The review COUNT and 30-day velocity themselves are the only hard
- * numbers; everything derived here is an estimate.
- *
- *   estTotalSales     ≈ reviewCount ÷ reviewRate
- *   estMonthlySales   ≈ monthlyReviews ÷ reviewRate, where monthlyReviews is the
- *                       trailing-30-day review velocity when the listing is actively
- *                       reviewed, else its lifetime average (reviewCount ÷ ageMonths)
- *                       — so a proven seller with a quiet last month still reads as
- *                       selling, and a brand-new spike still shows momentum.
+ *   estTotalSales   ≈ max(reviewFloor, viewsEst, favEst)   — strongest real signal
+ *   estMonthlySales ≈ recent review velocity ÷ reviewRate, else estTotal amortised
+ *                     over the listing's real age (lifetime average).
  *   estMonthlyRevenue ≈ estMonthlySales × price
  *
- * `reviewRate` is env-tunable (`NEXT_PUBLIC_ETSY_REVIEW_RATE`, default 0.12 ≈ 1 in 8
- * buyers reviews) so it can be calibrated against listings whose real sales are known.
+ * OUTPUT IS AN ESTIMATE and is always badged as one (see the no-fabricated-data
+ * rule) — the review COUNT, view/favorite counts and age are the hard numbers;
+ * everything derived here is modelled. A listing with genuinely low traffic AND
+ * no reviews still estimates ~0 (we never invent sales from nothing).
+ *
+ * Rates are env-tunable so they can be calibrated against listings whose real
+ * sales are known:
+ *   NEXT_PUBLIC_ETSY_REVIEW_RATE       (default 0.12 ≈ 1 in 8 buyers reviews)
+ *   NEXT_PUBLIC_ETSY_CONVERSION_RATE   (default 0.02 = 2% of views convert)
+ *   NEXT_PUBLIC_ETSY_FAV_TO_SALES      (default 1.5 sales per favorite)
  */
 
 function envNum(name: string, fallback: number): number {
@@ -35,6 +38,17 @@ function envNum(name: string, fallback: number): number {
 export function reviewRate(): number {
   return Math.min(1, Math.max(0.02, envNum('NEXT_PUBLIC_ETSY_REVIEW_RATE', 0.12)))
 }
+/** Share of a listing's lifetime views that convert to a sale. Clamped 0.3%–10%. */
+export function conversionRate(): number {
+  return Math.min(0.1, Math.max(0.003, envNum('NEXT_PUBLIC_ETSY_CONVERSION_RATE', 0.02)))
+}
+/** Sales per favorite (favorites are strong purchase intent). Clamped 0.2–6. */
+export function favToSales(): number {
+  return Math.min(6, Math.max(0.2, envNum('NEXT_PUBLIC_ETSY_FAV_TO_SALES', 1.5)))
+}
+
+/** What real signal the total estimate leaned on — for an honest UI hint. */
+export type EstimateBasis = 'reviews' | 'traffic' | 'favorites' | null
 
 export interface ListingSalesEstimate {
   /** Real lifetime review count (verified-purchase floor on units sold). */
@@ -49,11 +63,13 @@ export interface ListingSalesEstimate {
   estMonthlyRevenue: number | null
   /** True when estMonthlySales fell back to the lifetime average (no recent reviews). */
   monthlyIsAverage: boolean
+  /** Which real signal drove the total (reviews / traffic / favorites). */
+  basis: EstimateBasis
 }
 
 const EMPTY: ListingSalesEstimate = {
   reviewCount: null, reviewsLast30d: null, estTotalSales: null,
-  estMonthlySales: null, estMonthlyRevenue: null, monthlyIsAverage: false,
+  estMonthlySales: null, estMonthlyRevenue: null, monthlyIsAverage: false, basis: null,
 }
 
 export function estimateListingSales(input: {
@@ -61,38 +77,52 @@ export function estimateListingSales(input: {
   reviewsLast30d?: number | null
   price?: number | null
   ageDays?: number | null
+  views?: number | null
+  favorites?: number | null
 }): ListingSalesEstimate {
   const reviewCount = input.reviewCount ?? null
   const reviewsLast30d = input.reviewsLast30d ?? null
   const price = input.price ?? null
   const ageDays = input.ageDays ?? null
-  if (reviewCount == null && reviewsLast30d == null) return EMPTY
+  const views = input.views ?? null
+  const favorites = input.favorites ?? null
 
   const rate = reviewRate()
+  const cr = conversionRate()
+  const fts = favToSales()
 
-  const estTotalSales = reviewCount != null ? Math.round(reviewCount / rate) : null
+  // The three real-signal total estimates (null when the signal is missing).
+  const reviewFloor = reviewCount != null ? reviewCount / rate : null
+  const viewsEst    = views != null && views > 0 ? views * cr : null
+  const favEst      = favorites != null && favorites > 0 ? favorites * fts : null
 
-  // Monthly reviews: prefer real recent velocity; if the last 30 days are quiet
-  // (0) but the listing has lifetime reviews, fall back to its lifetime average so
-  // a long-proven seller doesn't read as "0 sales/mo".
-  const lifetimeMonthly = reviewCount != null && ageDays != null && ageDays > 0
-    ? reviewCount / (ageDays / 30)
-    : null
-  let monthlyReviews: number | null = null
+  // Nothing to go on at all → empty (never invent).
+  if (reviewFloor == null && viewsEst == null && favEst == null) return EMPTY
+
+  // Strongest real signal drives the total — reviews are a hard floor, traffic and
+  // favorites capture the unreviewed sales Etsy's per-listing review count misses.
+  const signals: { v: number; b: EstimateBasis }[] = []
+  if (reviewFloor != null) signals.push({ v: reviewFloor, b: 'reviews' })
+  if (viewsEst != null) signals.push({ v: viewsEst, b: 'traffic' })
+  if (favEst != null) signals.push({ v: favEst, b: 'favorites' })
+  const top = signals.reduce((a, b) => (b.v > a.v ? b : a))
+  const estTotalSales = Math.round(top.v)
+  const basis: EstimateBasis = top.b
+
+  // Monthly: prefer real recent review velocity; else amortise the total estimate
+  // over the listing's real age (its lifetime-average monthly rate).
+  let estMonthlySales: number | null = null
   let monthlyIsAverage = false
   if (reviewsLast30d != null && reviewsLast30d > 0) {
-    monthlyReviews = reviewsLast30d
-  } else if (lifetimeMonthly != null) {
-    monthlyReviews = lifetimeMonthly
+    estMonthlySales = Math.round(reviewsLast30d / rate)
+  } else if (ageDays != null && ageDays > 0) {
+    estMonthlySales = Math.max(0, Math.round(estTotalSales / (ageDays / 30)))
     monthlyIsAverage = true
-  } else if (reviewsLast30d != null) {
-    monthlyReviews = reviewsLast30d // genuinely 0 recent AND no age to average
   }
 
-  const estMonthlySales = monthlyReviews != null ? Math.round(monthlyReviews / rate) : null
   const estMonthlyRevenue = estMonthlySales != null && price != null
     ? Math.round(estMonthlySales * price)
     : null
 
-  return { reviewCount, reviewsLast30d, estTotalSales, estMonthlySales, estMonthlyRevenue, monthlyIsAverage }
+  return { reviewCount, reviewsLast30d, estTotalSales, estMonthlySales, estMonthlyRevenue, monthlyIsAverage, basis }
 }

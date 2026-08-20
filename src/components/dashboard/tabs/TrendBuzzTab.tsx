@@ -45,7 +45,7 @@ export function TrendBuzzTab() {
       </div>
 
       {isLoading && <Loading label="Reading the Etsy tea leaves…" />}
-      {isError && <ErrorBox>Couldn&apos;t load trend buzz from Etsy. Please try again.</ErrorBox>}
+      {isError && <ErrorBox>Couldn&apos;t load trend buzz live. Please try again.</ErrorBox>}
 
       {data && !isLoading && data.length === 0 && (
         <EmptyState icon="🫧" title="No buzz found" sub="Try a broader niche or leave the box blank." />
@@ -64,7 +64,7 @@ export function TrendBuzzTab() {
               highlightMax />
           </Card>
 
-          {/* Full table — every column a real Etsy measurement. The old
+          {/* Full table — every column a real, measured measurement. The old
               "Momentum" sparkline was a sine wave keyed to the row index. */}
           <div className="rtable" style={tableCard}>
             <div style={tableHead(GRID)}>
@@ -96,7 +96,7 @@ export function TrendBuzzTab() {
           </div>
 
           <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6 }}>
-            Listings, views, favourites and creation dates are real Etsy fields. <strong>Heat</strong> is a relative
+            Listings, views, favourites and creation dates are real, measured fields. <strong>Heat</strong> is a relative
             0–100 index over those measurements (how many sampled listings carry the tag × how well they engage) — it is
             not a search volume; Etsy publishes none. <strong>Median age</strong> is the real age of the listings using
             the tag: young listings on a busy tag is what &ldquo;emerging&rdquo; actually looks like.

@@ -70,7 +70,7 @@ export const KeywordIdeasPanel = memo(function KeywordIdeasPanel({
 
   const exportCsv = () => {
     const csv = toCsv(
-      ['Keyword', 'Google searches/mo', 'Competition', 'Comp. index', `CPC low (${currency || 'acct'})`, `CPC high (${currency || 'acct'})`],
+      ['Keyword', 'searches/mo', 'Competition', 'Comp. index', `CPC low (${currency || 'acct'})`, `CPC high (${currency || 'acct'})`],
       view.map(i => [i.keyword, i.searches, i.competition, i.competitionIndex ?? '', i.cpcLow ?? '', i.cpcHigh ?? '']),
     )
     downloadCsv(`google-keyword-ideas-${slugify(seed)}.csv`, csv)
@@ -79,7 +79,7 @@ export const KeywordIdeasPanel = memo(function KeywordIdeasPanel({
   return (
     <Card>
       <SectionTitle right={
-        <span style={{ fontSize: 10.5, fontFamily: MONO, color: C.stone }}>Google Ads · Keyword Planner</span>
+        <span style={{ fontSize: 10.5, fontFamily: MONO, color: C.stone }}>Search volume</span>
       }>
         Google Keyword Ideas
       </SectionTitle>
@@ -96,8 +96,8 @@ export const KeywordIdeasPanel = memo(function KeywordIdeasPanel({
           ))}
         </div>
       ) : !configured ? (
-        <EmptyState icon="🔌" title="Connect Google Ads to unlock keyword ideas"
-          sub="Google Keyword Planner powers this discovery. Once Google Ads credentials are set, real suggestions with volume, competition and CPC appear here." />
+        <EmptyState icon="🔌" title="Keyword ideas appear when search data is available"
+          sub="Real keyword suggestions — with volume, competition and CPC — appear here when search data is available." />
       ) : !ideas.length ? (
         <EmptyState icon="💡" title="No keyword ideas returned" sub={`Google had no suggestions for “${seed}”. Try a broader seed keyword.`} />
       ) : (
@@ -147,7 +147,7 @@ export const KeywordIdeasPanel = memo(function KeywordIdeasPanel({
           </div>
 
           <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6, marginTop: 4 }}>
-            Real Google Ads Keyword Planner data (US). Competition is <em>advertiser</em> competition, not Etsy listing
+            Real Keyword Planner data (US). Competition is <em>advertiser</em> competition, not Etsy listing
             competition. CPC is the top-of-page bid range in your Ads account currency{currency ? ` (${currency})` : ''}.
           </p>
         </div>
