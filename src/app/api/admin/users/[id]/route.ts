@@ -4,6 +4,7 @@ import { User, KeywordHistory, ConnectedShop, ApiUsage } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin, resolveRole } from '@/lib/auth/roles'
 import { PLAN_SLUGS, effectivePlan } from '@/lib/plans'
+import { addOneMonth, reconcileUserPlan } from '@/lib/plan-lifecycle'
 import { creditLimitFor } from '@/lib/credits'
 import type { IApiUsage } from '@/types'
 
@@ -29,8 +30,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params
 
   await connectDB()
-  const u = await User.findById(id).lean()
+  const u = await User.findById(id)
   if (!u) return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
+  // Persist any comp-plan expiry/backfill so the admin sees the true current plan.
+  await reconcileUserPlan(u).catch(() => {})
 
   const days = Array.from({ length: 14 }, (_, i) => { const d = new Date(); d.setUTCDate(d.getUTCDate() - i); return dayKey(d) })
   const [shops, recentSearches, searchTotal, usageRows] = await Promise.all([
@@ -60,6 +63,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     isVerified: u.isVerified, restricted: u.restricted ?? false,
     paidViaLemonSqueezy: !!u.lsSubscriptionId, subscriptionStatus: u.subscriptionStatus ?? null,
     lsCustomerId: u.lsCustomerId ?? null, planRenewsAt: u.planRenewsAt ?? null,
+    compExpiresAt: u.compExpiresAt ?? null,
     createdAt: u.createdAt ?? null,
     credits: { usedToday: creditsUsedToday, limit: creditsLimit, remaining: Math.max(0, creditsLimit - creditsUsedToday), usedTotal: u.creditsUsedTotal ?? 0 },
     imagesThisMonth: u.listingImageCount ?? 0,
@@ -91,6 +95,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   await connectDB()
+
+  // An admin PLAN change is a comp grant: setting a paid plan gives a 1-MONTH
+  // gift (compExpiresAt) so it auto-reverts to free unless the user actually
+  // pays; setting 'free' clears it. A genuinely-active PAID subscriber is left
+  // alone (no comp clock) — their plan is governed by the Lemon Squeezy webhook.
+  if ('plan' in update) {
+    if (update.plan === 'free') {
+      update.compExpiresAt = null
+    } else {
+      const existing = await User.findById(id).select('subscriptionStatus').lean()
+      const activePaid = existing?.subscriptionStatus === 'active' || existing?.subscriptionStatus === 'on_trial'
+      if (!activePaid) update.compExpiresAt = addOneMonth()
+    }
+  }
+
   const u = await User.findByIdAndUpdate(id, update, { new: true }).lean()
   if (!u) return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
   return NextResponse.json({ success: true, data: { id, ...update } })

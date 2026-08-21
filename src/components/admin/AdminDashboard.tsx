@@ -11,6 +11,7 @@ interface AUser {
   id: string; name: string; email: string; role: 'user' | 'admin'; plan: string
   isVerified: boolean; createdAt: string | null; searches: number; lastActive: string | null; connectedShops: number
   subscriptionStatus: string | null; imagesThisMonth: number; restricted: boolean; paidViaLemonSqueezy: boolean
+  compExpiresAt: string | null
   creditsUsedToday: number; creditsLimit: number; creditsRemaining: number; creditsUsedTotal: number
 }
 type ConfirmAction = { user: AUser; kind: 'delete' | 'restrict' | 'unrestrict' }
@@ -354,6 +355,9 @@ export function AdminDashboard() {
                           ))}
                         </select>
                         <span aria-hidden style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', fontSize: 9, color: paid ? '#fff' : hue, pointerEvents: 'none' }}>▾</span>
+                        {!u.paidViaLemonSqueezy && u.plan !== 'free' && u.compExpiresAt && (
+                          <p title="Admin-granted plan — reverts to Free on this date unless the user pays" style={{ fontSize: 10, fontFamily: MONO, color: C.stone, marginTop: 5, whiteSpace: 'nowrap' }}>⏳ expires {fmtDate(u.compExpiresAt)}</p>
+                        )}
                       </div>
                       {paid
                         ? <span title="Paid via Lemon Squeezy" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, width: 'fit-content', fontSize: 11.5, fontWeight: 700, color: '#fff', background: PAID_GOLD, padding: '4px 12px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>★ Paid</span>

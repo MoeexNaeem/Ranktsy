@@ -12,7 +12,7 @@ interface Detail {
   id: string; name: string; email: string; authProvider: string | null
   role: 'user' | 'admin'; plan: string; effectivePlan: string
   isVerified: boolean; restricted: boolean; paidViaLemonSqueezy: boolean
-  subscriptionStatus: string | null; lsCustomerId: string | null; planRenewsAt: string | null
+  subscriptionStatus: string | null; lsCustomerId: string | null; planRenewsAt: string | null; compExpiresAt: string | null
   createdAt: string | null
   credits: { usedToday: number; limit: number; remaining: number; usedTotal: number }
   imagesThisMonth: number; savedKeywords: number; searchTotal: number
@@ -123,6 +123,9 @@ export function UserDetailPanel({ userId, onClose }: { userId: string | null; on
                 <Field label="Subscription">{d.subscriptionStatus ? d.subscriptionStatus.replace(/_/g, ' ') : '—'}</Field>
                 {d.lsCustomerId && <Field label="LS customer">{d.lsCustomerId}</Field>}
                 {d.planRenewsAt && <Field label="Renews">{fmtDate(d.planRenewsAt)}</Field>}
+                {!d.paidViaLemonSqueezy && d.compExpiresAt && d.effectivePlan !== 'free' && (
+                  <Field label="Admin grant expires"><span title="Admin-granted plan reverts to Free on this date unless the user pays">{fmtDate(d.compExpiresAt)}</span></Field>
+                )}
               </Group>
 
               <Group title="Credits">

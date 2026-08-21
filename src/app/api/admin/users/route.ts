@@ -6,6 +6,7 @@ import { isAdmin, resolveRole } from '@/lib/auth/roles'
 import { creditLimitFor } from '@/lib/credits'
 import { effectivePlan } from '@/lib/plans'
 import { isFreeToProPromoOn } from '@/lib/promo'
+import { sweepComps } from '@/lib/plan-lifecycle'
 
 export const runtime = 'nodejs'
 
@@ -18,6 +19,10 @@ export async function GET() {
   if (!isAdmin(auth)) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
 
   await connectDB()
+  // Persist plan lifecycle before listing: revert expired admin-granted (comp)
+  // plans to free, and give legacy comp grants a one-month clock. So the list
+  // always reflects the true current plan.
+  await sweepComps().catch(() => null)
   const [users, activity, shopCounts, promoOn] = await Promise.all([
     User.find().sort({ createdAt: -1 }).lean(),
     KeywordHistory.aggregate([
@@ -57,6 +62,8 @@ export async function GET() {
       searches: a?.count ?? 0,
       lastActive: a?.last ?? null,
       subscriptionStatus: u.subscriptionStatus ?? null,
+      // When set (and no paid sub), this admin-granted plan reverts to free on this date.
+      compExpiresAt: u.compExpiresAt ?? null,
       imagesThisMonth: u.listingImageCount ?? 0,
       creditsUsedToday,
       creditsLimit,

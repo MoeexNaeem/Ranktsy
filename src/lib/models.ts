@@ -22,6 +22,11 @@ export interface IUserDoc extends Document {
   lsVariantId?: string
   subscriptionStatus?: string   // active | on_trial | past_due | cancelled | paused | expired
   planRenewsAt?: Date
+  // Expiry for an ADMIN-GRANTED (comp) plan — a plan set by an admin (the
+  // Free→Pro promo or the admin plan dropdown) WITHOUT a real Lemon Squeezy
+  // purchase. On/after this date the user auto-reverts to 'free'. Null for
+  // real paid subscriptions (those expire via the webhook + planRenewsAt).
+  compExpiresAt?: Date | null
   // Admin-set: blocks dashboard access with an explanatory screen. Checked
   // fresh from the DB on dashboard load (never baked into the JWT) so it
   // takes effect immediately, not after the access token expires.
@@ -60,6 +65,7 @@ const UserSchema = new Schema<IUserDoc>({
   lsVariantId:       { type: String },
   subscriptionStatus:{ type: String },
   planRenewsAt:      { type: Date },
+  compExpiresAt:     { type: Date, default: null },
   restricted:        { type: Boolean, default: false },
   etsyShopId:       { type: String },
   etsyAccessToken:  { type: String, select: false },

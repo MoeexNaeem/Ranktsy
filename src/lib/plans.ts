@@ -19,18 +19,30 @@ export const PLAN_LABELS: Record<PlanSlug, string> = {
 }
 
 /**
- * The plan we should actually treat the user as being on. The Lemon Squeezy
- * webhook downgrades to 'free' on expiry, but this is a safety net for a missed
- * webhook: a non-active paid subscription whose paid period is over (renews_at +
- * 1-day grace) falls back to free. Active/trialing subs and admin-granted plans
- * (no subscription metadata) are kept as-is.
+ * The plan we should actually treat the user as being on. Two expiry paths:
+ *   • PAID (Lemon Squeezy): the webhook sets 'expired' on end; this is also a
+ *     safety net for a missed webhook — a non-active paid sub past renews_at
+ *     (+1-day grace) falls back to free.
+ *   • ADMIN-GRANTED (comp): a plan an admin gave without a purchase carries a
+ *     `compExpiresAt`; on/after it the user reverts to free (e.g. a 1-month Pro
+ *     gift ends after exactly one month).
+ * Active/trialing PAID subs are always kept regardless of compExpiresAt.
  */
-export function effectivePlan(u: { plan?: PlanSlug | string; subscriptionStatus?: string | null; planRenewsAt?: Date | string | null }): PlanSlug {
+export function effectivePlan(u: {
+  plan?: PlanSlug | string
+  subscriptionStatus?: string | null
+  planRenewsAt?: Date | string | null
+  compExpiresAt?: Date | string | null
+}): PlanSlug {
   const plan = (u.plan ?? 'free') as PlanSlug
   if (plan === 'free') return 'free'
   const status = u.subscriptionStatus ?? ''
   if (status === 'expired') return 'free'
-  if (status === 'active' || status === 'on_trial') return plan // trust active status even if renews_at is stale
+  if (status === 'active' || status === 'on_trial') return plan // trust active paid status even if dates are stale
+  // Admin-granted (comp) plan whose gifted period is over → free.
+  const comp = u.compExpiresAt ? new Date(u.compExpiresAt).getTime() : null
+  if (comp != null && Date.now() > comp) return 'free'
+  // Paid safety net: a non-active sub past its paid period → free.
   const renews = u.planRenewsAt ? new Date(u.planRenewsAt).getTime() : null
   if (renews != null && Date.now() > renews + 24 * 60 * 60 * 1000) return 'free'
   return plan
