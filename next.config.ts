@@ -16,6 +16,26 @@ const nextConfig: NextConfig = {
   },
 
   async headers() {
+    // Content-Security-Policy — allowlists exactly the external hosts the app
+    // actually loads (Lordicon icons, Fontshare/Google fonts, Lemon Squeezy
+    // checkout, reCAPTCHA) and blocks everything else. 'unsafe-inline' is still
+    // required for Next's hydration bootstrap and the app's inline styles; the
+    // high-value wins here are object-src/base-uri/form-action locks and
+    // frame-ancestors (clickjacking) — the stored-XSS holes are fixed at source.
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.lordicon.com https://www.google.com https://www.gstatic.com https://app.lemonsqueezy.com https://assets.lemonsqueezy.com",
+      "style-src 'self' 'unsafe-inline' https://api.fontshare.com https://cdn.fontshare.com https://fonts.googleapis.com",
+      "font-src 'self' data: https://cdn.fontshare.com https://fonts.gstatic.com",
+      "img-src 'self' data: blob: https:",
+      "connect-src 'self' https:",
+      "frame-src 'self' https://www.google.com https://app.lemonsqueezy.com https://checkout.lemonsqueezy.com https://www.youtube.com",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "object-src 'none'",
+      "form-action 'self' https://checkout.lemonsqueezy.com",
+    ].join('; ')
+
     return [
       {
         source: '/(.*)',
@@ -23,6 +43,8 @@ const nextConfig: NextConfig = {
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options',        value: 'DENY'    },
           { key: 'Referrer-Policy',        value: 'strict-origin-when-cross-origin' },
+          { key: 'Content-Security-Policy', value: csp },
+          { key: 'Permissions-Policy',     value: 'camera=(), microphone=(), geolocation=()' },
         ],
       },
       {

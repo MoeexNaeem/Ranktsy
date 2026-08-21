@@ -88,7 +88,7 @@ export const NearMatchesTable = memo(function NearMatchesTable({
       <div className="rwrap-sm" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <p style={{ fontSize: 13, color: C.graphite, lineHeight: 1.5, maxWidth: 560 }}>
           Plurals, hyphenation and word-order variants of <strong style={{ color: C.ink }}>&ldquo;{rows[0]?.variantOf}&rdquo;</strong>.
-          Each one is measured against its own live Etsy search — so <strong style={{ color: C.ink }}>Etsy Competition</strong> is a real listing total, not an estimate.
+          Each one is measured against its own live search — so <strong style={{ color: C.ink }}>Competition</strong> is a real listing total, not an estimate.
         </p>
         <ExportBtn onClick={exportCsv} count={view.length} />
       </div>

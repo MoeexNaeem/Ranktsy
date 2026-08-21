@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/ui/Icon'
 import { useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
@@ -182,7 +183,7 @@ export function CompetitorSalesTab() {
 
           {!isTracked && (
             <div style={{ display: 'flex', gap: 11, padding: '13px 17px', background: D.midBg, borderRadius: 12, alignItems: 'flex-start' }}>
-              <span style={{ fontSize: 15, lineHeight: 1.4 }}>💡</span>
+              <span style={{ display: 'flex', flexShrink: 0, marginTop: 1 }}><Icon name="bulb" size={16} color={C.ink} /></span>
               <p style={{ fontSize: 12.5, color: C.ink, lineHeight: 1.6 }}>
                 <strong>Track this shop</strong> to guarantee a daily reading. Untracked shops are only captured when
                 someone happens to view them, which leaves gaps in the sales history.

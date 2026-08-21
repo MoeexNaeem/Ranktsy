@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/ui/Icon'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import axios from 'axios'
@@ -214,9 +215,9 @@ export function BlogsAdmin() {
                 <button onClick={() => insert('**', '**')} style={chip} title="Bold">B</button>
                 <button onClick={() => insert('*', '*')} style={chip} title="Italic"><em>i</em></button>
                 <button onClick={() => insert('\n- ', '')} style={chip} title="List">• List</button>
-                <button onClick={() => insert('\n> ', '')} style={chip} title="Quote">❝</button>
-                <button onClick={insertLink} style={chip} title="Select a word, then add a link">🔗 Link</button>
-                <button onClick={insertImage} style={{ ...chip, borderColor: C.orange, color: C.orange }} title="Insert image between sections">🖼 Image</button>
+                <button onClick={() => insert('\n> ', '')} style={chip} title="Quote"><Icon name="quote" size={13} /></button>
+                <button onClick={insertLink} style={chip} title="Select a word, then add a link"><Icon name="link" size={12} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 5 }} />Link</button>
+                <button onClick={insertImage} style={{ ...chip, borderColor: C.orange, color: C.orange }} title="Insert image between sections"><Icon name="image" size={12} color={C.orange} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 5 }} />Image</button>
               </div>
               <button onClick={() => setPreview(p => !p)} style={{ ...chip, background: preview ? C.orangeFaint : C.paper, color: preview ? C.orange : C.ink }}>{preview ? 'Edit' : 'Preview'}</button>
             </div>
@@ -241,7 +242,7 @@ export function BlogsAdmin() {
                 placeholder={'Write in Markdown.\n\n## A section heading\n\nA paragraph of text. Use **bold**, *italic*, [links](https://example.com).\n\n![Alt text](https://image-url.jpg)\n\n- A bullet\n- Another bullet'}
                 style={{ ...field, minHeight: 420, resize: 'vertical', fontFamily: 'ui-monospace, monospace', fontSize: 14, lineHeight: 1.6 }} />
             )}
-            <p style={{ fontSize: 12, color: C.stone, marginTop: 8 }}>Markdown supported. Use <strong>🖼 Image</strong> to drop an image (by URL) between sections.</p>
+            <p style={{ fontSize: 12, color: C.stone, marginTop: 8 }}>Markdown supported. Use <strong>Image</strong> to drop an image (by URL) between sections.</p>
           </Card>
         </div>
 

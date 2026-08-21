@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { withApiGuard } from '@/lib/api-guard'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { searchEtsyListingsPaged, getListingById } from '@/lib/etsy'
 import { geminiJSON, isGeminiConfigured } from '@/lib/gemini'
@@ -203,7 +204,9 @@ async function aiResult(
 }
 
 // ─── Route ────────────────────────────────────────────────────────────────────
-export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<AiOptimization>>> {
+export const POST = withApiGuard(postHandler, { limit: 20, windowMs: 60_000 })
+
+async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<AiOptimization>>> {
   const body = await req.json().catch(() => ({}))
   const listingId = Number(body.listingId)
   const keywordIn = String(body.keyword ?? '').trim().toLowerCase().slice(0, 80)

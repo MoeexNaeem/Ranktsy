@@ -6,6 +6,7 @@
 import React from 'react'
 import { C, compColor } from '@/utils'
 import type { WaitPhase } from '@/lib/ai/busy'
+import { AnimIcon, ICON } from '@/components/ui/AnimIcon'
 
 export const MONO = "'General Sans', sans-serif"
 
@@ -210,10 +211,34 @@ export function GenSkeleton({ lines = 4, height }: { lines?: number; height?: nu
   )
 }
 
-export function EmptyState({ icon = '🔎', title, sub }: { icon?: string; title: string; sub?: string }) {
+// Legacy call sites still pass an emoji as the `icon` prop; map each to a real
+// animated Lordicon so no emoji is ever rendered. Anything unmapped falls back
+// to a neutral search icon. Keyed on the emoji with any variation-selector
+// (U+FE0F) stripped.
+const EMPTY_ICON: Record<string, string> = {
+  '📊': ICON.barChart, '📈': ICON.trending, '🔍': ICON.search, '🔎': ICON.search,
+  '🔥': ICON.demand, '🫧': ICON.demand, '💡': ICON.consult, '🎯': ICON.target, '🧩': ICON.target,
+  '🏆': ICON.celebration, '🎁': ICON.gift, '📦': ICON.gift, '🛍': ICON.shopping, '🏪': ICON.shopping,
+  '🌐': ICON.globe, '🌍': ICON.globe, '🗺': ICON.globe, '👁': ICON.eye, '📝': ICON.document,
+  '📅': ICON.document, '🔤': ICON.document, '🗂': ICON.document, '🔖': ICON.book, '🏷': ICON.document,
+  '✨': ICON.consult, '⚡': ICON.build, '💲': ICON.coins, '⚖': ICON.display, '👋': ICON.account,
+  '🔒': ICON.settings, '🔐': ICON.settings, '🚫': ICON.settings, '⛔': ICON.settings,
+  '🔌': ICON.build, '🔗': ICON.build, '❝': ICON.chat, '🖼': ICON.display, '📣': ICON.addCard, '✅': ICON.check, '♥': ICON.demand,
+}
+
+/** Resolve an emoji OR a direct Lordicon URL to a Lordicon URL. */
+export function resolveEmptyIcon(icon?: string): string {
+  if (!icon) return ICON.search
+  if (icon.startsWith('http')) return icon
+  return EMPTY_ICON[icon.replace(/️/g, '')] ?? ICON.search
+}
+
+export function EmptyState({ icon = ICON.search, title, sub }: { icon?: string; title: string; sub?: string }) {
   return (
     <div style={{ textAlign: 'center', padding: '56px 0', color: C.graphite }}>
-      <div style={{ fontSize: 40, marginBottom: 12 }}>{icon}</div>
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+        <AnimIcon src={resolveEmptyIcon(icon)} size={42} color={C.graphite} trigger="hover" target="div" />
+      </div>
       <p style={{ fontSize: 17, fontWeight: 500, color: C.ink }}>{title}</p>
       {sub && <p style={{ fontSize: 14.5, color: C.graphite, marginTop: 6 }}>{sub}</p>}
     </div>

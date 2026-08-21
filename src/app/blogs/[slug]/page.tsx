@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { Navbar } from '@/components/landing/Navbar'
 import { Footer } from '@/components/landing/Sections'
 import { Markdown } from '@/components/blog/Markdown'
+import { JsonLd } from '@/components/seo/JsonLd'
 import { connectDB } from '@/lib/db'
 import { Blog } from '@/lib/models'
 import { abs } from '@/lib/seo/site'
@@ -59,7 +60,7 @@ export default async function BlogPost({ params }: { params: Promise<{ slug: str
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <JsonLd data={jsonLd} />
       <Navbar />
       <main style={{ background: C.paper }}>
         <article style={{ maxWidth: 760, margin: '0 auto', padding: 'clamp(140px,15vw,180px) 24px 40px' }}>

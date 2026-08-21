@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/ui/Icon'
 import { useState, useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
@@ -85,7 +86,7 @@ export function TagOptimizerTab() {
 
           {/* Recommended */}
           <Card>
-            <SectionTitle>✨ Recommended tags (click to copy)</SectionTitle>
+            <SectionTitle><Icon name="sparkle" size={15} color={C.orange} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 7 }} />Recommended tags (click to copy)</SectionTitle>
             <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
               {tagAnalysis.slice(0, 13).map(t => (
                 <button key={t.tag} onClick={() => navigator.clipboard?.writeText(t.tag)} title="Click to copy"

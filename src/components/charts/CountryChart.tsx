@@ -45,7 +45,7 @@ export const CountryChart = memo(function CountryChart({ data }: { data: Country
         )
       })}
       <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.5, marginTop: 2 }}>
-        Share of Google search demand across tracked countries. Real Google Ads data.
+        Share of search demand across tracked countries. Real measured data.
       </p>
     </div>
   )

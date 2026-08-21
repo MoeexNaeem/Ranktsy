@@ -62,7 +62,7 @@ export function AIListingHelperTab() {
       <Card>
         <SectionTitle right={
           <span style={{ fontSize: 10.5, fontFamily: MONO, color: '#9a9a92' }}>
-            grounded in live Etsy tags
+            grounded in real listing tags
           </span>
         }>Describe your product</SectionTitle>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -80,7 +80,7 @@ export function AIListingHelperTab() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button onClick={run} disabled={seed.trim().length < 2 || gen.isPending} style={{ ...primaryBtn, opacity: seed.trim().length < 2 || gen.isPending ? 0.55 : 1 }}>
-              {gen.isPending ? 'Generating…' : '✨ Generate listing'}
+              {gen.isPending ? 'Generating…' : 'Generate listing'}
             </button>
           </div>
         </div>

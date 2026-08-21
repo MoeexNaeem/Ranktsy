@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/ui/Icon'
 import { useMemo } from 'react'
 import { MixDonut } from '@/components/charts/InsightCharts'
 import { ExportBtn, toCsv, downloadCsv } from '../controls'
@@ -57,7 +58,7 @@ export function DeliveryStatusTab() {
       {/* The one number that needs action today */}
       {f.awaitingShipment > 0 && (
         <div style={{ display: 'flex', gap: 12, padding: '14px 18px', background: oldest && oldest.ageDays > 5 ? D.hardBg : D.midBg, borderRadius: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 17 }}>📦</span>
+          <span style={{ display: 'flex', flexShrink: 0 }}><Icon name="package" size={17} color={C.ink} /></span>
           <p style={{ fontSize: 14, color: C.ink, lineHeight: 1.5, flex: 1, minWidth: 240 }}>
             <strong>{f.awaitingShipment} paid order{f.awaitingShipment === 1 ? '' : 's'} awaiting shipment.</strong>
             {oldest && <> The oldest has been waiting <strong style={{ color: ageColor(oldest.ageDays) }}>{oldest.ageDays} day{oldest.ageDays === 1 ? '' : 's'}</strong>.</>}
@@ -123,7 +124,7 @@ export function DeliveryStatusTab() {
             </div>
           ) : (
             <div style={{ textAlign: 'center', padding: '44px 0' }}>
-              <div style={{ fontSize: 32, marginBottom: 10 }}>✅</div>
+              <div style={{ marginBottom: 10, display: 'flex', justifyContent: 'center' }}><Icon name="check" size={32} color={D.good} /></div>
               <p style={{ fontSize: 15.5, fontWeight: 500, color: D.good }}>Everything paid has shipped</p>
               <p style={{ fontSize: 13.5, color: C.graphite, marginTop: 5 }}>No outstanding fulfilment across your last {data.sampled} orders.</p>
             </div>

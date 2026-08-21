@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/ui/Icon'
 import { useState, useCallback, useEffect, Suspense } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
@@ -50,7 +51,7 @@ const TABS: { id: TabId; label: string; description: string; group: string; acce
   { id: 'myshop',      label: 'My Shop',       group: 'Home',        accent: 'orange',  description: 'Your connected shop\'s sales & insights' },
   { id: 'hotproducts', label: 'Find Hot Products',group: 'Research', accent: 'rose',    description: 'Discover trending products by real engagement' },
   { id: 'keywords',    label: 'Keywords',      group: 'Research',    accent: 'blue',    description: 'Research search volume & CTR' },
-  { id: 'listings',    label: 'Listings',      group: 'Research',    accent: 'cyan',    description: 'Browse live Etsy listings' },
+  { id: 'listings',    label: 'Listings',      group: 'Research',    accent: 'cyan',    description: 'Browse live listings' },
   { id: 'competitors', label: 'Competitors',   group: 'Research',    accent: 'violet',  description: 'Analyze top sellers' },
   { id: 'trends',      label: 'Trends',        group: 'Research',    accent: 'teal',    description: 'Track search trends' },
   { id: 'buzz',        label: 'Trend Buzz',    group: 'Research',    accent: 'rose',    description: 'Emerging keywords heating up on Etsy' },
@@ -168,7 +169,7 @@ export function DashboardLayout() {
     return (
       <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', background: C.canvas, padding: 24 }}>
         <div style={{ maxWidth: 460, textAlign: 'center' }}>
-          <div style={{ fontSize: 40, marginBottom: 16 }}>🚫</div>
+          <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}><Icon name="lock" size={40} color={C.stone} /></div>
           <h1 style={{ fontSize: 24, fontWeight: 600, color: C.ink, marginBottom: 10, letterSpacing: '-0.02em' }}>Access restricted</h1>
           <p style={{ fontSize: 14.5, color: C.graphite, lineHeight: 1.65, marginBottom: 24 }}>
             You are unable to access the dashboard because your account has been restricted by an administrator. If you believe this is a mistake, please contact support.

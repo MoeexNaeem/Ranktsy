@@ -4,12 +4,12 @@ import { geminiJSON, isGeminiConfigured, type GeminiMeta } from '@/lib/gemini'
 import { normalizeGeo } from '@/lib/google-ads'
 import { buildGrounding, titlePrompt, TITLE_SYSTEM, TITLE_SCHEMA } from '@/lib/ai/etsy-prompts'
 import { AI_BUSY, AI_UNAVAILABLE, AI_FAILED } from '@/lib/ai/messages'
-import { withUsage } from '@/lib/track'
+import { withApiGuard } from '@/lib/api-guard'
 import type { ApiResponse, AiTitleResult } from '@/types'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
-export const GET = withUsage(getHandler)
+export const GET = withApiGuard(getHandler, { limit: 20, windowMs: 60_000 })
 
 /** AI Title generator — 10 Etsy titles, grounded in real Google + Etsy data. */
 async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<AiTitleResult>>> {

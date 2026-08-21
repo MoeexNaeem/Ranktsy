@@ -6,6 +6,7 @@ import { ConnectSection }    from '@/components/landing/ConnectSection'
 import { Reviews }           from '@/components/landing/Reviews'
 import { Faq }               from '@/components/landing/Faq'
 import { abs, siteUrl }      from '@/lib/seo/site'
+import { JsonLd }            from '@/components/seo/JsonLd'
 
 export const revalidate = 86400
 
@@ -24,7 +25,7 @@ const jsonLd = {
 export default function HomePage() {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <JsonLd data={jsonLd} />
       <Navbar />
       <main>
         <Hero />

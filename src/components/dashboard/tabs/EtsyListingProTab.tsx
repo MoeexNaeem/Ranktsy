@@ -167,7 +167,7 @@ export function EtsyListingProTab() {
           {ref && <button onClick={() => setRef(null)} style={{ fontSize: 12.5, color: C.stone, background: 'none', border: 'none', cursor: 'pointer' }}>remove</button>}
         </div>
         <p style={{ fontSize: 11, color: C.stone, marginTop: 10, lineHeight: 1.55 }}>
-          Add a real photo of your product to make the mockups from <em>your</em> item. Copy is grounded in the real tags &amp; median price of live Etsy listings; the price is an AI suggestion, not a guarantee.
+          Add a real photo of your product to make the mockups from <em>your</em> item. Copy is grounded in the real tags &amp; median price of live listings; the price is an AI suggestion, not a guarantee.
         </p>
       </Card>
 

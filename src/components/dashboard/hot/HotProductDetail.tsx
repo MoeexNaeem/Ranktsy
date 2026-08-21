@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/ui/Icon'
 /**
  * Find Hot Products — product detail. Opens from a database row and pulls the
  * full live listing + its shop's real record, an AI read, and a per-tag analysis
@@ -124,7 +125,7 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
           <div style={{ borderRadius: 12, overflow: 'hidden', background: C.bone, aspectRatio: '1 / 1' }}>
             {images[activeImg]?.url_570xN
               ? <img src={images[activeImg].url_570xN} alt={product.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-              : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, color: C.stone }}>🛍</div>}
+              : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.stone }}><Icon name="image" size={40} color={C.stone} /></div>}
           </div>
           {images.length > 1 && (
             <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
@@ -144,7 +145,7 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
               {product.price != null && <span style={{ fontSize: 22, fontWeight: 600, color: HUE }}>{sym(product.currency)}{product.price}</span>}
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, fontFamily: MONO, fontWeight: 600, color: HUE, background: withAlpha(HUE, 0.12), padding: '4px 11px', borderRadius: 100 }}>
-                🔥 Hot {product.hotScore}
+                <Icon name="flame" size={13} color={HUE} style={{ marginRight: 3 }} />Hot {product.hotScore}
               </span>
               {product.shopName && <span style={{ fontSize: 13, color: C.graphite }}>by {product.shopName}</span>}
             </div>
@@ -209,7 +210,7 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
           <div style={{ padding: '16px 18px 12px' }}>
             <SectionTitle right={<span style={{ fontSize: 11, fontFamily: MONO, color: C.stone }}>real, measured + Google</span>}>Tag analysis</SectionTitle>
           </div>
-          {tagAnalysis.isPending ? <div style={{ padding: '0 18px 18px' }}><Loading label="Running a live Etsy search for each tag…" /></div> : (
+          {tagAnalysis.isPending ? <div style={{ padding: '0 18px 18px' }}><Loading label="Analyzing each tag…" /></div> : (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr 0.9fr 0.9fr 0.9fr 0.9fr', gap: 10, padding: '10px 18px', background: C.headerBg, borderTop: `1px solid ${C.ash}`, borderBottom: `1px solid ${C.ash}` }}>
                 {['Tag', 'Competition', 'Avg views', 'Avg favs', 'Favs/view', 'Search/mo'].map((h, i) => (
@@ -239,7 +240,7 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
       <Card>
         <SectionTitle right={shopQ.isLoading ? <span style={{ fontSize: 11, fontFamily: MONO, color: C.stone }}>loading…</span> : undefined}>Shop</SectionTitle>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-          <span style={{ width: 46, height: 46, borderRadius: 12, background: withAlpha(HUE, 0.12), color: HUE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>🏪</span>
+          <span style={{ width: 46, height: 46, borderRadius: 12, background: withAlpha(HUE, 0.12), color: HUE, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name="store" size={22} color={HUE} /></span>
           <div style={{ flex: 1, minWidth: 180 }}>
             <p style={{ fontSize: 15.5, fontWeight: 600, color: C.ink }}>{product.shopName || '—'}</p>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 4, fontSize: 13, color: C.graphite }}>

@@ -8,6 +8,18 @@ import type { ReactNode } from 'react'
  */
 const INLINE = /!\[([^\]]*)\]\(([^)\s]+)\)|\[([^\]]+)\]\(([^)\s]+)\)|\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`/g
 
+/**
+ * Only allow safe URL schemes in rendered links/images. A `javascript:` (or
+ * `data:`/`vbscript:`) href in an <a> executes on click — even admin-authored
+ * markdown shouldn't be able to smuggle one in — so anything that isn't http(s),
+ * mailto, a root-relative path, or an anchor is dropped to "#".
+ */
+function safeUrl(url: string): string {
+  const u = url.trim()
+  if (/^(https?:|mailto:|\/|#)/i.test(u)) return u
+  return '#'
+}
+
 function inline(text: string, keyBase: string): ReactNode[] {
   const out: ReactNode[] = []
   let last = 0, m: RegExpExecArray | null, i = 0
@@ -15,8 +27,8 @@ function inline(text: string, keyBase: string): ReactNode[] {
   while ((m = INLINE.exec(text)) !== null) {
     if (m.index > last) out.push(text.slice(last, m.index))
     const k = `${keyBase}-${i++}`
-    if (m[1] !== undefined && m[2]) out.push(<img key={k} src={m[2]} alt={m[1]} loading="lazy" />)
-    else if (m[3] && m[4]) out.push(<a key={k} href={m[4]} target={m[4].startsWith('http') ? '_blank' : undefined} rel="noopener noreferrer">{m[3]}</a>)
+    if (m[1] !== undefined && m[2]) out.push(<img key={k} src={safeUrl(m[2])} alt={m[1]} loading="lazy" />)
+    else if (m[3] && m[4]) out.push(<a key={k} href={safeUrl(m[4])} target={m[4].startsWith('http') ? '_blank' : undefined} rel="noopener noreferrer">{m[3]}</a>)
     else if (m[5]) out.push(<strong key={k}>{m[5]}</strong>)
     else if (m[6]) out.push(<em key={k}>{m[6]}</em>)
     else if (m[7]) out.push(<code key={k}>{m[7]}</code>)
@@ -59,7 +71,7 @@ export function Markdown({ text }: { text: string }) {
     // Standalone image → block figure
     const img = /^!\[([^\]]*)\]\(([^)\s]+)\)$/.exec(t)
     if (img) {
-      out.push(<figure key={K()}><img src={img[2]} alt={img[1]} loading="lazy" />{img[1] ? <figcaption>{img[1]}</figcaption> : null}</figure>)
+      out.push(<figure key={K()}><img src={safeUrl(img[2])} alt={img[1]} loading="lazy" />{img[1] ? <figcaption>{img[1]}</figcaption> : null}</figure>)
       i++; continue
     }
     // Blockquote

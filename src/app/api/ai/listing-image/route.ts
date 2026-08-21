@@ -3,7 +3,7 @@ import { openaiImage, isOpenAIConfigured, type OpenAIRefImage } from '@/lib/open
 import { getCurrentUser } from '@/lib/auth/session'
 import { connectDB } from '@/lib/db'
 import { consumeMonthlyImage, refundMonthlyImage } from '@/lib/quota'
-import { withUsage } from '@/lib/track'
+import { withApiGuard } from '@/lib/api-guard'
 import { AI_BUSY, AI_IMAGE_UNAVAILABLE, AI_FAILED } from '@/lib/ai/messages'
 import type { ApiResponse } from '@/types'
 
@@ -74,7 +74,7 @@ function buildPrompt(type: ImageType, product: string, visual: string, features:
   }
 }
 
-export const POST = withUsage(postHandler)
+export const POST = withApiGuard(postHandler, { limit: 10, windowMs: 60_000 })
 
 async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<{ dataUrl: string; costUsd?: number; tokens?: number }>>> {
   const body = await req.json().catch(() => ({})) as {
@@ -106,7 +106,14 @@ async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<{
 
   const refs: OpenAIRefImage[] = []
   if (body.refImage?.data && body.refImage.mimeType) {
-    refs.push({ data: body.refImage.data.replace(/^data:[^,]+,/, ''), mimeType: body.refImage.mimeType })
+    // Bound the inbound reference photo: reject anything that isn't an image
+    // mime, or whose base64 payload exceeds ~12MB (~9MB decoded) — so a client
+    // can't push a huge/booby-trapped blob straight through to the image API.
+    const okMime = /^image\/(png|jpe?g|webp|gif)$/i.test(body.refImage.mimeType)
+    const b64 = body.refImage.data.replace(/^data:[^,]+,/, '')
+    if (okMime && b64.length <= 12_000_000) {
+      refs.push({ data: b64, mimeType: body.refImage.mimeType })
+    }
   }
 
   const prompt = buildPrompt(type, product, String(body.visual ?? ''), Array.isArray(body.features) ? body.features.map(String) : [], refs.length > 0)

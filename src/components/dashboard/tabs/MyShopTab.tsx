@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/ui/Icon'
 import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
@@ -209,7 +210,7 @@ export function MyShopTab() {
                         <p style={{ fontSize: 11.5, color: C.ink, lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', marginBottom: 5 }}>{l.title}</p>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, fontFamily: MONO, color: '#8a8a82' }}>
                           <span style={{ color: C.orange, fontWeight: 500 }}>{sym(l.currency)}{l.price.toFixed(0)}</span>
-                          <span>{formatNumber(l.views)}👁 · {formatNumber(l.num_favorers)}♥</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{formatNumber(l.views)}<Icon name="eye" size={12} color="currentColor" /> · {formatNumber(l.num_favorers)}<Icon name="heart" size={12} color="currentColor" /></span>
                         </div>
                       </div>
                     </a>

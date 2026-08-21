@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/ui/Icon'
 import { useState, useCallback, useMemo } from 'react'
 import { useTrends } from '@/hooks/useKeywords'
 import { TrendChart }    from '@/components/charts/TrendChart'
@@ -41,7 +42,7 @@ export function TrendsTab() {
 
       {peak && (
         <div style={{ background: C.orange, borderRadius: 12, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 18 }}>📈</span>
+          <span style={{ display: 'flex', flexShrink: 0 }}><Icon name="chart" size={17} color="#fff" /></span>
           <div>
             <p style={{ fontSize: 13, fontWeight: 500, color: C.snow }}>Peak season: {peak}</p>
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.92)' }}>searches for &ldquo;{query}&rdquo; peak in {peak}. Start preparing listings 4–6 weeks earlier.</p>
@@ -62,7 +63,7 @@ export function TrendsTab() {
               <TrendChart data={tr.trends} activePlatforms={plats} />
             ) : (
               <div style={{ display: 'flex', gap: 12, padding: '18px 20px', background: C.canvas, borderRadius: 12, alignItems: 'flex-start' }}>
-                <span style={{ fontSize: 17, lineHeight: 1.35 }}>📊</span>
+                <span style={{ display: 'flex', flexShrink: 0 }}><Icon name="chart" size={17} color={C.ink} /></span>
                 <div>
                   <p style={{ fontSize: 14, fontWeight: 500, color: C.ink, marginBottom: 6 }}>No search-volume series available</p>
                   <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.65, maxWidth: 640 }}>

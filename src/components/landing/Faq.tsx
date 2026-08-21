@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Reveal } from './Reveal'
+import { JsonLd } from '@/components/seo/JsonLd'
 import { C } from '@/utils'
 
 const SANS = "'General Sans',sans-serif"
@@ -52,10 +53,10 @@ export function Faq() {
   const [open, setOpen] = useState<number | null>(0)
   return (
     <section id="faq" style={{ background: C.paper, padding: '110px 40px' }}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+      <JsonLd data={{
         '@context': 'https://schema.org', '@type': 'FAQPage',
         mainEntity: FAQS.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
-      }) }} />
+      }} />
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
         <Reveal>
           <div style={{ textAlign: 'center', marginBottom: 40 }}>

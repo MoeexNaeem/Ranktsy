@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { withApiGuard } from '@/lib/api-guard'
 import { searchEtsyListings } from '@/lib/etsy'
 import { geminiJSON, isGeminiConfigured } from '@/lib/gemini'
 
@@ -127,7 +128,9 @@ async function aiResult(seed: string, details: string, ctx: { tags: string[]; sa
   }
 }
 
-export async function POST(req: NextRequest) {
+export const POST = withApiGuard(postHandler, { limit: 20, windowMs: 60_000 })
+
+async function postHandler(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const seed = String(body.seed ?? '').trim()
   const details = String(body.details ?? '').trim().slice(0, 300)

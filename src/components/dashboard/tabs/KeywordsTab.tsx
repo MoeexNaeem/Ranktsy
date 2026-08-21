@@ -237,11 +237,11 @@ function KeywordStatsPanel({ s, countryShare, geoName }: { s: KeywordStats; coun
   const etsy = scaleEtsySearchesToCountry(globalEtsy, countryShare)
   const scaled = etsy != null && globalEtsy != null && countryShare != null && countryShare < 1
   const rows = [
-    { label: 'Average Etsy Searches', tip: `Estimated monthly Etsy searches in ${geoName}. Etsy publishes no search-volume data to anyone, so — like eRank — this is an estimate: a global figure modelled from the keyword’s real live Etsy competition (calibrated to eRank), then${scaled ? '' : ' — for Global —'} split to the selected country by its real share of search demand. Because Etsy releases no per-country search data, the country split uses Google’s geographic demand, so it won’t match eRank’s proprietary numbers exactly.`, value: etsy != null ? formatNumber(etsy) : '—', color: etsy != null ? D.good : C.lightGray },
+    { label: 'Average Etsy Searches', tip: `Estimated monthly Etsy searches in ${geoName}. Etsy publishes no search-volume data to anyone, so this is a modelled estimate: a global figure derived from the keyword’s real listing competition, then${scaled ? '' : ' — for Global —'} split to the selected country by its real share of search demand.`, value: etsy != null ? formatNumber(etsy) : '—', color: etsy != null ? D.good : C.lightGray },
     { label: 'Searches', tip: `Real monthly search-engine volume (${geoName}) — broad web search demand, distinct from the on-Etsy search estimate above.`, value: s.googleSearches != null ? formatNumber(s.googleSearches) : '—', color: s.googleSearches != null ? '#2E6DB4' : C.lightGray },
     { label: 'Avg. Views',    tip: 'Mean lifetime views of the listings ranking for this keyword — Etsy’s own `views` field. This is real traffic, shown instead of a fabricated “Avg. Clicks”.', value: formatNumber(s.avgViews), color: '#2E6DB4' },
     { label: 'Favs / View',   tip: 'Favorites ÷ views, a real engagement ratio (~1–3% is typical on Etsy). Shown instead of “CTR”: Etsy exposes no clicks, so a real click-through rate can’t be computed.', value: `${s.favPerView}%`, color: s.favPerView >= 4 ? D.good : s.favPerView >= 1.5 ? D.mid : D.neutral },
-    { label: 'Competition',   tip: 'Real total of live Etsy listings competing for this keyword.', value: formatNumber(s.totalResults), color: s.totalResults > 250_000 ? D.hard : s.totalResults > 25_000 ? D.mid : D.good },
+    { label: 'Competition',   tip: 'Real total of listings competing for this keyword.', value: formatNumber(s.totalResults), color: s.totalResults > 250_000 ? D.hard : s.totalResults > 25_000 ? D.mid : D.good },
   ]
   return (
     <Card>
@@ -667,7 +667,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
                     grid="26px 24px 1.9fr 1fr 1fr 0.7fr 0.85fr 0.85fr 0.75fr 0.8fr 0.55fr 0.85fr"
                     columns={['', '', 'Keywords', 'Listings / month', 'Etsy Competition', 'KD', 'Avg. Views', 'Avg. Favorites', 'Favs / View', 'Tag Occurrences', 'Chars', 'Searches']}
                     rows={10}
-                    label="Running a live Etsy search for each related keyword…" />}
+                    label="Analyzing related keywords…" />}
 
               <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6 }}>
                 Every listing column is measured live: competition is the real total of live listings for that
@@ -696,7 +696,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
                   grid="28px 1.7fr 1fr 0.95fr 0.7fr 0.85fr 0.85fr 0.75fr 0.75fr"
                   columns={['', 'Keywords', 'Listings / month', 'Etsy Competition', 'KD', 'Avg. Views', 'Avg. Favorites', 'Favs / View', 'Tag Occurrences']}
                   rows={5}
-                  label="Measuring each spelling variant against its own live Etsy search…" />
+                  label="Measuring each spelling variant…" />
               : near.isError
                 ? <ErrorBox>Couldn&apos;t measure near matches. Please try again.</ErrorBox>
                 : <NearMatchesTable rows={near.data ?? []} onSelect={run} />

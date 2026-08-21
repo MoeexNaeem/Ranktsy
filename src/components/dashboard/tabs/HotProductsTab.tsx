@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/ui/Icon'
 /**
  * Find Hot Products — a product-research database over LIVE Etsy listings.
  * Ranks products by a real "Hot Score" (favorite-velocity + engagement); every
@@ -26,7 +27,7 @@ const sym = (_c?: string) => '$'
 const fmtDate = (ts?: number | null) => ts ? new Date(ts * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
 
 const SORTS: { id: string; label: string }[] = [
-  { id: 'hot', label: '🔥 Hot Score' },
+  { id: 'hot', label: 'Hot Score' },
   { id: 'velocity', label: 'Fastest Growing' },
   { id: 'engagement', label: 'Most Engaging' },
   { id: 'favorites', label: 'Most Favorited' },
@@ -141,7 +142,7 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Search + intro */}
       <Card pad="18px">
-        <SectionTitle right={<span style={{ fontSize: 11, fontFamily: MONO, color: C.stone }}>live Etsy data</span>}>Find Hot Products</SectionTitle>
+        <SectionTitle right={<span style={{ fontSize: 11, fontFamily: MONO, color: C.stone }}>live data</span>}>Find Hot Products</SectionTitle>
         <p style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.55, marginTop: -8, marginBottom: 14 }}>
           Search Etsy&apos;s live catalog and rank products by a real <strong style={{ color: HUE }}>Hot Score</strong> — how fast a
           listing gathers favorites for its age, plus its favorites-per-view. Click any product for a full breakdown. Etsy publishes no
@@ -254,14 +255,14 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
                   onMouseEnter={e => { e.currentTarget.style.borderColor = HUE; e.currentTarget.style.transform = 'translateY(-2px)' }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = C.hair; e.currentTarget.style.transform = 'none' }}>
                   <div style={{ position: 'relative', height: 150, background: C.bone }}>
-                    {p.image ? <img src={p.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, color: C.stone }}>🛍</div>}
-                    <span style={{ position: 'absolute', top: 8, left: 8, fontSize: 11.5, fontFamily: MONO, fontWeight: 600, color: '#fff', background: withAlpha(HUE, 0.95), padding: '3px 9px', borderRadius: 100 }}>🔥 {p.hotScore}</span>
+                    {p.image ? <img src={p.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.stone }}><Icon name="image" size={26} color={C.stone} /></div>}
+                    <span style={{ position: 'absolute', top: 8, left: 8, fontSize: 11.5, fontFamily: MONO, fontWeight: 600, color: '#fff', background: withAlpha(HUE, 0.95), padding: '3px 9px', borderRadius: 100, display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="flame" size={12} color="#fff" />{p.hotScore}</span>
                   </div>
                   <div style={{ padding: '11px 13px' }}>
                     <p style={{ fontSize: 12.5, color: C.ink, lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', marginBottom: 7, minHeight: 34 }}>{p.title}</p>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11.5, fontFamily: MONO }}>
                       {p.price != null ? <span style={{ color: HUE, fontWeight: 600, fontSize: 13 }}>{sym(p.currency)}{p.price}</span> : <span />}
-                      <span style={{ color: C.graphite }}>👁 {formatNumber(p.views)} · ♥ {formatNumber(p.favorites)}</span>
+                      <span style={{ color: C.graphite, display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="eye" size={13} color={C.graphite} />{formatNumber(p.views)} · <Icon name="heart" size={13} color={C.graphite} />{formatNumber(p.favorites)}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, fontFamily: MONO, marginTop: 5 }}>
                       <span style={{ color: C.stone }}>{fmtAge(p.createdTimestamp)} old</span>

@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
 
 const ROUNDS = 12
 
@@ -11,5 +12,6 @@ export async function comparePassword(plain: string, hashed: string): Promise<bo
 }
 
 export function generateOTP(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString()
+  // Cryptographically-secure so codes can't be predicted from a PRNG sequence.
+  return crypto.randomInt(100000, 1000000).toString()
 }

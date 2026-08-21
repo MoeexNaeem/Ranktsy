@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/ui/Icon'
 import { useState, useCallback, useMemo } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import axios from 'axios'
@@ -44,7 +45,7 @@ function CompCell({ row }: { row: BulkKeywordRow }) {
   // it because nobody buys it.
   if (row.noMarket) {
     return (
-      <span title="No live Etsy listings match this keyword — no competition, but no demand either"
+      <span title="No live listings match this keyword — no competition, but no demand either"
         style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 11px', borderRadius: 100, background: C.charcoalSoft, color: C.graphite, fontSize: 12.5, fontFamily: MONO, fontWeight: 600, width: 'fit-content', cursor: 'help' }}>
         <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.stone, flexShrink: 0 }} />
         No market
@@ -159,20 +160,20 @@ export function BulkKeywordTab() {
             {run.isPending ? 'Analyzing…' : 'Analyze keywords →'}
           </button>
           <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.5 }}>
-            Each keyword gets its own live Etsy search — <strong style={{ color: C.ink }}>Etsy Competition</strong> is a
+            Each keyword gets its own live search — <strong style={{ color: C.ink }}>Competition</strong> is a
             real listing total, not an estimate.
           </p>
         </div>
       </Card>
 
-      {run.isPending && <Loading label={`Running ${Math.min(parsed.length, MAX)} live Etsy searches…`} />}
+      {run.isPending && <Loading label={`Analyzing ${Math.min(parsed.length, MAX)} keywords…`} />}
       {run.isError && <ErrorBox>Failed to analyze keywords. Please try again.</ErrorBox>}
 
       {rows && rows.length > 0 && !run.isPending && (
         <>
           {best && (
             <div style={{ display: 'flex', gap: 11, padding: '13px 17px', background: D.goodBg, borderRadius: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 15 }}>🎯</span>
+              <span style={{ display: 'flex', flexShrink: 0 }}><Icon name="target" size={16} color={C.ink} /></span>
               <p style={{ fontSize: 13.5, color: C.ink, lineHeight: 1.5 }}>
                 Best opportunity here: <strong style={{ color: D.good }}>{best.keyword}</strong> — KD {best.difficulty} with{' '}
                 {formatNumber(best.competition)} competing listings.

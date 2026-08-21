@@ -16,6 +16,8 @@ export type IconName =
   | 'search' | 'sprout' | 'bolt' | 'handshake'
   | 'mail' | 'tool' | 'briefcase' | 'phone' | 'pin'
   | 'chart' | 'globe' | 'trophy' | 'tag' | 'check' | 'warning'
+  | 'eye' | 'heart' | 'flame' | 'bulb' | 'sparkle' | 'target' | 'link' | 'image' | 'quote'
+  | 'lock' | 'package' | 'store' | 'clock'
 
 const PATHS: Record<IconName, React.ReactNode> = {
   search:    <><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></>,
@@ -33,6 +35,19 @@ const PATHS: Record<IconName, React.ReactNode> = {
   tag:       <><path d="M20.59 13.41 13.4 20.6a2 2 0 0 1-2.82 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></>,
   check:     <polyline points="20 6 9 17 4 12" />,
   warning:   <><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></>,
+  eye:       <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></>,
+  heart:     <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0l-1 1-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1 7.8 7.6 7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" />,
+  flame:     <path d="M12 22a7 7 0 0 0 7-7c0-3-2-5-3.5-7-.5 2-2 2.5-2-.5 0-2.5-1.5-4-3-5 .5 2.5-1.5 4-2.5 5.5C6 15 6 16 6 15a7 7 0 0 0 6 7z" />,
+  bulb:      <><path d="M9 18h6" /><path d="M10 22h4" /><path d="M12 2a7 7 0 0 0-4 12c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5a7 7 0 0 0-4-12z" /></>,
+  sparkle:   <path d="M12 2l1.9 5.6L19.5 9l-5.6 1.4L12 16l-1.9-5.6L4.5 9l5.6-1.4z" />,
+  target:    <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1.4" /></>,
+  link:      <><path d="M10 13a5 5 0 0 0 7.1 0l2.9-2.9a5 5 0 0 0-7.1-7.1L11 4.9" /><path d="M14 11a5 5 0 0 0-7.1 0L4 13.9a5 5 0 0 0 7.1 7.1L13 19.1" /></>,
+  image:     <><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.8" /><path d="m21 15-5-5L5 21" /></>,
+  quote:     <><path d="M7 7H11V11C11 13 10 15 7 15V7Z" /><path d="M13 7H17V11C17 13 16 15 13 15V7Z" /></>,
+  lock:      <><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></>,
+  package:   <><path d="M21 8 12 3 3 8v8l9 5 9-5z" /><path d="M3 8l9 5 9-5" /><path d="M12 13v8" /></>,
+  store:     <><path d="M4 9V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v4" /><path d="M3 9h18l-1.2 4a2 2 0 0 1-2 1.5H6.2a2 2 0 0 1-2-1.5L3 9z" /><path d="M5 14v6h14v-6" /></>,
+  clock:     <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
 }
 
 export function Icon({ name, size = 24, color = 'currentColor', strokeWidth = 1.6, style }: {

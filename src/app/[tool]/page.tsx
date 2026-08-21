@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { Navbar } from '@/components/landing/Navbar'
 import { Footer } from '@/components/landing/Sections'
 import { FaqList } from '@/components/seo/FaqList'
+import { JsonLd } from '@/components/seo/JsonLd'
 import { getToolPage, allToolSlugs } from '@/lib/seo/tools'
 import { abs } from '@/lib/seo/site'
 import { C } from '@/utils'
@@ -93,7 +94,7 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <JsonLd data={jsonLd} />
       <Navbar />
       <main>
         {/* ── Hero ── */}

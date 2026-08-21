@@ -1,12 +1,23 @@
 import { SignJWT, jwtVerify } from 'jose'
 import type { AuthUser } from '@/types'
 
-const SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET ?? 'dev-secret-change-in-production-min-32-chars'
-)
-const REFRESH_SECRET = new TextEncoder().encode(
-  process.env.JWT_REFRESH_SECRET ?? 'dev-refresh-secret-change-in-production-min-32'
-)
+/**
+ * Auth secrets are REQUIRED — never fall back to a shared/public string in a
+ * deployed build. A guessable signing key means anyone can forge a session
+ * (including an admin one). In production a missing secret is a hard boot error;
+ * only local development is allowed a clearly-marked throwaway default.
+ */
+function requireSecret(name: 'JWT_SECRET' | 'JWT_REFRESH_SECRET', devFallback: string): Uint8Array {
+  const val = process.env[name]
+  if (val && val.length >= 32) return new TextEncoder().encode(val)
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(`${name} is not set (or is shorter than 32 chars). Refusing to start with an insecure auth secret.`)
+  }
+  return new TextEncoder().encode(devFallback)
+}
+
+const SECRET         = requireSecret('JWT_SECRET',         'dev-secret-change-in-production-min-32-chars')
+const REFRESH_SECRET = requireSecret('JWT_REFRESH_SECRET', 'dev-refresh-secret-change-in-production-min-32')
 
 export async function signAccessToken(user: AuthUser): Promise<string> {
   return new SignJWT({ ...user })

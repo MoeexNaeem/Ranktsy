@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/ui/Icon'
 import { useCallback, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
@@ -132,7 +133,7 @@ export function ShopTab() {
         <>
           {/* Shop header */}
           <div style={{ background: C.charcoal, borderRadius: 16, padding: '22px 26px', display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-            <div style={{ width: 54, height: 54, borderRadius: '50%', background: C.orange, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>🏪</div>
+            <div style={{ width: 54, height: 54, borderRadius: '50%', background: C.orange, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name="store" size={24} color="#fff" /></div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <h2 style={{ fontSize: 21, fontWeight: 500, color: C.snow, marginBottom: 5, letterSpacing: '-0.02em' }}>{String(shop.shop_name ?? shopId)}</h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>

@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/ui/Icon'
 import { useState, useCallback, useMemo } from 'react'
 import { useTopSellers } from '@/hooks/useKeywords'
 import { useAppStore } from '@/store/app'
@@ -258,7 +259,7 @@ export function TopSellersTab() {
               attributed to a niche. Stating that plainly beats letting a
               findings supplier with one matching listing read as the category king. */}
           <div style={{ display: 'flex', gap: 11, padding: '12px 16px', background: D.midBg, borderRadius: 12, alignItems: 'flex-start' }}>
-            <span style={{ fontSize: 15, lineHeight: 1.4 }}>💡</span>
+            <span style={{ display: 'flex', flexShrink: 0, marginTop: 1 }}><Icon name="bulb" size={16} color={C.ink} /></span>
             <p style={{ fontSize: 12.5, color: C.ink, lineHeight: 1.6 }}>
               <strong>Sales are shop-wide, not niche-specific.</strong> Etsy publishes a lifetime total per shop and
               nothing per listing, so a large generalist can top this list off one matching listing. Check the{' '}

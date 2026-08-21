@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/ui/Icon'
 import { memo, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
@@ -116,7 +117,7 @@ export const VelocityPanel = memo(function VelocityPanel({
         </>
       ) : (
         <div style={{ display: 'flex', gap: 12, padding: '16px 18px', background: C.canvas, borderRadius: 12, alignItems: 'flex-start' }}>
-          <span style={{ fontSize: 17, lineHeight: 1.3 }}>📈</span>
+          <span style={{ display: 'flex', flexShrink: 0 }}><Icon name="chart" size={17} color={C.ink} /></span>
           <div>
             <p style={{ fontSize: 14, fontWeight: 500, color: C.ink, marginBottom: 5 }}>
               Tracking started {v.trackedSince ? fmtDay(v.trackedSince) : 'today'} — no velocity yet

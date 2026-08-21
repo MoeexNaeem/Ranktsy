@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/ui/Icon'
 import { useState, useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
@@ -233,7 +234,7 @@ export function ListingAuditTab() {
                 )}
                 <div style={{ minWidth: 0 }}>
                   <a href={listing.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, fontWeight: 500, color: C.ink, textDecoration: 'none', display: 'block', marginBottom: 6, lineHeight: 1.35 }}>{listing.title}</a>
-                  <p style={{ fontSize: 12, fontFamily: MONO, color: C.orange, marginBottom: 8 }}>{priceStr(listing)} · 👁 {listing.views ?? 0} · ♥ {listing.num_favorers ?? 0}</p>
+                  <p style={{ fontSize: 12, fontFamily: MONO, color: C.orange, marginBottom: 8 }}>{priceStr(listing)} · <Icon name="eye" size={12} color={C.orange} style={{ display: 'inline-block', verticalAlign: '-1px' }} /> {listing.views ?? 0} · <Icon name="heart" size={12} color={C.orange} style={{ display: 'inline-block', verticalAlign: '-1px' }} /> {listing.num_favorers ?? 0}</p>
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                     {(listing.tags ?? []).slice(0, 6).map(t => <TagPill key={t}>{t}</TagPill>)}
                   </div>

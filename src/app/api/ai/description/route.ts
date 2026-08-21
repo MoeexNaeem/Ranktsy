@@ -4,12 +4,12 @@ import { geminiJSON, isGeminiConfigured, type GeminiMeta } from '@/lib/gemini'
 import { normalizeGeo } from '@/lib/google-ads'
 import { buildGrounding, descriptionPrompt, DESC_SYSTEM, DESC_SCHEMA } from '@/lib/ai/etsy-prompts'
 import { AI_BUSY, AI_UNAVAILABLE, AI_FAILED } from '@/lib/ai/messages'
-import { withUsage } from '@/lib/track'
+import { withApiGuard } from '@/lib/api-guard'
 import type { ApiResponse, AiDescResult } from '@/types'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
-export const POST = withUsage(postHandler)
+export const POST = withApiGuard(postHandler, { limit: 20, windowMs: 60_000 })
 
 // Three deliberately different angles so the user gets real variety to choose from,
 // not three near-identical rewrites. Generated in parallel (latency ≈ one call).

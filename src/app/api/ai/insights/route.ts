@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { withApiGuard } from '@/lib/api-guard'
 import { geminiJSON, isGeminiConfigured } from '@/lib/gemini'
 import type { ApiResponse, AiInsightsResult, AiInsight, AiFact, InsightTone } from '@/types'
 
@@ -98,7 +99,9 @@ async function aiResult(subject: string, tool: string, facts: AiFact[], notes: s
   }
 }
 
-export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<AiInsightsResult>>> {
+export const POST = withApiGuard(postHandler, { limit: 40, windowMs: 60_000 })
+
+async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<AiInsightsResult>>> {
   const body = await req.json().catch(() => ({}))
   const subject = String(body.subject ?? '').trim().slice(0, 120)
   const tool = String(body.tool ?? 'Analysis').trim().slice(0, 60)

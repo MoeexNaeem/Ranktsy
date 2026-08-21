@@ -33,7 +33,7 @@ export function OverviewTab({ onNavigate }: { onNavigate?: (id: string) => void 
       {/* Greeting */}
       <div>
         <h2 style={{ fontSize: 27, fontWeight: 500, color: C.ink, letterSpacing: '-0.03em' }}>
-          Welcome back{user?.name ? `, ${user.name.split(' ')[0]}` : ''} 👋
+          Welcome back{user?.name ? `, ${user.name.split(' ')[0]}` : ''}
         </h2>
         <p style={{ fontSize: 15.5, color: C.graphite, marginTop: 5 }}>
           Here&apos;s what&apos;s moving on Etsy right now — then jump into any tool.
@@ -60,7 +60,7 @@ export function OverviewTab({ onNavigate }: { onNavigate?: (id: string) => void 
           <SectionTitle right={<button onClick={() => onNavigate?.('buzz')} style={{ fontSize: 13, fontWeight: 500, fontFamily: MONO, color: C.orange, background: 'transparent', border: 'none', cursor: 'pointer' }}>See all →</button>}>
             Buzzing on Etsy right now
           </SectionTitle>
-          {isLoading ? <Loading label="Reading live Etsy signals…" /> : (
+          {isLoading ? <Loading label="Reading market signals…" /> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {top8.map((b, i) => {
                 const pct = Math.max(6, Math.round((b.heat / maxHeat) * 100))

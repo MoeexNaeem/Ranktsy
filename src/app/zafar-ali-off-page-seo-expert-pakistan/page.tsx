@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Navbar } from '@/components/landing/Navbar'
 import { Footer } from '@/components/landing/Sections'
 import { Markdown } from '@/components/blog/Markdown'
+import { JsonLd } from '@/components/seo/JsonLd'
 import { Icon } from '@/components/ui/Icon'
 import { abs } from '@/lib/seo/site'
 import { C } from '@/utils'
@@ -14,7 +15,7 @@ import { C } from '@/utils'
 
 const SANS = "'General Sans',sans-serif"
 const TITLE = 'Zafar Ali — Best SEO Expert in Pakistan, Off-Page SEO Specialist & Founder of Rankkw'
-const DESCRIPTION = 'Zafar Ali is a Pakistani SEO expert, off-page SEO specialist, and freelancing mentor — founder and CEO of Rankkw, with an 880+ order, 4.8-star track record on Fiverr.'
+const DESCRIPTION = 'Zafar Ali is a Pakistani SEO expert, off-page SEO specialist, and freelancing mentor — founder and CEO of Rankkw, with a 1500+ order, 5-star Top Rated track record on Fiverr.'
 const URL = abs('/zafar-ali-off-page-seo-expert-pakistan')
 
 export const metadata: Metadata = {
@@ -26,10 +27,10 @@ export const metadata: Metadata = {
 }
 
 const STATS: { value: string; label: string }[] = [
-  { value: '4.8★', label: '61 Fiverr reviews' },
-  { value: '880+', label: 'Orders completed' },
-  { value: '$100K+', label: 'Earned freelancing' },
-  { value: 'Level 1', label: 'Fiverr Seller' },
+  { value: '5.0★', label: '61 Fiverr reviews' },
+  { value: '1500+', label: 'Orders completed' },
+  { value: '$300K+', label: 'Earned freelancing' },
+  { value: 'Top Rated', label: 'Fiverr Seller' },
 ]
 
 const CONTENT = `
@@ -82,14 +83,14 @@ One of the clearest, most objective pictures of Zafar Ali's professional reputat
 
 By the numbers:
 
-- 4.8-star rating across 61 reviews
-- 880+ orders completed
-- Fiverr Level 1 Seller status, awarded for meeting consistent performance benchmarks
+- 5-star rating across 61 reviews
+- 1500+ orders completed
+- Fiverr Top Rated Seller status, awarded for meeting consistent performance benchmarks
 - Offers both fixed-price packages (starting around $20 for a Basic monthly off-page SEO package) and hourly work at $15/hour for longer-term collaborations
 - Speaks and lists proficiency in English, German, Dutch, and French, alongside his native Urdu — a notable range for a freelancer serving international clients
 - His flagship gig, "I will do monthly off page SEO service using authority white hat dofollow backlink," sits in Fiverr's Off-Page SEO subcategory under Digital Marketing
 
-**What clients say:** Review breakdowns show consistently high marks across all three of Fiverr's core metrics — seller communication (4.8), quality of delivery (4.8), and value of delivery (4.8). Reviewers highlight things like steady month-over-month backlink delivery, improving domain authority, transparent reporting, and noticeable increases in organic traffic and keyword rankings over ongoing collaborations — with several reviewers coming back for repeat, multi-month engagements rather than one-off orders.
+**What clients say:** Review breakdowns show consistently high marks across all three of Fiverr's core metrics — seller communication (5.0), quality of delivery (5.0), and value of delivery (5.0). Reviewers highlight things like steady month-over-month backlink delivery, improving domain authority, transparent reporting, and noticeable increases in organic traffic and keyword rankings over ongoing collaborations — with several reviewers coming back for repeat, multi-month engagements rather than one-off orders.
 
 **How he sets expectations:** In his gig FAQ, Zafar Ali is direct that SEO results typically take 9–10 weeks to start showing, and that easier-competition websites can rank within 3–6 monthly drip-feed cycles, while more competitive niches take longer. This kind of transparent, expectation-setting language — rather than promising overnight rankings — is consistent with his broader reputation for delivering white-hat, penalty-safe SEO rather than shortcuts.
 
@@ -101,7 +102,7 @@ This mirrors the same playbook he's used with Fiverr and SEO — first mastering
 
 ## A Freelancing Success Story
 
-Zafar Ali's own freelancing career is central to his credibility. Working through Fiverr and a growing network of private clients, he's reported earning over $100,000 through freelancing channels — a milestone that's made him a reference point for other Pakistani freelancers trying to prove that digital skills can genuinely replace, or outperform, traditional employment.
+Zafar Ali's own freelancing career is central to his credibility. Working through Fiverr and a growing network of private clients, he's reported earning over $300,000 through freelancing channels — a milestone that's made him a reference point for other Pakistani freelancers trying to prove that digital skills can genuinely replace, or outperform, traditional employment.
 
 That journey — starting as a trainee, then scaling into agency ownership with hundreds of completed Fiverr orders and a near-perfect rating — is central to how he positions Rankkw: not as an agency that only sells services, but as living proof that the same skills it teaches actually work in the real marketplace.
 
@@ -152,7 +153,7 @@ This mix is fairly typical of Pakistan's freelance-agency hybrid model, but Zafa
 
 In a growing field of Pakistani SEO consultants, Zafar Ali's positioning as one of the best SEO experts in Pakistan is distinct for a few reasons:
 
-1. **He builds what he teaches.** His own freelancing results — an 880-order, 4.8-star Fiverr history — back up the training he offers, rather than positioning him as a theorist.
+1. **He builds what he teaches.** His own freelancing results — a 1500-order, 5-star Top Rated Fiverr history — back up the training he offers, rather than positioning him as a theorist.
 2. **Verifiable, third-party proof.** Unlike agencies that only display curated testimonials on their own website, a large share of his reputation lives on an independent platform (Fiverr) where reviews can't be edited or removed by him.
 3. **Dual value delivery.** Rankkw serves both paying clients and students, creating a self-reinforcing pipeline of case studies and real-world results.
 4. **Local-market fluency with international reach.** His strategies are built for Pakistani businesses but applied to international SEO and freelancing marketplaces like Fiverr, Upwork, and now Etsy.
@@ -188,7 +189,7 @@ export default function ZafarAliProfilePage() {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <JsonLd data={jsonLd} />
       <Navbar />
       <main style={{ background: C.paper }}>
         {/* Hero */}
@@ -202,7 +203,7 @@ export default function ZafarAliProfilePage() {
             </h1>
             <p style={{ fontSize: 'clamp(17px,1.9vw,21px)', color: C.graphite, lineHeight: 1.5, maxWidth: 640, marginBottom: 32 }}>
               Best SEO Expert in Pakistan, Off-Page SEO Specialist &amp; Founder of Rankkw — with an independently
-              verified, 880+ order track record on Fiverr.
+              verified, 1500+ order track record on Fiverr.
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 12, maxWidth: 620 }}>

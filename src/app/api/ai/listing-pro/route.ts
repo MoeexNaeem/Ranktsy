@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { withApiGuard } from '@/lib/api-guard'
 import { searchEtsyListings, dominantCurrencyPrices } from '@/lib/etsy'
 import { geminiJSON, isGeminiConfigured, type GeminiMeta } from '@/lib/gemini'
 import { AI_BUSY, AI_UNAVAILABLE, AI_FAILED } from '@/lib/ai/messages'
@@ -65,7 +66,9 @@ async function liveContext(seed: string) {
   return { tags, currency, median, sampleTitles: listings.slice(0, 6).map(l => l.title).filter(Boolean) }
 }
 
-export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<ListingPro>>> {
+export const POST = withApiGuard(postHandler, { limit: 15, windowMs: 60_000 })
+
+async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<ListingPro>>> {
   const body = await req.json().catch(() => ({}))
   const seed = String(body.product ?? body.seed ?? '').trim()
   const details = String(body.details ?? '').trim().slice(0, 400)

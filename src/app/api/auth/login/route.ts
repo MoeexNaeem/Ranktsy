@@ -42,14 +42,18 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<A
 
     await connectDB()
 
+    // Use ONE generic message whether the email is unknown or the password is
+    // wrong — distinct errors let an attacker enumerate which emails are
+    // registered. (Signup's live email-check is the intended place to learn that.)
+    const INVALID = 'Invalid email or password.'
     const user = await User.findOne({ email }).select('+password').lean()
     if (!user) {
-      return NextResponse.json({ success: false, errors: { email: 'No account found with this email' } }, { status: 401 })
+      return NextResponse.json({ success: false, error: INVALID }, { status: 401 })
     }
 
     const valid = await comparePassword(password, user.password)
     if (!valid) {
-      return NextResponse.json({ success: false, errors: { password: 'Incorrect password' } }, { status: 401 })
+      return NextResponse.json({ success: false, error: INVALID }, { status: 401 })
     }
 
     const authUser: AuthUser = { id: user._id.toString(), name: user.name, email: user.email, role: resolveRole(user.email, user.role), plan: user.plan, isVerified: user.isVerified }

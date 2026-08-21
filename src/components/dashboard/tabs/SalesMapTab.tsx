@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/ui/Icon'
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
@@ -40,7 +41,7 @@ export function ConnectShopPrompt({ what, needsAuth }: { what: string; needsAuth
   return (
     <Card>
       <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-        <div style={{ fontSize: 38, marginBottom: 14 }}>{needsAuth ? '🔐' : '🔗'}</div>
+        <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'center' }}><Icon name={needsAuth ? 'lock' : 'link'} size={36} color={C.stone} /></div>
         <p style={{ fontSize: 18, fontWeight: 500, color: C.ink, marginBottom: 8 }}>
           {needsAuth ? 'Sign in to see your shop data' : 'Connect your Etsy shop'}
         </p>

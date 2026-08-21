@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/ui/Icon'
 /**
  * AI Improvement Suggestions + One-Click Optimization — sits under the Listing
  * Audit checklist. The audit finds the gaps; this panel sends those REAL
@@ -148,7 +149,7 @@ export function AiOptimizePanel({ listing, findings }: { listing: EtsyListing; f
           {/* One-Click Optimization — the ready-to-paste rewrite */}
           <Card pad="18px" style={{ borderColor: C.orange }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-              <h4 style={{ fontSize: 16.5, fontWeight: 500, color: C.ink, letterSpacing: '-0.02em' }}>⚡ One-Click Optimization</h4>
+              <h4 style={{ fontSize: 16.5, fontWeight: 500, color: C.ink, letterSpacing: '-0.02em' }}><Icon name="bolt" size={16} color={C.ink} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 7 }} />One-Click Optimization</h4>
               <CopyBtn text={fullListing} label="Copy full listing" copied={copiedKey === 'all'} onCopied={() => markCopied('all')} />
             </div>
 

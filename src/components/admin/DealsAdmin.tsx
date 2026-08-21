@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/ui/Icon'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import axios from 'axios'
@@ -185,7 +186,7 @@ export function DealsAdmin() {
                 <button onClick={() => insert('**', '**')} style={chip} title="Bold">B</button>
                 <button onClick={() => insert('*', '*')} style={chip} title="Italic"><em>i</em></button>
                 <button onClick={() => insert('\n- ', '')} style={chip} title="List">• List</button>
-                <button onClick={insertLink} style={chip} title="Select a word, then add a link">🔗 Link</button>
+                <button onClick={insertLink} style={chip} title="Select a word, then add a link"><Icon name="link" size={12} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 5 }} />Link</button>
               </div>
               <button onClick={() => setPreview(p => !p)} style={{ ...chip, background: preview ? C.orangeFaint : C.paper, color: preview ? C.orange : C.ink }}>{preview ? 'Edit' : 'Preview'}</button>
             </div>
@@ -198,7 +199,7 @@ export function DealsAdmin() {
                 placeholder={'Describe the deal in Markdown.\n\n## What you get\n\n- Point one\n- Point two'}
                 style={{ ...field, minHeight: 420, resize: 'vertical', fontFamily: 'ui-monospace, monospace', fontSize: 14, lineHeight: 1.6 }} />
             )}
-            <p style={{ fontSize: 12, color: C.stone, marginTop: 8 }}>Markdown supported. Select a word and press <strong>🔗 Link</strong> to add a link.</p>
+            <p style={{ fontSize: 12, color: C.stone, marginTop: 8 }}>Markdown supported. Select a word and press <strong>Link</strong> to add a link.</p>
           </Card>
         </div>
 

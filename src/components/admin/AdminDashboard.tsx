@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/ui/Icon'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { C } from '@/utils'
@@ -304,7 +305,7 @@ export function AdminDashboard() {
               <SectionTitle right={err ? <span style={{ fontSize: 12, color: C.danger }}>{err}</span> : <span style={{ fontSize: 11, fontFamily: MONO, color: '#808080' }}>{userQuery.trim() ? `${exact(filteredUsers.length)} match${filteredUsers.length === 1 ? '' : 'es'}` : `${exact(paidCount)} paying · ${exact(users.length)} total`} · page {usersPage}/{usersPageCount}</span>}>All users</SectionTitle>
 
               <div style={{ position: 'relative', marginBottom: 12, maxWidth: 420 }}>
-                <span aria-hidden style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: '#8a8a82', pointerEvents: 'none' }}>🔍</span>
+                <span aria-hidden style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: '#8a8a82', pointerEvents: 'none', display: 'flex' }}><Icon name="search" size={13} color="#8a8a82" /></span>
                 <input value={userQuery} onChange={e => { setUserQuery(e.target.value); setUsersPage(1) }}
                   placeholder="Search users by name, email or ID…" aria-label="Search users by name, email or ID"
                   style={{ width: '100%', background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 100, padding: '10px 38px', fontSize: 13.5, fontFamily: MONO, color: C.ink, outline: 'none' }} />
@@ -341,7 +342,7 @@ export function AdminDashboard() {
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>ID {u.id}</span>
                           <span style={{ flexShrink: 0 }}>{copiedId === u.id ? '✓ copied' : '⧉'}</span>
                         </button>
-                        {u.restricted && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, fontFamily: MONO, color: C.danger, background: C.dangerBg, padding: '3px 9px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 6 }}>⛔ Restricted</span>}
+                        {u.restricted && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, fontFamily: MONO, color: C.danger, background: C.dangerBg, padding: '3px 9px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 6 }}><Icon name="lock" size={11} color={C.danger} />Restricted</span>}
                       </div>
                       <select value={u.role} onChange={e => patchUser(u.id, { role: e.target.value as AUser['role'] })} style={selectStyle}>
                         <option value="user">user</option>
@@ -356,7 +357,7 @@ export function AdminDashboard() {
                         </select>
                         <span aria-hidden style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', fontSize: 9, color: paid ? '#fff' : hue, pointerEvents: 'none' }}>▾</span>
                         {!u.paidViaLemonSqueezy && u.plan !== 'free' && u.compExpiresAt && (
-                          <p title="Admin-granted plan — reverts to Free on this date unless the user pays" style={{ fontSize: 10, fontFamily: MONO, color: C.stone, marginTop: 5, whiteSpace: 'nowrap' }}>⏳ expires {fmtDate(u.compExpiresAt)}</p>
+                          <p title="Admin-granted plan — reverts to Free on this date unless the user pays" style={{ fontSize: 10, fontFamily: MONO, color: C.stone, marginTop: 5, whiteSpace: 'nowrap' }}><Icon name="clock" size={10} color={C.stone} style={{ display: 'inline-block', verticalAlign: '-1px', marginRight: 4 }} />expires {fmtDate(u.compExpiresAt)}</p>
                         )}
                       </div>
                       {paid

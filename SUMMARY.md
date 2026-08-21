@@ -1,6 +1,6 @@
 # Rankkw — Project Summary
 
-_Last updated: 2026-08-13_
+_Last updated: 2026-08-21_
 
 **Rankkw** (Rankkw.com) is an Etsy SEO & analytics platform — keyword research,
 competitor analysis, listing optimization, AI generators — competing with eRank /
@@ -19,10 +19,93 @@ search data to anyone, so a "real" number does not exist for any tool.
 
 ---
 
+## ⚡ Latest cycle (Aug 14–21, 2026) — READ THIS FIRST
+
+The most important recent changes (they supersede a few older sections below):
+
+### AI speed & reliability — the big win
+- **Text model swapped** `gemini-flash-latest` → **`gemini-3.1-flash-lite`** (benchmarked
+  on our key: the old alias 503'd "high demand" ~75% of the time and was slow; the lite
+  model returns 200 in **~2s, reliably**). Auto **fallback to `gemini-3.5-flash`** on
+  overload. **`thinkingBudget: 0` is now the DEFAULT fast path** (the old "never send 0,
+  it 400s" note is STALE — it works now). Net effect: title generation went from
+  **40–82s / 503** to **~6–9s**. Env: `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL`.
+- **Grounding is cached** (`buildGrounding` in `lib/ai/etsy-prompts.ts`, memCache) — the
+  same Etsy+search grounding feeds Title/Tag/Description + re-runs, so it's instant after
+  the first generation for a keyword.
+- **Multi-key rotation/failover** exists (`GEMINI_API_KEYS` / `OPENAI_API_KEYS`, comma-sep,
+  round-robin + fail over on 429/5xx) but the owner runs **single keys**; fast backoff
+  (150ms hop, capped) handles it.
+- **Calm generation UX** (`lib/ai/busy.ts` + kit `GenNote` / `GenSkeleton`): **NO red error
+  box in generation.** Skeleton while loading → at **30s** "Please wait — we're a little
+  busy today" → at **2 min** a calm "please try again". Auto-retries transient failures,
+  spaced; credits are charged once (retries never re-charge).
+
+### No provider footprints (owner request)
+- User-facing dashboard text no longer names the AI provider (Gemini/OpenAI) OR the data
+  sources (Etsy API / Google Ads) — genericised ("real, measured data", "Search Volume",
+  neutral error strings in `lib/ai/messages.ts`). **⚠️ The required verbatim Etsy
+  attribution** ("...uses the Etsy API but is not endorsed or certified by Etsy, Inc.")
+  is a LEGAL disclaimer in the footers/legal pages — **never scrub it.**
+
+### Money shown in USD everywhere
+- Google **CPC**, estimated **Rev/mo**, and **Price** columns all render **USD** via live
+  FX (`/api/fx` + `useUsdRates` batch hook in `hooks/useFx.ts`). Null rate ⇒ keep the
+  listing's own currency (never a guessed conversion).
+
+### Per-listing sales estimate — now MULTI-SIGNAL (supersedes the reviews-only section)
+- `estimateListingSales` takes the **strongest** of three real signals: reviews
+  (÷`reviewRate`), views (×`conversionRate`), favorites (×`favToSales`). So a listing
+  whose reviews Etsy under-reports (Etsy pools an item's reviews across relists — the
+  per-listing API count can be 4 while the page shows 35) is still measured by traffic
+  instead of collapsing to ~0. Genuinely dead listings still read ~0. `basis` field says
+  which signal won. New envs: `NEXT_PUBLIC_ETSY_CONVERSION_RATE` (0.02),
+  `NEXT_PUBLIC_ETSY_FAV_TO_SALES` (1.5).
+
+### Listings → click opens an IN-APP detail panel (not Etsy)
+- Clicking a row/title opens `ListingDetailPanel` — all real stats + animated meters + the
+  badged sales estimate + **real shop context** (lifetime sales/reviews/rating via
+  `/api/etsy/shop-summary`) + tags. **Only "See on Etsy" leaves the app.** The table has a
+  **top-mounted horizontal scrollbar** and skeleton loading (shared `Loading` upgraded to
+  a skeleton, so every tab shows one).
+
+### Keyword Difficulty display remap
+- KD in the **51–70** band is shown as a stable **40–50** (deliberate product decision;
+  `difficultyScore` in `etsy.ts`). ≤50 and >70 are untouched. Seeded so it never flickers.
+
+### Admin dashboard rebuilt
+- Left-**sidebar** shell: Overview / Users / Analytics / Content / Settings. Overview has
+  animated count-up KPIs + a signups bar chart + plan-distribution donut (`AdminCharts.tsx`).
+  Users table is **searchable** (name/email/ID) with a **Sr-No** and copyable ID; **click a
+  user → a full detail drawer** (`UserDetailPanel`, `GET /api/admin/users/[id]`). Numbers
+  are **exact** ("1,300", not "1.3K").
+
+### Plan expiry lifecycle (NEW — important)
+- Plans auto-revert to **free**: **PAID** via the Lemon Squeezy webhook (unchanged);
+  **ADMIN-GRANTED** (the Free→Pro promo OR the plan dropdown) now carries **`compExpiresAt`**
+  = exactly **one calendar month** → auto-reverts. Enforced immediately by `effectivePlan`
+  (read-time) and persisted by `sweepComps` (`lib/plan-lifecycle.ts`, runs on every admin
+  load) + `/api/cron/plan-expiry` (daily). Active paid subs are never comp-expired. Admin UI
+  shows "⏳ expires \<date\>". See [[plan-expiry-lifecycle]].
+
+### Lordicon animated icons
+- The dashboard nav rail, Overview launcher cards, and the admin sidebar use **animated
+  Lordicons** (`components/ui/AnimIcon.tsx`, free CDN) that play on hover / when a tab
+  becomes active — same colours as before. Landing site still uses inline SVGs (TODO).
+
+### SEO / programmatic
+- All tool pages **and** the fee calculator now use **`etsy-`-prefixed slugs**
+  (`/etsy-keyword-research`, `/etsy-fee-calculator`, …) with **301 redirects** from the old
+  paths; the canonical host is forced to the **apex domain (non-www)**; added
+  `/deals-sitemap.xml` + a default `opengraph-image`; fixed the Zafar Ali page's
+  `dateCreated` to full ISO 8601 (a Google Search Console warning).
+
+---
+
 ## Tech Stack
 - **Next.js 16 (App Router, Turbopack), React 19, TypeScript (strict)**
 - **MongoDB** via Mongoose · JWT auth (`jose`) + bcrypt + email OTP
-- Data: **Etsy Open API v3**, **Google Ads API** (Keyword Planner, v24), **Gemini** (text + image)
+- Data: **Etsy Open API v3**, **Google Ads API** (Keyword Planner, v24), **Gemini** (text: `gemini-3.1-flash-lite`, fallback `gemini-3.5-flash`; image: `gemini-3.1-flash-image-preview`) + **OpenAI** (`gpt-image-1`, one image only)
 - React Query + Zustand · Chart.js · inline styles + token palette (`src/utils`: `C` chrome, `D` data-viz) + `globals.css` (parchment + orange `#FB5E09`)
 - Dev: `npm run dev` (**:3000**)
 
@@ -183,7 +266,11 @@ optional `OPENAI_IMAGE_MODEL` gpt-image-1|dall-e-3, `_SIZE` 1536x1024, `_QUALITY
 
 ---
 
-## Per-listing sales ESTIMATE (Everbee-style, honest) — NEW
+## Per-listing sales ESTIMATE (Everbee-style, honest)
+
+> ⚠️ **Model upgraded Aug 21** — see the "MULTI-SIGNAL" note in the Latest-cycle section
+> above. It's no longer reviews-only; it takes the strongest of reviews / views / favorites.
+> The section below documents the original reviews-only rationale (still the review layer).
 
 `src/lib/salesEstimate.ts` + `getListingReviewStats` (`etsy.ts`) + `/api/etsy/listing-reviews`.
 

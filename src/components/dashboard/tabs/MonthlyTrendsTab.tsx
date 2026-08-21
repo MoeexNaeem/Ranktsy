@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/ui/Icon'
 import { useState, useCallback, useMemo } from 'react'
 import { useTrends } from '@/hooks/useKeywords'
 import { BarChart } from '@/components/charts/BarChart'
@@ -213,8 +214,8 @@ export function MonthlyTrendsTab() {
                   <span style={{ fontSize: 13, fontFamily: MONO, fontWeight: 700, color: 'var(--accent, #FB5E09)', width: 18, flexShrink: 0 }}>{i + 1}</span>
                   <span style={{ flex: 1, fontSize: 13.5, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.title}</span>
                   {l.price != null && <span style={{ fontSize: 12.5, fontFamily: MONO, color: C.graphite, flexShrink: 0 }}>{cur} {l.price}</span>}
-                  <span style={{ fontSize: 12.5, fontFamily: MONO, color: C.graphite, width: 78, textAlign: 'right', flexShrink: 0 }}>👁 {formatNumber(l.views)}</span>
-                  <span style={{ fontSize: 12.5, fontFamily: MONO, color: C.graphite, width: 64, textAlign: 'right', flexShrink: 0 }}>♥ {formatNumber(l.favorites)}</span>
+                  <span style={{ fontSize: 12.5, fontFamily: MONO, color: C.graphite, width: 78, textAlign: 'right', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}><Icon name="eye" size={12} color={C.graphite} />{formatNumber(l.views)}</span>
+                  <span style={{ fontSize: 12.5, fontFamily: MONO, color: C.graphite, width: 64, textAlign: 'right', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}><Icon name="heart" size={12} color={C.graphite} />{formatNumber(l.favorites)}</span>
                 </a>
               ))}
             </Card>

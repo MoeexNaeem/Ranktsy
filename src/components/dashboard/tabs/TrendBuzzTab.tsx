@@ -40,7 +40,7 @@ export function TrendBuzzTab() {
         <SearchBar value={input} onChange={setInput} onSubmit={go}
           placeholder="Leave blank for Etsy-wide buzz, or scope to a niche…" button="Find buzz →" />
         <p style={{ fontSize: 11.5, color: '#9a9a92', marginTop: 8, fontFamily: MONO }}>
-          Emerging keywords ranked by a relative <strong>heat index</strong> — tag frequency × listing engagement across a live Etsy sample. Not absolute search volume.
+          Emerging keywords ranked by a relative <strong>heat index</strong> — tag frequency × listing engagement across a live listing sample. Not absolute search volume.
         </p>
       </div>
 

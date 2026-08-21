@@ -11,7 +11,13 @@ import crypto from 'crypto'
 const PREFIX = 'enc:v1:'
 
 function key(): Buffer {
-  const secret = process.env.TOKEN_ENC_KEY || process.env.JWT_SECRET || 'dev-secret-change-in-production-min-32-chars'
+  const secret = process.env.TOKEN_ENC_KEY || process.env.JWT_SECRET
+  if (!secret || secret.length < 32) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('TOKEN_ENC_KEY/JWT_SECRET is not set (or < 32 chars). Refusing to encrypt OAuth tokens with an insecure key.')
+    }
+    return crypto.createHash('sha256').update('dev-secret-change-in-production-min-32-chars').digest()
+  }
   return crypto.createHash('sha256').update(secret).digest() // 32 bytes
 }
 
