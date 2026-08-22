@@ -1,8 +1,8 @@
 /**
- * Estimated monthly ETSY searches for a keyword — calibrated to eRank.
+ * Estimated monthly ETSY searches for a keyword - calibrated to eRank.
  *
  * Etsy publishes NO search-volume data to anyone, so no tool has a "real" Etsy
- * search count — eRank's number is an estimate too. Crucially, eRank's estimate
+ * search count - eRank's number is an estimate too. Crucially, eRank's estimate
  * does NOT come from Google Keyword Planner: comparing real numbers shows
  * eRank's "Avg. Searches" tracks the Etsy LISTING COUNT (competition), not
  * Google volume (e.g. "crochet" has 313K Google searches but eRank shows 187K,
@@ -14,7 +14,7 @@
  *     etsySearches ≈ K · competition^P     (default K=345, P=0.434)
  *
  * Fit against eRank (Global): crochet 2.3M→187,873 · planner 2.0M→199,164 ·
- * huntrix 12.7K→20,847 — all within ~6% across a 180× competition range.
+ * huntrix 12.7K→20,847 - all within ~6% across a 180× competition range.
  *
  * Both constants are env-overridable (NEXT_PUBLIC_ETSY_SEARCH_K /
  * NEXT_PUBLIC_ETSY_SEARCH_P) so the curve can be re-tuned without a code change.
@@ -42,7 +42,7 @@ export function estimateEtsySearches(etsyCompetition?: number | null): number | 
  * Scale the GLOBAL Etsy-search estimate down to one country.
  *
  * eRank's per-country "Avg. Searches" is its global number times that country's
- * share of the keyword's search demand — verified against real side-by-sides:
+ * share of the keyword's search demand - verified against real side-by-sides:
  *   • necklace: global 159,347 × US 29.8% = 47.5K  (eRank US 49,493)  ✓
  *   • necklace: global 159,347 × India 6.3% = 10.0K (eRank IND 9,828) ✓
  *   • resume:   global ~37,600 × US 14.8% = 5.6K   (eRank US 5,804)   ✓

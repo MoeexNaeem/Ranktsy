@@ -3,7 +3,7 @@
  *
  * Every Etsy request (etsyFetch / etsyAuthedFetch) and Google Ads request calls
  * recordEtsyCall() / recordGoogleCall(). Those attribute the call to the CURRENT
- * request's user via AsyncLocalStorage — set once per request by wrapping the
+ * request's user via AsyncLocalStorage - set once per request by wrapping the
  * handler in runWithUsageContext() (see lib/track.ts). Counts are buffered in
  * memory and flushed to Mongo as a coalesced `$inc` at most every few seconds, so
  * a burst of API calls becomes one DB write per user/day (the cluster is slow, and
@@ -68,7 +68,7 @@ async function flush(): Promise<void> {
       return ApiUsage.updateOne({ day: b.day, userId: b.userId }, update, { upsert: true })
     }))
   } catch (e) {
-    // Don't lose counts — fold them back for the next flush.
+    // Don't lose counts - fold them back for the next flush.
     for (const b of pending) {
       const k = `${b.day}|${b.userId}`
       const cur = buffers.get(k)

@@ -10,13 +10,13 @@ import { WhatsAppIcon, WHATSAPP_HREF, WHATSAPP_DISPLAY } from '@/components/ui/W
 const SANS = "'General Sans',sans-serif"
 
 /**
- * One inbox, one phone, one address — all real and monitored.
+ * One inbox, one phone, one address - all real and monitored.
  *
  * There used to be hello@ / support@ / billing@. Only support@ exists, so the
  * other two silently bounced: worse than listing nothing, and a live contact
  * route is something Etsy's API review actually looks for.
  *
- * `href` is optional — the postal address isn't a link, and inventing a maps URL
+ * `href` is optional - the postal address isn't a link, and inventing a maps URL
  * for it would just be a guess. `bg`/`fg`/`chip` carry the August colour block.
  */
 const CONTACT_CHANNELS: {
@@ -35,7 +35,7 @@ const CONTACT_CHANNELS: {
     label: 'Email',
     value: 'support@rankkw.com',
     href: 'mailto:support@rankkw.com',
-    desc: 'Support, billing, partnerships and press — everything reaches the same inbox. We reply within 24 hours on business days.',
+    desc: 'Support, billing, partnerships and press - everything reaches the same inbox. We reply within 24 hours on business days.',
     bg: C.charcoal, fg: '#fff', chip: 'rgba(255,255,255,0.14)', chipIc: '#fff',
   },
   {
@@ -53,7 +53,7 @@ const CONTACT_CHANNELS: {
     value: WHATSAPP_DISPLAY,
     // Opens a WhatsApp chat (wa.me international form, with a prefilled greeting).
     href: WHATSAPP_HREF,
-    desc: 'Message us on WhatsApp for a quick reply — tap to open a chat with a greeting ready to send.',
+    desc: 'Message us on WhatsApp for a quick reply - tap to open a chat with a greeting ready to send.',
     bg: '#25D366', fg: '#0B141A', chip: 'rgba(11,20,26,0.12)', chipIc: '#0B141A',
   },
   {
@@ -76,11 +76,11 @@ const FAQS = [
   },
   {
     q: 'Do you offer a free trial?',
-    a: "Yes! Our Sprout plan is forever free with 5 keyword searches per day. Paid plans include a 14-day free trial — no credit card required to start.",
+    a: "Yes! Our Sprout plan is forever free with 5 keyword searches per day. Paid plans include a 14-day free trial - no credit card required to start.",
   },
   {
     q: 'Can I request a feature?',
-    a: "Absolutely. We love hearing from sellers. Use the contact form and select 'Feature Request' as the subject — our product team reads every one.",
+    a: "Absolutely. We love hearing from sellers. Use the contact form and select 'Feature Request' as the subject - our product team reads every one.",
   },
 ]
 
@@ -141,17 +141,17 @@ export function ContactContent() {
               We&apos;d love to hear from you.
             </h1>
             <p style={{ fontSize: 18, color: C.graphite, lineHeight: 1.6, maxWidth: 520 }}>
-              Whether you have a question, a feature idea, or just want to say hello — our team is here and happy to help.
+              Whether you have a question, a feature idea, or just want to say hello - our team is here and happy to help.
             </p>
           </div>
         </section>
 
-        {/* ── Channels — colourful blocks ── */}
+        {/* ── Channels - colourful blocks ── */}
         <section style={{ background: C.paper, padding: '64px 40px' }}>
           <div style={{ maxWidth: 1200, margin: '0 auto' }}>
             <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 18 }}>
               {CONTACT_CHANNELS.map((ch) => {
-                // The address card has no href — render it as a plain div so it
+                // The address card has no href - render it as a plain div so it
                 // doesn't look clickable and go nowhere.
                 const Tag = (ch.href ? 'a' : 'div') as 'a' | 'div'
                 const interactive = Boolean(ch.href)
@@ -191,7 +191,7 @@ export function ContactContent() {
               })}
             </div>
 
-            {/* Social — a fourth way to reach us, but not a support channel. */}
+            {/* Social - a fourth way to reach us, but not a support channel. */}
             <div className="rstack-sm" style={{ margin: '28px 0 0', display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
               <p style={{ fontSize: 11, fontFamily: SANS, fontWeight: 600, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.07em', margin: 0 }}>
                 Follow Rankkw
@@ -205,7 +205,7 @@ export function ContactContent() {
         <section style={{ padding: '20px 40px 96px', background: C.paper }}>
           <div className="rsplit" style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 48, alignItems: 'start' }}>
 
-            {/* Contact form — soft rounded panel */}
+            {/* Contact form - soft rounded panel */}
             <div style={{ background: C.canvas, borderRadius: 30, padding: 'clamp(32px,4vw,48px)' }}>
               {tag('Send a message')}
               <h2 style={{ fontSize: 'clamp(24px,3vw,36px)', fontWeight: 600, letterSpacing: '-0.03em', color: C.ink, marginBottom: 32 }}>

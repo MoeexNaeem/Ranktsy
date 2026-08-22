@@ -4,7 +4,7 @@ import { User } from '@/lib/models'
 import { verifyWebhookSignature } from '@/lib/lemonsqueezy'
 import { planForVariant, PLAN_SLUGS, type PlanSlug } from '@/lib/plans'
 
-// Lemon Squeezy webhook — the source of truth for a user's plan. Verifies the
+// Lemon Squeezy webhook - the source of truth for a user's plan. Verifies the
 // signature, then applies subscription changes to the matching user.
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     // Prefer our own user_id; fall back to the buyer's email.
     let user = userId ? await User.findById(userId).catch(() => null) : null
     if (!user && attrs.user_email) user = await User.findOne({ email: String(attrs.user_email).toLowerCase() })
-    if (!user) return NextResponse.json({ received: true }) // ack — nothing we can attach to
+    if (!user) return NextResponse.json({ received: true }) // ack - nothing we can attach to
 
     const status = String(attrs.status ?? '')
 

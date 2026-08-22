@@ -65,7 +65,7 @@ function Bubble({
   )
 }
 
-/* Four-point sparkle — echoes the doodles in the reference layout. */
+/* Four-point sparkle - echoes the doodles in the reference layout. */
 function Spark({ size, color, style, dur, delay }: {
   size: number; color: string; style: React.CSSProperties; dur: number; delay: number
 }) {
@@ -104,20 +104,20 @@ export function ConnectSection() {
           <Spark size={20} color={C.ash}    style={{ bottom: 90, right: '34%' }} dur={5.8} delay={0.5} />
           <Spark size={13} color={C.orange} style={{ bottom: 46, left: '40%' }} dur={6.6} delay={1.2} />
 
-          {/* Top-left — researching listings (framed browser card) */}
+          {/* Top-left - researching listings (framed browser card) */}
           <Frame src={ILLO.laptop} label="Keyword research" width={285}
             style={{ left: 0, top: 40 }} dur={6.4} delay={0} rDelay={0} />
 
-          {/* Bottom-left — the seller (round portrait) */}
+          {/* Bottom-left - the seller (round portrait) */}
           <Bubble src={ILLO.hair} label="Built for sellers" size={150}
             style={{ left: 68, bottom: 22 }} dur={6.1} delay={0.9} rDelay={0.12} />
 
-          {/* Top-right — gazing at the market (free-floating figure) */}
+          {/* Top-right - gazing at the market (free-floating figure) */}
           <Frame src={ILLO.windows} label="Spot the opportunity" width={158} bare
             style={{ right: 10, top: 14 }} dur={5.8} delay={0.6} rDelay={0.24}
             chipStyle={{ left: 'auto', right: 0, bottom: -14 }} />
 
-          {/* Bottom-right — real Etsy data (free-floating scene) */}
+          {/* Bottom-right - real Etsy data (free-floating scene) */}
           <Frame src={ILLO.ufo} label="Real Etsy data" width={208} bare
             style={{ right: 8, bottom: 26 }} dur={6.9} delay={0.35} rDelay={0.36}
             chipStyle={{ left: 'auto', right: 20, bottom: -6 }} />
@@ -145,7 +145,7 @@ export function ConnectSection() {
                 fontSize: 'clamp(16px,1.4vw,18px)', lineHeight: 1.55, color: C.graphite,
                 maxWidth: 460, margin: '0 auto',
               }}>
-                Research keywords, size up the competition, and optimize your listings —
+                Research keywords, size up the competition, and optimize your listings -
                 every number measured live from the official Etsy API.
               </p>
             </Reveal>
@@ -168,7 +168,7 @@ export function ConnectSection() {
               fontSize: 16, lineHeight: 1.55, color: C.graphite,
               maxWidth: 420, margin: '0 auto',
             }}>
-              Research keywords, size up the competition, and optimize your listings —
+              Research keywords, size up the competition, and optimize your listings -
               every number measured live from the official Etsy API.
             </p>
           </div>

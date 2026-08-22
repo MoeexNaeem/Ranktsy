@@ -30,7 +30,7 @@ export function CategoryToolTab() {
         <span style={{ display: 'flex', paddingLeft: 16, color: '#a9a79f' }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
         </span>
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search Etsy categories — e.g. earrings, candle, wall art…"
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search Etsy categories - e.g. earrings, candle, wall art…"
           style={{ background: 'transparent', border: 'none', padding: '11px 14px', fontSize: 14, fontFamily: 'inherit', outline: 'none', flex: 1, color: '#1a1a1a', minWidth: 0 }} />
       </div>
 
@@ -59,7 +59,7 @@ export function CategoryToolTab() {
             </div>
           )}
           <p style={{ fontSize: 12, color: '#808080', marginTop: 12, lineHeight: 1.5 }}>
-            Etsy&apos;s official seller taxonomy — pick the deepest category that fits your product for the best placement. (Etsy&apos;s API doesn&apos;t expose category popularity, so these aren&apos;t ranked.)
+            Etsy&apos;s official seller taxonomy - pick the deepest category that fits your product for the best placement. (Etsy&apos;s API doesn&apos;t expose category popularity, so these aren&apos;t ranked.)
           </p>
         </div>
       )}

@@ -14,12 +14,12 @@ export const revalidate = 60
 const SANS = "'General Sans',sans-serif"
 const PER_PAGE = 2 // only two deals per page, then paginate
 
-// Cohesive warm palette (not rainbow) — each deal gets one of these, cycled.
+// Cohesive warm palette (not rainbow) - each deal gets one of these, cycled.
 const ACCENTS = ['#FB5E09', '#B7791F', '#C2510B', '#D08326']
 
 export const metadata: Metadata = {
-  title: 'Deals — Special offers on Rankkw plans',
-  description: 'Current deals and special offers on Rankkw — save on Etsy SEO tools, credits and AI listing images.',
+  title: 'Deals - Special offers on Rankkw plans',
+  description: 'Current deals and special offers on Rankkw - save on Etsy SEO tools, credits and AI listing images.',
   alternates: { canonical: abs('/deals') },
   openGraph: { title: 'Rankkw Deals', description: 'Special offers on Rankkw plans.', url: abs('/deals'), type: 'website' },
 }
@@ -56,14 +56,14 @@ export default async function DealsIndex({ searchParams }: { searchParams: Promi
               Special offers
             </h1>
             <p style={{ fontSize: 'clamp(15px,1.4vw,17px)', color: C.graphite, lineHeight: 1.55, maxWidth: 520, margin: '0 auto' }}>
-              Limited-time deals on Rankkw plans — more tools, credits and AI images for less.
+              Limited-time deals on Rankkw plans - more tools, credits and AI images for less.
             </p>
           </div>
 
           {deals.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 20px', color: C.graphite }}>
               <p style={{ fontSize: 18, fontWeight: 500, color: C.ink, marginBottom: 6 }}>No deals right now</p>
-              <p style={{ fontSize: 15 }}>Check back soon — new offers are on the way.</p>
+              <p style={{ fontSize: 15 }}>Check back soon - new offers are on the way.</p>
             </div>
           ) : (
             <>

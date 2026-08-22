@@ -68,7 +68,7 @@ export function TagGenTab() {
           Generate 13 Etsy tags
         </SectionTitle>
         <p style={{ fontSize: 14, color: C.graphite, lineHeight: 1.55, margin: '2px 0 12px' }}>
-          Enter your focus keyword. Tags are ≤20 chars, unique, and prioritise low-competition, high-intent phrases — including ones the top live listings actually use.
+          Enter your focus keyword. Tags are ≤20 chars, unique, and prioritise low-competition, high-intent phrases - including ones the top live listings actually use.
         </p>
         <SearchBar value={input} onChange={v => { setInput(v); savedInput = v }} onSubmit={run} placeholder="e.g. boho earrings" button={isFetching ? 'Generating…' : 'Generate →'} />
       </Card>

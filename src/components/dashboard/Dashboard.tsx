@@ -37,7 +37,7 @@ export function Dashboard() {
   const search = useCallback(()=>{ const q=input.trim(); if(q.length<2)return; setQuery(q); addR(q) },[input,addR])
 
   // Real, measured measurements only. "Avg. Searches"/"Avg. Clicks" are gone: Etsy
-  // publishes no search volume and no clicks — those cards showed listing views
+  // publishes no search volume and no clicks - those cards showed listing views
   // and favourites under borrowed names.
   const stats = useMemo(()=>{
     if(!kw) return null
@@ -117,7 +117,7 @@ export function Dashboard() {
                       <p style={{ fontSize:11, fontWeight:500, color:C.charcoal }}>Search Trend</p>
                       {tr?.trends?.length ? <PlatformToggle active={plats} onChange={setPlats} /> : null}
                     </div>
-                    {/* Empty when Google isn't connected — Etsy publishes no
+                    {/* Empty when Google isn't connected - Etsy publishes no
                         volume series, and the old fallback curve was fabricated. */}
                     {!tr ? <Skel h={108} />
                       : tr.trends?.length ? <TrendChart data={tr.trends} activePlatforms={plats} />

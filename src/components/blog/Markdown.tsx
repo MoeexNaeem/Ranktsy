@@ -10,8 +10,8 @@ const INLINE = /!\[([^\]]*)\]\(([^)\s]+)\)|\[([^\]]+)\]\(([^)\s]+)\)|\*\*([^*]+)
 
 /**
  * Only allow safe URL schemes in rendered links/images. A `javascript:` (or
- * `data:`/`vbscript:`) href in an <a> executes on click — even admin-authored
- * markdown shouldn't be able to smuggle one in — so anything that isn't http(s),
+ * `data:`/`vbscript:`) href in an <a> executes on click - even admin-authored
+ * markdown shouldn't be able to smuggle one in - so anything that isn't http(s),
  * mailto, a root-relative path, or an anchor is dropped to "#".
  */
 function safeUrl(url: string): string {

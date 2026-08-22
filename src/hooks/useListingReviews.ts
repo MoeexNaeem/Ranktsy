@@ -4,7 +4,7 @@ import axios from 'axios'
 import type { ApiResponse, ListingReviewStats } from '@/types'
 
 /**
- * Real review stats per listing id — lifetime `count` (a verified units-sold floor)
+ * Real review stats per listing id - lifetime `count` (a verified units-sold floor)
  * plus trailing-30-day velocity (`last30d`). Both feed the per-listing sales ESTIMATE
  * (salesEstimate.ts). Fetched lazily (each id is its own Etsy call, cached 24h
  * server-side), so the table paints first and the columns fill in.

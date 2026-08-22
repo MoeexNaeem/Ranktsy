@@ -10,7 +10,7 @@ export const GET = withUsage(getHandler)
 const MAX_IDS = 100
 
 /**
- * Real review stats per listing — lifetime `count` (a verified units-sold floor)
+ * Real review stats per listing - lifetime `count` (a verified units-sold floor)
  * plus trailing-30-day velocity (`last30d`). Both are REAL Etsy data; the sales
  * ESTIMATE built on them (salesEstimate.ts) is what's labelled an estimate.
  * Returns { [id]: { count, last30d } }.
@@ -34,11 +34,11 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Re
   }
 
   // Fetch only the uncached ids. etsyFetch's internal rate gate serialises these,
-  // so Promise.all here won't exceed Etsy's limit — it just avoids idle waiting.
+  // so Promise.all here won't exceed Etsy's limit - it just avoids idle waiting.
   await Promise.all(misses.map(async id => {
     const stats = await getListingReviewStats(id)
     // Only cache a real lookup (count resolved). A total miss is left uncached so it
-    // retries next time rather than being pinned as "—" for hours.
+    // retries next time rather than being pinned as "-" for hours.
     if (stats.count !== null) memCache.set(cacheKey('lreview', 'v2', String(id)), stats, CACHE_TTL.KEYWORD)
     out[id] = stats
   }))

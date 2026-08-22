@@ -8,7 +8,7 @@ export async function GET() {
   if (!user) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
 
   // `restricted` is deliberately NOT baked into the JWT (same lesson as the old
-  // etsyShopId bug) — an admin restricting someone should take effect on their
+  // etsyShopId bug) - an admin restricting someone should take effect on their
   // very next dashboard load, not wait out a 15-minute access token.
   await connectDB()
   const dbUser = await User.findById(user.id).select('restricted').lean()

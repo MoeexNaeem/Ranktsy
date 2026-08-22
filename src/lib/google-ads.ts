@@ -1,5 +1,5 @@
 /**
- * Google Ads API — Keyword Planner (real Google search volume + geography).
+ * Google Ads API - Keyword Planner (real Google search volume + geography).
  * Uses the REST interface for generateKeywordHistoricalMetrics. No SDK.
  *
  * Required env (all must be set for Google data to activate; otherwise every
@@ -18,7 +18,7 @@
  * Google sunsets Ads API versions roughly yearly. A sunset version 404s on every
  * call; a *deprecated-but-not-yet-removed* version 400s with UNSUPPORTED_VERSION.
  * Verified 2026-07-27 with live credentials: v20 is now deprecated/blocked, and
- * v21–v24 all route. v24 is the newest live version, so it's the default here —
+ * v21–v24 all route. v24 is the newest live version, so it's the default here -
  * it has the longest runway before the next sunset.
  *
  * Override with GOOGLE_ADS_API_VERSION when Google retires this one; the error
@@ -85,7 +85,7 @@ async function getAccessToken(): Promise<string> {
   // Coalesce concurrent refreshes: when the cached token expires, a burst of
   // requests (e.g. many users generating titles at once) would each fire their
   // own token refresh. singleFlight collapses them into ONE request whose result
-  // they all share — the second and later callers re-check the fresh cache.
+  // they all share - the second and later callers re-check the fresh cache.
   return singleFlight('google-ads-token', async () => {
     if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) return cachedToken.token
     recordGoogleCall()
@@ -109,7 +109,7 @@ async function getAccessToken(): Promise<string> {
 
 // ─── Core call: historical metrics for a set of keywords in one geo ────────────
 /** Out-param so callers can tell a FAILED Google lookup apart from a keyword
- *  that genuinely has no data — the two must be cached very differently. */
+ *  that genuinely has no data - the two must be cached very differently. */
 export interface GoogleMetricsMeta { failed?: boolean }
 
 export interface GoogleMetric {
@@ -145,7 +145,7 @@ async function historicalMetrics(keywords: string[], geoId: string | null): Prom
   if (loginId) headers['login-customer-id'] = loginId
 
   // Retry transient failures (429 rate-limit / 5xx) with backoff. Without this a
-  // single blip blanked the keyword's Google stats — and the caller then cached
+  // single blip blanked the keyword's Google stats - and the caller then cached
   // that emptiness for hours.
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
   const MAX_ATTEMPTS = 3
@@ -169,7 +169,7 @@ async function historicalMetrics(keywords: string[], geoId: string | null): Prom
     )
     if (res.ok) break
     if ((res.status === 429 || res.status >= 500) && attempt < MAX_ATTEMPTS - 1) {
-      console.warn(`[GoogleAds] ${res.status} — retrying (${attempt + 1}/${MAX_ATTEMPTS - 1})`)
+      console.warn(`[GoogleAds] ${res.status} - retrying (${attempt + 1}/${MAX_ATTEMPTS - 1})`)
       await sleep(700 * 2 ** attempt)
       continue
     }
@@ -182,7 +182,7 @@ async function historicalMetrics(keywords: string[], geoId: string | null): Prom
     // bare "404" and it looks like a bad customer id or a broken URL.
     if (res.status === 404) {
       throw new Error(
-        `Google Ads API ${V} returned 404 — that version has almost certainly been sunset. ` +
+        `Google Ads API ${V} returned 404 - that version has almost certainly been sunset. ` +
         `Set GOOGLE_ADS_API_VERSION to a current one (see https://developers.google.com/google-ads/api/docs/sunset-dates). Body: ${body.slice(0, 200)}`,
       )
     }
@@ -213,7 +213,7 @@ async function historicalMetrics(keywords: string[], geoId: string | null): Prom
  * fixed country set googleCountryBreakdown already uses, rather than omitting
  * geoTargetConstants. Omitting it returns an EMPTY result for this endpoint in
  * practice (unlike keyword-idea discovery, where "no geo" genuinely means
- * worldwide) — that silently killed the trend line and every stat for Global.
+ * worldwide) - that silently killed the trend line and every stat for Global.
  * Sequential calls (not Promise.all) for the same rate-limit reason as
  * googleCountryBreakdown.
  */
@@ -270,7 +270,7 @@ export async function googleKeywordMetrics(
   } catch (e) {
     console.error('[GoogleAds] keyword metrics failed:', e)
     // Signal FAILURE, not "no data". Callers must not cache a failed lookup for
-    // hours — an empty map here previously looked identical to a keyword that
+    // hours - an empty map here previously looked identical to a keyword that
     // genuinely has no Google volume, so one transient blip blanked a keyword's
     // Avg. Searches for the full cache TTL.
     if (meta) meta.failed = true
@@ -306,10 +306,10 @@ export async function googleCountryBreakdown(keyword: string): Promise<{ country
 
 /**
  * Searchers-by-Country for a keyword. Always the FULL breakdown across the tracked
- * countries — like eRank, which shows the same distribution no matter which country
+ * countries - like eRank, which shows the same distribution no matter which country
  * you've selected. For a specific country we flag its row (`selected`) so the UI can
  * highlight it, and the Keyword Statistics panel reads that row's share to scale the
- * (global-calibrated) Etsy-search estimate down to the country — the way eRank's
+ * (global-calibrated) Etsy-search estimate down to the country - the way eRank's
  * per-country "Avg. Searches" is its global number × the country's search share.
  */
 export async function countriesForGeo(keyword: string, geo: string): Promise<{ country: string; percentage: number; color: string; selected?: boolean }[]> {
@@ -358,7 +358,7 @@ export async function googleAccountCurrency(): Promise<string | null> {
 
 // ─── Keyword ideas: Google-suggested keywords for a seed, each with real metrics ─
 // This is genuine keyword DISCOVERY (generateKeywordIdeas), not the historical
-// lookup — Google returns terms we never asked about, so it surfaces high-volume /
+// lookup - Google returns terms we never asked about, so it surfaces high-volume /
 // low-competition long-tails that an Etsy-tag sample can't. Every metric is real.
 export interface GoogleIdea {
   keyword: string

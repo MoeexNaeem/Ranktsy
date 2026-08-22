@@ -15,7 +15,7 @@ function Chip({ children }: { children: React.ReactNode }) {
   )
 }
 
-// Module-level memory — survives tab unmount so results persist across navigation
+// Module-level memory - survives tab unmount so results persist across navigation
 // (React Query caches the data; these remember what was typed/submitted).
 let savedInput = ''
 let savedSubmitted = ''
@@ -95,7 +95,7 @@ export function TitleGenTab() {
           Generate 10 Etsy titles
         </SectionTitle>
         <p style={{ fontSize: 14, color: C.graphite, lineHeight: 1.55, margin: '2px 0 12px' }}>
-          Enter your focus keyword. Titles are 120–140 chars, start with your keyword, and use low-competition keywords from real search data — never invented metrics.
+          Enter your focus keyword. Titles are 120–140 chars, start with your keyword, and use low-competition keywords from real search data - never invented metrics.
         </p>
         <SearchBar value={input} onChange={v => { setInput(v); savedInput = v }} onSubmit={run} placeholder="e.g. boho earrings" button={isFetching ? 'Generating…' : 'Generate →'} />
       </Card>

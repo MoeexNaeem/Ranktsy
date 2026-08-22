@@ -2,7 +2,7 @@ import { User } from './models'
 import { effectivePlan, type PlanSlug } from './plans'
 
 /**
- * Credit system for the "other tools" — every dashboard feature that ISN'T
+ * Credit system for the "other tools" - every dashboard feature that ISN'T
  * already governed by a hard per-plan limit (keyword searches, competitors
  * monitored, Etsy Listing Pro images, listing audits). Each such tool use costs
  * a flat CREDIT_COST. The daily allowance comes from the plan and resets on a UTC
@@ -11,7 +11,7 @@ import { effectivePlan, type PlanSlug } from './plans'
  *
  * Counters live on the User doc (creditsUsedToday / creditsResetAt / lifetime
  * creditsUsedTotal). Reads the plan fresh from the DB so a just-purchased upgrade
- * applies before the JWT refreshes — same pattern as lib/quota.ts.
+ * applies before the JWT refreshes - same pattern as lib/quota.ts.
  */
 
 /** Flat cost charged for one use of a credit-metered tool. */
@@ -35,7 +35,7 @@ export function creditLimitFor(plan: PlanSlug | undefined): number {
 }
 
 /**
- * Tools that consume credits — the dashboard tab ids without a hard limit.
+ * Tools that consume credits - the dashboard tab ids without a hard limit.
  *
  * DELIBERATELY EXCLUDED (already limit-gated, so never charged): keywords
  * (searches/day), competitors (competitors monitored), listingpro (Listing Pro

@@ -7,13 +7,13 @@ export function siteUrl(): string {
 
   // A localhost origin baked into a production build is the classic cause of
   // sitemaps/canonicals pointing at localhost:3000 on the live site. In
-  // production we never emit it — fall back to the real domain instead.
+  // production we never emit it - fall back to the real domain instead.
   const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(raw)
   if (!raw || (process.env.NODE_ENV === 'production' && isLocal)) return 'https://rankkw.com'
 
   // Canonical host is the apex domain (no www). If the deploy env still points at
   // www.rankkw.com, strip it here so sitemaps, canonicals and JSON-LD never emit
-  // the www variant — without needing an env change or rebuild.
+  // the www variant - without needing an env change or rebuild.
   return raw.replace(/^(https?:\/\/)www\./i, '$1')
 }
 

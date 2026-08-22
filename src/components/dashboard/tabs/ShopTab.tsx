@@ -20,7 +20,7 @@ const CUR: Record<string, string> = { USD: '$', GBP: '£', EUR: '€', CAD: 'C$'
 const symOf = (c?: string) => CUR[c ?? 'USD'] ?? ((c ?? '') + ' ')
 
 function priceStr(l: EtsyListing) {
-  if (!l.price?.amount) return '—'
+  if (!l.price?.amount) return '-'
   return `${symOf(l.price.currency_code)}${(l.price.amount / (l.price.divisor || 100)).toFixed(2)}`
 }
 
@@ -80,14 +80,14 @@ export function ShopTab() {
   const cur         = symOf((data?.listings.find(l => l.price?.currency_code)?.price.currency_code))
   const totalViews  = data?.listings.reduce((s, l) => s + (l.views ?? 0), 0) ?? 0
 
-  // Real figures off the shop record — Etsy's transaction_sold_count is the
+  // Real figures off the shop record - Etsy's transaction_sold_count is the
   // shop's actual lifetime sales, not a proxy.
   const sales      = shop.sales != null ? Number(shop.sales) : null
   const countryIso = shop.countryIso ? String(shop.countryIso) : null
   const yearOpened = shop.yearOpened != null ? Number(shop.yearOpened) : null
   const onVacation = Boolean(shop.is_vacation)
   const age        = yearOpened ? new Date().getFullYear() - yearOpened : null
-  // Sales per active listing — how hard each listing works. Useful, and only
+  // Sales per active listing - how hard each listing works. Useful, and only
   // computable now that real sales are available.
   const salesPerListing = sales != null && activeCount > 0 ? sales / activeCount : null
 
@@ -97,7 +97,7 @@ export function ShopTab() {
     ? data.listings.reduce((s, l) => s + (l.price?.amount ?? 0) / (l.price?.divisor || 100), 0) / data.listings.length
     : 0
 
-  // Real shop-record facts for the AI SWOT read — Gemini interprets the shop's
+  // Real shop-record facts for the AI SWOT read - Gemini interprets the shop's
   // strengths/risks/opportunities; every figure below is measured, not modelled.
   const aiFacts: AiFact[] = []
   if (data) {
@@ -158,12 +158,12 @@ export function ShopTab() {
             </div>
           </div>
 
-          {/* Stats — sales leads, because it's the only figure that measures the
+          {/* Stats - sales leads, because it's the only figure that measures the
               business rather than the storefront. */}
           <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
-            <StatCard label="Lifetime Sales" value={sales != null ? formatNumber(sales) : '—'} accent={D.good}
+            <StatCard label="Lifetime Sales" value={sales != null ? formatNumber(sales) : '-'} accent={D.good}
               sub={sales != null ? 'real · transaction_sold_count' : 'not published for this shop'} />
-            <StatCard label="Shop Rating" value={reviewCount > 0 ? `${reviewAvg.toFixed(2)}★` : '—'}
+            <StatCard label="Shop Rating" value={reviewCount > 0 ? `${reviewAvg.toFixed(2)}★` : '-'}
               accent={reviewAvg >= 4.8 ? D.good : reviewAvg >= 4.5 ? D.mid : reviewCount > 0 ? D.hard : C.stone}
               sub={reviewCount > 0 ? `${formatNumber(reviewCount)} reviews` : 'no reviews yet'} />
             <StatCard label="Active Listings" value={formatNumber(activeCount)} accent="#2E6DB4"
@@ -184,7 +184,7 @@ export function ShopTab() {
               tool="Shop Analytics"
               subject={String(shop.shop_name ?? shopId)}
               facts={aiFacts}
-              notes="All figures are from the shop's real, measured record — transaction_sold_count is genuine lifetime sales. Etsy exposes no per-listing sales, so 'sales per listing' is lifetime sales ÷ active listings. Interpret the shop's strengths, risks, and growth opportunities."
+              notes="All figures are from the shop's real, measured record - transaction_sold_count is genuine lifetime sales. Etsy exposes no per-listing sales, so 'sales per listing' is lifetime sales ÷ active listings. Interpret the shop's strengths, risks, and growth opportunities."
             />
           )}
 
@@ -211,7 +211,7 @@ export function ShopTab() {
                         </div>
                         {r.review
                           ? <p style={{ fontSize: 14, color: C.ink, lineHeight: 1.5 }}>{r.review.length > 220 ? r.review.slice(0, 220) + '…' : r.review}</p>
-                          : <p style={{ fontSize: 13.5, color: C.graphite, fontStyle: 'italic' }}>★ {r.rating}/5 — no written review</p>}
+                          : <p style={{ fontSize: 13.5, color: C.graphite, fontStyle: 'italic' }}>★ {r.rating}/5 - no written review</p>}
                       </div>
                     ))}
                   </div>

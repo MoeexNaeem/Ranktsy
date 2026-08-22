@@ -24,7 +24,7 @@ export function TrendsTab() {
   }, [input])
 
   // Peak season is only knowable from a REAL volume series. Etsy publishes none,
-  // so this comes from Google or not at all — the old version read it off a
+  // so this comes from Google or not at all - the old version read it off a
   // hardcoded curve that peaked in the same month for every keyword.
   const peak = useMemo(() => {
     const g = tr?.trends?.find((t: TrendData) => t.platform === 'google')
@@ -57,7 +57,7 @@ export function TrendsTab() {
         <>
           <Card>
             <SectionTitle right={hasSeries ? <PlatformToggle active={plats} onChange={setPlats} /> : undefined}>
-              Search Trend — &ldquo;{query}&rdquo;
+              Search Trend - &ldquo;{query}&rdquo;
             </SectionTitle>
             {hasSeries ? (
               <TrendChart data={tr.trends} activePlatforms={plats} />

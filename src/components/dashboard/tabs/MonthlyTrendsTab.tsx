@@ -12,20 +12,20 @@ import type { TrendData, TrendPoint, ListingMarketStats, AiFact } from '@/types'
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 function prepMonth(peak?: string): string {
-  if (!peak) return '—'
+  if (!peak) return '-'
   const i = MONTHS.indexOf(peak)
-  if (i < 0) return '—'
+  if (i < 0) return '-'
   return MONTHS[(i - 2 + 12) % 12]   // ~6 weeks ahead
 }
 
 /**
- * Monthly Trends — the seasonal + market picture for a keyword.
+ * Monthly Trends - the seasonal + market picture for a keyword.
  *
  * Every figure is measured, none modelled: Google Ads monthly volume (real
  * demand) when configured, Etsy's listing-creation distribution (real, but
  * seller behaviour), and a full market snapshot (price/views/favorites/tags)
  * from a live 100-listing sample. Gemini then reads those real numbers into a
- * narrative — it interprets, never invents. When a signal genuinely doesn't
+ * narrative - it interprets, never invents. When a signal genuinely doesn't
  * exist (Etsy publishes no search volume), the tab says so.
  */
 export function MonthlyTrendsTab() {
@@ -72,7 +72,7 @@ export function MonthlyTrendsTab() {
 
   const cur = market?.currency ?? 'USD'
 
-  // Real facts handed to Gemini for interpretation — nothing modelled.
+  // Real facts handed to Gemini for interpretation - nothing modelled.
   const aiFacts = useMemo<AiFact[]>(() => {
     const f: AiFact[] = []
     if (demand?.peak) f.push({ label: 'Peak search month', value: demand.peak.month, hint: 'highest search volume' })
@@ -93,7 +93,7 @@ export function MonthlyTrendsTab() {
 
   const aiNotes =
     'Prices/views/favorites are real medians from a live Etsy listing sample. Search-month data (if present) is real search volume. ' +
-    '"Sellers list most in" is listing-creation timing — seller behaviour, not buyer demand. Etsy itself publishes no search volume or history.'
+    '"Sellers list most in" is listing-creation timing - seller behaviour, not buyer demand. Etsy itself publishes no search volume or history.'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -107,7 +107,7 @@ export function MonthlyTrendsTab() {
 
       {tr && !isLoading && (
         <>
-          {/* ── Market snapshot — real medians from the live sample ── */}
+          {/* ── Market snapshot - real medians from the live sample ── */}
           {market && (
             <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
               <StatCard label="Competing" value={formatNumber(market.sample)} accent={D.series[1]} sub="listings analysed" />
@@ -117,17 +117,17 @@ export function MonthlyTrendsTab() {
             </div>
           )}
 
-          {/* ── Seasonal demand — only real via Google ── */}
+          {/* ── Seasonal demand - only real via Google ── */}
           {demand ? (
             <>
               <div className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-                <StatCard label="Peak month" value={demand.peak?.month ?? '—'} accent={C.orange} sub="Highest search volume" />
-                <StatCard label="Quietest month" value={demand.low?.month ?? '—'} accent={C.graphite} sub="Lowest search volume" />
+                <StatCard label="Peak month" value={demand.peak?.month ?? '-'} accent={C.orange} sub="Highest search volume" />
+                <StatCard label="Quietest month" value={demand.low?.month ?? '-'} accent={C.graphite} sub="Lowest search volume" />
                 <StatCard label="Prep by" value={prepMonth(demand.peak?.month)} accent={D.good} sub="List ~6 weeks before peak" />
               </div>
               <Card>
                 <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#2E6DB4' }}>Google · real volume</span>}>
-                  Search demand — &ldquo;{query}&rdquo;
+                  Search demand - &ldquo;{query}&rdquo;
                 </SectionTitle>
                 <BarChart axis="x" height={240} labels={demand.labels} values={demand.values} colors={demand.colors} />
                 <p style={{ fontSize: 11.5, color: C.stone, marginTop: 8 }}>
@@ -144,7 +144,7 @@ export function MonthlyTrendsTab() {
                 </p>
                 <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.65, maxWidth: 660 }}>
                   Etsy publishes no search volume and no history, so there is no honest way to chart when Etsy
-                  shoppers search for this. Real monthly search volume appears here when available. Below is what Etsy <em>does</em> tell us — a full market snapshot.
+                  shoppers search for this. Real monthly search volume appears here when available. Below is what Etsy <em>does</em> tell us - a full market snapshot.
                 </p>
               </div>
             </div>
@@ -158,7 +158,7 @@ export function MonthlyTrendsTab() {
                   When sellers list
                 </SectionTitle>
                 <p style={{ fontSize: 12.5, color: C.graphite, marginTop: -8, marginBottom: 12, lineHeight: 1.5 }}>
-                  Month each competing listing went live — <strong style={{ color: C.ink }}>seller behaviour, not buyer demand</strong>. A spike marks when the category gears up.
+                  Month each competing listing went live - <strong style={{ color: C.ink }}>seller behaviour, not buyer demand</strong>. A spike marks when the category gears up.
                 </p>
                 <BarChart axis="x" height={220} labels={supplyChart.labels} values={supplyChart.values} colors={supplyChart.colors} />
                 {supplyChart.peak && (
@@ -175,7 +175,7 @@ export function MonthlyTrendsTab() {
                   Price distribution
                 </SectionTitle>
                 <p style={{ fontSize: 12.5, color: C.graphite, marginTop: -8, marginBottom: 12, lineHeight: 1.5 }}>
-                  How the {market.sample} competing listings are priced ({cur}). Cluster your price where buyers already are — or deliberately stand apart.
+                  How the {market.sample} competing listings are priced ({cur}). Cluster your price where buyers already are - or deliberately stand apart.
                 </p>
                 <BarChart axis="x" height={220} labels={market.priceBands.map(b => b.band)} values={market.priceBands.map(b => b.count)} color={D.series[0]} />
                 <p style={{ fontSize: 12, color: C.graphite, marginTop: 10, lineHeight: 1.5 }}>

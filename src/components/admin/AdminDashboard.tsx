@@ -1,5 +1,6 @@
 'use client'
 import { Icon } from '@/components/ui/Icon'
+import { NavButton } from '@/components/ui/NavButton'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { C } from '@/utils'
@@ -56,9 +57,9 @@ function statusPill(s: string | null): { label: string; fg: string; bg: string }
   }
   return { label: s.replace(/_/g, ' '), ...(map[s] ?? { fg: '#6E6E64', bg: 'rgba(110,110,100,0.10)' }) }
 }
-// Admin wants EXACT figures (1,300 — not "1.3k").
+// Admin wants EXACT figures (1,300 - not "1.3k").
 const exact = (n: number) => (n ?? 0).toLocaleString('en-US')
-const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }) : '—'
+const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }) : '-'
 const fmtDay = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 const numCell: React.CSSProperties = { ...tdMono, textAlign: 'right' }
 const numTh: React.CSSProperties = { ...th, textAlign: 'right' }
@@ -71,7 +72,7 @@ const timeAgo = (d: string | null) => {
 const dayKeyLocal = (d: Date) => d.toISOString().slice(0, 10)
 
 // Time-reading kept in plain module functions (not the component render body) so
-// the render-purity lint stays happy — same pattern as timeAgo/fmtDate above.
+// the render-purity lint stays happy - same pattern as timeAgo/fmtDate above.
 function countNewThisWeek(users: { createdAt: string | null }[]): number {
   const cutoff = Date.now() - 7 * 86400000
   return users.filter(u => u.createdAt && new Date(u.createdAt).getTime() >= cutoff).length
@@ -257,7 +258,7 @@ export function AdminDashboard() {
           </div>
           {NAV.map(navBtn)}
           <div style={{ marginTop: 'auto', paddingTop: 16 }}>
-            <Link href="/dashboard" style={{ display: 'block', padding: '10px 14px', fontSize: 13, color: C.ink, textDecoration: 'none', borderRadius: 12, border: `1px solid ${C.ash}`, textAlign: 'center' }}>← Dashboard</Link>
+            <NavButton href="/dashboard" spinnerColor={C.ink} spinnerSize={15} style={{ display: 'block', width: '100%', padding: '10px 14px', fontSize: 13, color: C.ink, background: 'transparent', borderRadius: 12, border: `1px solid ${C.ash}`, textAlign: 'center', fontFamily: 'inherit' }}>← Dashboard</NavButton>
           </div>
         </aside>
 
@@ -357,13 +358,13 @@ export function AdminDashboard() {
                         </select>
                         <span aria-hidden style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', fontSize: 9, color: paid ? '#fff' : hue, pointerEvents: 'none' }}>▾</span>
                         {!u.paidViaLemonSqueezy && u.plan !== 'free' && u.compExpiresAt && (
-                          <p title="Admin-granted plan — reverts to Free on this date unless the user pays" style={{ fontSize: 10, fontFamily: MONO, color: C.stone, marginTop: 5, whiteSpace: 'nowrap' }}><Icon name="clock" size={10} color={C.stone} style={{ display: 'inline-block', verticalAlign: '-1px', marginRight: 4 }} />expires {fmtDate(u.compExpiresAt)}</p>
+                          <p title="Admin-granted plan - reverts to Free on this date unless the user pays" style={{ fontSize: 10, fontFamily: MONO, color: C.stone, marginTop: 5, whiteSpace: 'nowrap' }}><Icon name="clock" size={10} color={C.stone} style={{ display: 'inline-block', verticalAlign: '-1px', marginRight: 4 }} />expires {fmtDate(u.compExpiresAt)}</p>
                         )}
                       </div>
                       {paid
                         ? <span title="Paid via Lemon Squeezy" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, width: 'fit-content', fontSize: 11.5, fontWeight: 700, color: '#fff', background: PAID_GOLD, padding: '4px 12px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>★ Paid</span>
                         : sp ? <span style={{ display: 'inline-flex', alignItems: 'center', width: 'fit-content', fontSize: 11.5, fontWeight: 600, color: sp.fg, background: sp.bg, padding: '4px 11px', borderRadius: 100, textTransform: 'capitalize', whiteSpace: 'nowrap' }}>{sp.label}</span>
-                        : <span style={{ color: '#b7b7ae', fontSize: 14 }}>—</span>}
+                        : <span style={{ color: '#b7b7ae', fontSize: 14 }}>-</span>}
                       <span style={{ ...tdMono, fontSize: 13.5, color: C.graphite }}>{fmtDate(u.createdAt)}</span>
                       <div style={{ fontFamily: MONO, minWidth: 0, lineHeight: 1.6 }}>
                         <div style={{ fontSize: 13.5, color: C.ink, fontWeight: 500 }}>{exact(u.searches)} searches</div>
@@ -397,7 +398,7 @@ export function AdminDashboard() {
           {section === 'analytics' && (
             usage ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>today · {usage.today.day} (UTC) · resets at midnight</span>}>API usage — today</SectionTitle>
+                <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>today · {usage.today.day} (UTC) · resets at midnight</span>}>API usage - today</SectionTitle>
                 <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
                   <Kpi label="Etsy API calls" value={usage.today.totals.etsyCalls} accent={C.orange} />
                   <Kpi label="Google API calls" value={usage.today.totals.googleCalls} accent={C.ink} />

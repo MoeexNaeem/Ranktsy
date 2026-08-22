@@ -53,7 +53,7 @@ export async function GET() {
       plan: u.plan,
       isVerified: u.isVerified,
       restricted: u.restricted ?? false,
-      // A REAL Lemon Squeezy purchase, not an admin-granted plan change — the
+      // A REAL Lemon Squeezy purchase, not an admin-granted plan change - the
       // webhook is the only writer of lsSubscriptionId; the admin PATCH route
       // only ever touches role/plan/isVerified/restricted.
       paidViaLemonSqueezy: !!u.lsSubscriptionId,

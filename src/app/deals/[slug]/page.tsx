@@ -76,7 +76,7 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
         <section style={{ position: 'relative', zIndex: 1, background: C.charcoal, padding: '64px 24px', textAlign: 'center', marginTop: 40 }}>
           <div style={{ maxWidth: 560, margin: '0 auto' }}>
             <h2 style={{ fontSize: 'clamp(22px,3vw,32px)', fontWeight: 600, color: '#F5F5EB', letterSpacing: '-0.03em', marginBottom: 14 }}>Ready to grab this deal?</h2>
-            <p style={{ fontSize: 16, color: 'rgba(245,245,235,0.72)', lineHeight: 1.55, marginBottom: 24 }}>Secure checkout via Lemon Squeezy — cancel anytime.</p>
+            <p style={{ fontSize: 16, color: 'rgba(245,245,235,0.72)', lineHeight: 1.55, marginBottom: 24 }}>Secure checkout via Lemon Squeezy - cancel anytime.</p>
             <DealCta plan={d.ctaPlan || undefined} url={d.ctaUrl || undefined} label={ctaLabel} />
           </div>
         </section>

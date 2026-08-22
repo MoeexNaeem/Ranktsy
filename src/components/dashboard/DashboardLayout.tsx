@@ -9,6 +9,8 @@ import { C, ACCENT, withAlpha, formatNumber, type AccentName } from '@/utils'
 import { UpgradeModalHost } from './UpgradeModal'
 import { triggerUpgrade } from '@/lib/upgrade'
 import { AnimIcon, DASH_ICON } from '@/components/ui/AnimIcon'
+import { NavButton } from '@/components/ui/NavButton'
+import { DashboardLoader } from './DashboardLoader'
 
 const KeywordsTab      = dynamic(() => import('./tabs/KeywordsTab').then(m => ({ default: m.KeywordsTab })), { ssr: false })
 const ListingsTab      = dynamic(() => import('./tabs/ListingsTab').then(m => ({ default: m.ListingsTab })), { ssr: false })
@@ -63,7 +65,7 @@ const TABS: { id: TabId; label: string; description: string; group: string; acce
   { id: 'bulk',        label: 'Bulk Keywords', group: 'Research',    accent: 'purple',  description: 'Compare keywords in bulk' },
   { id: 'rank',        label: 'Rank Checker',  group: 'Research',    accent: 'red',     description: 'Find where your shop ranks' },
   { id: 'shop',        label: 'Shop Analytics',group: 'Optimize',    accent: 'violet',  description: 'Analyze any Etsy shop' },
-  // Own-shop tools — these read your Etsy receipts over OAuth, which is the only
+  // Own-shop tools - these read your Etsy receipts over OAuth, which is the only
   // place Etsy exposes buyer country and fulfilment state.
   { id: 'salesmap',    label: 'Sales Map',     group: 'Shop Insights', accent: 'pink',  description: 'Where your buyers are' },
   { id: 'delivery',    label: 'Delivery Status',group: 'Shop Insights', accent: 'cyan', description: 'Orders awaiting shipment' },
@@ -132,9 +134,13 @@ function TabContent({ active, onNavigate }: { active: TabId; onNavigate: (id: Ta
 export function DashboardLayout() {
   const [activeTab, setActiveTab] = useState<TabId>('overview')
   const [navOpen, setNavOpen] = useState(false)
+  // Filter the sidebar so a user can find a tool by typing part of its name.
+  const [navFilter, setNavFilter] = useState('')
+  // Brand splash: plays the "Rankkw" draw-on once when the dashboard first mounts.
+  const [booting, setBooting] = useState(true)
   const { data: user } = useAuth()
   const logout = useLogout()
-  // Daily credit balance for the "other tools" — live-updated after each use.
+  // Daily credit balance for the "other tools" - live-updated after each use.
   const credits = useCredits()
   // Current plan, read fresh from the DB (not the possibly-stale JWT).
   const [planInfo, setPlanInfo] = useState<{ plan: string; label: string } | null>(null)
@@ -162,8 +168,13 @@ export function DashboardLayout() {
   const activeInfo = TABS.find(t => t.id === activeTab)!
   const activeHue = ACCENT[activeInfo.accent]
 
+  // Brand splash: render ONLY the loader first (nothing else on the main thread),
+  // so the draw-on animation is smooth; the dashboard mounts once it finishes. The
+  // loader itself no-ops instantly if it already played this session.
+  if (booting) return <DashboardLoader onDone={() => setBooting(false)} />
+
   // Checked fresh from the DB on every /auth/me call (never cached in the
-  // JWT) — an admin restricting this account blocks it starting now, not
+  // JWT) - an admin restricting this account blocks it starting now, not
   // after the access token expires.
   if (user?.restricted) {
     return (
@@ -199,10 +210,27 @@ export function DashboardLayout() {
 
         {/* Nav */}
         <nav style={{ flex: 1, padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {GROUPS.map(group => (
+          {/* Tool filter - type part of a tool's name to jump to it */}
+          <div style={{ padding: '0 2px 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.canvas, border: `1px solid ${C.ash}`, borderRadius: 10, padding: '8px 11px' }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={C.stone} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+              <input value={navFilter} onChange={e => setNavFilter(e.target.value)} placeholder="Find a tool..." aria-label="Find a tool"
+                style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', fontSize: 13.5, fontFamily: 'inherit', color: C.ink }} />
+              {navFilter && (
+                <button onClick={() => setNavFilter('')} aria-label="Clear filter" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: C.stone, display: 'flex', padding: 0 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                </button>
+              )}
+            </div>
+          </div>
+          {GROUPS.map(group => {
+            const fq = navFilter.trim().toLowerCase()
+            const groupTabs = TABS.filter(t => t.group === group && (!fq || t.label.toLowerCase().includes(fq) || t.description.toLowerCase().includes(fq)))
+            if (!groupTabs.length) return null
+            return (
             <div key={group} style={{ marginBottom: 12 }}>
               <p className="rlabel" style={{ fontSize: 10, fontFamily: "'General Sans',sans-serif", fontWeight: 600, color: C.stone, textTransform: 'uppercase', letterSpacing: '0.11em', padding: '4px 14px', marginBottom: 4 }}>{group}</p>
-              {TABS.filter(t => t.group === group).map(tab => {
+              {groupTabs.map(tab => {
                 const active = activeTab === tab.id
                 const hue = ACCENT[tab.accent]
                 return (
@@ -234,7 +262,10 @@ export function DashboardLayout() {
                 )
               })}
             </div>
-          ))}
+          )})}
+          {navFilter.trim() && !TABS.some(t => t.label.toLowerCase().includes(navFilter.trim().toLowerCase()) || t.description.toLowerCase().includes(navFilter.trim().toLowerCase())) && (
+            <p style={{ fontSize: 13, color: C.stone, padding: '6px 14px', lineHeight: 1.5 }}>No tools match &ldquo;{navFilter}&rdquo;.</p>
+          )}
         </nav>
 
         {/* User section */}
@@ -255,21 +286,21 @@ export function DashboardLayout() {
               </div>
             </div>
           )}
-          <Link href="/profile"
-            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, padding: '11px 13px', borderRadius: 10, textDecoration: 'none', cursor: 'pointer', color: C.inkSoft, fontSize: 14, transition: 'background 0.15s' }}
+          <NavButton href="/profile" spinnerColor={C.ink} spinnerSize={17}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, padding: '11px 13px', borderRadius: 10, border: 'none', background: 'transparent', fontFamily: 'inherit', textAlign: 'left', color: C.inkSoft, fontSize: 14, transition: 'background 0.15s' }}
             onMouseEnter={e => (e.currentTarget.style.background = C.canvas)}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <span className="rlabel">Profile</span>
-          </Link>
+          </NavButton>
           {user?.role === 'admin' && (
-            <Link href="/admin"
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, padding: '11px 13px', borderRadius: 10, textDecoration: 'none', cursor: 'pointer', color: C.inkSoft, fontSize: 14, transition: 'background 0.15s' }}
+            <NavButton href="/admin" spinnerColor={C.ink} spinnerSize={17}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, padding: '11px 13px', borderRadius: 10, border: 'none', background: 'transparent', fontFamily: 'inherit', textAlign: 'left', color: C.inkSoft, fontSize: 14, transition: 'background 0.15s' }}
               onMouseEnter={e => (e.currentTarget.style.background = C.canvas)}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
               <span className="rlabel">Admin</span>
-            </Link>
+            </NavButton>
           )}
           <button onClick={() => logout.mutate()}
             style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, padding: '11px 13px', borderRadius: 10, border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', color: C.graphite, fontSize: 14, transition: 'background 0.15s' }}
@@ -286,11 +317,11 @@ export function DashboardLayout() {
         {/* Top bar */}
         <div className="rdash-topbar" style={{ padding: '15px 28px', borderBottom: `1px solid ${C.hair}`, background: C.paper, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, position: 'sticky', top: 0, zIndex: 5 }}>
           <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, gap: 14 }}>
-            {/* Mobile drawer toggle — hidden on desktop via CSS */}
+            {/* Mobile drawer toggle - hidden on desktop via CSS */}
             <button className="rdash-burger" onClick={() => setNavOpen(o => !o)} aria-label="Toggle menu">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
-            {/* Active-tool icon in its own hue — no background chip */}
+            {/* Active-tool icon in its own hue - no background chip */}
             <span className="rdash-titleicon" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 34, flexShrink: 0, color: activeHue }}>
               <AnimIcon key={activeTab} src={DASH_ICON[activeTab]} size={26} color={activeHue} active />
             </span>
@@ -328,7 +359,7 @@ export function DashboardLayout() {
           </div>
         </div>
 
-        {/* Content — the active tool's hue cascades into the shared kit (stat
+        {/* Content - the active tool's hue cascades into the shared kit (stat
             cards, section dots, buttons, search bars) via these CSS vars. */}
         <div className="rdash-content" style={{
           flex: 1, padding: '22px 28px', overflowY: 'auto',
@@ -339,7 +370,7 @@ export function DashboardLayout() {
           <TabContent active={activeTab} onNavigate={handleTab} />
         </div>
 
-        {/* Etsy attribution — REQUIRED VERBATIM by Etsy API Terms of Use (Section 6).
+        {/* Etsy attribution - REQUIRED VERBATIM by Etsy API Terms of Use (Section 6).
             This is a legal disclaimer, NOT a data-source "footprint": do not genericise it. */}
         <div className="rdash-footer" style={{ padding: '12px 28px', borderTop: `1px solid ${C.hair}`, background: C.paper, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <p style={{ fontSize: 11.5, color: '#8a8a82', fontFamily: "'General Sans',monospace", lineHeight: 1.5, margin: 0 }}>

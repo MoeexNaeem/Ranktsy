@@ -1,11 +1,11 @@
 /**
- * Google Gemini — the AI provider for Rankkw's generation features (titles,
+ * Google Gemini - the AI provider for Rankkw's generation features (titles,
  * tags, descriptions, and the listing-improvement suggestions).
  *
  * Scope boundary that matters for this codebase: Gemini WRITES COPY. It never
  * invents analytics. Every generation call is grounded in the real Etsy tags and
  * titles of the live listings for a keyword, and the model is told to work from
- * them — so "no fabricated data" still holds. Search volume, sales, KD etc. are
+ * them - so "no fabricated data" still holds. Search volume, sales, KD etc. are
  * always measured from the APIs, never asked of the model.
  *
  * Uses the REST endpoint directly (no SDK) to keep the dependency surface small
@@ -27,8 +27,8 @@ const textLimiter = createLimiter(Number(process.env.GEMINI_TEXT_CONCURRENCY ?? 
 
 // One or more API keys. The key was first uploaded under the non-standard name
 // `Gemini_API_KEY`; accept the conventional GEMINI_API_KEY too. A SECOND key
-// (GEMINI_SECONDARY_API_KEY) — or any number via a comma-separated
-// GEMINI_API_KEYS — lets us spread load across keys and fail over when one is
+// (GEMINI_SECONDARY_API_KEY) - or any number via a comma-separated
+// GEMINI_API_KEYS - lets us spread load across keys and fail over when one is
 // rate-limited, so a busy moment on a single key doesn't surface as "Generation
 // failed". Duplicates and blanks are dropped; order is primary-first.
 function geminiKeys(): string[] {
@@ -51,7 +51,7 @@ export function isGeminiConfigured(): boolean {
   return geminiKeys().length > 0
 }
 
-// Round-robin so successive requests START on different keys — this spreads
+// Round-robin so successive requests START on different keys - this spreads
 // steady load evenly instead of always hammering the first key (and only
 // spilling to the second on failure). Returns the keys rotated so the caller
 // tries them in a fresh order each call.
@@ -65,9 +65,9 @@ function keyOrder(): string[] {
 
 // Text model. Benchmarked 2026-08-21 on this key: `gemini-flash-latest` (and
 // gemini-3.7-flash) return 503 "high demand" ~75% of the time and are slow when
-// they do answer — that was the "generations are very slow" report. `gemini-3.1-
-// flash-lite` returns 200 in ~2s, reliably (3/3), for the same structured task —
-// a ~20× speedup — so it is now the default. FALLBACK_MODEL is tried when the
+// they do answer - that was the "generations are very slow" report. `gemini-3.1-
+// flash-lite` returns 200 in ~2s, reliably (3/3), for the same structured task -
+// a ~20× speedup - so it is now the default. FALLBACK_MODEL is tried when the
 // primary is overloaded (gemini-3.5-flash: ~3s, also reliable). Override either
 // via GEMINI_MODEL / GEMINI_FALLBACK_MODEL.
 const MODEL = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite'
@@ -104,13 +104,13 @@ interface GenerateOpts {
   think?: boolean
 }
 
-/** Why a text generation failed — callers can turn 'quota' into an honest message. */
+/** Why a text generation failed - callers can turn 'quota' into an honest message. */
 export type GeminiReason = 'quota' | 'blocked' | 'unconfigured' | 'model_retired' | 'error'
 export interface GeminiMeta { reason?: GeminiReason }
 
 /**
  * One generation call. Returns the model's text (JSON string when a schema is
- * given), or null on any failure — callers fall back to their rule-based path
+ * given), or null on any failure - callers fall back to their rule-based path
  * rather than surfacing a 500. Never throws. Pass an optional `meta` object to
  * learn WHY it returned null (e.g. 'quota' when the provider's billing is out),
  * so the UI can show an honest message instead of "please try again".
@@ -124,13 +124,13 @@ export async function geminiGenerate(opts: GenerateOpts, meta?: GeminiMeta): Pro
       temperature: opts.temperature ?? 0.7,
       // Headroom matters: `gemini-flash-latest` now resolves to a model that
       // ALWAYS spends some thinking tokens before the output (and REJECTS
-      // thinkingBudget:0 with a 400 — see below), so the budget must cover the
+      // thinkingBudget:0 with a 400 - see below), so the budget must cover the
       // thinking AND the full JSON or structured output truncates mid-string.
       maxOutputTokens: opts.maxOutputTokens ?? 4096,
       // Thinking OFF by default (`thinkingBudget: 0`). Benchmarked 2026-08-21:
       // budget:0 returns 200 in ~2s, while OMITTING thinkingConfig routes to the
       // model's dynamic-thinking path which is heavily overloaded (503s) and
-      // slow. (The old "budget:0 400s" note is stale — it works now on the
+      // slow. (The old "budget:0 400s" note is stale - it works now on the
       // 3.1-flash-lite / 3.5-flash models we use.) `think:true` → dynamic (-1).
       thinkingConfig: { thinkingBudget: opts.think ? -1 : 0 },
       ...(opts.schema
@@ -144,7 +144,7 @@ export async function geminiGenerate(opts: GenerateOpts, meta?: GeminiMeta): Pro
 
   // Try the fast primary model first; if it's overloaded/errors, fall back to the
   // secondary model (a busy moment on one model no longer surfaces as a failure).
-  // Terminal outcomes (blocked / retired / unconfigured) don't try the fallback —
+  // Terminal outcomes (blocked / retired / unconfigured) don't try the fallback -
   // it wouldn't help. Queue behind the per-instance text cap so a surge can't
   // stampede the provider; each sendGemini also rotates configured keys.
   const models = [MODEL, FALLBACK_MODEL].filter((m, i, a) => m && a.indexOf(m) === i)
@@ -165,7 +165,7 @@ async function sendGemini(model: string, body: Record<string, unknown>, meta?: G
   if (!keys.length) { if (meta) meta.reason = 'unconfigured'; return null }
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
   // With MULTIPLE keys: visit every key once, plus a couple of passes for a
-  // transient blip. With a SINGLE key: just 1 quick retry — the client owns the
+  // transient blip. With a SINGLE key: just 1 quick retry - the client owns the
   // longer, SPACED retry loop, so hammering one key here only wastes requests.
   const MAX_ATTEMPTS = keys.length > 1 ? Math.max(4, keys.length + 2) : 2
   let sawQuota = false
@@ -185,7 +185,7 @@ async function sendGemini(model: string, body: Record<string, unknown>, meta?: G
         const errBody = await res.text().catch(() => '')
         // 404 = pinned model retired; not retryable (another key won't help).
         if (res.status === 404) {
-          console.error(`[Gemini] model "${model}" returned 404 — likely retired. Set GEMINI_MODEL to a current one. ${errBody.slice(0, 160)}`)
+          console.error(`[Gemini] model "${model}" returned 404 - likely retired. Set GEMINI_MODEL to a current one. ${errBody.slice(0, 160)}`)
           if (meta) meta.reason = 'model_retired'
           return null
         }
@@ -199,12 +199,12 @@ async function sendGemini(model: string, body: Record<string, unknown>, meta?: G
           const wait = keys.length > 1 && !cycledAllKeys
             ? 150
             : Math.min(700 * 2 ** Math.max(0, attempt - keys.length + 1), 4000)
-          console.warn(`[Gemini] ${res.status} on key #${(attempt % keys.length) + 1}/${keys.length} — retrying (${attempt + 1}/${MAX_ATTEMPTS - 1})`)
+          console.warn(`[Gemini] ${res.status} on key #${(attempt % keys.length) + 1}/${keys.length} - retrying (${attempt + 1}/${MAX_ATTEMPTS - 1})`)
           await sleep(wait)
           continue
         }
         console.error(`[Gemini] ${res.status}: ${errBody.slice(0, 200)}`)
-        // A terminal 429 (every key exhausted) means quota is out — say so rather
+        // A terminal 429 (every key exhausted) means quota is out - say so rather
         // than "try again".
         if (meta) meta.reason = (res.status === 429 || sawQuota) ? 'quota' : 'error'
         return null
@@ -224,11 +224,11 @@ async function sendGemini(model: string, body: Record<string, unknown>, meta?: G
       const text = json.candidates?.[0]?.content?.parts?.map(p => p.text ?? '').join('') ?? ''
       return text || null
     } catch (e) {
-      // Network error (fetch failed) — retry on the next key, else give up.
+      // Network error (fetch failed) - retry on the next key, else give up.
       if (attempt < MAX_ATTEMPTS - 1) {
         const cycledAllKeys = attempt >= keys.length - 1
         const wait = keys.length > 1 && !cycledAllKeys ? 150 : Math.min(700 * 2 ** Math.max(0, attempt - keys.length + 1), 4000)
-        console.warn(`[Gemini] request failed — retrying (${attempt + 1}/${MAX_ATTEMPTS - 1}):`, (e as Error)?.message)
+        console.warn(`[Gemini] request failed - retrying (${attempt + 1}/${MAX_ATTEMPTS - 1}):`, (e as Error)?.message)
         await sleep(wait)
         continue
       }
@@ -266,7 +266,7 @@ async function geminiImageInner(keys: string[], prompt: string, refs?: GeminiRef
   const parts: any[] = [{ text: prompt }]
   for (const r of refs ?? []) parts.push({ inlineData: { mimeType: r.mimeType, data: r.data } })
 
-  // Retry transient failures: 5xx, network errors, and — importantly — the case
+  // Retry transient failures: 5xx, network errors, and - importantly - the case
   // where the model replies with only TEXT and no image (common for the
   // feature-callout graphic). On 429 (rate-limited) we fail over to the next key;
   // safety blocks are NOT retried. At least 3 tries, and enough to visit every key.
@@ -289,9 +289,9 @@ async function geminiImageInner(keys: string[], prompt: string, refs?: GeminiRef
         const body = await res.text().catch(() => '')
         console.error(`[Gemini image] ${res.status} on key #${(attempt % keys.length) + 1}/${keys.length}: ${body.slice(0, 200)}`)
         if (res.status === 429) {
-          // This key is out — fail over to the next key; only give up (quota)
+          // This key is out - fail over to the next key; only give up (quota)
           // once every key has been tried.
-          last = { ok: false, reason: 'quota', detail: 'Image-generation quota exhausted on all keys — enable billing or add another Gemini key.' }
+          last = { ok: false, reason: 'quota', detail: 'Image-generation quota exhausted on all keys - enable billing or add another Gemini key.' }
           if (attempt < MAX - 1) { await sleep(keys.length > 1 ? 150 : 700 * (attempt + 1)); continue }
           return last
         }
@@ -334,7 +334,7 @@ async function geminiImageInner(keys: string[], prompt: string, refs?: GeminiRef
 
 /**
  * Generate and parse a JSON object against a schema. Returns null (not a throw)
- * if the model is unconfigured, fails, or returns unparseable JSON — so every
+ * if the model is unconfigured, fails, or returns unparseable JSON - so every
  * caller keeps a clean fallback path.
  */
 export async function geminiJSON<T>(opts: GenerateOpts & { schema: GeminiSchema }, meta?: GeminiMeta): Promise<T | null> {

@@ -20,7 +20,7 @@ const COUNTRY_NAMES: Record<string, string> = {
 /**
  * Buyer geography + fulfilment state for the signed-in user's OWN shop.
  *
- * This is the one place Etsy exposes buyer country — receipts carry
+ * This is the one place Etsy exposes buyer country - receipts carry
  * `country_iso`, and only under OAuth for your own shop. There is no public
  * buyer-geography endpoint for arbitrary shops, which is why Searchers-by-Country
  * elsewhere in the app comes from Google Ads instead.
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Or
       })
     }
 
-    // Receipts are the shop's own orders, so they share the shop currency — a
+    // Receipts are the shop's own orders, so they share the shop currency - a
     // mean is safe here, unlike a cross-shop listing search.
     const currency = receipts[0]?.currency ?? 'USD'
     const revenue = receipts.reduce((s, r) => s + r.grandtotal, 0)
@@ -78,7 +78,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Or
 
     const unshippedList = receipts
       .filter(r => r.is_paid && !r.is_shipped)
-      .sort((a, b) => a.created_timestamp - b.created_timestamp)   // oldest first — most urgent
+      .sort((a, b) => a.created_timestamp - b.created_timestamp)   // oldest first - most urgent
       .slice(0, 25)
       .map(r => ({
         receiptId: r.receipt_id,

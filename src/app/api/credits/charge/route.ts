@@ -10,7 +10,7 @@ import { PLAN_LABELS } from '@/lib/plans'
  * Charge credits for one use of a credit-metered tool.
  *
  * The client calls this once when the user triggers a tool action (search /
- * generate / analyze), passing `{ tool }` — the dashboard tab id. If the tool
+ * generate / analyze), passing `{ tool }` - the dashboard tab id. If the tool
  * isn't credit-metered it's a no-op that just returns the current balance. When
  * the user is out of credits it returns 402 `credit_limit` so the client can open
  * the upgrade modal and abort the action.

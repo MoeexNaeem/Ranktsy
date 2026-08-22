@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     const orders = receipts.length
     const avgOrder = orders ? revenue / orders : 0
 
-    // Revenue by month — last 6 months (rolling)
+    // Revenue by month - last 6 months (rolling)
     const now = new Date()
     const monthKeys: { label: string; key: string }[] = []
     for (let i = 5; i >= 0; i--) {
@@ -48,10 +48,10 @@ export async function GET(req: NextRequest) {
     }
     const salesByMonth = monthKeys.map(m => ({ month: m.label, value: Math.round(monthMap[m.key] ?? 0) }))
 
-    // Sales map — revenue by buyer country
+    // Sales map - revenue by buyer country
     const countryMap: Record<string, number> = {}
     for (const r of receipts) {
-      const c = r.country_iso || '—'
+      const c = r.country_iso || '-'
       countryMap[c] = (countryMap[c] ?? 0) + r.grandtotal
     }
     const salesByCountry = Object.entries(countryMap)

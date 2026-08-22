@@ -13,7 +13,7 @@ const SUGGESTED = [
   { slug: 'business', name: 'Business', price: '$19.99 / mo', accent: '#0D9488', desc: '500 searches/day · 15 images/mo · multi-shop' },
 ]
 
-/** Single global host for the upgrade modal — mount once (in the dashboard). */
+/** Single global host for the upgrade modal - mount once (in the dashboard). */
 export function UpgradeModalHost() {
   const [info, setInfo] = useState<UpgradeInfo | null>(null)
   const [busy, setBusy] = useState<string | null>(null)

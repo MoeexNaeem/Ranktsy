@@ -36,7 +36,7 @@ export function OverviewTab({ onNavigate }: { onNavigate?: (id: string) => void 
           Welcome back{user?.name ? `, ${user.name.split(' ')[0]}` : ''}
         </h2>
         <p style={{ fontSize: 15.5, color: C.graphite, marginTop: 5 }}>
-          Here&apos;s what&apos;s moving on Etsy right now — then jump into any tool.
+          Here&apos;s what&apos;s moving on Etsy right now - then jump into any tool.
         </p>
       </div>
 
@@ -77,7 +77,7 @@ export function OverviewTab({ onNavigate }: { onNavigate?: (id: string) => void 
             </div>
           )}
           <p style={{ fontSize: 12.5, color: C.graphite, marginTop: 12, fontFamily: MONO }}>
-            Relative heat index from live listing tags + engagement — not absolute search volume.
+            Relative heat index from live listing tags + engagement - not absolute search volume.
           </p>
         </Card>
 

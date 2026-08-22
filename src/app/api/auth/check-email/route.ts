@@ -5,7 +5,7 @@ import { User } from '@/lib/models'
 import { rateLimit, clientIp } from '@/lib/auth/rateLimit'
 
 // Live "is this email already registered?" check for the signup form. Returns
-// { valid, exists } — `valid:false` means it isn't a well-formed email yet, so
+// { valid, exists } - `valid:false` means it isn't a well-formed email yet, so
 // the form shows neither the green nor the red state.
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ valid: true, exists: Boolean(exists) })
   } catch (err) {
     console.error('[check-email]', err)
-    // On error, don't block signup — report "unknown" as not-taken; the register
+    // On error, don't block signup - report "unknown" as not-taken; the register
     // endpoint still enforces uniqueness authoritatively.
     return NextResponse.json({ valid: true, exists: false })
   }

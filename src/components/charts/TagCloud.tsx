@@ -47,7 +47,7 @@ export const TagCloud = memo(function TagCloud({
         <button
           key={t.tag}
           onClick={() => onSelect?.(t.tag)}
-          title={`${t.tag} — in ${t.count} listing${t.count === 1 ? '' : 's'} (${t.pct}%)${onSelect ? ' · click to search' : ''}`}
+          title={`${t.tag} - in ${t.count} listing${t.count === 1 ? '' : 's'} (${t.pct}%)${onSelect ? ' · click to search' : ''}`}
           style={{
             fontSize: t.size, fontWeight: t.weight, color: t.color, fontFamily: MONO,
             background: 'transparent', border: 'none', padding: '1px 3px', borderRadius: 5,

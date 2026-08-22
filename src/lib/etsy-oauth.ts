@@ -1,7 +1,7 @@
 import crypto from 'crypto'
 
 /**
- * Etsy Open API v3 — OAuth 2.0 Authorization Code flow with PKCE.
+ * Etsy Open API v3 - OAuth 2.0 Authorization Code flow with PKCE.
  * Docs: https://developers.etsy.com/documentation/essentials/authentication
  *
  * Setup required by the shop owner (once), in the Etsy developer console:
@@ -14,10 +14,11 @@ import crypto from 'crypto'
 export const ETSY_OAUTH_AUTHORIZE = 'https://www.etsy.com/oauth/connect'
 export const ETSY_OAUTH_TOKEN     = 'https://api.etsy.com/v3/public/oauth/token'
 
-// Scopes needed for Shop Insights: shop info, listings, and sales/receipts.
-// Only what the "My Shop" feature actually reads — no unused scopes (e.g. email_r
-// was dropped as it is never used, to satisfy least-privilege review).
-export const ETSY_SCOPES = ['shops_r', 'listings_r', 'transactions_r'] as const
+// Scopes: read shop info, listings and sales/receipts (Shop Insights), PLUS
+// listings_w so a seller can push an AI-generated listing to their shop as a
+// DRAFT ("Send to Etsy"). listings_w must also be enabled on the Etsy app itself;
+// existing users must reconnect their shop once to grant the new write scope.
+export const ETSY_SCOPES = ['shops_r', 'listings_r', 'listings_w', 'transactions_r'] as const
 
 const CLIENT_ID = process.env.ETSY_API_KEY ?? ''
 
@@ -44,7 +45,7 @@ export function randomState(): string {
  */
 export function getAppOrigin(reqUrl: string): string {
   // SITE_URL (server-only, NOT inlined at build time) is the most reliable public
-  // origin — it's correct in prod even when NEXT_PUBLIC_APP_URL is still localhost.
+  // origin - it's correct in prod even when NEXT_PUBLIC_APP_URL is still localhost.
   // Falls back to NEXT_PUBLIC_APP_URL, then the request origin.
   const base = process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || new URL(reqUrl).origin
   return new URL(base).origin

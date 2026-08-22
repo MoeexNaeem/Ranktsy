@@ -7,7 +7,7 @@ import type { TrendData, TrendPlatform } from '@/types'
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend)
 
 // Validated categorical palette (dataviz: fixed order, never cycled). Passed the
-// palette validator — worst adjacent CVD ΔE 18.9, normal-vision ΔE 29.8.
+// palette validator - worst adjacent CVD ΔE 18.9, normal-vision ΔE 29.8.
 const COLORS: Record<TrendPlatform, string> = {
   etsy:   '#FB5E09', // brand orange
   google: '#2E6DB4', // blue (matches the Google treatment used elsewhere)

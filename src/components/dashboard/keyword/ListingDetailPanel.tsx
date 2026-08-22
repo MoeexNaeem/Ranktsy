@@ -1,6 +1,6 @@
 'use client'
 /**
- * In-app listing detail drawer — opens when a listing row/title is clicked (the
+ * In-app listing detail drawer - opens when a listing row/title is clicked (the
  * ONLY link out to Etsy is the explicit "See on Etsy" button). Shows every real
  * per-listing metric plus visual meters, and the clearly-badged sales ESTIMATE.
  */
@@ -71,7 +71,7 @@ export function ListingDetailPanel({ row, reviewStats, estimate, onClose }: {
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
-  // Real shop-level context (lifetime sales, reviews, rating, age) — fetched once
+  // Real shop-level context (lifetime sales, reviews, rating, age) - fetched once
   // per opened listing. Reset + fetch inside a nested async fn to avoid a
   // synchronous setState in the effect body.
   useEffect(() => {
@@ -84,7 +84,7 @@ export function ListingDetailPanel({ row, reviewStats, estimate, onClose }: {
         const r = await fetch(`/api/etsy/shop-summary?shop=${encodeURIComponent(name)}`)
         const j = await r.json().catch(() => null)
         if (alive && r.ok && j?.success) setShop(j.data)
-      } catch { /* leave shop null — the panel just omits the shop block */ }
+      } catch { /* leave shop null - the panel just omits the shop block */ }
     }
     run()
     return () => { alive = false }
@@ -142,31 +142,31 @@ export function ListingDetailPanel({ row, reviewStats, estimate, onClose }: {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
                   <Stat label="Views" value={formatNumber(views)} accent="#2E6DB4" />
                   <Stat label="Hearts" value={formatNumber(favs)} accent={D.hard} />
-                  <Stat label="Favs / view" value={fpv != null ? `${fpv.toFixed(1)}%` : '—'} accent={fpv != null && fpv >= 4 ? D.good : C.ink} />
-                  <Stat label="Age (days)" value={row.ageDays != null ? formatNumber(row.ageDays) : '—'} />
-                  <Stat label="Views / day" value={row.dailyViews != null ? row.dailyViews.toFixed(1) : '—'} accent="#2E6DB4" />
-                  <Stat label="Favs / day" value={row.favsPerDay != null ? row.favsPerDay.toFixed(2) : '—'} accent={D.hard} />
-                  <Stat label="Reviews" value={reviewStats?.count != null ? formatNumber(reviewStats.count) : '—'} accent={D.good} sub="this listing (API)" />
-                  <Stat label="Reviews / 30d" value={reviewStats?.last30d != null ? formatNumber(reviewStats.last30d) : '—'} accent={D.good} />
-                  <Stat label="Qty" value={l.quantity != null ? formatNumber(l.quantity) : '—'} />
+                  <Stat label="Favs / view" value={fpv != null ? `${fpv.toFixed(1)}%` : '-'} accent={fpv != null && fpv >= 4 ? D.good : C.ink} />
+                  <Stat label="Age (days)" value={row.ageDays != null ? formatNumber(row.ageDays) : '-'} />
+                  <Stat label="Views / day" value={row.dailyViews != null ? row.dailyViews.toFixed(1) : '-'} accent="#2E6DB4" />
+                  <Stat label="Favs / day" value={row.favsPerDay != null ? row.favsPerDay.toFixed(2) : '-'} accent={D.hard} />
+                  <Stat label="Reviews" value={reviewStats?.count != null ? formatNumber(reviewStats.count) : '-'} accent={D.good} sub="this listing (API)" />
+                  <Stat label="Reviews / 30d" value={reviewStats?.last30d != null ? formatNumber(reviewStats.last30d) : '-'} accent={D.good} />
+                  <Stat label="Qty" value={l.quantity != null ? formatNumber(l.quantity) : '-'} />
                   <Stat label="Tags" value={`${l.tags?.length ?? 0}/13`} />
-                  <Stat label="Ships (days)" value={l.processing_min != null && l.processing_max != null ? `${l.processing_min}–${l.processing_max}` : (l.processing_min ?? l.processing_max ?? '—').toString()} />
+                  <Stat label="Ships (days)" value={l.processing_min != null && l.processing_max != null ? `${l.processing_min}–${l.processing_max}` : (l.processing_min ?? l.processing_max ?? '-').toString()} />
                   <Stat label="Currency" value={cur ?? 'USD'} />
                 </div>
               </Group>
 
-              {/* Real shop-level context — reframes a low per-listing review count. */}
+              {/* Real shop-level context - reframes a low per-listing review count. */}
               {shop && (
                 <Group title="Shop · real lifetime totals" right={<a href={shop.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11.5, color: C.orange, textDecoration: 'none' }}>Visit shop ↗</a>}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
-                    <Stat label="Shop sales" value={shop.sales != null ? formatNumber(shop.sales) : '—'} accent={D.good} />
+                    <Stat label="Shop sales" value={shop.sales != null ? formatNumber(shop.sales) : '-'} accent={D.good} />
                     <Stat label="Shop reviews" value={formatNumber(shop.reviewCount)} accent={D.good} />
-                    <Stat label="Rating" value={shop.reviewAverage > 0 ? `${shop.reviewAverage.toFixed(1)}★` : '—'} accent="#B7791F" />
+                    <Stat label="Rating" value={shop.reviewAverage > 0 ? `${shop.reviewAverage.toFixed(1)}★` : '-'} accent="#B7791F" />
                     <Stat label="Active listings" value={formatNumber(shop.activeListings)} />
-                    <Stat label="Since" value={shop.yearOpened != null ? String(shop.yearOpened) : '—'} />
+                    <Stat label="Since" value={shop.yearOpened != null ? String(shop.yearOpened) : '-'} />
                   </div>
                   <p style={{ fontSize: 11, color: C.stone, marginTop: 10, lineHeight: 1.5 }}>
-                    Real, measured totals across ALL of this shop&apos;s listings — how established the seller is (not this one listing).
+                    Real, measured totals across ALL of this shop&apos;s listings - how established the seller is (not this one listing).
                   </p>
                 </Group>
               )}
@@ -195,7 +195,7 @@ export function ListingDetailPanel({ row, reviewStats, estimate, onClose }: {
                 </div>
               </Group>
 
-              {/* Sales estimate — clearly badged */}
+              {/* Sales estimate - clearly badged */}
               <Group title="Sales estimate" right={
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   {estimate?.basis && <span style={{ fontSize: 9.5, fontFamily: MONO, color: C.stone, textTransform: 'uppercase', letterSpacing: '0.05em' }}>via {estimate.basis}</span>}
@@ -203,15 +203,15 @@ export function ListingDetailPanel({ row, reviewStats, estimate, onClose }: {
                 </span>
               }>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
-                  <Stat label="~ Sales / mo" value={estimate?.estMonthlySales != null ? `~${formatNumber(estimate.estMonthlySales)}` : '—'} accent={D.mid} />
-                  <Stat label="~ Rev / mo" value={revUsd != null ? `~$${formatNumber(revUsd)}` : (revLocal != null ? `~${sym(cur)}${formatNumber(revLocal)}` : '—')} accent={D.mid} />
-                  <Stat label="~ Total sales" value={estimate?.estTotalSales != null ? `~${formatNumber(estimate.estTotalSales)}` : '—'} accent={D.mid} />
+                  <Stat label="~ Sales / mo" value={estimate?.estMonthlySales != null ? `~${formatNumber(estimate.estMonthlySales)}` : '-'} accent={D.mid} />
+                  <Stat label="~ Rev / mo" value={revUsd != null ? `~$${formatNumber(revUsd)}` : (revLocal != null ? `~${sym(cur)}${formatNumber(revLocal)}` : '-')} accent={D.mid} />
+                  <Stat label="~ Total sales" value={estimate?.estTotalSales != null ? `~${formatNumber(estimate.estTotalSales)}` : '-'} accent={D.mid} />
                 </div>
                 <p style={{ fontSize: 11, color: C.stone, marginTop: 10, lineHeight: 1.55 }}>
-                  Etsy publishes no per-listing sales, so these are <strong style={{ color: D.mid }}>estimates</strong> modelled from the strongest real signal this listing has — its reviews, its views (× conversion rate), or its favorites{estimate?.monthlyIsAverage ? ', with monthly amortised over the listing&apos;s real age' : ''}. Treat as directional, not exact.
+                  Etsy publishes no per-listing sales, so these are <strong style={{ color: D.mid }}>estimates</strong> modelled from the strongest real signal this listing has - its reviews, its views (× conversion rate), or its favorites{estimate?.monthlyIsAverage ? ', with monthly amortised over the listing&apos;s real age' : ''}. Treat as directional, not exact.
                 </p>
                 <p style={{ fontSize: 11, color: C.stone, marginTop: 6, lineHeight: 1.55 }}>
-                  Etsy&apos;s product page can show more reviews than the per-listing API (it pools an item&apos;s reviews across the seller&apos;s relisted &amp; variant listings), which is why we also model from views &amp; favorites — so an under-reviewed but well-visited listing isn&apos;t undercounted.
+                  Etsy&apos;s product page can show more reviews than the per-listing API (it pools an item&apos;s reviews across the seller&apos;s relisted &amp; variant listings), which is why we also model from views &amp; favorites - so an under-reviewed but well-visited listing isn&apos;t undercounted.
                 </p>
               </Group>
 

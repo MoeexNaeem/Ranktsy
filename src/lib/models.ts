@@ -22,7 +22,7 @@ export interface IUserDoc extends Document {
   lsVariantId?: string
   subscriptionStatus?: string   // active | on_trial | past_due | cancelled | paused | expired
   planRenewsAt?: Date
-  // Expiry for an ADMIN-GRANTED (comp) plan — a plan set by an admin (the
+  // Expiry for an ADMIN-GRANTED (comp) plan - a plan set by an admin (the
   // Free→Pro promo or the admin plan dropdown) WITHOUT a real Lemon Squeezy
   // purchase. On/after this date the user auto-reverts to 'free'. Null for
   // real paid subscriptions (those expire via the webhook + planRenewsAt).
@@ -31,7 +31,7 @@ export interface IUserDoc extends Document {
   // fresh from the DB on dashboard load (never baked into the JWT) so it
   // takes effect immediately, not after the access token expires.
   restricted?: boolean
-  // DEPRECATED — superseded by the ConnectedShop collection (a user can now
+  // DEPRECATED - superseded by the ConnectedShop collection (a user can now
   // connect more than one shop). Kept only so lib/etsy-tokens.ts can migrate
   // any pre-existing single-shop connection the first time it's read.
   etsyShopId?: string
@@ -43,7 +43,7 @@ export interface IUserDoc extends Document {
   lastSearchReset: Date
   listingImageCount?: number   // Etsy Listing Pro images used this month
   listingImageReset?: Date
-  // Credit system — powers the "other tools" (no hard limit) at 10 credits/use.
+  // Credit system - powers the "other tools" (no hard limit) at 10 credits/use.
   // Daily allowance comes from the plan (see lib/credits.ts); balance = limit −
   // creditsUsedToday. Resets on a UTC day rollover. creditsUsedTotal is lifetime
   // spend, kept for the admin analytics.
@@ -55,7 +55,7 @@ export interface IUserDoc extends Document {
 const UserSchema = new Schema<IUserDoc>({
   name:             { type: String, required: true, trim: true, maxlength: 60 },
   email:            { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
-  password:         { type: String, required: false, select: false }, // optional — OAuth users have none; never returned by default
+  password:         { type: String, required: false, select: false }, // optional - OAuth users have none; never returned by default
   authProvider:     { type: String, enum: ['google','microsoft'] },
   role:             { type: String, enum: ['user','admin'], default: 'user' },
   plan:             { type: String, enum: PLAN_SLUGS, default: 'free' },
@@ -94,7 +94,7 @@ OTPSchema.index({ email: 1, type: 1 })
 // ─── Keyword Cache ─────────────────────────────────────────────────────────────
 const KeywordCacheSchema = new Schema<IKeywordCache>({
   keyword:   { type: String, required: true, index: true, lowercase: true, trim: true },
-  // Country filter — Google volume/CPC/competition are geo-specific, so each
+  // Country filter - Google volume/CPC/competition are geo-specific, so each
   // country caches its own document for the same keyword. Defaults to US.
   geo:       { type: String, default: 'US', uppercase: true, trim: true },
   data:      { type: Schema.Types.Mixed, required: true },
@@ -120,7 +120,7 @@ CollectiveKeywordDataSchema.index({ keyword: 1, geo: 1 }, { unique: true })
 // One row per {day, userId}. Powers the admin usage analytics. `day` is the daily
 // bucket (resets at 00:00 UTC); rows are kept ~60 days so every user has ≥7 days
 // of history. Incremented via lib/usage.ts ($inc, coalesced). Uses its OWN
-// collection `userapiusages` — NOT the `apiusages` that Ranktsy's simple daily
+// collection `userapiusages` - NOT the `apiusages` that Ranktsy's simple daily
 // tracker writes (their {day}-unique schema is incompatible with this per-user one).
 const ApiUsageSchema = new Schema<IApiUsage>({
   day:        { type: String, required: true },      // YYYY-MM-DD (UTC)
@@ -131,7 +131,7 @@ const ApiUsageSchema = new Schema<IApiUsage>({
   searches:   { type: Number, default: 0 },
   cacheHits:  { type: Number, default: 0 },
   apiHits:    { type: Number, default: 0 },
-  // Gemini image generation — count, total tokens burnt, and USD spent.
+  // Gemini image generation - count, total tokens burnt, and USD spent.
   imageCalls:   { type: Number, default: 0 },
   imageTokens:  { type: Number, default: 0 },
   imageCostUsd: { type: Number, default: 0 },
@@ -158,14 +158,14 @@ KeywordHistorySchema.index({ userId: 1, searchedAt: -1 })
  * Long enough to show a full year of seasonality plus a like-for-like comparison
  * against the same month last year; short enough to be a real, enforced limit
  * rather than "we keep Etsy data forever". Etsy's caching rule (6h listings /
- * 24h other) governs re-displaying their content AS CURRENT — which we never do:
+ * 24h other) governs re-displaying their content AS CURRENT - which we never do:
  * every current figure is fetched live, and a snapshot is only ever rendered as a
  * dated historical measurement. This bound keeps that distinction honest.
  */
 const SNAPSHOT_TTL_SECONDS = SNAPSHOT_RETENTION_DAYS * 24 * 60 * 60
 
 // ─── Shop Snapshot ─────────────────────────────────────────────────────────────
-// One row per shop per UTC day. This is the ONLY source of sales history — Etsy
+// One row per shop per UTC day. This is the ONLY source of sales history - Etsy
 // gives a lifetime total with no series and no backfill, so a day not captured
 // is a day lost forever. Not TTL'd on a short window (that would defeat the
 // point) but genuinely capped at SNAPSHOT_RETENTION_DAYS via the index below.
@@ -182,7 +182,7 @@ const ShopSnapshotSchema = new Schema<IShopSnapshot>({
   capturedAt:     { type: Date, default: Date.now },
 }, { timestamps: false })
 
-// Unique per shop per day — makes capture idempotent, so recording opportunistically
+// Unique per shop per day - makes capture idempotent, so recording opportunistically
 // on every shop read can't produce duplicate rows.
 ShopSnapshotSchema.index({ shopId: 1, day: 1 }, { unique: true })
 ShopSnapshotSchema.index({ shopId: 1, capturedAt: -1 })
@@ -190,7 +190,7 @@ ShopSnapshotSchema.index({ shopId: 1, capturedAt: -1 })
 ShopSnapshotSchema.index({ capturedAt: 1 }, { expireAfterSeconds: SNAPSHOT_TTL_SECONDS })
 
 // ─── Listing Snapshot ──────────────────────────────────────────────────────────
-// Powers "Changes" — what a competitor edited (title/tags/price), which Etsy's
+// Powers "Changes" - what a competitor edited (title/tags/price), which Etsy's
 // last_modified_timestamp flags but never describes.
 const ListingSnapshotSchema = new Schema<IListingSnapshot>({
   listingId:  { type: Number, required: true, index: true },
@@ -222,7 +222,7 @@ const TrackedShopSchema = new Schema<ITrackedShop>({
 TrackedShopSchema.index({ userId: 1, shopId: 1 }, { unique: true })
 
 // ─── Connected Shop ────────────────────────────────────────────────────────────
-// A user's OWN Etsy shop(s), connected via OAuth. One row per (userId, shopId) —
+// A user's OWN Etsy shop(s), connected via OAuth. One row per (userId, shopId) -
 // a user can connect several shops; connecting a new one never disturbs another.
 // Always read fresh from here, never cached on the session/JWT, so a connection
 // persists across logout and only ever goes away when the user removes it.

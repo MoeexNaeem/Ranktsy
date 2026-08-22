@@ -5,10 +5,10 @@ import { C } from '@/utils'
 import { abs } from '@/lib/seo/site'
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy — Rankkw',
+  title: 'Privacy Policy - Rankkw',
   description: 'How Rankkw collects, uses, stores and protects your data as an independent Etsy analytics platform.',
   alternates: { canonical: abs('/privacy') },
-  openGraph: { title: 'Privacy Policy — Rankkw', description: 'How Rankkw collects, uses and protects your data.', url: abs('/privacy'), type: 'website' },
+  openGraph: { title: 'Privacy Policy - Rankkw', description: 'How Rankkw collects, uses and protects your data.', url: abs('/privacy'), type: 'website' },
 }
 
 const sections = [

@@ -25,7 +25,7 @@ export function Star({ on, onClick, size = 15 }: { on: boolean; onClick: () => v
 
 // ─── Checkbox ────────────────────────────────────────────────────────────────
 // The mark is a plain <span> so it can sit inside a parent <button> (as in
-// PopItem) without nesting buttons — which is invalid HTML, and swallows the
+// PopItem) without nesting buttons - which is invalid HTML, and swallows the
 // parent's click.
 export function CheckMark({ on, indeterminate }: { on: boolean; indeterminate?: boolean }) {
   const active = on || indeterminate
@@ -131,20 +131,20 @@ export function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boo
 }
 
 // ─── CSV export ──────────────────────────────────────────────────────────────
-/** Quote every field — keywords legitimately contain commas and quotes. */
+/** Quote every field - keywords legitimately contain commas and quotes. */
 export function toCsv(headers: string[], rows: (string | number | null)[][]): string {
   const esc = (v: string | number | null) => `"${String(v ?? '').replace(/"/g, '""')}"`
   return [headers.map(esc).join(','), ...rows.map(r => r.map(esc).join(','))].join('\r\n')
 }
 
-/** Filesystem-safe filename stem — keywords contain spaces, slashes and quotes. */
+/** Filesystem-safe filename stem - keywords contain spaces, slashes and quotes. */
 export function slugify(s: string): string {
   return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'export'
 }
 
 export function downloadCsv(filename: string, csv: string) {
   // \uFEFF (written as an escape, not a literal invisible character) so Excel
-  // reads UTF-8 keywords — accents, emoji — instead of mojibake.
+  // reads UTF-8 keywords - accents, emoji - instead of mojibake.
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -167,7 +167,7 @@ export function ExportBtn({ onClick, count }: { onClick: () => void; count?: num
   )
 }
 
-// ─── Heat pill — the shared green→amber→red data chip ────────────────────────
+// ─── Heat pill - the shared green→amber→red data chip ────────────────────────
 export function HeatPill({ score, label }: { score: number; label?: string }) {
   const fg = score < 20 ? D.good : score < 40 ? D.fair : score < 60 ? D.mid : score < 80 ? D.warm : D.hard
   const bg = score < 20 ? D.goodBg : score < 40 ? D.fairBg : score < 60 ? D.midBg : score < 80 ? D.warmBg : D.hardBg

@@ -5,10 +5,10 @@ import { C } from '@/utils'
 import { abs } from '@/lib/seo/site'
 
 export const metadata: Metadata = {
-  title: 'Service Policy — Rankkw',
+  title: 'Service Policy - Rankkw',
   description: 'Rankkw’s service policy: data sources, availability and support commitments.',
   alternates: { canonical: abs('/service-policy') },
-  openGraph: { title: 'Service Policy — Rankkw', description: 'Rankkw’s service policy, availability and support.', url: abs('/service-policy'), type: 'website' },
+  openGraph: { title: 'Service Policy - Rankkw', description: 'Rankkw’s service policy, availability and support.', url: abs('/service-policy'), type: 'website' },
 }
 
 const sections = [

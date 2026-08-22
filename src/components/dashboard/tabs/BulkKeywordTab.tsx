@@ -32,20 +32,20 @@ const COLS: { label: string; key?: SortKey }[] = [
   { label: 'KD', key: 'difficulty' },
   { label: 'Avg Views', key: 'avgViews' },
   { label: 'Avg Favs', key: 'avgFavorites' },
-  // Not "CTR" — Etsy exposes no clicks. This is favourites ÷ views.
+  // Not "CTR" - Etsy exposes no clicks. This is favourites ÷ views.
   { label: 'Favs / View', key: 'favPerView' },
   { label: 'Median Price', key: 'medianPrice' },
-  // Real search data — shown only when Google Ads is connected (else "—").
+  // Real search data - shown only when Google Ads is connected (else "-").
   { label: 'Google Vol', key: 'googleSearches' },
   { label: 'Google Comp.' },
 ]
 
 function CompCell({ row }: { row: BulkKeywordRow }) {
-  // "No market" must not read as green/Low — zero competition means nobody sells
+  // "No market" must not read as green/Low - zero competition means nobody sells
   // it because nobody buys it.
   if (row.noMarket) {
     return (
-      <span title="No live listings match this keyword — no competition, but no demand either"
+      <span title="No live listings match this keyword - no competition, but no demand either"
         style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 11px', borderRadius: 100, background: C.charcoalSoft, color: C.graphite, fontSize: 12.5, fontFamily: MONO, fontWeight: 600, width: 'fit-content', cursor: 'help' }}>
         <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.stone, flexShrink: 0 }} />
         No market
@@ -54,7 +54,7 @@ function CompCell({ row }: { row: BulkKeywordRow }) {
   }
   if (row.competition == null || row.competitionLevel == null) {
     return <span title={row.error ? "Etsy didn't return results for this keyword" : 'Unknown'}
-      style={{ ...tdMono, color: C.stone, cursor: 'help' }}>—</span>
+      style={{ ...tdMono, color: C.stone, cursor: 'help' }}>-</span>
   }
   const { fg, bg } = compColor(row.competitionLevel)
   return (
@@ -101,7 +101,7 @@ export function BulkKeywordTab() {
     return [...rows].sort((a, b) => {
       const av = a[sortKey] as number | null
       const bv = b[sortKey] as number | null
-      // Failed probes sort last either way — they're unknown, not low.
+      // Failed probes sort last either way - they're unknown, not low.
       if (av == null && bv == null) return 0
       if (av == null) return 1
       if (bv == null) return -1
@@ -160,7 +160,7 @@ export function BulkKeywordTab() {
             {run.isPending ? 'Analyzing…' : 'Analyze keywords →'}
           </button>
           <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.5 }}>
-            Each keyword gets its own live search — <strong style={{ color: C.ink }}>Competition</strong> is a
+            Each keyword gets its own live search - <strong style={{ color: C.ink }}>Competition</strong> is a
             real listing total, not an estimate.
           </p>
         </div>
@@ -175,7 +175,7 @@ export function BulkKeywordTab() {
             <div style={{ display: 'flex', gap: 11, padding: '13px 17px', background: D.goodBg, borderRadius: 12, alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ display: 'flex', flexShrink: 0 }}><Icon name="target" size={16} color={C.ink} /></span>
               <p style={{ fontSize: 13.5, color: C.ink, lineHeight: 1.5 }}>
-                Best opportunity here: <strong style={{ color: D.good }}>{best.keyword}</strong> — KD {best.difficulty} with{' '}
+                Best opportunity here: <strong style={{ color: D.good }}>{best.keyword}</strong> - KD {best.difficulty} with{' '}
                 {formatNumber(best.competition)} competing listings.
               </p>
             </div>
@@ -186,7 +186,7 @@ export function BulkKeywordTab() {
               <span style={{ fontSize: 15, lineHeight: 1.4 }}>⚠️</span>
               <p style={{ fontSize: 12.5, color: C.ink, lineHeight: 1.6 }}>
                 <strong>{deadCount} keyword{deadCount === 1 ? ' has' : 's have'} no market.</strong> Etsy returns zero live
-                listings for {deadCount === 1 ? 'it' : 'them'}. That&apos;s not an easy win — it means nobody sells{' '}
+                listings for {deadCount === 1 ? 'it' : 'them'}. That&apos;s not an easy win - it means nobody sells{' '}
                 {deadCount === 1 ? 'it' : 'them'} because nobody searches for {deadCount === 1 ? 'it' : 'them'}. They&apos;re
                 excluded from the opportunity pick above.
               </p>
@@ -214,26 +214,26 @@ export function BulkKeywordTab() {
                   <Star on={isFavorite(r.keyword)} onClick={() => toggle(r.keyword)} />
                   <span style={tdTitle}>{r.keyword}</span>
                   <CompCell row={r} />
-                  {r.difficulty != null ? <HeatPill score={r.difficulty} /> : <span style={{ ...tdMono, color: C.stone }}>—</span>}
-                  <span style={{ ...tdMono, color: '#2E6DB4' }}>{r.avgViews != null ? formatNumber(r.avgViews) : '—'}</span>
-                  <span style={{ ...tdMono, color: D.hard }}>{r.avgFavorites != null ? formatNumber(r.avgFavorites) : '—'}</span>
-                  <span style={tdMono}>{r.favPerView != null ? `${r.favPerView}%` : '—'}</span>
-                  <span style={tdMono}>{r.medianPrice != null ? `${sym(r.currency)}${r.medianPrice.toFixed(2)}` : '—'}</span>
-                  <span style={{ ...tdMono, color: r.googleSearches != null ? '#2E6DB4' : C.stone }}>{r.googleSearches != null ? formatNumber(r.googleSearches) : '—'}</span>
+                  {r.difficulty != null ? <HeatPill score={r.difficulty} /> : <span style={{ ...tdMono, color: C.stone }}>-</span>}
+                  <span style={{ ...tdMono, color: '#2E6DB4' }}>{r.avgViews != null ? formatNumber(r.avgViews) : '-'}</span>
+                  <span style={{ ...tdMono, color: D.hard }}>{r.avgFavorites != null ? formatNumber(r.avgFavorites) : '-'}</span>
+                  <span style={tdMono}>{r.favPerView != null ? `${r.favPerView}%` : '-'}</span>
+                  <span style={tdMono}>{r.medianPrice != null ? `${sym(r.currency)}${r.medianPrice.toFixed(2)}` : '-'}</span>
+                  <span style={{ ...tdMono, color: r.googleSearches != null ? '#2E6DB4' : C.stone }}>{r.googleSearches != null ? formatNumber(r.googleSearches) : '-'}</span>
                   {r.googleCompetition && GCOMP[r.googleCompetition] ? (
                     <span title={r.googleCpcLow != null || r.googleCpcHigh != null ? `Top-of-page CPC ${sym(r.currency)}${(r.googleCpcLow ?? r.googleCpcHigh)?.toFixed(2)}${r.googleCpcHigh != null && r.googleCpcLow != null ? `–${sym(r.currency)}${r.googleCpcHigh.toFixed(2)}` : ''}` : 'Google advertiser competition'}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 9px', borderRadius: 100, background: GCOMP[r.googleCompetition].bg, color: GCOMP[r.googleCompetition].fg, fontSize: 12, fontFamily: MONO, fontWeight: 600, width: 'fit-content', cursor: 'help' }}>
                       <span style={{ width: 5, height: 5, borderRadius: '50%', background: GCOMP[r.googleCompetition].fg, flexShrink: 0 }} />
                       {GCOMP[r.googleCompetition].label}
                     </span>
-                  ) : <span style={{ ...tdMono, color: C.stone }}>—</span>}
+                  ) : <span style={{ ...tdMono, color: C.stone }}>-</span>}
                 </div>
               ))}
             </div>
             <p style={{ fontSize: 11, color: C.stone, marginTop: 12, fontFamily: MONO, lineHeight: 1.6 }}>
               Etsy Competition is the real count of live listings per keyword. KD is an estimate derived from that supply
               plus how strongly incumbents engage buyers. Median price covers only the dominant currency in each result
-              set — Etsy prices listings in many currencies and publishes no exchange rate.
+              set - Etsy prices listings in many currencies and publishes no exchange rate.
             </p>
           </div>
 

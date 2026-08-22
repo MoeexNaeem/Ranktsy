@@ -19,6 +19,7 @@ const PUBLIC_API = [
   '/api/geo',              // used by the public marketing site
   '/api/popup-ad',         // used by the public marketing site
   '/api/fx',               // harmless cached currency rate (sanitised input)
+  '/api/health',           // uptime / load-balancer health probe
 ]
 const isPublicApi = (p: string) => PUBLIC_API.some(a => p === a || p.startsWith(a))
 

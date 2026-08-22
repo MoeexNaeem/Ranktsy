@@ -6,15 +6,15 @@ import { geminiJSON, isGeminiConfigured } from '@/lib/gemini'
 export const runtime = 'nodejs'
 
 /**
- * AI Listing Helper — generates an SEO-optimized Etsy title, 13 tags, and a
+ * AI Listing Helper - generates an SEO-optimized Etsy title, 13 tags, and a
  * description for a product.
  *
  * • If a Gemini key is set, Gemini writes the copy, GROUNDED in the real tags of
- *   the top live Etsy listings for the seed keyword — the model is given the
+ *   the top live Etsy listings for the seed keyword - the model is given the
  *   actual competing tags/titles and told to work from them. It writes copy; it
  *   never invents analytics.
  * • With no key it falls back to a rule-based generator built from the same live
- *   Etsy tag data — so the tool is useful immediately and upgrades to full AI the
+ *   Etsy tag data - so the tool is useful immediately and upgrades to full AI the
  *   moment a key is added. The UI needs no change either way.
  */
 
@@ -59,7 +59,7 @@ function joinUntil(parts: string[], sep: string, max = 140): string {
 
 function fallbackResult(seed: string, details: string, tagPool: string[]): ListingResult {
   const seedL = seed.toLowerCase()
-  // Etsy tags are capped at 20 characters — keep the seed only if it fits, else
+  // Etsy tags are capped at 20 characters - keep the seed only if it fits, else
   // lead with the strongest live tags (which are already ≤20 chars).
   const tags = [seedL, ...tagPool]
     .filter(t => t.length <= 20)
@@ -73,7 +73,7 @@ function fallbackResult(seed: string, details: string, tagPool: string[]): Listi
 
   const feats = tagPool.slice(0, 4).map(cap)
   const description =
-    `${cap(seedL)}${details ? ` — ${details}` : ''}.\n\n` +
+    `${cap(seedL)}${details ? ` - ${details}` : ''}.\n\n` +
     `Thoughtfully made and ready to gift. ${feats.length ? `Loved for its ${feats.slice(0, 3).join(', ').toLowerCase()}.` : ''}\n\n` +
     `• Handcrafted with care\n• Makes a memorable gift\n• Ships securely and on time\n\n` +
     `Keywords: ${tags.slice(0, 8).join(', ')}.`

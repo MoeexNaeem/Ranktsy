@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const user = await getCurrentUser()
   if (!user) return NextResponse.redirect(new URL('/login?redirect=/profile', req.url))
   if (user.role !== 'admin') {
-    return NextResponse.json({ success: false, error: 'Admins only — this mints an API credential.' }, { status: 403 })
+    return NextResponse.json({ success: false, error: 'Admins only - this mints an API credential.' }, { status: 403 })
   }
   if (!process.env.GOOGLE_ADS_CLIENT_ID) {
     return NextResponse.json({ success: false, error: 'Set GOOGLE_ADS_CLIENT_ID / GOOGLE_ADS_CLIENT_SECRET first.' }, { status: 400 })

@@ -73,7 +73,7 @@ export function AIListingHelperTab() {
               placeholder="e.g. personalized birthstone necklace for mom" style={inputStyle} />
           </div>
           <div>
-            <label style={labelStyle}>Extra details <span style={{ textTransform: 'none', color: '#b0b0a8' }}>(optional — material, occasion, style)</span></label>
+            <label style={labelStyle}>Extra details <span style={{ textTransform: 'none', color: '#b0b0a8' }}>(optional - material, occasion, style)</span></label>
             <input value={details} onChange={e => setDetails(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') run() }}
               placeholder="e.g. 925 sterling silver, minimalist, gift for new moms" style={inputStyle} />

@@ -1,6 +1,6 @@
 'use client'
 /**
- * AnimIcon — an animated Lordicon that MOVES on hover and when it becomes the
+ * AnimIcon - an animated Lordicon that MOVES on hover and when it becomes the
  * active item, then rests (never loops constantly). Colour is caller-controlled
  * so an icon keeps the same hue it had as a static SVG.
  *
@@ -33,14 +33,14 @@ interface AnimIconProps {
   /** Lordicon CDN JSON url, e.g. https://cdn.lordicon.com/jeuxydnh.json */
   src: string
   size?: number
-  /** Primary colour — pass the icon's existing hue to keep the look unchanged. */
+  /** Primary colour - pass the icon's existing hue to keep the look unchanged. */
   color?: string
   /** When this flips true (e.g. a tab becomes active) the icon plays once. */
   active?: boolean
   /** How motion is triggered by interaction. Default 'hover' = one play per hover. */
   trigger?: IconTrigger
   /** CSS selector of an ancestor to watch for the trigger instead of the icon
-   * itself — e.g. "button" so hovering the whole nav tab / card plays the icon. */
+   * itself - e.g. "button" so hovering the whole nav tab / card plays the icon. */
   target?: string
   style?: React.CSSProperties
 }

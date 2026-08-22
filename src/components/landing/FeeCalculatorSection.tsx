@@ -4,7 +4,7 @@ import { C } from '@/utils'
 import { Reveal } from './Reveal'
 
 /**
- * Public Etsy Fee Calculator — landing section (Huddle-styled).
+ * Public Etsy Fee Calculator - landing section (Huddle-styled).
  * Same fee model as the dashboard tool. Estimates only; Etsy sets actual rates.
  */
 const MONO = "'General Sans',monospace"
@@ -90,7 +90,7 @@ export function FeeCalculatorSection() {
           Know your profit before you list.
         </h2>
         <p style={{ fontSize: 18, color: '#6E6E64', lineHeight: 1.5, letterSpacing: '-0.14px', maxWidth: 520, marginBottom: 48 }}>
-          Estimate Etsy&apos;s listing, transaction, and payment-processing fees — and see exactly what you keep.
+          Estimate Etsy&apos;s listing, transaction, and payment-processing fees - and see exactly what you keep.
         </p>
 
         <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1.05fr', gap: 16, alignItems: 'start' }}>
@@ -110,7 +110,7 @@ export function FeeCalculatorSection() {
                 <span style={{ display: 'block', fontSize: 11, fontFamily: MONO, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6E6E64', marginBottom: 8 }}>Region</span>
                 <select value={region} onChange={e => setRegion(e.target.value)}
                   style={{ width: '100%', background: C.paper, border: `1px solid ${C.hair}`, borderRadius: 8, padding: '11px 12px', fontSize: 13, fontFamily: 'inherit', color: '#1a1a1a', outline: 'none', cursor: 'pointer' }}>
-                  {Object.entries(PROCESSING).map(([k, v]) => <option key={k} value={k}>{v.label} — {(v.rate * 100).toFixed(0)}% + {v.cur}{v.flat.toFixed(2)}</option>)}
+                  {Object.entries(PROCESSING).map(([k, v]) => <option key={k} value={k}>{v.label} - {(v.rate * 100).toFixed(0)}% + {v.cur}{v.flat.toFixed(2)}</option>)}
                 </select>
               </label>
               <button onClick={() => setOffsiteAds(v => !v)}
@@ -145,7 +145,7 @@ export function FeeCalculatorSection() {
               </div>
             </div>
             <p style={{ fontSize: 12, color: '#808080', marginTop: 12, lineHeight: 1.5 }}>
-              Break-even item price: <strong style={{ color: C.ink, fontFamily: MONO }}>{cur}{r.breakEven.toFixed(2)}</strong>. Fees are estimates — confirm current rates with Etsy.
+              Break-even item price: <strong style={{ color: C.ink, fontFamily: MONO }}>{cur}{r.breakEven.toFixed(2)}</strong>. Fees are estimates - confirm current rates with Etsy.
             </p>
           </div>
         </div>

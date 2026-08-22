@@ -57,7 +57,7 @@ export function CompareListingsTab() {
     })
   }, [data])
 
-  // One rich fact per listing — Gemini calls the winner and prescribes fixes.
+  // One rich fact per listing - Gemini calls the winner and prescribes fixes.
   const aiFacts = useMemo<AiFact[]>(() => {
     if (!data) return []
     const describe = (l: EtsyListing) => {
@@ -83,8 +83,8 @@ export function CompareListingsTab() {
       <Card pad="18px">
         <SectionTitle>Compare two of your listings</SectionTitle>
         <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-          <input value={aIn} onChange={e => setAIn(e.target.value)} placeholder="Listing A — URL or ID" style={inputStyle} />
-          <input value={bIn} onChange={e => setBIn(e.target.value)} placeholder="Listing B — URL or ID" style={inputStyle} />
+          <input value={aIn} onChange={e => setAIn(e.target.value)} placeholder="Listing A - URL or ID" style={inputStyle} />
+          <input value={bIn} onChange={e => setBIn(e.target.value)} placeholder="Listing B - URL or ID" style={inputStyle} />
         </div>
         <button onClick={go} style={primaryBtn}>Compare →</button>
       </Card>

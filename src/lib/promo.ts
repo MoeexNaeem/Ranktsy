@@ -12,7 +12,7 @@ export async function isFreeToProPromoOn(): Promise<boolean> {
   return !!s?.bool
 }
 
-/** Convert every free user to Pro — as a 1-MONTH admin gift (compExpiresAt), so
+/** Convert every free user to Pro - as a 1-MONTH admin gift (compExpiresAt), so
  *  they auto-revert to free after a month unless they actually pay. Returns how
  *  many were changed. */
 export async function convertFreeToPro(): Promise<number> {

@@ -4,13 +4,14 @@ import { useMutation } from '@tanstack/react-query'
 import axios from 'axios'
 import { Card, SectionTitle, EmptyState, GenNote, GenSkeleton, MONO, primaryBtn } from '../kit'
 import { MiniMarkdown } from '../MiniMarkdown'
+import { SendToEtsy } from '../listing/SendToEtsy'
 import { C, D } from '@/utils'
 import { triggerUpgrade } from '@/lib/upgrade'
 import { busyRetry, busyRetryDelay, useWaitPhase, isTerminal } from '@/lib/ai/busy'
 import type { ApiResponse } from '@/types'
 import type { ListingPro } from '@/app/api/ai/listing-pro/route'
 
-// Survives a page refresh — the tab otherwise loses the whole generated
+// Survives a page refresh - the tab otherwise loses the whole generated
 // listing + images because they only ever lived in React state.
 const LS_KEY = 'rk-listingpro-v1'
 
@@ -40,7 +41,7 @@ const BLANK_IMAGES: Record<ImageType, ImgState> = {
 }
 interface Persisted { product: string; details: string; listing: ListingPro | null; images: Record<ImageType, ImgState> }
 
-// Read once, synchronously, as each piece of state's lazy initial value —
+// Read once, synchronously, as each piece of state's lazy initial value -
 // avoids the empty-then-hydrated flash (and the extra render) a restore
 // effect would cause.
 function readPersisted(): Partial<Persisted> {
@@ -48,7 +49,7 @@ function readPersisted(): Partial<Persisted> {
   try {
     const raw = localStorage.getItem(LS_KEY)
     return raw ? JSON.parse(raw) as Partial<Persisted> : {}
-  } catch { return {} } // corrupt/unavailable storage — start fresh
+  } catch { return {} } // corrupt/unavailable storage - start fresh
 }
 
 export function EtsyListingProTab() {
@@ -62,7 +63,7 @@ export function EtsyListingProTab() {
   useEffect(() => {
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({ product, details, listing, images } satisfies Persisted))
-    } catch { /* quota exceeded (e.g. a large image) — not fatal, just skip persisting this update */ }
+    } catch { /* quota exceeded (e.g. a large image) - not fatal, just skip persisting this update */ }
   }, [product, details, listing, images])
 
   const gen = useMutation({
@@ -95,7 +96,7 @@ export function EtsyListingProTab() {
     if (!listing) return
     setImages(p => ({ ...p, [type]: { loading: true } }))
     // Retry transient failures a few times on top of the backend's own key
-    // rotation, so a busy provider doesn't surface as an error — the image just
+    // rotation, so a busy provider doesn't surface as an error - the image just
     // takes a little longer. Plan limits and other terminal errors stop at once.
     const MAX = 3
     for (let attempt = 0; attempt < MAX; attempt++) {
@@ -144,7 +145,7 @@ export function EtsyListingProTab() {
       <Card>
         <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: C.stone }}>AI-powered</span>}>Etsy Listing Pro</SectionTitle>
         <p style={{ fontSize: 13, color: C.graphite, lineHeight: 1.6, marginTop: -6, marginBottom: 14 }}>
-          Describe your product and get a <strong style={{ color: C.ink }}>complete listing</strong> — one optimized title,
+          Describe your product and get a <strong style={{ color: C.ink }}>complete listing</strong> - one optimized title,
           13 tags, a description, a price (anchored to the real market median), and a clean Etsy-style image.
         </p>
         <textarea value={product} onChange={e => setProduct(e.target.value)} rows={2}
@@ -181,7 +182,7 @@ export function EtsyListingProTab() {
       {gen.isError && !gen.isPending && <GenNote phase="normal" error onRetry={() => gen.mutate()} />}
 
       {!listing && !gen.isPending && !gen.isError && (
-        <EmptyState icon="✨" title="Your full listing appears here" sub="Title, 13 tags, description, price and a clean Etsy-style image — all in one." />
+        <EmptyState icon="✨" title="Your full listing appears here" sub="Title, 13 tags, description, price and a clean Etsy-style image - all in one." />
       )}
 
       {listing && (
@@ -209,7 +210,7 @@ export function EtsyListingProTab() {
             <Field label="Price" hint={listing.marketMedian != null ? `real market median ${sym(listing.currency)}${listing.marketMedian}` : undefined}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 30, fontWeight: 600, color: D.good, letterSpacing: '-0.02em' }}>
-                  {listing.priceSuggested != null ? `${sym(listing.currency)}${listing.priceSuggested}` : '—'}
+                  {listing.priceSuggested != null ? `${sym(listing.currency)}${listing.priceSuggested}` : '-'}
                 </span>
                 <span style={{ fontSize: 11.5, fontFamily: MONO, color: C.stone, textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI suggested</span>
               </div>
@@ -217,7 +218,7 @@ export function EtsyListingProTab() {
             </Field>
 
             <Field label="Description" hint={<CopyBtn text={listing.description} />}>
-              {/* Rendered as real headings/bullets — same look as Description Gen. */}
+              {/* Rendered as real headings/bullets - same look as Description Gen. */}
               <div style={{ background: C.canvas, borderRadius: 12, padding: '18px 20px', border: `1px solid ${C.hair}` }}>
                 <MiniMarkdown text={listing.description} />
               </div>
@@ -230,6 +231,9 @@ export function EtsyListingProTab() {
             )}
           </Card>
 
+          {/* ─── Send to the seller's Etsy shop (draft) ───────────────────── */}
+          <SendToEtsy title={listing.title} description={listing.description} tags={listing.tags} price={listing.priceSuggested} />
+
           {/* ─── Images ───────────────────────────────────────────────────── */}
           <Card>
             <SectionTitle right={
@@ -241,7 +245,7 @@ export function EtsyListingProTab() {
             <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.6, marginTop: -6, marginBottom: 14 }}>
               A clean hero product image shot in a real, measured style. Alt text: <span style={{ fontStyle: 'italic' }}>{listing.altText}</span>
             </p>
-            {/* Wide hero preview — the generated image is 4:3, so let it fill the
+            {/* Wide hero preview - the generated image is 4:3, so let it fill the
                 card (capped) instead of sitting small with empty space beside it. */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, maxWidth: 760, margin: '0 auto' }}>
               {IMAGE_TYPES.map(({ type, name, desc }) => {

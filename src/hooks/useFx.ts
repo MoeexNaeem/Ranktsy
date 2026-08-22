@@ -7,7 +7,7 @@ interface FxData { from: string; to: 'USD'; rate: number | null }
 
 /**
  * Live "1 `from` → USD" rate, for converting Google CPC (returned in the Ads
- * account currency) to USD. `rate` is null when unknown — callers must keep
+ * account currency) to USD. `rate` is null when unknown - callers must keep
  * showing the original currency rather than a converted guess.
  */
 export function useFx(from: string | null | undefined) {
@@ -26,7 +26,7 @@ export function useFx(from: string | null | undefined) {
 }
 
 /**
- * Live "1 <code> → USD" rates for a whole SET of currencies at once — so a table
+ * Live "1 <code> → USD" rates for a whole SET of currencies at once - so a table
  * of listings priced in mixed currencies (USD, EUR, GBP, VND…) can show every
  * money value in one currency (USD). Returns a `{ CODE: rate|null }` map; a null
  * rate means "unknown" and callers keep the original currency rather than guess.

@@ -6,7 +6,7 @@ import type { CountryData } from '@/types'
 const MONO = "'General Sans', sans-serif"
 
 // Flag + a fixed colour PER COUNTRY (dataviz: colour follows the entity, never its
-// rank — the US bar is the same colour wherever it lands). Country name + flag +
+// rank - the US bar is the same colour wherever it lands). Country name + flag +
 // % carry identity, so colour is secondary encoding.
 const META: Record<string, { flag: string; color: string }> = {
   'United States': { flag: '🇺🇸', color: '#2E6DB4' },

@@ -5,7 +5,7 @@ import type { CreditState } from '@/lib/credits-client'
 /**
  * The signed-in user's daily credit balance for the dashboard top bar. Fetches
  * once on mount, then updates live from the `rk-credits` events that
- * chargeCredits() broadcasts after every tool use — no polling, no refetch.
+ * chargeCredits() broadcasts after every tool use - no polling, no refetch.
  */
 export function useCredits(): CreditState | null {
   const [state, setState] = useState<CreditState | null>(null)

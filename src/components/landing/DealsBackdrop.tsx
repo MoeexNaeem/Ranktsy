@@ -1,5 +1,5 @@
 /**
- * Decorative backdrop for the Deals pages — the same visual language as the
+ * Decorative backdrop for the Deals pages - the same visual language as the
  * auth screens (dotted grid + soft blobs + dashed rings/curves + floating
  * shapes), but kept to a cohesive warm palette (orange / amber / gold) rather
  * than rainbow colours. Purely visual: aria-hidden, no pointer events.

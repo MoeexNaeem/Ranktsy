@@ -1,7 +1,7 @@
 import type { PlanSlug } from './plans'
 
 /**
- * Per-plan usage limits — the numbers shown on the pricing table, enforced.
+ * Per-plan usage limits - the numbers shown on the pricing table, enforced.
  * `Infinity` means unlimited; `listingImagesPerMonth: 0` means the plan has no
  * access to Etsy Listing Pro image generation at all.
  */

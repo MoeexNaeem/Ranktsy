@@ -54,7 +54,7 @@ export function AdsRoiCalculatorTab() {
 
   const roiAccent = r.roi >= 0 ? C.success : C.danger
 
-  // The seller's own campaign figures, for the AI coach. Gemini interprets them —
+  // The seller's own campaign figures, for the AI coach. Gemini interprets them -
   // it doesn't invent numbers. Only meaningful once spend + clicks are entered.
   const aiFacts = useMemo<AiFact[]>(() => {
     if (num(spend) <= 0 || num(clicks) <= 0) return []
@@ -120,7 +120,7 @@ export function AdsRoiCalculatorTab() {
           tool="Ads ROI"
           subject="your Etsy Ads campaign"
           facts={aiFacts}
-          notes="These are the seller's OWN entered campaign figures (not Etsy-published analytics). Judge whether the campaign is profitable and efficient — remember ROAS 1.0× is only break-even before product and Etsy fees, so the real target is higher. For context, Etsy Ads CTR is often ~0.3–1.5% and conversion ~1–3%, but judge against this campaign's own break-even. Give specific levers (CTR, conversion, CPC, AOV) to improve ROAS. Do not invent the seller's numbers."
+          notes="These are the seller's OWN entered campaign figures (not Etsy-published analytics). Judge whether the campaign is profitable and efficient - remember ROAS 1.0× is only break-even before product and Etsy fees, so the real target is higher. For context, Etsy Ads CTR is often ~0.3–1.5% and conversion ~1–3%, but judge against this campaign's own break-even. Give specific levers (CTR, conversion, CPC, AOV) to improve ROAS. Do not invent the seller's numbers."
         />
       )}
     </div>

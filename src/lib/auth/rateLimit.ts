@@ -2,10 +2,10 @@ import { NextResponse, type NextRequest } from 'next/server'
 import type { ApiResponse } from '@/types'
 
 /**
- * Fixed-window rate limiter for auth endpoints — brute-force / abuse protection
+ * Fixed-window rate limiter for auth endpoints - brute-force / abuse protection
  * on login, OTP verification, password reset, signup and the email-check.
  *
- * Storage is an in-process Map (same approach as searchLimit.ts) — correct for a
+ * Storage is an in-process Map (same approach as searchLimit.ts) - correct for a
  * single Node host, which is this app's setup. If it ever runs multi-instance,
  * back this with Redis; until then each instance enforces its own window, which
  * fails safe (never lets more than `limit`×instances through, never over-blocks).

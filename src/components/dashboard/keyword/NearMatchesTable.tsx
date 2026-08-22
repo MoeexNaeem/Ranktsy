@@ -20,7 +20,7 @@ const KIND_LABEL: Record<NearMatch['kind'], string> = {
 
 type SortKey = 'avgViews' | 'avgFavorites' | 'favPerView' | 'competition' | 'difficulty' | 'tagOccurrences'
 
-// Real, measured measurements only — no searches/clicks/CTR, which Etsy doesn't publish.
+// Real, measured measurements only - no searches/clicks/CTR, which Etsy doesn't publish.
 const COLS: { label: string; key?: SortKey }[] = [
   { label: 'Keywords' },
   { label: 'Listings / month' },
@@ -63,7 +63,7 @@ export const NearMatchesTable = memo(function NearMatchesTable({
     return [...rows].sort((a, b) => {
       const av = a[sortKey] as number | null
       const bv = b[sortKey] as number | null
-      // Unknowns last in both directions — absent data isn't a low value.
+      // Unknowns last in both directions - absent data isn't a low value.
       if (av == null && bv == null) return 0
       if (av == null) return 1
       if (bv == null) return -1
@@ -88,7 +88,7 @@ export const NearMatchesTable = memo(function NearMatchesTable({
       <div className="rwrap-sm" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <p style={{ fontSize: 13, color: C.graphite, lineHeight: 1.5, maxWidth: 560 }}>
           Plurals, hyphenation and word-order variants of <strong style={{ color: C.ink }}>&ldquo;{rows[0]?.variantOf}&rdquo;</strong>.
-          Each one is measured against its own live search — so <strong style={{ color: C.ink }}>Competition</strong> is a real listing total, not an estimate.
+          Each one is measured against its own live search - so <strong style={{ color: C.ink }}>Competition</strong> is a real listing total, not an estimate.
         </p>
         <ExportBtn onClick={exportCsv} count={view.length} />
       </div>
@@ -116,12 +116,12 @@ export const NearMatchesTable = memo(function NearMatchesTable({
               <span style={{ ...tdTitle, display: 'block' }}>{r.keyword}</span>
               <span style={{ fontSize: 11, fontFamily: MONO, color: r.kind === 'exact' ? C.orange : C.stone }}>{KIND_LABEL[r.kind]}</span>
             </span>
-            <MiniTrend data={r.listingsByMonth} title={`${r.keyword} — listings created per calendar month (Jan→Dec)`} />
+            <MiniTrend data={r.listingsByMonth} title={`${r.keyword} - listings created per calendar month (Jan→Dec)`} />
             <CompCell level={r.competitionLevel} value={r.competition} />
             <HeatPill score={r.difficulty} />
-            <span style={{ ...tdMono, color: r.avgViews != null ? '#2E6DB4' : C.stone }}>{r.avgViews != null ? formatNumber(r.avgViews) : '—'}</span>
-            <span style={{ ...tdMono, color: r.avgFavorites != null ? D.hard : C.stone }}>{r.avgFavorites != null ? formatNumber(r.avgFavorites) : '—'}</span>
-            <span style={tdMono}>{r.favPerView != null ? `${r.favPerView}%` : '—'}</span>
+            <span style={{ ...tdMono, color: r.avgViews != null ? '#2E6DB4' : C.stone }}>{r.avgViews != null ? formatNumber(r.avgViews) : '-'}</span>
+            <span style={{ ...tdMono, color: r.avgFavorites != null ? D.hard : C.stone }}>{r.avgFavorites != null ? formatNumber(r.avgFavorites) : '-'}</span>
+            <span style={tdMono}>{r.favPerView != null ? `${r.favPerView}%` : '-'}</span>
             <span style={tdMono}>{r.tagOccurrences}</span>
           </div>
         ))}

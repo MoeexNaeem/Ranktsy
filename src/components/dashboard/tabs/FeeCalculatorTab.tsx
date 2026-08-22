@@ -6,13 +6,13 @@ import { AiInsights } from '../AiInsights'
 import type { AiFact } from '@/types'
 
 /**
- * Etsy Fee Calculator — estimates Etsy's seller fees, net profit and margin.
+ * Etsy Fee Calculator - estimates Etsy's seller fees, net profit and margin.
  * Fee rates reflect Etsy's public fee schedule (subject to change by Etsy):
  *   • Listing fee:            $0.20 per item listed/sold
  *   • Transaction fee:        6.5% of (item price + shipping charged)
  *   • Payment processing:     country-based % + flat (approximate)
  *   • Offsite Ads (optional): 15% of the order total
- * These are estimates only — always confirm current rates with Etsy.
+ * These are estimates only - always confirm current rates with Etsy.
  */
 
 const LISTING_FEE = 0.20
@@ -138,7 +138,7 @@ export function FeeCalculatorTab() {
               <select value={region} onChange={e => setRegion(e.target.value)}
                 style={{ width: '100%', background: C.bg, border: `1px solid ${C.cardBorder}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, fontFamily: 'inherit', color: '#1a1a1a', outline: 'none', cursor: 'pointer' }}>
                 {Object.entries(PROCESSING).map(([k, v]) => (
-                  <option key={k} value={k}>{v.label} — {(v.rate * 100).toFixed(0)}% + {v.cur}{v.flat.toFixed(2)}</option>
+                  <option key={k} value={k}>{v.label} - {(v.rate * 100).toFixed(0)}% + {v.cur}{v.flat.toFixed(2)}</option>
                 ))}
               </select>
             </label>
@@ -204,7 +204,7 @@ export function FeeCalculatorTab() {
 
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 11, color: C.inkFaint }}>Etsy fees take <strong style={{ color: C.charcoal }}>{r.feePct.toFixed(1)}%</strong> of revenue</span>
-            <span style={{ fontSize: 11, color: C.inkFaint }}>Fees are estimates — confirm current rates with Etsy.</span>
+            <span style={{ fontSize: 11, color: C.inkFaint }}>Fees are estimates - confirm current rates with Etsy.</span>
           </div>
         </Card>
       </div>

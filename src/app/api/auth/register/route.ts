@@ -19,7 +19,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<A
     const ipRL = rateLimit(`register:ip:${ip}`, 5, 60 * 60 * 1000)
     if (!ipRL.allowed) return tooManyResponse(ipRL.retryAfterSec)
 
-    // Bot protection — verify the reCAPTCHA token (a no-op if keys aren't set).
+    // Bot protection - verify the reCAPTCHA token (a no-op if keys aren't set).
     if (!(await verifyRecaptcha(body?.captchaToken, ip))) {
       return NextResponse.json({ success: false, errors: { _: 'Please complete the “I’m not a robot” check.' } }, { status: 400 })
     }

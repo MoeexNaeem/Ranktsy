@@ -22,7 +22,7 @@ export function KeywordListsTab() {
     setLists(l); setActiveId(l[0]?.id ?? ''); setHydrated(true)
   }, [])
   // saveLists (not a raw setItem) so the star controls elsewhere hear the change
-  // and re-render — a raw write fires no same-tab event.
+  // and re-render - a raw write fires no same-tab event.
   useEffect(() => { if (hydrated) saveLists(lists) }, [lists, hydrated])
 
   const active = lists.find(l => l.id === activeId)
@@ -55,7 +55,7 @@ export function KeywordListsTab() {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', gap: 10 }}>
-          <input value={newList} onChange={e => setNewList(e.target.value)} onKeyDown={e => e.key === 'Enter' && createList()} placeholder="Name your first list — e.g. Q4 Jewelry…" style={{ ...inputStyle, maxWidth: 420 }} />
+          <input value={newList} onChange={e => setNewList(e.target.value)} onKeyDown={e => e.key === 'Enter' && createList()} placeholder="Name your first list - e.g. Q4 Jewelry…" style={{ ...inputStyle, maxWidth: 420 }} />
           <button onClick={createList} style={smallBtn}>Create list</button>
         </div>
         <EmptyState icon="🗂️" title="No keyword lists yet" sub="Create a list to save and organize keywords you want to target" />
@@ -100,7 +100,7 @@ export function KeywordListsTab() {
               <button onClick={addKw} style={smallBtn}>Add</button>
             </div>
             {active.keywords.length === 0 ? (
-              <p style={{ fontSize: 13, color: '#a3a29a', padding: '20px 0', textAlign: 'center' }}>No keywords yet — add some above.</p>
+              <p style={{ fontSize: 13, color: '#a3a29a', padding: '20px 0', textAlign: 'center' }}>No keywords yet - add some above.</p>
             ) : (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {active.keywords.map(k => (

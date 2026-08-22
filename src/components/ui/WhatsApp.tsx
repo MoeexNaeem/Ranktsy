@@ -1,13 +1,13 @@
 import React from 'react'
 
 /**
- * WhatsApp contact — shared by the footer and the contact page.
+ * WhatsApp contact - shared by the footer and the contact page.
  *
  * The number is a local Pakistani format (0329 7890000). wa.me needs the
  * INTERNATIONAL form with no leading 0 or +, so it's 92 329 7890000 → 923297890000.
  * A short prefilled message opens the chat ready to type.
  *
- * The brand glyph is a FILLED path (fill="currentColor") — it can't go in the
+ * The brand glyph is a FILLED path (fill="currentColor") - it can't go in the
  * stroke-only `Icon` set, so it lives here and inherits colour like the rest.
  */
 export const WHATSAPP_DISPLAY = '0329 7890000'

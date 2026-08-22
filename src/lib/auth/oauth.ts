@@ -1,5 +1,5 @@
 /**
- * Social login (Google + Microsoft/Outlook) — OAuth 2.0 Authorization Code flow,
+ * Social login (Google + Microsoft/Outlook) - OAuth 2.0 Authorization Code flow,
  * wired into the app's existing JWT session. Each provider is independent and is
  * only "enabled" when both its client id and secret are present in the env, so
  * the buttons never appear for an unconfigured provider.
@@ -51,7 +51,7 @@ export function providerEnabled(p: OAuthProvider): boolean {
   return Boolean(clientId && clientSecret)
 }
 
-/** The exact redirect URI — must match what's registered in the provider console. */
+/** The exact redirect URI - must match what's registered in the provider console. */
 export function redirectUri(p: OAuthProvider): string {
   return `${siteUrl()}/api/auth/oauth/${p}/callback`
 }
@@ -74,7 +74,7 @@ export function buildAuthorizeUrl(p: OAuthProvider, state: string): string {
 
 export interface OAuthProfile { email: string; name: string }
 
-/** Decode a JWT payload (no signature check — the token arrived directly from the
+/** Decode a JWT payload (no signature check - the token arrived directly from the
  *  provider's token endpoint over TLS in a confidential-client exchange). */
 function decodeJwtPayload(jwt: string): Record<string, unknown> | null {
   try {

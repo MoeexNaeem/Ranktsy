@@ -54,7 +54,7 @@ export async function GET(): Promise<NextResponse<ApiResponse<unknown>>> {
       creditsSpent: t.creditsSpent + (r.creditsSpent || 0),
     }), { etsyCalls: 0, googleCalls: 0, searches: 0, cacheHits: 0, apiHits: 0, imageCalls: 0, imageTokens: 0, imageCostUsd: 0, creditsSpent: 0 })
 
-    // Last 7 days — daily totals across all users (oldest → newest).
+    // Last 7 days - daily totals across all users (oldest → newest).
     const byDay = new Map<string, { day: string; etsyCalls: number; googleCalls: number; searches: number; imageCalls: number; imageCostUsd: number; creditsSpent: number }>()
     for (const d of days) byDay.set(d, { day: d, etsyCalls: 0, googleCalls: 0, searches: 0, imageCalls: 0, imageCostUsd: 0, creditsSpent: 0 })
     for (const r of rows) {

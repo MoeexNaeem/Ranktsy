@@ -5,10 +5,10 @@ import { C } from '@/utils'
 import { abs } from '@/lib/seo/site'
 
 export const metadata: Metadata = {
-  title: 'Refund & Return Policy — Rankkw',
+  title: 'Refund & Return Policy - Rankkw',
   description: 'Rankkw’s refund and return policy for subscriptions and plans.',
   alternates: { canonical: abs('/refund-policy') },
-  openGraph: { title: 'Refund & Return Policy — Rankkw', description: 'Rankkw’s refund and return policy for subscriptions.', url: abs('/refund-policy'), type: 'website' },
+  openGraph: { title: 'Refund & Return Policy - Rankkw', description: 'Rankkw’s refund and return policy for subscriptions.', url: abs('/refund-policy'), type: 'website' },
 }
 
 const sections = [

@@ -1,12 +1,12 @@
 /**
- * OpenAI image generation — used ONLY for the Etsy Listing Pro hero image.
+ * OpenAI image generation - used ONLY for the Etsy Listing Pro hero image.
  *
  * Everything else in the app stays on Gemini (text AND other images). This module
  * is deliberately scoped: a single `openaiImage()` that mirrors `geminiImage`'s
  * outcome shape so the listing-image route swaps provider with minimal change, and
  * records cost the same way (`recordImage`) so admin usage still adds up.
  *
- * Model: `gpt-image-1` (best in-image typography — the hero image is mostly text:
+ * Model: `gpt-image-1` (best in-image typography - the hero image is mostly text:
  * headline, subtitle and feature badges). Override with OPENAI_IMAGE_MODEL. Note
  * gpt-image-1 needs a *verified* OpenAI org; if the account isn't verified, set
  * OPENAI_IMAGE_MODEL=dall-e-3 (weaker text, no verification needed).
@@ -16,7 +16,7 @@ import { createLimiter } from '@/lib/concurrency'
 
 // One or more API keys. A single OPENAI_API_KEY still works; add more via a
 // comma-separated OPENAI_API_KEYS to spread image load across keys and fail over
-// when one is rate-limited (429) — so a busy moment on one key doesn't surface as
+// when one is rate-limited (429) - so a busy moment on one key doesn't surface as
 // "image generation failed". Duplicates and blanks are dropped; order is primary-first.
 function openaiKeys(): string[] {
   const raw = [
@@ -35,7 +35,7 @@ export function isOpenAIConfigured(): boolean {
   return openaiKeys().length > 0
 }
 
-// Round-robin so successive requests START on different keys — spreads steady
+// Round-robin so successive requests START on different keys - spreads steady
 // load evenly instead of always hammering the first and only spilling on failure.
 let keyCursor = 0
 function keyOrder(): string[] {
@@ -69,7 +69,7 @@ const limiter = createLimiter(Number(process.env.OPENAI_IMAGE_CONCURRENCY ?? 3))
 
 /**
  * Generate one image from a text prompt (optionally conditioned on a reference
- * photo via the edits endpoint). Never throws — returns a typed outcome so the
+ * photo via the edits endpoint). Never throws - returns a typed outcome so the
  * caller can show an honest, actionable message (quota / blocked / error).
  */
 export async function openaiImage(prompt: string, refs?: OpenAIRefImage[]): Promise<OpenAIImageOutcome> {
@@ -102,7 +102,7 @@ async function openaiImageInner(keys: string[], prompt: string, refs?: OpenAIRef
         // 429 = this key is rate-limited/out → fail over to the NEXT key; only
         // give up (quota) once every key has been tried.
         if (res.status === 429) {
-          last = { ok: false, reason: 'quota', detail: 'OpenAI image quota / rate limit hit on all keys — check billing or add another OpenAI key.' }
+          last = { ok: false, reason: 'quota', detail: 'OpenAI image quota / rate limit hit on all keys - check billing or add another OpenAI key.' }
           if (attempt < MAX - 1) { await sleep(keys.length > 1 ? 150 : 700 * (attempt + 1)); continue }
           return last
         }

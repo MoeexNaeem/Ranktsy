@@ -202,7 +202,7 @@ export function BlogsAdmin() {
             <label style={label}>Title *</label>
             <input style={{ ...field, fontSize: 18, fontWeight: 500 }} value={title} onChange={e => onTitle(e.target.value)} placeholder="How keyword research grows your Etsy shop" />
             <div style={{ marginTop: 12 }}>
-              <label style={label}>Slug — /blogs/<span style={{ color: C.orange }}>{slug || 'your-title'}</span></label>
+              <label style={label}>Slug - /blogs/<span style={{ color: C.orange }}>{slug || 'your-title'}</span></label>
               <input style={field} value={slug} onChange={e => { setSlugTouched(true); setSlug(slugifyTitle(e.target.value)) }} placeholder="how-keyword-research-grows-your-etsy-shop" />
             </div>
           </Card>

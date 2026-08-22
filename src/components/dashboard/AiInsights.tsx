@@ -1,9 +1,9 @@
 'use client'
 /**
- * Reusable AI Insights panel — the shared "AI analysis" surface for every tool.
+ * Reusable AI Insights panel - the shared "AI analysis" surface for every tool.
  * Give it a subject + the REAL facts the tool has already measured; it asks
  * Gemini (via /api/ai/insights) to interpret them into a narrative read and
- * concrete actions. Gemini interprets the numbers, it never invents them — so
+ * concrete actions. Gemini interprets the numbers, it never invents them - so
  * every figure shown was real before the model saw it.
  *
  * Usage:
@@ -47,7 +47,7 @@ export function AiInsights({ tool, subject, facts, notes }: {
           </span>
           <div style={{ minWidth: 0 }}>
             <h3 style={{ fontSize: 17, fontWeight: 600, color: C.ink, letterSpacing: '-0.02em' }}>AI Analysis</h3>
-            <p style={{ fontSize: 12, color: C.graphite }}>The numbers above are real and measured — AI only interprets them, never invents.</p>
+            <p style={{ fontSize: 12, color: C.graphite }}>The numbers above are real and measured - AI only interprets them, never invents.</p>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>

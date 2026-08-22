@@ -7,8 +7,8 @@ import { C } from '@/utils'
 const SANS = "'General Sans',sans-serif"
 
 export const metadata = {
-  title: 'Pricing — Rankkw',
-  description: 'Simple plans that grow with your Etsy shop. Compare Free, Starter, Pro, Business and Agency — every plan runs on the same real Etsy & Google data.',
+  title: 'Pricing - Rankkw',
+  description: 'Simple plans that grow with your Etsy shop. Compare Free, Starter, Pro, Business and Agency - every plan runs on the same real Etsy & Google data.',
 }
 
 export default function PricingPage() {
@@ -27,12 +27,12 @@ export default function PricingPage() {
               Find your plan
             </h1>
             <p style={{ fontSize: 'clamp(16px,1.5vw,19px)', color: C.graphite, lineHeight: 1.55, maxWidth: 560, margin: '0 auto' }}>
-              From a free start to a full agency toolkit — choose the plan that fits your shop. Every plan runs on the same real Etsy &amp; Google data.
+              From a free start to a full agency toolkit - choose the plan that fits your shop. Every plan runs on the same real Etsy &amp; Google data.
             </p>
           </div>
         </section>
 
-        {/* Plan cards — single-row scroller */}
+        {/* Plan cards - single-row scroller */}
         <section style={{ background: C.canvas, padding: '40px 24px 96px' }}>
           <div style={{ maxWidth: 1300, margin: '0 auto' }}>
             <PlanScroller fade={C.canvas} />
@@ -52,7 +52,7 @@ export default function PricingPage() {
             </div>
             <ComparePlans />
             <p style={{ textAlign: 'center', fontSize: 13.5, color: C.graphite, marginTop: 28 }}>
-              <PriceNote /> Cancel anytime — no long-term contracts.{' '}
+              <PriceNote /> Cancel anytime - no long-term contracts.{' '}
               <Link href="/#faq" style={{ color: C.orange, textDecoration: 'none' }}>Questions? Read the FAQ →</Link>
             </p>
           </div>

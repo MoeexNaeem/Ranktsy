@@ -1,5 +1,5 @@
 /**
- * Etsy Open API v3 — Official Integration
+ * Etsy Open API v3 - Official Integration
  * Docs: https://developers.etsy.com/documentation/
  *
  * This module uses ONLY the official Etsy Open API.
@@ -31,7 +31,7 @@ const ETSY_KEY_HEADER = ETSY_SHARED_SECRET
   : ETSY_API_KEY
 
 if (!ETSY_API_KEY && process.env.NODE_ENV === 'production') {
-  console.warn('[Etsy] ETSY_API_KEY is not set — API calls will fail.')
+  console.warn('[Etsy] ETSY_API_KEY is not set - API calls will fail.')
 }
 
 // ─── Core fetcher ─────────────────────────────────────────────────────────────
@@ -77,7 +77,7 @@ async function etsyFetch<T = unknown>(path: string, params?: Record<string, stri
         'x-api-key': ETSY_KEY_HEADER,
         'Accept':    'application/json',
       },
-      // Next.js fetch cache — revalidate every 30 minutes
+      // Next.js fetch cache - revalidate every 30 minutes
       next: { revalidate: 1800 },
     })
 
@@ -99,10 +99,10 @@ async function etsyFetch<T = unknown>(path: string, params?: Record<string, stri
 // ─── HTML entity decoding ─────────────────────────────────────────────────────
 // Etsy returns listing titles HTML-encoded ("Women&#39;s Necklace"). React escapes
 // text nodes, so rendering that raw prints the entity literally. Decoded here at
-// the boundary — one pass, so a decoded "&" can't be re-decoded into something else.
+// the boundary - one pass, so a decoded "&" can't be re-decoded into something else.
 
 const NAMED_ENTITIES: Record<string, string> = {
-  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '—', hellip: '…',
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '-', hellip: '…',
 }
 
 function decodeEntities(s: string): string {
@@ -181,7 +181,7 @@ async function attachImages(listings: EtsyListing[]): Promise<EtsyListing[]> {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (img: any) => ({ url_570xN: img.url_570xN ?? '', url_75x75: img.url_75x75 ?? '' })
       )
-      // Backfill analysis fields — the batch payload is the fuller object, so it
+      // Backfill analysis fields - the batch payload is the fuller object, so it
       // fills gaps left by whichever endpoint produced `l`.
       const merged = mapListing(full)
       return {
@@ -208,14 +208,14 @@ export interface SearchOpts {
   minPrice?: number
   maxPrice?: number
   sortOn?: 'score' | 'price' | 'created' | 'updated'
-  /** Etsy sort direction — e.g. price 'desc' for most-expensive-first. */
+  /** Etsy sort direction - e.g. price 'desc' for most-expensive-first. */
   sortOrder?: 'asc' | 'desc'
   taxonomyId?: number
   /** Skip the /listings/batch image call when the caller only needs stats. */
   skipImages?: boolean
 }
 
-// Paged search — returns listings for the requested page plus Etsy's total match
+// Paged search - returns listings for the requested page plus Etsy's total match
 // count, so the UI can build server-side pagination via the Etsy `offset` param.
 export async function searchEtsyListingsPaged(query: string, limit = 24, offset = 0, opts: SearchOpts = {}): Promise<{ listings: EtsyListing[]; count: number }> {
   const params: Record<string, string | number> = {
@@ -238,7 +238,7 @@ export async function searchEtsyListings(query: string, limit = 25): Promise<Ets
   return (await searchEtsyListingsPaged(query, limit, 0)).listings
 }
 
-// Etsy seller taxonomy (category tree) — public, key-only. Flattened to a
+// Etsy seller taxonomy (category tree) - public, key-only. Flattened to a
 // searchable list with each node's full category path.
 export interface TaxonomyItem { id: number; name: string; fullPath: string; level: number }
 export async function getSellerTaxonomy(): Promise<TaxonomyItem[]> {
@@ -257,7 +257,7 @@ export async function getSellerTaxonomy(): Promise<TaxonomyItem[]> {
   return flat
 }
 
-// Rank check — scans the top `scan` (max 100) active listings for a keyword
+// Rank check - scans the top `scan` (max 100) active listings for a keyword
 // (Etsy relevance order) and returns the positions where the given shop's
 // listings appear. Uses only the official search endpoint; no scraping.
 export async function checkKeywordRank(query: string, shopId: number, scan = 100): Promise<{
@@ -286,7 +286,7 @@ export async function getListingById(id: number): Promise<EtsyListing | null> {
 
 // ─── Keyword stats (derived from listing data) ────────────────────────────────
 
-// Keyword difficulty (0–100) — an ESTIMATE of how hard it is to rank, derived
+// Keyword difficulty (0–100) - an ESTIMATE of how hard it is to rank, derived
 // from the real total supply of competing listings plus how strongly the
 // incumbents already engage buyers. Not an eRank-identical score; labelled as
 // an estimate in the UI.
@@ -296,7 +296,7 @@ function difficultyScore(totalResults: number, avgEngagementPct: number): number
   const raw = Math.max(1, Math.min(100, Math.round(100 * (0.7 * compFactor + 0.3 * engFactor))))
   // Re-scale the borderline 51–70 band down into 40–50 so near-reachable keywords
   // read as "good" (≤50). Seeded deterministically from the real inputs, so the
-  // same keyword ALWAYS shows the same number — never a value that flickers on
+  // same keyword ALWAYS shows the same number - never a value that flickers on
   // refresh. Scores ≤50 (already good) and >70 (genuinely hard) are untouched.
   if (raw > 50 && raw <= 70) {
     const seed = totalResults * 31 + Math.round(avgEngagementPct * 10) + 7
@@ -317,7 +317,7 @@ export function buildKeywordStats(query: string, listings: EtsyListing[], totalR
   }
 
   // All measured, none modelled. Etsy returns `views` (lifetime views per
-  // listing) and `num_favorers` — these are those, averaged. They are NOT search
+  // listing) and `num_favorers` - these are those, averaged. They are NOT search
   // volume or clicks; Etsy publishes neither, and this file no longer pretends
   // otherwise.
   const totalViews     = listings.reduce((s, l) => s + (l.views ?? 0), 0)
@@ -328,7 +328,7 @@ export function buildKeywordStats(query: string, listings: EtsyListing[], totalR
   const competition    = listings.length
   const total          = totalResults || competition
 
-  // Median price — robust to the occasional very-high-priced outlier that skews a
+  // Median price - robust to the occasional very-high-priced outlier that skews a
   // mean. Scoped to the dominant currency: Etsy prices each listing in its own
   // shop currency with no FX rate, so a mixed set would compare VND to USD.
   const { currency, prices } = dominantCurrencyPrices(listings)
@@ -367,7 +367,7 @@ export function buildKeywordStats(query: string, listings: EtsyListing[], totalR
       keyword:          word,
       // A 100-listing sample cannot reveal how many listings compete for this
       // tag across all of Etsy. enrichRelatedCompetition probes that for real;
-      // until then it's unknown — never a stand-in.
+      // until then it's unknown - never a stand-in.
       competition:      null,
       competitionLevel: null,
       difficulty:       null,
@@ -396,9 +396,9 @@ export function buildKeywordStats(query: string, listings: EtsyListing[], totalR
   }
 }
 
-// ─── Taxonomy name lookup (module-cached — the tree is large and near-static) ──
+// ─── Taxonomy name lookup (module-cached - the tree is large and near-static) ──
 
-// The full seller taxonomy is ~365KB and takes ~2.5s to fetch — the single
+// The full seller taxonomy is ~365KB and takes ~2.5s to fetch - the single
 // slowest call in the keyword pipeline, and it's needed only for the Categories
 // panel. Module-cached for 24h, but a serverless cold start would otherwise pay
 // it again, so `warmTaxonomy()` lets callers kick it off without blocking and
@@ -413,7 +413,7 @@ function taxonomyFresh(): boolean {
 
 async function taxonomyNames(): Promise<Map<number, string>> {
   if (taxonomyFresh()) return taxonomyCache!.byId
-  // Collapse concurrent callers onto one fetch — 10 parallel requests must not
+  // Collapse concurrent callers onto one fetch - 10 parallel requests must not
   // each pull 365KB.
   if (!taxonomyInFlight) {
     taxonomyInFlight = (async () => {
@@ -438,21 +438,21 @@ export function warmTaxonomy(): void {
   if (!taxonomyFresh()) void taxonomyNames().catch(() => {})
 }
 
-/** Cached taxonomy if it's ready, otherwise null — never blocks. */
+/** Cached taxonomy if it's ready, otherwise null - never blocks. */
 function taxonomyIfReady(): Map<number, string> | null {
   return taxonomyFresh() ? taxonomyCache!.byId : null
 }
 
 // ─── Search Results Analysis ──────────────────────────────────────────────────
 // Everything here is computed from the sampled live listings the official search
-// endpoint returned — no external data, no estimation beyond what's labelled.
+// endpoint returned - no external data, no estimation beyond what's labelled.
 
 const SYMBOLS: Record<string, string> = { USD: '$', GBP: '£', EUR: '€', CAD: 'C$', AUD: 'A$', JPY: '¥' }
 export function currencySymbol(code: string): string { return SYMBOLS[code] ?? `${code} ` }
 
 /**
  * Etsy returns each listing priced in its OWN shop currency and the Open API
- * exposes no FX rate — a search for "crochet" comes back with USD, GBP, EUR,
+ * exposes no FX rate - a search for "crochet" comes back with USD, GBP, EUR,
  * TRY and VND side by side. Averaging those raw numbers is meaningless (a
  * 410,000 VND listing is ~$16, not $410,000, and it would wreck every price
  * statistic).
@@ -526,7 +526,7 @@ function priceHistogram(prices: number[], sym: string): { buckets: PriceBucket[]
  * Calendar-month histogram (Jan→Dec) of when these listings were created.
  *
  * Real: `created_timestamp` is present on 100% of search results. This replaced
- * sine-wave "trend" arrays whose shape depended on the row's array index —
+ * sine-wave "trend" arrays whose shape depended on the row's array index -
  * decoration that looked like a search-history sparkline.
  *
  * Returns [] when no listing exposes a date, so callers can hide the column
@@ -563,7 +563,7 @@ function processingLabel(min?: number, max?: number): string | null {
 
 /**
  * @param waitForTaxonomy  When false, categories are filled only if the taxonomy
- *   is already cached — the analysis never blocks ~2.5s on a 365KB fetch just to
+ *   is already cached - the analysis never blocks ~2.5s on a 365KB fetch just to
  *   name categories. The fetch is still kicked off, so the next request has it.
  */
 export async function buildSearchAnalysis(listings: EtsyListing[], waitForTaxonomy = true): Promise<SearchAnalysis> {
@@ -583,7 +583,7 @@ export async function buildSearchAnalysis(listings: EtsyListing[], waitForTaxono
   const totalViews = listings.reduce((s, l) => s + (l.views ?? 0), 0)
   const totalHearts = listings.reduce((s, l) => s + (l.num_favorers ?? 0), 0)
 
-  // Views per day — only meaningful for listings that expose a creation date, so
+  // Views per day - only meaningful for listings that expose a creation date, so
   // it's averaged across that subset and reported as null when none do.
   const now = Date.now() / 1000
   const dated = listings.filter(l => l.created_timestamp && l.created_timestamp > 0 && l.created_timestamp < now)
@@ -607,7 +607,7 @@ export async function buildSearchAnalysis(listings: EtsyListing[], waitForTaxono
     .map(([label, v]) => ({ label, count: v.count }))
   const medianAgeDays = ageDays.length ? Math.round(ageDays[Math.floor((ageDays.length - 1) / 2)]) : null
 
-  // Tag cloud — real tags off the official API, as a share of sampled listings.
+  // Tag cloud - real tags off the official API, as a share of sampled listings.
   const tagCount = new Map<string, number>()
   for (const l of listings) {
     for (const t of new Set((l.tags ?? []).map(t => t.toLowerCase().trim()).filter(Boolean))) {
@@ -619,12 +619,12 @@ export async function buildSearchAnalysis(listings: EtsyListing[], waitForTaxono
     .slice(0, 60)
     .map(([tag, count]) => ({ tag, count, pct: parseFloat(((count / n) * 100).toFixed(1)) }))
 
-  // Categories — resolve taxonomy ids to their full Etsy category path. On the
+  // Categories - resolve taxonomy ids to their full Etsy category path. On the
   // fast path we use the taxonomy only if it's already cached, and warm it for
   // next time rather than making the user wait 2.5s for category names.
   const ready = taxonomyIfReady()
   const names = waitForTaxonomy ? await taxonomyNames() : (ready ?? (warmTaxonomy(), new Map<number, string>()))
-  // Distinguish "names not fetched yet" from "these listings have no category" —
+  // Distinguish "names not fetched yet" from "these listings have no category" -
   // the listings DO carry taxonomy_id either way.
   const categoriesPending = !waitForTaxonomy && !ready && listings.some(l => l.taxonomy_id != null)
   const catCount = new Map<string, number>()
@@ -640,7 +640,7 @@ export async function buildSearchAnalysis(listings: EtsyListing[], waitForTaxono
     .slice(0, 12)
     .map(([category, count]) => ({ category, count, pct: Math.round((count / Math.max(catTotal, 1)) * 100) }))
 
-  // Processing times — the seller-stated dispatch window.
+  // Processing times - the seller-stated dispatch window.
   const procCount = new Map<string, number>()
   let procWeighted = 0, procN = 0
   for (const l of listings) {
@@ -683,7 +683,7 @@ export async function buildSearchAnalysis(listings: EtsyListing[], waitForTaxono
 
 // ─── Real competition for related keywords ────────────────────────────────────
 // buildKeywordStats can only set `competition` to how many SAMPLED listings use
-// a tag (0–100) — it has no idea how many listings compete for that tag across
+// a tag (0–100) - it has no idea how many listings compete for that tag across
 // all of Etsy. That made the "Etsy Competition" column a duplicate of "Tag
 // Occurrences" under a misleading name.
 //
@@ -720,8 +720,8 @@ export async function keywordCount(keyword: string): Promise<number | null> {
  * One search per keyword, returning everything measurable about it: the real
  * listing total AND the engagement of the listings that actually rank for it.
  *
- * Costs the same round-trip the count probe already spent — the sample is free
- * — and it's what lets related keywords carry their OWN measured views and
+ * Costs the same round-trip the count probe already spent - the sample is free
+ * - and it's what lets related keywords carry their OWN measured views and
  * favourites instead of the parent query's numbers scaled by a made-up factor.
  */
 async function keywordFacts(keyword: string): Promise<{
@@ -748,7 +748,7 @@ async function keywordFacts(keyword: string): Promise<{
 }
 
 /**
- * Single source of truth for competition banding. Every surface must use this —
+ * Single source of truth for competition banding. Every surface must use this -
  * Bulk Keywords previously used its own 50k/500k thresholds, so the same keyword
  * could read "Med" on one screen and "Low" on another.
  */
@@ -766,7 +766,7 @@ export { difficultyScore }
  * (not the parent query's numbers scaled by a factor), and difficulty is
  * computed from those real inputs.
  *
- * A keyword whose probe fails keeps its nulls and renders "—". A keyword with
+ * A keyword whose probe fails keeps its nulls and renders "-". A keyword with
  * zero listings keeps competition 0 but no difficulty: zero competition means
  * zero market, and scoring it "easy" would make a dead keyword the most
  * attractive row on the page.
@@ -793,7 +793,7 @@ export async function enrichRelatedCompetition(related: KeywordData[]): Promise<
 
 // ─── Near Matches ─────────────────────────────────────────────────────────────
 // Morphological variants of the query (plural/singular, hyphenation, word
-// order), each measured against its OWN real Etsy search — so `competition` here
+// order), each measured against its OWN real Etsy search - so `competition` here
 // is a true active-listing total, not an interpolation.
 
 function pluralize(w: string): string {
@@ -821,7 +821,7 @@ function keywordVariants(query: string): { keyword: string; kind: NearMatch['kin
   const last = words[words.length - 1]
   const head = words.slice(0, -1)
 
-  // Inflect the head noun — that's the word Etsy shoppers actually vary.
+  // Inflect the head noun - that's the word Etsy shoppers actually vary.
   push([...head, pluralize(last)].join(' '), 'plural')
   const sing = singularize(last)
   if (sing) push([...head, sing].join(' '), 'singular')
@@ -840,7 +840,7 @@ export async function getNearMatches(query: string): Promise<NearMatch[]> {
 
   const results = await Promise.all(variants.map(async ({ keyword, kind }): Promise<NearMatch | null> => {
     try {
-      // A small sample is enough — `count` (the real total) is the headline
+      // A small sample is enough - `count` (the real total) is the headline
       // number here, and the sample only anchors the engagement proxies.
       // No images: this table never renders one.
       const { listings, count } = await searchEtsyListingsPaged(keyword, 25, 0, { skipImages: true })
@@ -872,7 +872,7 @@ export async function getNearMatches(query: string): Promise<NearMatch[]> {
     }
   }))
 
-  // Most competitive first — that's the real, measured axis.
+  // Most competitive first - that's the real, measured axis.
   return results.filter((r): r is NearMatch => r !== null).sort((a, b) => b.competition - a.competition)
 }
 
@@ -930,7 +930,7 @@ export async function getEtsyShop(shopIdOrName: string | number): Promise<EtsySh
   return shop
 }
 
-// ─── Shop reviews (public — key only) ─────────────────────────────────────────
+// ─── Shop reviews (public - key only) ─────────────────────────────────────────
 // GET /v3/application/shops/{shop_id}/reviews. Buyer names are not exposed by the
 // public API; we surface rating, review text, timestamp and the listing it's for.
 export interface ShopReview {
@@ -953,9 +953,9 @@ export async function getShopReviews(shopIdOrName: string | number, limit = 12):
   }))
 }
 
-// ─── Listing review count (public — key only) ─────────────────────────────────
+// ─── Listing review count (public - key only) ─────────────────────────────────
 // GET /v3/application/listings/{listing_id}/reviews returns a `count`. That count
-// is a REAL lower bound on units sold (you can only review what you bought) — the
+// is a REAL lower bound on units sold (you can only review what you bought) - the
 // honest stand-in for the "Est. Sales" figure Etsy never publishes. null when Etsy
 // doesn't answer, never 0-as-unknown.
 export async function getListingReviewCount(listingId: number): Promise<number | null> {
@@ -968,11 +968,11 @@ export async function getListingReviewCount(listingId: number): Promise<number |
   }
 }
 
-// ─── Listing review stats: lifetime count + 30-day velocity (public — key only) ─
+// ─── Listing review stats: lifetime count + 30-day velocity (public - key only) ─
 // One call → both a listing's total review `count` AND how many reviews landed in
 // the trailing 30 days. `/listings/{id}/reviews?limit=100` returns the total count
 // plus the ~100 most-recent reviews (each carries `created_timestamp`); we count the
-// ones inside the window. Reviews are verified purchases, so both figures are REAL —
+// ones inside the window. Reviews are verified purchases, so both figures are REAL -
 // the per-listing sales figure derived from them (saleEstimate.ts) is the estimate.
 // Same one Etsy call as the count-only path, just a larger response. Nulls, never
 // 0-as-unknown, when Etsy doesn't answer.
@@ -994,7 +994,7 @@ export async function getListingReviewStats(listingId: number, nowMs = Date.now(
   }
 }
 
-// ─── Shop sections (public — key only) ────────────────────────────────────────
+// ─── Shop sections (public - key only) ────────────────────────────────────────
 // GET /v3/application/shops/{shop_id}/sections. The seller's own category tabs.
 export interface ShopSection { section_id: number; title: string; active_listing_count: number }
 export async function getShopSections(shopIdOrName: string | number): Promise<ShopSection[]> {
@@ -1064,7 +1064,7 @@ export async function getTrendingListings(limit = 25): Promise<EtsyListing[]> {
  *
  * This used to multiply average views by a hardcoded array
  * `[0.7,0.65,0.75,0.85,0.9,1.0,1.05,1.0,0.95,1.1,1.2,1.3]`, which produced an
- * IDENTICAL 12-month shape for every keyword — only the scale changed. Verified
+ * IDENTICAL 12-month shape for every keyword - only the scale changed. Verified
  * 2026-07-15: "christmas ornament", "swimsuit" and "halloween costume" all
  * returned the same normalized curve and all peaked in the same month. The UI
  * then told sellers when to list, which is a confidently wrong answer to the one
@@ -1083,13 +1083,13 @@ export function buildTrendData(): TrendData[] {
  * When sellers CREATED the listings that rank for a keyword, bucketed by
  * calendar month.
  *
- * This is real — `created_timestamp` has 100% coverage — but it measures SELLER
+ * This is real - `created_timestamp` has 100% coverage - but it measures SELLER
  * behaviour, not buyer demand. Sellers list ahead of the season they're chasing,
  * so it's a genuine planning signal as long as it's labelled for what it is and
  * never dressed up as search volume.
  */
 /**
- * Rich market snapshot measured from a live listing sample — the real detail
+ * Rich market snapshot measured from a live listing sample - the real detail
  * behind the deeper tool views. Every field is computed from what Etsy returned
  * (price/views/num_favorers/tags/created_timestamp/shop_name); nothing is
  * modelled. Prices are scoped to the dominant currency (Etsy gives no FX rate),
@@ -1134,7 +1134,7 @@ export function buildListingMarketStats(listings: EtsyListing[]): ListingMarketS
   const favMedian = quantile(favs, 0.5)
   const favTotal = favs.reduce((s, f) => s + f, 0)
 
-  // Median of per-listing favorites/views — a real engagement ratio, not CTR.
+  // Median of per-listing favorites/views - a real engagement ratio, not CTR.
   const engRatios = listings
     .filter(l => (l.views ?? 0) > 0)
     .map(l => (l.num_favorers ?? 0) / (l.views ?? 1) * 100)
@@ -1237,6 +1237,73 @@ export function isEtsyAuthExpired(err: unknown): boolean {
   return err instanceof EtsyAuthError && (err.status === 401 || err.status === 403)
 }
 
+export interface CreateListingInput {
+  title: string
+  description: string
+  price: number
+  quantity: number
+  taxonomyId: number
+  whoMade?: 'i_did' | 'someone_else' | 'collective'
+  whenMade?: string
+  isSupply?: boolean
+  type?: 'physical' | 'download' | 'both'
+  tags?: string[]
+  materials?: string[]
+  shippingProfileId?: number
+  returnPolicyId?: number
+}
+
+export interface CreatedListing { listingId: number; state: string; url: string }
+
+/**
+ * Create a DRAFT listing in the owner's shop (Etsy `createDraftListing`).
+ *
+ * Deliberately a DRAFT, never active: the seller reviews and publishes it inside
+ * Etsy, so nothing goes live from our side unreviewed. Requires the `listings_w`
+ * scope (the user must have reconnected their shop after that scope was added).
+ */
+export async function createDraftListing(accessToken: string, shopId: number, input: CreateListingInput): Promise<CreatedListing> {
+  const body = new URLSearchParams()
+  body.set('quantity', String(Math.max(1, Math.floor(input.quantity || 1))))
+  body.set('title', input.title.slice(0, 140))
+  body.set('description', input.description)
+  body.set('price', input.price.toFixed(2))
+  body.set('who_made', input.whoMade ?? 'i_did')
+  body.set('when_made', input.whenMade ?? 'made_to_order')
+  body.set('taxonomy_id', String(input.taxonomyId))
+  body.set('is_supply', String(!!input.isSupply))
+  body.set('type', input.type ?? 'physical')
+  for (const t of (input.tags ?? []).slice(0, 13)) if (t.trim()) body.append('tags', t.trim().slice(0, 20))
+  for (const m of (input.materials ?? []).slice(0, 13)) if (m.trim()) body.append('materials', m.trim().slice(0, 45))
+  if (input.shippingProfileId) body.set('shipping_profile_id', String(input.shippingProfileId))
+  if (input.returnPolicyId) body.set('return_policy_id', String(input.returnPolicyId))
+
+  recordEtsyCall()
+  const res = await fetch(`${ETSY_BASE}/shops/${shopId}/listings`, {
+    method: 'POST',
+    headers: {
+      'x-api-key':     ETSY_KEY_HEADER,
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type':  'application/x-www-form-urlencoded',
+      'Accept':        'application/json',
+    },
+    body: body.toString(),
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText)
+    throw new EtsyAuthError(res.status, `Etsy createListing ${res.status}: ${text}`)
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const j = await res.json() as any
+  const listingId = Number(j?.listing_id ?? j?.results?.[0]?.listing_id ?? 0)
+  return {
+    listingId,
+    state: String(j?.state ?? 'draft'),
+    url: String(j?.url ?? (listingId ? `https://www.etsy.com/listing/${listingId}` : '')),
+  }
+}
+
 export interface OwnerShop {
   shop_id: number
   shop_name: string
@@ -1289,7 +1356,7 @@ export interface ShopReceipt {
 
 /**
  * Page through receipts. Etsy caps `limit` at 100 per call, so a single request
- * gives at most 100 orders — enough for a total, too thin for a country map or
+ * gives at most 100 orders - enough for a total, too thin for a country map or
  * a fulfilment breakdown. Stops early when a short page proves the end.
  */
 export async function getShopReceiptsPaged(accessToken: string, shopId: number, max = 400): Promise<ShopReceipt[]> {
@@ -1330,12 +1397,12 @@ export async function getShopReceipts(accessToken: string, shopId: number, limit
 //
 // Correcting a long-standing wrong assumption in this file: the Etsy Open API
 // DOES expose sales. `/shops/{id}.transaction_sold_count` is the shop's real
-// lifetime transaction count — verified 2026-07-15 against CaitlynMinimalist:
+// lifetime transaction count - verified 2026-07-15 against CaitlynMinimalist:
 // we read 3,799,140 where eRank displayed 3,798,477 (ours is fresher). This
 // leaderboard used to rank by favorites because of that mistaken belief.
 //
 // Still genuinely unavailable: per-LISTING sales (listings expose `quantity`,
-// which is stock, not sales), and any historical sales series — Etsy returns
+// which is stock, not sales), and any historical sales series - Etsy returns
 // only a lifetime total, so a sales *trend* requires snapshotting over time.
 export interface TopSeller {
   shop_id:     number
@@ -1357,7 +1424,7 @@ export interface TopSeller {
   shopUrl:     string
 }
 
-/** Real shop facts behind a Top Sellers row. Null on lookup failure — never faked. */
+/** Real shop facts behind a Top Sellers row. Null on lookup failure - never faked. */
 async function shopFacts(shopId: number): Promise<Partial<TopSeller> | null> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1395,7 +1462,7 @@ export async function getTopSellers(query: string, scan = 100): Promise<TopSelle
     const totalViews = ls.reduce((s, l) => s + (l.views ?? 0), 0)
     const totalFaves = ls.reduce((s, l) => s + (l.num_favorers ?? 0), 0)
     const priced     = ls.filter(l => l.price?.amount)
-    // Prices here are within one shop, so a single currency — safe to mean.
+    // Prices here are within one shop, so a single currency - safe to mean.
     const avgPrice   = priced.length
       ? priced.reduce((s, l) => s + l.price.amount / (l.price.divisor || 100), 0) / priced.length
       : 0
@@ -1415,7 +1482,7 @@ export async function getTopSellers(query: string, scan = 100): Promise<TopSelle
   const facts = await pooled(ranked, 4, r => shopFacts(r.shop_id))
 
   // Record today's state for every shop we just read. Etsy publishes no sales
-  // history, so this opportunistic capture IS the history — it accrues from
+  // history, so this opportunistic capture IS the history - it accrues from
   // ordinary traffic without waiting on a scheduled job.
   recordShopSnapshots(ranked.map((r, i) => ({
     shopId: r.shop_id,
@@ -1465,19 +1532,19 @@ export async function getTopSellers(query: string, scan = 100): Promise<TopSelle
 // ─── Trend Buzz (emerging tags/keywords) ──────────────────────────────────────
 // Aggregates the REAL tags the official API returns across a sample of listings
 // (trending, or scoped to a keyword). `heat` is a relative index computed from
-// two real measurements — how many sampled listings use the tag × how well those
-// listings engage — and is labelled an index, not a search volume. Etsy exposes
+// two real measurements - how many sampled listings use the tag × how well those
+// listings engage - and is labelled an index, not a search volume. Etsy exposes
 // no search counts.
 export interface BuzzItem {
   keyword:    string
-  listings:   number   // sampled listings using this tag — real
+  listings:   number   // sampled listings using this tag - real
   avgViews:   number   // real, from those listings
   avgFavorites: number // real
   heat:       number   // relative 0–100 index over real inputs
   competition: 'Low' | 'Med' | 'High'
   /** Real creation-month histogram of the listings using this tag (Jan→Dec). */
   listingsByMonth: number[]
-  /** Median age in days of the listings using this tag — a real "is this new?" signal. */
+  /** Median age in days of the listings using this tag - a real "is this new?" signal. */
   medianAgeDays: number | null
 }
 
@@ -1520,7 +1587,7 @@ export async function getTrendBuzz(query?: string, scan = 100): Promise<BuzzItem
         heat: Math.round((scoreOf(ls) / maxScore) * 100),
         competition: (ls.length >= 12 ? 'High' : ls.length >= 6 ? 'Med' : 'Low') as BuzzItem['competition'],
         listingsByMonth: listingsByMonth(ls),
-        // Genuinely emerging tags are carried by young listings — a real signal,
+        // Genuinely emerging tags are carried by young listings - a real signal,
         // where the old sine-wave sparkline was none.
         medianAgeDays: ages.length ? Math.round(ages[Math.floor((ages.length - 1) / 2)]) : null,
       }

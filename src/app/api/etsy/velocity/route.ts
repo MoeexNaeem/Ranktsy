@@ -10,7 +10,7 @@ export const runtime = 'nodejs'
  *
  * Etsy publishes a lifetime total and no series, so "sold yesterday" only exists
  * if we captured the shop yesterday. A brand-new shop returns `days: 1` with
- * every delta null — the UI must say "tracking started today" rather than imply
+ * every delta null - the UI must say "tracking started today" rather than imply
  * a real zero.
  */
 export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<ShopVelocity>>> {

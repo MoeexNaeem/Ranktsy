@@ -5,23 +5,23 @@ import { siteUrl }   from '@/lib/seo/site'
 import './globals.css'
 
 export const metadata: Metadata = {
-  // Resolves relative canonical/OG image URLs to absolute — without this, social
+  // Resolves relative canonical/OG image URLs to absolute - without this, social
   // cards and canonicals silently break.
   metadataBase: new URL(siteUrl()),
   title: {
-    default:  'Rankkw — Etsy Keyword Research & Analytics',
+    default:  'Rankkw - Etsy Keyword Research & Analytics',
     template: '%s',   // child pages set full titles themselves
   },
-  description: 'Data-driven keyword research, competition analysis, and trend tracking for Etsy sellers — measured from the official Etsy & Google APIs, never estimated.',
+  description: 'Data-driven keyword research, competition analysis, and trend tracking for Etsy sellers - measured from the official Etsy & Google APIs, never estimated.',
   keywords:    ['Etsy SEO', 'Etsy keyword research', 'Etsy analytics', 'Etsy tags', 'Etsy competitor analysis'],
   applicationName: 'Rankkw',
   alternates:  { canonical: '/' },
   openGraph: {
-    title: 'Rankkw — Etsy Keyword Research & Analytics',
-    description: 'Real Etsy keyword data — search volume, competition and trends from the official APIs.',
+    title: 'Rankkw - Etsy Keyword Research & Analytics',
+    description: 'Real Etsy keyword data - search volume, competition and trends from the official APIs.',
     url: siteUrl(), siteName: 'Rankkw', type: 'website',
   },
-  twitter: { card: 'summary_large_image', title: 'Rankkw — Etsy Keyword Research', description: 'Real Etsy keyword data, not estimates.' },
+  twitter: { card: 'summary_large_image', title: 'Rankkw - Etsy Keyword Research', description: 'Real Etsy keyword data, not estimates.' },
   robots: { index: true, follow: true },
   // Trustpilot one-time domain-verification tag. Renders:
   // <meta name="trustpilot-one-time-domain-verification-id" content="…">
@@ -42,7 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        {/* General Sans (Fontshare) — closest free match to Perk's OTSono geometric
+        {/* General Sans (Fontshare) - closest free match to Perk's OTSono geometric
             grotesk. No <head> wrapper: React 19 hoists link tags into the head on
             its own, and adding one back would break the viewport meta again. */}
         <link rel="preconnect" href="https://api.fontshare.com" crossOrigin="" />

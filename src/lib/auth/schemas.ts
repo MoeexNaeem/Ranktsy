@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 /**
  * Strong-password rule for NEW passwords (signup + reset). Existing accounts are
- * grandfathered — login only checks the password matches, never re-validates it.
+ * grandfathered - login only checks the password matches, never re-validates it.
  * Client and server share this exact rule via the regexes below.
  */
 export const PASSWORD_RULES = [
@@ -20,10 +20,10 @@ const strongPassword = z
   .regex(/[^A-Za-z0-9]/, 'Must contain at least one special character')
 
 /**
- * Signup email policy (anti-abuse): allow any real email — the major consumer
+ * Signup email policy (anti-abuse): allow any real email - the major consumer
  * providers (Gmail, Outlook, Yahoo, iCloud, Yandex…) AND legitimate business /
- * company domains (you@yourcompany.com) — while blocking known disposable /
- * throwaway providers. Existing accounts are unaffected — login never re-checks
+ * company domains (you@yourcompany.com) - while blocking known disposable /
+ * throwaway providers. Existing accounts are unaffected - login never re-checks
  * the domain. Shared by the client, the register route and the OAuth signup flow.
  */
 export const DISPOSABLE_EMAIL_DOMAINS = [
@@ -38,7 +38,7 @@ export const DISPOSABLE_EMAIL_DOMAINS = [
 ] as const
 
 export const EMAIL_DOMAIN_MESSAGE =
-  'Please use a permanent email address — temporary / disposable email providers aren’t allowed.'
+  'Please use a permanent email address - temporary / disposable email providers aren’t allowed.'
 
 /** Allowed to create a NEW account? True for any valid domain that isn't disposable. */
 export function isAllowedEmailDomain(email: string): boolean {

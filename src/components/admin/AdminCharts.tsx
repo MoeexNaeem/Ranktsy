@@ -1,7 +1,7 @@
 'use client'
 /**
  * Small, dependency-free chart + motion primitives for the admin dashboard.
- * All animate ONCE on mount (count-up numbers, growing bars, sweeping donut) —
+ * All animate ONCE on mount (count-up numbers, growing bars, sweeping donut) -
  * lively but not distracting. Colours come from the app's `C`/`D` tokens.
  */
 import { useEffect, useRef, useState } from 'react'

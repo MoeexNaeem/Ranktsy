@@ -13,11 +13,11 @@ export const GET = withUsage(getHandler)
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 /**
- * v3 — the fabricated Etsy seasonality curve is gone (see buildTrendData).
+ * v3 - the fabricated Etsy seasonality curve is gone (see buildTrendData).
  *
  * `trends` now contains ONLY real series: a Google line when Google Ads is
  * configured, and nothing otherwise. `supplyByMonth` is the honest Etsy-only
- * signal — when sellers created the competing listings. Callers must not treat
+ * signal - when sellers created the competing listings. Callers must not treat
  * an empty `trends` as an error; it means "Etsy doesn't publish this".
  */
 async function getHandler(req: NextRequest) {
@@ -29,13 +29,13 @@ async function getHandler(req: NextRequest) {
   const gate = await guardSearch(req)
   if (gate) return gate
 
-  // v4: rate-limit fix (sequential Google calls) — retire v3 docs that cached an
+  // v4: rate-limit fix (sequential Google calls) - retire v3 docs that cached an
   // empty/partial Google result when the concurrent calls were being throttled.
   const key    = cacheKey('trends', 'v4', geo, query)
   const cached = memCache.get(key)
   if (cached) return NextResponse.json({ success: true, data: cached, cached: true })
 
-  // Shared Collective store first — trends are geo-specific, so look up this geo's
+  // Shared Collective store first - trends are geo-specific, so look up this geo's
   // saved package; if it carries trends, serve them with no Etsy/Google calls.
   const shared = await getCollectivePackage(query, geo)
   if (shared?.trends) {
@@ -51,7 +51,7 @@ async function getHandler(req: NextRequest) {
     // Real market detail measured from the same 100-listing sample.
     const market = buildListingMarketStats(listings)
 
-    // Searchers by Country — always the full breakdown (like eRank), with the
+    // Searchers by Country - always the full breakdown (like eRank), with the
     // selected country flagged so the UI can highlight it and scale the Etsy-search
     // estimate to that country's real share of Google demand.
     const countries: CountryData[] = await countriesForGeo(query, geo)

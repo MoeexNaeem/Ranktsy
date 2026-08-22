@@ -80,8 +80,8 @@ export const SearchAnalysisPanel = memo(function SearchAnalysisPanel({
           <Metric label="Average Hearts" value={formatNumber(a.averageHearts)} hint="favorites / listing" color={D.hard} />
           <Metric label="Total Views"    value={formatNumber(a.totalViews)} hint="lifetime, sampled" color="#2E6DB4" />
           <Metric label="Avg. Views"     value={formatNumber(a.avgViews)} hint="per listing" color="#2E6DB4" />
-          <Metric label="Avg. Daily Views"  value={a.avgDailyViews != null ? a.avgDailyViews.toFixed(2) : '—'} hint={a.avgDailyViews != null ? 'views / day' : 'no listing dates'} color={D.good} />
-          <Metric label="Avg. Weekly Views" value={a.avgWeeklyViews != null ? a.avgWeeklyViews.toFixed(2) : '—'} hint={a.avgWeeklyViews != null ? 'views / week' : 'no listing dates'} color={D.good} last />
+          <Metric label="Avg. Daily Views"  value={a.avgDailyViews != null ? a.avgDailyViews.toFixed(2) : '-'} hint={a.avgDailyViews != null ? 'views / day' : 'no listing dates'} color={D.good} />
+          <Metric label="Avg. Weekly Views" value={a.avgWeeklyViews != null ? a.avgWeeklyViews.toFixed(2) : '-'} hint={a.avgWeeklyViews != null ? 'views / week' : 'no listing dates'} color={D.good} last />
         </div>
       </Card>
 
@@ -112,7 +112,7 @@ export const SearchAnalysisPanel = memo(function SearchAnalysisPanel({
               ))}
             </div>
           ) : a.categoriesPending ? (
-            /* The names just aren't fetched yet — saying "no categories" would
+            /* The names just aren't fetched yet - saying "no categories" would
                report a fetch delay as a fact about the listings. */
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '8px 0' }}>
               {[0, 1, 2, 3, 4].map(i => (
@@ -124,7 +124,7 @@ export const SearchAnalysisPanel = memo(function SearchAnalysisPanel({
                 </div>
               ))}
               <p style={{ fontSize: 11.5, color: C.stone, lineHeight: 1.5 }}>
-                Loading Etsy&apos;s category names (a one-off 365 KB fetch — instant from here on).
+                Loading Etsy&apos;s category names (a one-off 365 KB fetch - instant from here on).
               </p>
             </div>
           ) : (
@@ -149,7 +149,7 @@ export const SearchAnalysisPanel = memo(function SearchAnalysisPanel({
             : <EmptyState icon="💲" title="No price data" />}
           <p style={{ fontSize: 11.5, color: C.stone, marginTop: 8, lineHeight: 1.55 }}>
             How many of the sampled listings sit at each price. The <strong style={{ color: C.orange }}>orange</strong> bar is the median.
-            {' '}Covers the <strong style={{ color: C.graphite }}>{a.priceSample}</strong> listings priced in {a.currency} — Etsy prices each
+            {' '}Covers the <strong style={{ color: C.graphite }}>{a.priceSample}</strong> listings priced in {a.currency} - Etsy prices each
             listing in its own shop currency and publishes no exchange rate, so mixing them would compare apples to oranges.
             {a.priceOutliers > 0 && <> The final <strong style={{ color: C.graphite }}>{a.medianBucket?.endsWith('+') ? '' : ''}“+”</strong> bar holds {a.priceOutliers} listing{a.priceOutliers === 1 ? '' : 's'} above the top of the range.</>}
           </p>

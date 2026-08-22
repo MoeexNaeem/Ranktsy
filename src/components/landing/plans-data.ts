@@ -1,6 +1,6 @@
 /* Plain data module (NO 'use client') so both Server Components (the /pricing page)
    and Client Components (the landing section, the card/table components) import the
-   real arrays — a "use client" export would arrive at the server as a stub. */
+   real arrays - a "use client" export would arrive at the server as a stub. */
 
 export type Plan = {
   name: string
@@ -19,36 +19,36 @@ export type Plan = {
   popular?: boolean
 }
 
-// Prices in USD. CTAs are display-only for now (checkout deferred) — they deep-link
+// Prices in USD. CTAs are display-only for now (checkout deferred) - they deep-link
 // to /register?plan=<slug>. Etsy Listing Pro (1 image per generation) is gated to
 // Pro and up, with a monthly image allowance that scales with the plan.
 export const PLANS: Plan[] = [
   {
     name: 'Free', slug: 'free', price: '$0', period: 'forever', accent: '#2E7D46',
     blurb: 'Explore the tools, free forever.',
-    features: ['50 credits / day', '5 keyword searches / day', '1 shop · 50 listings', '5 listing audits / day', 'Etsy Listing Pro — 1 image / mo', 'Basic keyword metrics'],
+    features: ['50 credits / day', '5 keyword searches / day', '1 shop · 50 listings', '5 listing audits / day', 'Etsy Listing Pro - 1 image / mo', 'Basic keyword metrics'],
     cta: 'Start for free', href: '/register',
   },
   {
     name: 'Starter', slug: 'starter', price: '$0.99', period: 'per month', accent: '#2563EB',
     blurb: 'A little more room to research.',
-    features: ['100 credits / day', '25 keyword searches / day', '2 competitors monitored', '20 listing audits / day', 'Etsy Listing Pro — 2 images / mo', 'Tag generator'],
+    features: ['100 credits / day', '25 keyword searches / day', '2 competitors monitored', '20 listing audits / day', 'Etsy Listing Pro - 2 images / mo', 'Tag generator'],
     cta: 'Choose Starter', href: '/register?plan=starter',
   },
   {
     name: 'Basic', slug: 'basic', price: '$2.99', period: 'per month', accent: '#0EA5E9',
     blurb: 'For sellers getting serious about SEO.',
-    features: ['200 credits / day', '100 keyword searches / day', '5 competitors monitored', '200 connected shop listings', '50 listing audits / day', 'Etsy Listing Pro — 3 images / mo'],
+    features: ['200 credits / day', '100 keyword searches / day', '5 competitors monitored', '200 connected shop listings', '50 listing audits / day', 'Etsy Listing Pro - 3 images / mo'],
     cta: 'Choose Basic', href: '/register?plan=basic',
   },
   {
     name: 'Pro', slug: 'pro', price: '$6.99', period: 'per month', accent: '#FB5E09', popular: true,
-    blurb: 'Everything to grow — includes Etsy Listing Pro.',
+    blurb: 'Everything to grow - includes Etsy Listing Pro.',
     features: [
       '400 credits / day',
       '200 keyword searches / day',
       '50 competitors monitored',
-      'Etsy Listing Pro — 5 images / mo',
+      'Etsy Listing Pro - 5 images / mo',
       'Trends, product research & rank tracking',
       'AI title, tag & description',
       'CSV export',
@@ -58,11 +58,11 @@ export const PLANS: Plan[] = [
   {
     name: 'Pro · 1-Year', slug: 'pro-1yr', price: '$99.99', period: 'per year', accent: '#B7791F',
     note: '≈ $7.50 / mo · best value',
-    blurb: 'All of Pro for a year — with more images.',
+    blurb: 'All of Pro for a year - with more images.',
     features: [
       '1,000 credits / day',
       'Everything in Pro',
-      'Etsy Listing Pro — 20 images / mo',
+      'Etsy Listing Pro - 20 images / mo',
       '200 keyword searches / day',
       'Priority support',
       'Locked-in 1-year price',
@@ -82,7 +82,7 @@ export const PLANS: Plan[] = [
     features: [
       '1,000 credits / day',
       '500 keyword searches / day',
-      'Etsy Listing Pro — 15 images / mo',
+      'Etsy Listing Pro - 15 images / mo',
       '3 shops · 10,000 listings',
       '100 competitors monitored',
       'Advanced analytics · priority support',
@@ -95,7 +95,7 @@ export const PLANS: Plan[] = [
     features: [
       '2,000 credits / day',
       '1,000 keyword searches / day',
-      'Etsy Listing Pro — 30 images / mo',
+      'Etsy Listing Pro - 30 images / mo',
       '10 shops · white-label reports',
       '200 competitors monitored',
       'Client dashboard',
@@ -108,7 +108,7 @@ export const PLANS: Plan[] = [
     features: [
       '2,500 credits / day',
       '2,000 keyword searches / day',
-      'Etsy Listing Pro — 50 images / mo',
+      'Etsy Listing Pro - 50 images / mo',
       'Unlimited shops',
       '500 competitors monitored',
       'Dedicated support',
@@ -121,7 +121,7 @@ export const PLANS: Plan[] = [
     features: [
       '2,500 credits / day',
       'Everything in Enterprise',
-      'Etsy Listing Pro — 50 images / mo (+$10 per extra 20)',
+      'Etsy Listing Pro - 50 images / mo (+$10 per extra 20)',
       'Custom searches & limits',
       'Onboarding & SLA',
     ],

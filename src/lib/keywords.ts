@@ -3,7 +3,7 @@
  *
  * One cold keyword needs ~33 Etsy calls, and the shared rate gate (8/sec) means
  * that's ~13s wall-clock. Only THREE of those calls are needed to render the
- * page — the base search, its image batch, and the taxonomy lookup. The other
+ * page - the base search, its image batch, and the taxonomy lookup. The other
  * ~30 are enrichment: a live search per related keyword, plus the near-match
  * variants.
  *
@@ -37,7 +37,7 @@ export function relatedKey(query: string, geo = 'US') { return cacheKey('keyword
 export function nearKey(query: string) { return cacheKey('keyword', KEYWORD_VERSION, 'near', query) }
 
 /**
- * The Mongo cache is keyed on the keyword alone, not the version — so this
+ * The Mongo cache is keyed on the keyword alone, not the version - so this
  * predicate is the only thing retiring documents written under an older shape.
  * Every field added to the core response needs a probe here.
  */
@@ -60,7 +60,7 @@ function isStaleCore(d?: KeywordSearchResponse): boolean {
     (isGoogleAdsConfigured() && d.stats?.googleSearches == null) ||
     // Pre-v9 docs carry Google volume but not competition/CPC/currency. The Mongo
     // cache keys on the keyword alone, so bumping KEYWORD_VERSION doesn't retire
-    // them — this probe does. A fresh configured doc always SETS googleCurrency
+    // them - this probe does. A fresh configured doc always SETS googleCurrency
     // (to the code or null), so `undefined` uniquely marks the old shape.
     (isGoogleAdsConfigured() && d.stats?.googleCurrency === undefined)
   )
@@ -69,7 +69,7 @@ function isStaleCore(d?: KeywordSearchResponse): boolean {
 /**
  * Fast path: everything the page needs to paint. ~3 Etsy calls.
  *
- * `related` comes back with `competition: null` — that's honest, not lazy: a
+ * `related` comes back with `competition: null` - that's honest, not lazy: a
  * 100-listing sample genuinely cannot know how many listings compete for a tag
  * across all of Etsy. getRelated() probes it for real.
  */
@@ -81,26 +81,26 @@ export async function getKeywordCore(query: string, geo = 'US'): Promise<Keyword
   if (memHit && !isStaleCore(memHit)) return memHit
 
   // Otherwise collapse concurrent identical requests into ONE upstream fetch:
-  // when a keyword trends, N users don't each fire ~3 Etsy + Google calls — the
+  // when a keyword trends, N users don't each fire ~3 Etsy + Google calls - the
   // first does the work and the rest await the same result.
   return singleFlight(key, () => computeKeywordCore(query, geo, key))
 }
 
 async function computeKeywordCore(query: string, geo: string, key: string): Promise<KeywordSearchResponse> {
-  // Re-check the cache inside the flight — an earlier coalesced call may have
+  // Re-check the cache inside the flight - an earlier coalesced call may have
   // just populated it.
   const memHit = memCache.get<KeywordSearchResponse>(key)
   if (memHit && !isStaleCore(memHit)) return memHit
 
   // Kick the taxonomy fetch off in the background. It's needed only for category
-  // NAMES, so it must never block the response — but starting it now means it's
+  // NAMES, so it must never block the response - but starting it now means it's
   // usually ready before anyone opens the Analysis tab.
   warmTaxonomy()
 
   // Shared permanent store first (populated by Ranktsy's Bulk Keyword Search). If
   // the keyword is there, serve the complete package with ZERO API calls. This is
-  // a full package — its related keywords are already enriched and its listings
-  // carry images + reviews — a superset of the normal core, which the page renders.
+  // a full package - its related keywords are already enriched and its listings
+  // carry images + reviews - a superset of the normal core, which the page renders.
   const shared = await getCollectivePackage(query, geo)
   if (shared) {
     // The shared package can predate Google enrichment (or have been saved while
@@ -171,7 +171,7 @@ async function computeKeywordCore(query: string, geo: string, key: string): Prom
   }
 
   // If Google failed, cache only BRIEFLY (2 min) in memory and do NOT persist to
-  // the DB — so the next request retries and can fill the real numbers, instead
+  // the DB - so the next request retries and can fill the real numbers, instead
   // of the keyword staying blank for the full 5-hour TTL.
   if (googleFailed) {
     memCache.set(key, data, 120)

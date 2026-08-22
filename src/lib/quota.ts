@@ -45,7 +45,7 @@ export async function consumeMonthlyImage(userId: string): Promise<QuotaResult |
   return { allowed: true, used: used + 1, limit, plan }
 }
 
-/** Give back one monthly image credit — used when a consumed generation fails. */
+/** Give back one monthly image credit - used when a consumed generation fails. */
 export async function refundMonthlyImage(userId: string): Promise<void> {
   await User.updateOne({ _id: userId, listingImageCount: { $gt: 0 } }, { $inc: { listingImageCount: -1 } }).catch(() => {})
 }

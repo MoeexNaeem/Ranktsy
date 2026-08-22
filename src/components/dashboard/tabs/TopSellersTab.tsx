@@ -72,7 +72,7 @@ export function TopSellersTab() {
     return [...base].sort((a, b) => {
       const av = a[sortKey] as number | null
       const bv = b[sortKey] as number | null
-      // Unknowns sort last in both directions — absent data isn't a low value.
+      // Unknowns sort last in both directions - absent data isn't a low value.
       if (av == null && bv == null) return 0
       if (av == null) return 1
       if (bv == null) return -1
@@ -100,7 +100,7 @@ export function TopSellersTab() {
     }
   }, [view])
 
-  // Real facts for the AI competitive read — every figure from official shop records.
+  // Real facts for the AI competitive read - every figure from official shop records.
   const aiFacts = useMemo<AiFact[]>(() => {
     if (!view.length) return []
     const f: AiFact[] = [
@@ -143,7 +143,7 @@ export function TopSellersTab() {
       case 'sales':
         return s.sales != null
           ? <span key={c.id} style={{ fontSize: 15, fontFamily: MONO, fontWeight: 600, color: D.good }}>{formatNumber(s.sales)}</span>
-          : <span key={c.id} title="Etsy didn't return this shop's record" style={{ fontSize: 14, fontFamily: MONO, color: C.stone, cursor: 'help' }}>—</span>
+          : <span key={c.id} title="Etsy didn't return this shop's record" style={{ fontSize: 14, fontFamily: MONO, color: C.stone, cursor: 'help' }}>-</span>
       case 'reviews':
         return s.reviewCount != null ? (
           <span key={c.id} style={{ fontSize: 13.5, fontFamily: MONO, color: C.ink }}>
@@ -152,13 +152,13 @@ export function TopSellersTab() {
               <span style={{ color: s.reviewAverage >= 4.8 ? D.good : s.reviewAverage >= 4.5 ? D.mid : D.hard, marginLeft: 7 }}>★{s.reviewAverage.toFixed(2)}</span>
             )}
           </span>
-        ) : <span key={c.id} style={{ fontSize: 14, color: C.stone }}>—</span>
+        ) : <span key={c.id} style={{ fontSize: 14, color: C.stone }}>-</span>
       case 'country':
-        return <span key={c.id} style={{ fontSize: 13.5, fontFamily: MONO, color: C.ink }}>{s.countryIso ? `${flag(s.countryIso)} ${s.countryIso}` : '—'}</span>
+        return <span key={c.id} style={{ fontSize: 13.5, fontFamily: MONO, color: C.ink }}>{s.countryIso ? `${flag(s.countryIso)} ${s.countryIso}` : '-'}</span>
       case 'opened':
-        return <span key={c.id} style={{ fontSize: 13.5, fontFamily: MONO, color: C.ink }}>{s.yearOpened ?? '—'}</span>
+        return <span key={c.id} style={{ fontSize: 13.5, fontFamily: MONO, color: C.ink }}>{s.yearOpened ?? '-'}</span>
       case 'active':
-        return <span key={c.id} style={{ fontSize: 13.5, fontFamily: MONO, color: C.ink }}>{s.activeListings != null ? formatNumber(s.activeListings) : '—'}</span>
+        return <span key={c.id} style={{ fontSize: 13.5, fontFamily: MONO, color: C.ink }}>{s.activeListings != null ? formatNumber(s.activeListings) : '-'}</span>
       case 'niche':
         return <span key={c.id} style={{ fontSize: 13.5, fontFamily: MONO, color: C.orange, fontWeight: 500 }}>{s.listings}</span>
       case 'faves':
@@ -181,7 +181,7 @@ export function TopSellersTab() {
         <SearchBar value={input} onChange={setInput} onSubmit={go}
           placeholder="Which niche's top shops? e.g. macrame wall hanging" button="Rank shops →" />
         <p style={{ fontSize: 13, color: C.graphite, marginTop: 10, lineHeight: 1.55 }}>
-          Shops ranked by <strong style={{ color: D.good }}>real lifetime sales</strong>{' '}— Etsy&apos;s own{' '}
+          Shops ranked by <strong style={{ color: D.good }}>real lifetime sales</strong>{' '}- Etsy&apos;s own{' '}
           <code style={{ fontFamily: MONO, fontSize: 12, background: C.bone, padding: '1px 6px', borderRadius: 4 }}>transaction_sold_count</code>
           {' '}from the official API, not an engagement proxy.
         </p>
@@ -220,7 +220,7 @@ export function TopSellersTab() {
             </Card>
             <Card>
               <SectionTitle right={<span style={{ fontSize: 12, fontFamily: MONO, color: C.graphite }}>bubble = listings</span>}>Views vs favorites</SectionTitle>
-              <p style={{ fontSize: 13, color: C.graphite, marginTop: -8, marginBottom: 10 }}>Shops toward the <strong style={{ color: C.orange }}>top-left</strong> earn the most favorites per view — the strongest buyer pull.</p>
+              <p style={{ fontSize: 13, color: C.graphite, marginTop: -8, marginBottom: 10 }}>Shops toward the <strong style={{ color: C.orange }}>top-left</strong> earn the most favorites per view - the strongest buyer pull.</p>
               <BubbleChart points={bubble} xLabel="Total views" yLabel="Total favorites" />
             </Card>
           </div>
@@ -231,7 +231,7 @@ export function TopSellersTab() {
               tool="Top Sellers"
               subject={query}
               facts={aiFacts}
-              notes="Sales are each shop's real lifetime total (transaction_sold_count) — shop-wide, not niche-specific, so a generalist can rank high off one matching listing. 'Listings in this niche' shows who actually specialises. Interpret whether the niche is dominated by specialists or generalists and how a new seller can compete."
+              notes="Sales are each shop's real lifetime total (transaction_sold_count) - shop-wide, not niche-specific, so a generalist can rank high off one matching listing. 'Listings in this niche' shows who actually specialises. Interpret whether the niche is dominated by specialists or generalists and how a new seller can compete."
             />
           )}
 
@@ -255,7 +255,7 @@ export function TopSellersTab() {
             <ExportBtn onClick={exportCsv} />
           </div>
 
-          {/* Etsy exposes sales per SHOP, never per listing — so sales can't be
+          {/* Etsy exposes sales per SHOP, never per listing - so sales can't be
               attributed to a niche. Stating that plainly beats letting a
               findings supplier with one matching listing read as the category king. */}
           <div style={{ display: 'flex', gap: 11, padding: '12px 16px', background: D.midBg, borderRadius: 12, alignItems: 'flex-start' }}>
@@ -263,7 +263,7 @@ export function TopSellersTab() {
             <p style={{ fontSize: 12.5, color: C.ink, lineHeight: 1.6 }}>
               <strong>Sales are shop-wide, not niche-specific.</strong> Etsy publishes a lifetime total per shop and
               nothing per listing, so a large generalist can top this list off one matching listing. Check the{' '}
-              <strong style={{ color: C.orange }}>In This Niche</strong> column — sort by it to find shops that actually
+              <strong style={{ color: C.orange }}>In This Niche</strong> column - sort by it to find shops that actually
               specialise in &ldquo;{query}&rdquo;.
             </p>
           </div>
@@ -294,7 +294,7 @@ export function TopSellersTab() {
 
           <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6 }}>
             Sales, reviews, country and open-year come from each shop&apos;s official Etsy record. Etsy publishes only a
-            lifetime sales total — no historical series — so a sales-over-time trend needs day-over-day tracking, which
+            lifetime sales total - no historical series - so a sales-over-time trend needs day-over-day tracking, which
             starts once shop snapshots are enabled. Views/favorites are listing engagement within this niche only.
           </p>
         </>

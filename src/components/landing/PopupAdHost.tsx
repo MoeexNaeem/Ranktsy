@@ -65,7 +65,7 @@ export function PopupAdHost() {
         </button>
 
         {isImage ? (
-          /* ── Image mode — the Canva design, clickable ─────────────────────── */
+          /* ── Image mode - the Canva design, clickable ─────────────────────── */
           ad.imageLink ? (
             <a href={ad.imageLink} target={/^https?:\/\//i.test(ad.imageLink) ? '_blank' : undefined} rel="noopener noreferrer" onClick={dismiss}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -76,7 +76,7 @@ export function PopupAdHost() {
             <img src={ad.imageUrl} alt={ad.title || 'Special offer'} style={{ width: '100%', display: 'block' }} />
           )
         ) : (
-          /* ── Card mode — styled 1-Year offer with animated price tag ──────── */
+          /* ── Card mode - styled 1-Year offer with animated price tag ──────── */
           <div style={{ padding: '30px 30px 28px', textAlign: 'center' }}>
             {ad.badge && (
               <span style={{ display: 'inline-block', fontSize: 11, fontFamily: "'General Sans',monospace", fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#fff', background: O, padding: '5px 13px', borderRadius: 100, marginBottom: 16 }}>{ad.badge}</span>

@@ -21,7 +21,7 @@ const sameUTCDay = (a?: Date | null, b?: Date | null) =>
   !!a && !!b && a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth() && a.getUTCDate() === b.getUTCDate()
 const dayKey = (d: Date) => d.toISOString().slice(0, 10)
 
-// Full per-user detail for the admin user-detail panel — everything we hold about
+// Full per-user detail for the admin user-detail panel - everything we hold about
 // one account in a single call: profile, plan/billing, credits, connected shops,
 // recent searches and a 14-day usage series.
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -99,7 +99,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // An admin PLAN change is a comp grant: setting a paid plan gives a 1-MONTH
   // gift (compExpiresAt) so it auto-reverts to free unless the user actually
   // pays; setting 'free' clears it. A genuinely-active PAID subscriber is left
-  // alone (no comp clock) — their plan is governed by the Lemon Squeezy webhook.
+  // alone (no comp clock) - their plan is governed by the Lemon Squeezy webhook.
   if ('plan' in update) {
     if (update.plan === 'free') {
       update.compExpiresAt = null

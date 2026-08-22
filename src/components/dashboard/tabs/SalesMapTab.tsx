@@ -23,7 +23,7 @@ export function useOrders() {
         return data.data
       } catch (e) {
         // "Not signed in" is a different problem from "Etsy call failed", and
-        // needs a different instruction — telling a signed-out visitor to
+        // needs a different instruction - telling a signed-out visitor to
         // reconnect their shop sends them somewhere useless.
         if (axios.isAxiosError(e) && e.response?.status === 401) {
           return { connected: false, needsAuth: true } as OrdersInsight
@@ -106,7 +106,7 @@ export function SalesMapTab() {
           { k: 'Countries', v: String(data.countries?.length ?? 0), c: '#2E6DB4', s: 'buyers reached' },
           { k: 'Orders', v: formatNumber(data.orders ?? 0), c: D.good, s: `last ${data.sampled} receipts` },
           { k: 'Revenue', v: `${cur}${formatNumber(Math.round(data.revenue ?? 0))}`, c: C.orange, s: `avg ${cur}${(data.avgOrder ?? 0).toFixed(2)}` },
-          { k: 'Top market', v: topCountry ? `${flag(topCountry.iso)} ${topCountry.iso}` : '—', c: C.ink, s: topCountry ? `${topCountry.pct}% of orders` : '' },
+          { k: 'Top market', v: topCountry ? `${flag(topCountry.iso)} ${topCountry.iso}` : '-', c: C.ink, s: topCountry ? `${topCountry.pct}% of orders` : '' },
         ].map(x => (
           <Card key={x.k} pad="18px 20px">
             <p style={{ fontSize: 11.5, fontFamily: MONO, fontWeight: 500, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 9 }}>{x.k}</p>
@@ -163,7 +163,7 @@ export function SalesMapTab() {
       </div>
 
       <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6 }}>
-        Built from your {data.sampled} most recent Etsy receipts — real orders, not estimates. Buyer country comes from
+        Built from your {data.sampled} most recent Etsy receipts - real orders, not estimates. Buyer country comes from
         the receipt itself; Etsy exposes it only for your own shop, which is why this map can&apos;t be produced for a competitor.
       </p>
     </div>

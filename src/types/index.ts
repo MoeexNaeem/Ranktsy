@@ -69,18 +69,18 @@ export interface KeywordData {
   googleCpcHigh?: number | null
   /**
    * Calendar-month histogram (Jan→Dec) of when the listings using this tag were
-   * created — real, from `created_timestamp` (100% field coverage). Replaces a
+   * created - real, from `created_timestamp` (100% field coverage). Replaces a
    * sine wave whose shape was a function of the row's index in the array.
    */
   listingsByMonth: number[]
 }
 
 export interface KeywordStats {
-  /** Mean lifetime views across the sampled listings. Real — Etsy returns `views`. */
+  /** Mean lifetime views across the sampled listings. Real - Etsy returns `views`. */
   avgViews: number
-  /** Mean favourites across the sampled listings. Real — Etsy returns `num_favorers`. */
+  /** Mean favourites across the sampled listings. Real - Etsy returns `num_favorers`. */
   avgFavorites: number
-  /** favourites ÷ views as a %. A real ratio, not a click-through rate — Etsy exposes no clicks. */
+  /** favourites ÷ views as a %. A real ratio, not a click-through rate - Etsy exposes no clicks. */
   favPerView: number
   etsyCompetition: number       // sampled listings used to derive the stats
   totalResults: number          // real total active Etsy listings for the keyword
@@ -88,7 +88,7 @@ export interface KeywordStats {
   difficultyLabel: 'Easy' | 'Medium' | 'Hard'
   avgPrice: number
   currency: string
-  /** Real Google monthly search volume for the SELECTED country. null unless Google Ads is configured — never faked. */
+  /** Real Google monthly search volume for the SELECTED country. null unless Google Ads is configured - never faked. */
   googleSearches: number | null
   /** Google advertiser-competition band for the exact keyword + its 0–100 index. */
   googleCompetition?: 'LOW' | 'MEDIUM' | 'HIGH' | 'UNSPECIFIED' | null
@@ -101,7 +101,7 @@ export interface KeywordStats {
 }
 
 // ─── Google Keyword Ideas (generateKeywordIdeas) ──────────────────────────────
-// Google-SUGGESTED keywords for a seed — genuine discovery, not a lookup of terms
+// Google-SUGGESTED keywords for a seed - genuine discovery, not a lookup of terms
 // we chose. Surfaces high-volume / low-competition long-tails an Etsy-tag sample
 // can't. Every metric is real Google Ads data; empty when Google Ads is unconfigured.
 export interface KeywordIdea {
@@ -146,7 +146,7 @@ export interface SearchAnalysis {
   categories: CategoryItem[]
   /**
    * True when the category names weren't resolved because the taxonomy (a 365KB,
-   * ~2.5s fetch) wasn't cached yet — NOT because these listings lack categories.
+   * ~2.5s fetch) wasn't cached yet - NOT because these listings lack categories.
    * The UI must say "loading", not "none", or it reports a fetch delay as a fact
    * about the data.
    */
@@ -162,7 +162,7 @@ export interface SearchAnalysis {
 }
 
 // A morphological variant of the query (plural, hyphenation, word order…),
-// each measured against its OWN real Etsy search — no interpolation from the parent.
+// each measured against its OWN real Etsy search - no interpolation from the parent.
 export interface NearMatch {
   keyword: string
   variantOf: string
@@ -177,7 +177,7 @@ export interface NearMatch {
   listingsByMonth: number[]    // real creation-month histogram
 }
 
-/** One row of the Bulk Keyword comparison. Nulls mean the probe failed — never zero. */
+/** One row of the Bulk Keyword comparison. Nulls mean the probe failed - never zero. */
 export interface BulkKeywordRow {
   keyword: string
   competition: number | null          // real total active Etsy listings
@@ -229,14 +229,14 @@ export interface ListingBenchmark {
 }
 
 // ─── Keyword Gap Analysis (features "Hidden Keyword Finder" + "Keyword Gap") ──
-// Every field is measured from the live listings that rank for the keyword — the
+// Every field is measured from the live listings that rank for the keyword - the
 // tags/title-words winners use, and (optionally) which of them your own listing
 // is missing. No estimation: adoption is a real count, engagement is real views.
 export interface GapTag {
   tag: string
   used: number          // how many of the sampled top listings carry this tag
   usedPct: number       // as a % of the sample
-  avgViews: number      // mean views of the listings using it — real
+  avgViews: number      // mean views of the listings using it - real
   yoursMissing: boolean // true when a target listing was given and lacks this tag
 }
 
@@ -256,13 +256,13 @@ export interface KeywordGap {
   targetTagCount: number | null // your listing's tag count (of 13)
   tags: GapTag[]
   titleWords: GapWord[]
-  /** Missing high-value tags — the actionable shortlist. Empty when no target given. */
+  /** Missing high-value tags - the actionable shortlist. Empty when no target given. */
   topMissingTags: GapTag[]
 }
 
 // ─── AI Improvement Suggestions + One-Click Optimization ──────────────────────
 // Gemini turns the REAL audit findings + REAL keyword-gap tags into fixes.
-// The AI writes copy only — every issue it cites comes from a measured finding.
+// The AI writes copy only - every issue it cites comes from a measured finding.
 export interface AiSuggestion {
   priority: 'high' | 'medium' | 'low'
   area: string      // which part of the listing (Title / Tags / Description / Photos…)
@@ -275,13 +275,13 @@ export interface AiOptimization {
   ai: boolean
   summary: string
   suggestions: AiSuggestion[]
-  /** One-Click Optimization output — a complete, ready-to-paste listing. */
+  /** One-Click Optimization output - a complete, ready-to-paste listing. */
   title: string
   tags: string[]              // the full recommended 13-tag set
   tagsToAdd: string[]         // tags in the new set your listing doesn't have yet
   tagsToRemove: string[]      // current tags the new set drops
   description: string
-  /** What the rewrite was grounded in — all real, measured numbers. */
+  /** What the rewrite was grounded in - all real, measured numbers. */
   grounding: {
     keyword: string
     sampled: number                              // live listings scanned (0 = scan unavailable)
@@ -292,8 +292,8 @@ export interface AiOptimization {
 // ─── Reusable AI Insights (Gemini interprets REAL measured facts) ─────────────
 // The generic engine behind every tool's "AI analysis" panel: a tool hands it a
 // list of already-measured facts (from the Etsy/Google APIs) and Gemini turns
-// them into a narrative read + actions. Gemini never produces the numbers — it
-// only interprets the ones passed in — so [[no-fabricated-data-rule]] holds.
+// them into a narrative read + actions. Gemini never produces the numbers - it
+// only interprets the ones passed in - so [[no-fabricated-data-rule]] holds.
 export interface AiFact {
   label: string
   value: string            // pre-formatted, real (e.g. "$24.00", "8.1%", "March")
@@ -316,7 +316,7 @@ export interface AiInsightsResult {
 }
 
 // ─── Real market stats derived from a live listing sample ─────────────────────
-// Everything here is measured from the listings Etsy returned — no modelling.
+// Everything here is measured from the listings Etsy returned - no modelling.
 // Prices are scoped to the sample's dominant currency (Etsy gives no FX rate).
 export interface ListingMarketStats {
   sample: number                 // listings measured
@@ -340,7 +340,7 @@ export interface ListingMarketStats {
 
 // ─── Find Hot Products (product-research database over live Etsy listings) ─────
 // Every field is measured from the Etsy API. There is NO per-listing sales or
-// revenue (Etsy doesn't publish it) — "hot" is ranked from real engagement +
+// revenue (Etsy doesn't publish it) - "hot" is ranked from real engagement +
 // how fast a listing accrues favorites for its age. See [[no-fabricated-data-rule]].
 export interface HotProduct {
   listing_id: number
@@ -352,7 +352,7 @@ export interface HotProduct {
   views: number
   favorites: number
   engagementPct: number      // favorites ÷ views, real
-  favPerDay: number | null   // favorites ÷ age in days — a real "velocity" proxy
+  favPerDay: number | null   // favorites ÷ age in days - a real "velocity" proxy
   hotScore: number           // 0–100, from engagement + favorite-velocity (all real)
   tags: string[]
   shopName: string
@@ -393,7 +393,7 @@ export interface EtsyListing {
   url: string
   shop_name: string
   state: string
-  // Optional — present on search/batch results, used by Search Results Analysis.
+  // Optional - present on search/batch results, used by Search Results Analysis.
   shop_id?: number
   taxonomy_id?: number
   created_timestamp?: number   // epoch seconds; listing age → views/day
@@ -416,7 +416,7 @@ export interface EtsyShop {
   is_vacation?: boolean
   url?: string
   // Real figures straight off the shop record. `sales` is Etsy's own
-  // transaction_sold_count — the API DOES expose this (an older comment in
+  // transaction_sold_count - the API DOES expose this (an older comment in
   // etsy.ts wrongly claimed it didn't).
   sales?: number | null
   countryIso?: string | null
@@ -442,10 +442,10 @@ export interface CountryData { country: string; percentage: number; color: strin
 
 /** One listing's real review signals: lifetime count + trailing-30-day velocity.
  *  Both are verified purchases; the per-listing sales ESTIMATE built on them lives
- *  in `salesEstimate.ts`. Nulls mean Etsy didn't answer — never 0-as-unknown. */
+ *  in `salesEstimate.ts`. Nulls mean Etsy didn't answer - never 0-as-unknown. */
 export interface ListingReviewStats { count: number | null; last30d: number | null }
 
-// The full payload /api/trends returns — saved into the shared Collective package
+// The full payload /api/trends returns - saved into the shared Collective package
 // (by Ranktsy's Bulk search) so Rankkw serves Trends + Searchers-by-Country from
 // the DB with no API calls.
 export interface TrendsPayload {
@@ -457,7 +457,7 @@ export interface TrendsPayload {
   note: string
 }
 
-// ─── Snapshots (our own history — Etsy returns state, never a series) ─────────
+// ─── Snapshots (our own history - Etsy returns state, never a series) ─────────
 // Etsy exposes a shop's LIFETIME sales total and nothing else: no per-day series,
 // no backfill. Sales velocity, "yesterday", rank history and listing-change
 // tracking are therefore only possible if we record state ourselves, daily, from
@@ -469,7 +469,7 @@ export interface IShopSnapshot {
   _id?: string
   shopId: number
   shopName: string
-  day: string              // YYYY-MM-DD (UTC) — the dedupe key
+  day: string              // YYYY-MM-DD (UTC) - the dedupe key
   sales: number | null     // transaction_sold_count at capture time
   favorers: number | null
   reviewCount: number | null
@@ -501,7 +501,7 @@ export interface ITrackedShop {
   createdAt?: Date
 }
 
-// A user's OWN connected (OAuth) Etsy shop(s) — a user can connect more than
+// A user's OWN connected (OAuth) Etsy shop(s) - a user can connect more than
 // one. Lives in its own collection (not scalar User fields) precisely so a
 // connection is never tied to session/JWT freshness and never limited to one.
 export interface IConnectedShop {
@@ -547,7 +547,7 @@ export interface UnshippedOrder {
 
 export interface OrdersInsight {
   connected: boolean
-  /** True when the caller isn't signed in at all — a different fix from "connect your shop". */
+  /** True when the caller isn't signed in at all - a different fix from "connect your shop". */
   needsAuth?: boolean
   sampled?: number
   currency?: string
@@ -581,7 +581,7 @@ export interface IKeywordHistory {
 // ─── Collective Keyword Data (shared, read-only in Rankkw) ────────────────────
 // The permanent `collectivekeyworddatas` collection is WRITTEN by Ranktsy's Bulk
 // Keyword Search (full package: enriched related + reviews + images). Rankkw's
-// single Keyword Search only READS it — if a keyword is present, it's served from
+// single Keyword Search only READS it - if a keyword is present, it's served from
 // here with no API calls; otherwise Rankkw fetches live.
 export interface ICollectiveKeywordData {
   _id?: string
@@ -597,7 +597,7 @@ export interface ICollectiveKeywordData {
 // ─── Per-user daily API usage (Rankkw admin analytics) ────────────────────────
 export interface IApiUsage {
   _id?: string
-  day: string                 // YYYY-MM-DD (UTC) — the daily bucket (resets at 00:00)
+  day: string                 // YYYY-MM-DD (UTC) - the daily bucket (resets at 00:00)
   userId: string              // user id, or 'anonymous' for logged-out searches
   userEmail?: string          // denormalized for the admin table
   etsyCalls: number
@@ -725,9 +725,9 @@ export interface ApiResponse<T> {
   error?: string
   errors?: Record<string, string>
   cached?: boolean
-  /** Set by the search rate gate — the client should prompt a reCAPTCHA and retry. */
+  /** Set by the search rate gate - the client should prompt a reCAPTCHA and retry. */
   captchaRequired?: boolean
-  /** Set when a plan quota is exhausted (HTTP 402) — client shows the upgrade modal. */
+  /** Set when a plan quota is exhausted (HTTP 402) - client shows the upgrade modal. */
   code?: 'plan_limit'
   plan?: string
   limit?: number

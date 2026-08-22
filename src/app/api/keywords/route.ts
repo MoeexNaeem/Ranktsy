@@ -13,7 +13,7 @@ import type { ApiResponse, KeywordSearchResponse } from '@/types'
 export const runtime = 'nodejs'
 
 /**
- * Keyword CORE — the fast path (~3 Etsy calls, ~1–2s).
+ * Keyword CORE - the fast path (~3 Etsy calls, ~1–2s).
  *
  * Returns everything the page needs to paint: stats, listings, search analysis
  * and the related keyword list. Related rows come back with `competition: null`

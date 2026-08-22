@@ -7,7 +7,7 @@ export const runtime = 'nodejs'
 
 const median = (a: number[]) => (a.length ? a.slice().sort((x, y) => x - y)[Math.floor((a.length - 1) / 2)] : 0)
 
-/** Percentile rank of `v` within `pool` — "you're better than X% of rivals". */
+/** Percentile rank of `v` within `pool` - "you're better than X% of rivals". */
 function percentile(pool: number[], v: number): number {
   if (!pool.length) return 50
   const below = pool.filter(x => x < v).length
@@ -64,7 +64,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Li
     const viewCounts  = rivals.map(l => l.views ?? 0)
     const favCounts   = rivals.map(l => l.num_favorers ?? 0)
 
-    // Price only within the dominant currency — Etsy mixes currencies with no
+    // Price only within the dominant currency - Etsy mixes currencies with no
     // FX rate, so a cross-currency median would be meaningless.
     const { currency, prices } = dominantCurrencyPrices(rivals)
     const yourPrice = listing.price?.amount ? listing.price.amount / (listing.price.divisor || 100) : null

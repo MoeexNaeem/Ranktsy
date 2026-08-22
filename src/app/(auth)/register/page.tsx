@@ -1,7 +1,7 @@
 import { AuthForm } from '@/components/auth/AuthForm'
 import { providerEnabled } from '@/lib/auth/oauth'
 
-export const metadata = { title: 'Create account — Rankkw' }
+export const metadata = { title: 'Create account - Rankkw' }
 // Render per-request so the OAuth buttons reflect runtime env, not a build snapshot.
 export const dynamic = 'force-dynamic'
 

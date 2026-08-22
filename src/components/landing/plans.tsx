@@ -6,7 +6,7 @@ import { CHECKOUT_PLANS } from '@/lib/plans'
 import { startCheckout } from '@/lib/checkout'
 import { PLANS, GROUPS, priceOf, noteOf, type Plan, type Cell, type Currency } from './plans-data'
 // NOTE: Plan now also carries optional `expandableHeading` / `expandableFootnote`
-// fields alongside `expandable` — see plans-data.ts. No separate import needed,
+// fields alongside `expandable` - see plans-data.ts. No separate import needed,
 // they come through on the Plan objects themselves.
 
 const MONO = "'General Sans',monospace"
@@ -36,7 +36,7 @@ function LoginRequiredModal() {
         </span>
         <h2 style={{ fontSize: 21, fontWeight: 600, color: C.ink, letterSpacing: '-0.02em', marginBottom: 8 }}>Log in to subscribe</h2>
         <p style={{ fontSize: 14.5, color: C.graphite, lineHeight: 1.6, marginBottom: 22 }}>
-          You need a Rankkw account to buy a plan. Log in or create one — it only takes a moment, then you can complete checkout.
+          You need a Rankkw account to buy a plan. Log in or create one - it only takes a moment, then you can complete checkout.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <Link href={`/login?redirect=${back}`} style={btn(C.orange, '#fff', `1px solid ${C.orange}`)}>Log in</Link>
@@ -70,7 +70,7 @@ function CheckoutCTA({ p }: { p: Plan }) {
       onClick={async () => {
         setLoading(true)
         const r = await startCheckout(p.slug)
-        // On success we're navigating to checkout — KEEP the spinner. Only stop it
+        // On success we're navigating to checkout - KEEP the spinner. Only stop it
         // if we need a login prompt or the request failed.
         if (r === 'needs_login') { setLoading(false); promptLoginRequired() }
         else if (r === 'error') setLoading(false)
@@ -80,7 +80,7 @@ function CheckoutCTA({ p }: { p: Plan }) {
   )
 }
 
-/* Geo pricing (PKR for Pakistan) is PAUSED — show USD to every country for now.
+/* Geo pricing (PKR for Pakistan) is PAUSED - show USD to every country for now.
    Flip GEO_PRICING_ENABLED back to true to re-enable it; the /api/geo route and
    the PKR overrides in plans-data are left intact so it's a one-line switch. */
 const GEO_PRICING_ENABLED = false
@@ -175,7 +175,7 @@ export function PlanCard({ p, cur }: { p: Plan; cur: Currency }) {
           ))}
         </ul>
 
-        {/* Bonus details — always visible (no toggle) when the plan defines `expandable` */}
+        {/* Bonus details - always visible (no toggle) when the plan defines `expandable` */}
         {p.expandable && p.expandable.length > 0 && (
           <div style={{
             marginTop: 18, paddingTop: 16,
@@ -285,7 +285,7 @@ export function PlanScroller({ fade }: { fade: string }) {
 /* ─── Compare table (data in ./plans-data) ──────────────────────────────────── */
 function CellView({ v }: { v: Cell }) {
   if (v === true) return <Check color="#2E7D46" />
-  if (v === false) return <span style={{ color: C.stone, fontSize: 16 }}>—</span>
+  if (v === false) return <span style={{ color: C.stone, fontSize: 16 }}>-</span>
   return <span style={{ fontSize: 13.5, fontWeight: 500, color: C.ink }}>{v}</span>
 }
 

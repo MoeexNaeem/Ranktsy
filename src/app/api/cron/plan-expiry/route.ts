@@ -6,12 +6,12 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 /**
- * Daily plan-expiry job — reverts ADMIN-GRANTED (comp) plans to free once their
+ * Daily plan-expiry job - reverts ADMIN-GRANTED (comp) plans to free once their
  * one-month gift period is over, and gives legacy comp grants a one-month clock.
  * (PAID subscriptions expire via the Lemon Squeezy webhook, not here.)
  *
  * The admin dashboard also runs this sweep on every load, and effectivePlan()
- * enforces the expiry at read time — so access is always correct even without a
+ * enforces the expiry at read time - so access is always correct even without a
  * cron. This job is the belt-and-braces for deployments that idle overnight.
  *
  * Schedule daily. On Vercel it's wired in vercel.json. Auth: set CRON_SECRET and
@@ -20,7 +20,7 @@ export const dynamic = 'force-dynamic'
 export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<unknown>>> {
   const secret = process.env.CRON_SECRET
   if (!secret) {
-    return NextResponse.json({ success: false, error: 'CRON_SECRET is not configured — refusing to run unauthenticated.' }, { status: 503 })
+    return NextResponse.json({ success: false, error: 'CRON_SECRET is not configured - refusing to run unauthenticated.' }, { status: 503 })
   }
   if (req.headers.get('authorization') !== `Bearer ${secret}`) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })

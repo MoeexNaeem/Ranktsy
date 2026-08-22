@@ -1,7 +1,7 @@
 'use client'
 import { Icon } from '@/components/ui/Icon'
 /**
- * Find Hot Products — product detail. Opens from a database row and pulls the
+ * Find Hot Products - product detail. Opens from a database row and pulls the
  * full live listing + its shop's real record, an AI read, and a per-tag analysis
  * (real competition/views/favorites/Google). Every tag and the shop are
  * clickable → they fetch fresh real data. Etsy publishes no per-listing sales, so
@@ -20,10 +20,10 @@ import type { HotProduct, EtsyListing, AiFact, ApiResponse, BulkKeywordRow } fro
 
 const HUE = ACCENT.rose   // Hot Products' accent
 
-// Always shown as $ — Etsy mixes currencies with no FX rate, and a raw amount
+// Always shown as $ - Etsy mixes currencies with no FX rate, and a raw amount
 // tagged with the wrong symbol reads worse than a consistent $ convention.
 const sym = (_c?: string) => '$'
-const fmtDate = (ts?: number | null) => ts ? new Date(ts * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '—'
+const fmtDate = (ts?: number | null) => ts ? new Date(ts * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '-'
 
 function Metric({ label, value, sub, color = C.ink }: { label: string; value: string; sub?: string; color?: string }) {
   return (
@@ -43,7 +43,7 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
   // call Date.now() during render.
   const [nowMs] = useState(() => Date.now())
 
-  // Full live listing — description, all images, quantity, taxonomy.
+  // Full live listing - description, all images, quantity, taxonomy.
   const listingQ = useQuery({
     queryKey: ['hot-listing', product.listing_id],
     queryFn: async () => (await axios.get(`/api/etsy/listing?id=${product.listing_id}`)).data.data as EtsyListing,
@@ -76,7 +76,7 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
   const shopRating = Number(shop?.review_average ?? 0)
   const shopReviews = Number(shop?.review_count ?? 0)
 
-  // Per-tag analysis — real competition/views/favorites/Google, on demand.
+  // Per-tag analysis - real competition/views/favorites/Google, on demand.
   const tagAnalysis = useMutation({
     mutationFn: async () => {
       const { data } = await axios.post<ApiResponse<BulkKeywordRow[]>>('/api/keywords/bulk', { keywords: product.tags })
@@ -104,7 +104,7 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
     return f
   }, [product, shopSales, shopRating, shopReviews, rstats, est])
 
-  // Clicking a tag seeds the Keyword tool with it and jumps there — real new data.
+  // Clicking a tag seeds the Keyword tool with it and jumps there - real new data.
   const researchTag = useCallback((tag: string) => {
     useAppStore.getState().setActiveKeyword(tag)
     onNavigate?.('keywords')
@@ -156,9 +156,9 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
             <Metric label="Views" value={formatNumber(product.views)} sub="lifetime" color={D.series[1]} />
             <Metric label="Favorites" value={formatNumber(product.favorites)} color={D.series[5]} />
             <Metric label="Engagement" value={`${product.engagementPct}%`} sub="favs ÷ views" color={D.series[4]} />
-            <Metric label="Fav / day" value={product.favPerDay != null ? String(product.favPerDay) : '—'} sub="for its age" color={HUE} />
-            <Metric label="Stock" value={listing ? formatNumber(listing.quantity ?? 0) : '—'} color={C.ink} />
-            <Metric label="Released" value={product.createdTimestamp ? fmtDate(product.createdTimestamp) : '—'} color={C.ink} />
+            <Metric label="Fav / day" value={product.favPerDay != null ? String(product.favPerDay) : '-'} sub="for its age" color={HUE} />
+            <Metric label="Stock" value={listing ? formatNumber(listing.quantity ?? 0) : '-'} color={C.ink} />
+            <Metric label="Released" value={product.createdTimestamp ? fmtDate(product.createdTimestamp) : '-'} color={C.ink} />
           </div>
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -171,23 +171,23 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
         </div>
       </div>
 
-      {/* Sales estimate — review-based, clearly labelled (Etsy publishes no per-listing sales) */}
+      {/* Sales estimate - review-based, clearly labelled (Etsy publishes no per-listing sales) */}
       <Card>
         <SectionTitle right={<span style={{ fontSize: 11, fontFamily: MONO, color: D.mid }}>estimate · from reviews</span>}>Sales estimate</SectionTitle>
         <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
-          <Metric label="Reviews" value={rstats?.count != null ? formatNumber(rstats.count) : (reviewsQ.isPending ? '…' : '—')} sub="real · units-sold floor" color={D.good} />
-          <Metric label="~ Sales / mo" value={est.estMonthlySales != null ? `~${formatNumber(est.estMonthlySales)}` : (reviewsQ.isPending ? '…' : '—')} sub={est.estMonthlySales != null ? (est.monthlyIsAverage ? 'lifetime avg' : 'recent velocity') : undefined} color={D.mid} />
-          <Metric label="~ Revenue / mo" value={est.estMonthlyRevenue != null ? `~${sym(product.currency)}${formatNumber(est.estMonthlyRevenue)}` : (reviewsQ.isPending ? '…' : '—')} sub="est · × price" color={D.mid} />
-          <Metric label="~ Total sales" value={est.estTotalSales != null ? `~${formatNumber(est.estTotalSales)}` : (reviewsQ.isPending ? '…' : '—')} sub="est · lifetime" color={D.mid} />
+          <Metric label="Reviews" value={rstats?.count != null ? formatNumber(rstats.count) : (reviewsQ.isPending ? '…' : '-')} sub="real · units-sold floor" color={D.good} />
+          <Metric label="~ Sales / mo" value={est.estMonthlySales != null ? `~${formatNumber(est.estMonthlySales)}` : (reviewsQ.isPending ? '…' : '-')} sub={est.estMonthlySales != null ? (est.monthlyIsAverage ? 'lifetime avg' : 'recent velocity') : undefined} color={D.mid} />
+          <Metric label="~ Revenue / mo" value={est.estMonthlyRevenue != null ? `~${sym(product.currency)}${formatNumber(est.estMonthlyRevenue)}` : (reviewsQ.isPending ? '…' : '-')} sub="est · × price" color={D.mid} />
+          <Metric label="~ Total sales" value={est.estTotalSales != null ? `~${formatNumber(est.estTotalSales)}` : (reviewsQ.isPending ? '…' : '-')} sub="est · lifetime" color={D.mid} />
         </div>
         <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6, marginTop: 10 }}>
           Etsy publishes no per-listing sales. These are <strong style={{ color: D.mid }}>estimates</strong>: a review is a verified purchase and
           only a fraction of buyers review, so sales ≈ reviews ÷ review-rate. <strong style={{ color: D.good }}>Reviews</strong> is the real number
-          {rstats?.last30d != null ? <> ({formatNumber(rstats.last30d)} in the last 30 days)</> : null} — treat the estimates as directional.
+          {rstats?.last30d != null ? <> ({formatNumber(rstats.last30d)} in the last 30 days)</> : null} - treat the estimates as directional.
         </p>
       </Card>
 
-      {/* Tags — clickable */}
+      {/* Tags - clickable */}
       {product.tags.length > 0 && (
         <Card>
           <SectionTitle right={<span style={{ fontSize: 11, fontFamily: MONO, color: C.stone }}>click a tag to research it</span>}>Tags</SectionTitle>
@@ -221,15 +221,15 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
                 <button key={r.keyword} onClick={() => researchTag(r.keyword)}
                   style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr 0.9fr 0.9fr 0.9fr 0.9fr', gap: 10, padding: '11px 18px', borderBottom: `1px solid ${C.hair}`, alignItems: 'center', width: '100%', background: 'transparent', border: 'none', borderBottomStyle: 'solid', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
                   <span style={{ fontSize: 13.5, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.keyword}</span>
-                  <span style={{ fontSize: 13, fontFamily: MONO, color: r.competition == null ? C.stone : r.competition > 100000 ? D.hard : r.competition > 10000 ? D.mid : D.good, textAlign: 'right' }}>{r.competition != null ? formatNumber(r.competition) : '—'}</span>
-                  <span style={{ fontSize: 13, fontFamily: MONO, color: C.graphite, textAlign: 'right' }}>{r.avgViews != null ? formatNumber(r.avgViews) : '—'}</span>
-                  <span style={{ fontSize: 13, fontFamily: MONO, color: C.graphite, textAlign: 'right' }}>{r.avgFavorites != null ? formatNumber(r.avgFavorites) : '—'}</span>
-                  <span style={{ fontSize: 13, fontFamily: MONO, color: C.graphite, textAlign: 'right' }}>{r.favPerView != null ? `${r.favPerView}%` : '—'}</span>
-                  <span style={{ fontSize: 13, fontFamily: MONO, color: r.googleSearches != null ? C.ink : C.stone, textAlign: 'right' }}>{r.googleSearches != null ? formatNumber(r.googleSearches) : '—'}</span>
+                  <span style={{ fontSize: 13, fontFamily: MONO, color: r.competition == null ? C.stone : r.competition > 100000 ? D.hard : r.competition > 10000 ? D.mid : D.good, textAlign: 'right' }}>{r.competition != null ? formatNumber(r.competition) : '-'}</span>
+                  <span style={{ fontSize: 13, fontFamily: MONO, color: C.graphite, textAlign: 'right' }}>{r.avgViews != null ? formatNumber(r.avgViews) : '-'}</span>
+                  <span style={{ fontSize: 13, fontFamily: MONO, color: C.graphite, textAlign: 'right' }}>{r.avgFavorites != null ? formatNumber(r.avgFavorites) : '-'}</span>
+                  <span style={{ fontSize: 13, fontFamily: MONO, color: C.graphite, textAlign: 'right' }}>{r.favPerView != null ? `${r.favPerView}%` : '-'}</span>
+                  <span style={{ fontSize: 13, fontFamily: MONO, color: r.googleSearches != null ? C.ink : C.stone, textAlign: 'right' }}>{r.googleSearches != null ? formatNumber(r.googleSearches) : '-'}</span>
                 </button>
               ))}
               <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6, padding: '12px 18px' }}>
-                Competition = real live-listing count per tag. Views/favorites are the real averages of the listings ranking for it. Search/mo is real search volume when connected. No sales column — Etsy publishes none per listing.
+                Competition = real live-listing count per tag. Views/favorites are the real averages of the listings ranking for it. Search/mo is real search volume when connected. No sales column - Etsy publishes none per listing.
               </p>
             </>
           )}
@@ -242,9 +242,9 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           <span style={{ width: 46, height: 46, borderRadius: 12, background: withAlpha(HUE, 0.12), color: HUE, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name="store" size={22} color={HUE} /></span>
           <div style={{ flex: 1, minWidth: 180 }}>
-            <p style={{ fontSize: 15.5, fontWeight: 600, color: C.ink }}>{product.shopName || '—'}</p>
+            <p style={{ fontSize: 15.5, fontWeight: 600, color: C.ink }}>{product.shopName || '-'}</p>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 4, fontSize: 13, color: C.graphite }}>
-              <span><strong style={{ color: D.good }}>{shopSales != null ? formatNumber(shopSales) : '—'}</strong> lifetime sales</span>
+              <span><strong style={{ color: D.good }}>{shopSales != null ? formatNumber(shopSales) : '-'}</strong> lifetime sales</span>
               {shopReviews > 0 && <span>★ {shopRating.toFixed(2)} ({formatNumber(shopReviews)})</span>}
               {shop?.listing_active_count != null && <span>{formatNumber(Number(shop.listing_active_count))} listings</span>}
             </div>
@@ -262,7 +262,7 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
           tool="Hot Product"
           subject={product.title.slice(0, 60)}
           facts={aiFacts}
-          notes="Views/favorites/engagement and shop lifetime sales are real, measured measurements. Etsy publishes no per-listing sales, so any 'Est. monthly sales/revenue' here are ESTIMATES derived from the listing's review count and velocity (sales ≈ reviews ÷ review-rate) — label them as estimates and never state them as exact. Interpret why this product is 'hot' (favorite-velocity + engagement) and what a seller entering this niche should learn."
+          notes="Views/favorites/engagement and shop lifetime sales are real, measured measurements. Etsy publishes no per-listing sales, so any 'Est. monthly sales/revenue' here are ESTIMATES derived from the listing's review count and velocity (sales ≈ reviews ÷ review-rate) - label them as estimates and never state them as exact. Interpret why this product is 'hot' (favorite-velocity + engagement) and what a seller entering this niche should learn."
         />
       )}
 

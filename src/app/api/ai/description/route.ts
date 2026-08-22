@@ -14,12 +14,12 @@ export const POST = withApiGuard(postHandler, { limit: 20, windowMs: 60_000 })
 // Three deliberately different angles so the user gets real variety to choose from,
 // not three near-identical rewrites. Generated in parallel (latency ≈ one call).
 const VARIANTS: { angle: string; temperature: number }[] = [
-  { angle: 'Benefit-led & persuasive — open on the transformation/outcome the buyer gets; confident and conversion-focused.', temperature: 0.75 },
-  { angle: 'Warm & story-driven — open with a relatable scenario or gifting moment; friendly and emotive, but still concise and scannable.', temperature: 0.9 },
-  { angle: 'Crisp & scannable — short sentences, heavier on bullets and clear structure, minimal fluff, straight to the value.', temperature: 1.0 },
+  { angle: 'Benefit-led & persuasive - open on the transformation/outcome the buyer gets; confident and conversion-focused.', temperature: 0.75 },
+  { angle: 'Warm & story-driven - open with a relatable scenario or gifting moment; friendly and emotive, but still concise and scannable.', temperature: 0.9 },
+  { angle: 'Crisp & scannable - short sentences, heavier on bullets and clear structure, minimal fluff, straight to the value.', temperature: 1.0 },
 ]
 
-/** AI Description generator — three full Etsy-ready descriptions, grounded in real data. */
+/** AI Description generator - three full Etsy-ready descriptions, grounded in real data. */
 async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<AiDescResult[]>>> {
   const body = await req.json().catch(() => ({})) as {
     q?: string; productName?: string; productType?: string; audience?: string; features?: string; geo?: string
@@ -44,7 +44,7 @@ async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<A
     const settled = await Promise.all(VARIANTS.map(v =>
       geminiJSON<AiDescResult>({
         system: DESC_SYSTEM,
-        prompt: `${basePrompt}\n\nVARIANT ANGLE: ${v.angle}\nMake this version DISTINCT from the other versions — vary the opening, the structure emphasis and the wording; do not reuse the same sentences.`,
+        prompt: `${basePrompt}\n\nVARIANT ANGLE: ${v.angle}\nMake this version DISTINCT from the other versions - vary the opening, the structure emphasis and the wording; do not reuse the same sentences.`,
         schema: DESC_SCHEMA, temperature: v.temperature, maxOutputTokens: 8192,
       }, meta).catch(() => null)
     ))

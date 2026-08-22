@@ -6,7 +6,7 @@ import { MONO } from './kit'
 /**
  * Lightweight Markdown renderer shared by the AI description surfaces
  * (Description Gen + Etsy Listing Pro) so a generated description looks the
- * same everywhere — real headings, bullets, numbered steps and bold, instead
+ * same everywhere - real headings, bullets, numbered steps and bold, instead
  * of raw `## Heading` / `- bullet` text. Deliberately tiny: it only handles
  * the subset the AI actually emits.
  */

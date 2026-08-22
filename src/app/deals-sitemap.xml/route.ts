@@ -7,7 +7,7 @@ import type { IDeal } from '@/types'
 export const revalidate = 600
 
 // One <url> per published deal (/deals/<slug>). Referenced by /sitemap.xml so the
-// public deal pages are discoverable — they were live but missing from every map.
+// public deal pages are discoverable - they were live but missing from every map.
 export async function GET() {
   let deals: IDeal[] = []
   try {

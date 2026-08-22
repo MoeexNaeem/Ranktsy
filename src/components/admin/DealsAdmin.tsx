@@ -138,8 +138,8 @@ export function DealsAdmin() {
               <div key={d._id} style={tableRow(GRID)}>
                 <span style={{ fontSize: 13.5, color: C.ink, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.title}</span>
                 <span><span style={{ fontSize: 11.5, fontFamily: MONO, padding: '3px 9px', borderRadius: 100, background: d.status === 'published' ? 'rgba(46,125,70,0.13)' : C.bone, color: d.status === 'published' ? '#2E7D46' : C.graphite }}>{d.status}</span></span>
-                <span style={{ fontSize: 12.5, color: C.graphite, fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.ctaPlan ? `plan: ${d.ctaPlan}` : d.ctaUrl ? 'url' : '—'}</span>
-                <span style={{ fontSize: 13, color: C.graphite }}>{d.badge || '—'}</span>
+                <span style={{ fontSize: 12.5, color: C.graphite, fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.ctaPlan ? `plan: ${d.ctaPlan}` : d.ctaUrl ? 'url' : '-'}</span>
+                <span style={{ fontSize: 13, color: C.graphite }}>{d.badge || '-'}</span>
                 <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <button onClick={() => startEdit(d._id)} style={chip}>Edit</button>
                   {d.status === 'published' && <a href={`/deals/${d.slug}`} target="_blank" rel="noreferrer" style={{ ...chip, textDecoration: 'none' }}>View</a>}
@@ -171,9 +171,9 @@ export function DealsAdmin() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <Card>
             <label style={label}>Title *</label>
-            <input style={{ ...field, fontSize: 18, fontWeight: 500 }} value={title} onChange={e => onTitle(e.target.value)} placeholder="Pro · 1-Year — Best Value" />
+            <input style={{ ...field, fontSize: 18, fontWeight: 500 }} value={title} onChange={e => onTitle(e.target.value)} placeholder="Pro · 1-Year - Best Value" />
             <div style={{ marginTop: 12 }}>
-              <label style={label}>Slug — /deals/<span style={{ color: C.orange }}>{slug || 'your-deal'}</span></label>
+              <label style={label}>Slug - /deals/<span style={{ color: C.orange }}>{slug || 'your-deal'}</span></label>
               <input style={field} value={slug} onChange={e => { setSlugTouched(true); setSlug(slugifyTitle(e.target.value)) }} placeholder="pro-1-year-plan" />
             </div>
           </Card>
@@ -224,7 +224,7 @@ export function DealsAdmin() {
             <input style={field} value={ctaLabel} onChange={e => setCtaLabel(e.target.value)} placeholder="Get 1-Year Plan" />
             <label style={{ ...label, marginTop: 12 }}>Checkout plan (Lemon Squeezy)</label>
             <select style={{ ...field, cursor: 'pointer' }} value={ctaPlan} onChange={e => setCtaPlan(e.target.value)}>
-              {PLAN_OPTIONS.map(pl => <option key={pl} value={pl}>{pl || '— none (use URL below) —'}</option>)}
+              {PLAN_OPTIONS.map(pl => <option key={pl} value={pl}>{pl || '- none (use URL below) -'}</option>)}
             </select>
             <label style={{ ...label, marginTop: 12 }}>…or direct URL (used only if no plan)</label>
             <input style={field} value={ctaUrl} onChange={e => setCtaUrl(e.target.value)} placeholder="https://…" />

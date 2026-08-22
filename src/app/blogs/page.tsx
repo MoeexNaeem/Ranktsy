@@ -12,8 +12,8 @@ export const revalidate = 60
 const SANS = "'General Sans',sans-serif"
 
 export const metadata: Metadata = {
-  title: 'Blog — Etsy SEO tips, guides & data | Rankkw',
-  description: 'Practical Etsy SEO guides, keyword-research tips and seller strategies from Rankkw — grounded in real Etsy & Google data.',
+  title: 'Blog - Etsy SEO tips, guides & data | Rankkw',
+  description: 'Practical Etsy SEO guides, keyword-research tips and seller strategies from Rankkw - grounded in real Etsy & Google data.',
   alternates: { canonical: abs('/blogs') },
   openGraph: { title: 'Rankkw Blog', description: 'Etsy SEO guides and seller strategies.', url: abs('/blogs'), type: 'website' },
 }
@@ -55,7 +55,7 @@ export default async function BlogIndex() {
             {posts.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 20px', color: C.graphite }}>
                 <p style={{ fontSize: 18, fontWeight: 500, color: C.ink, marginBottom: 6 }}>No articles yet</p>
-                <p style={{ fontSize: 15 }}>New Etsy SEO guides are on the way — check back soon.</p>
+                <p style={{ fontSize: 15 }}>New Etsy SEO guides are on the way - check back soon.</p>
               </div>
             ) : (
               <>

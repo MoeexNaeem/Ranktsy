@@ -5,14 +5,14 @@ import { refreshEtsyToken, type EtsyTokenResponse } from '@/lib/etsy-oauth'
 import { singleFlight } from '@/lib/concurrency'
 
 /**
- * A user's connected Etsy shop(s) — always read fresh from the ConnectedShop
+ * A user's connected Etsy shop(s) - always read fresh from the ConnectedShop
  * collection, never cached on the session/JWT. That's what makes a connection
  * survive logout and last until the user explicitly disconnects it, and what
  * lets a user connect more than one shop (each a separate row, upserted by
  * (userId, shopId) so connecting shop #2 never disturbs shop #1).
  */
 
-/** One-time migration off the old single-shop User fields, the first time this user's shops are read. Safe to call repeatedly — a no-op once migrated. */
+/** One-time migration off the old single-shop User fields, the first time this user's shops are read. Safe to call repeatedly - a no-op once migrated. */
 async function migrateLegacyShop(userId: string): Promise<void> {
   const u = await User.findById(userId).select('+etsyAccessToken +etsyRefreshToken etsyTokenExpiry etsyShopId').lean()
   if (!u?.etsyShopId || !u.etsyAccessToken || !u.etsyRefreshToken) return
@@ -30,7 +30,7 @@ async function migrateLegacyShop(userId: string): Promise<void> {
   await User.findByIdAndUpdate(userId, { $unset: { etsyShopId: '', etsyAccessToken: '', etsyRefreshToken: '', etsyTokenExpiry: '' } })
 }
 
-/** Persist a fresh token set (encrypted) for one connected shop. Upserts by (userId, shopId) — connecting an additional shop never touches the others. */
+/** Persist a fresh token set (encrypted) for one connected shop. Upserts by (userId, shopId) - connecting an additional shop never touches the others. */
 export async function saveEtsyTokens(userId: string, tokens: EtsyTokenResponse, shopId: number | string, shopName: string) {
   await connectDB()
   await ConnectedShop.findOneAndUpdate(
@@ -57,7 +57,7 @@ export async function listConnectedShops(userId: string): Promise<ConnectedShopI
   return rows.map(r => ({ shopId: r.shopId, shopName: r.shopName, connectedAt: r.createdAt ?? new Date() }))
 }
 
-/** Disconnect ONE shop — the others (if any) are untouched. */
+/** Disconnect ONE shop - the others (if any) are untouched. */
 export async function clearEtsyTokens(userId: string, shopId: string | number): Promise<void> {
   await connectDB()
   await ConnectedShop.deleteOne({ userId, shopId: String(shopId) })
@@ -89,7 +89,7 @@ export async function getValidEtsyAuth(userId: string, shopId?: string | number)
     if (access) return { accessToken: access, shopId: numericShopId }
   }
 
-  // Refresh. Etsy ROTATES refresh tokens (each one is single-use — refreshing
+  // Refresh. Etsy ROTATES refresh tokens (each one is single-use - refreshing
   // invalidates it and returns a new one), so two concurrent requests for the
   // same shop must NOT both refresh with the same stored token: the first would
   // succeed and the second would 400 on an already-spent token, intermittently

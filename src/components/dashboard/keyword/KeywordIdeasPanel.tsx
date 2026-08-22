@@ -7,7 +7,7 @@ import { C, D, formatNumber } from '@/utils'
 import type { KeywordIdea } from '@/types'
 
 // Google's advertiser-competition band → semantic colour. LOW competition to
-// advertise usually flags an under-served buyer intent — an opening for a seller.
+// advertise usually flags an under-served buyer intent - an opening for a seller.
 const GCOMP: Record<string, { fg: string; bg: string; label: string }> = {
   LOW:    { fg: D.good, bg: D.goodBg, label: 'Low' },
   MEDIUM: { fg: D.mid,  bg: D.midBg,  label: 'Med' },
@@ -20,14 +20,14 @@ function fmtCpc(low: number | null, high: number | null, cur?: string | null): s
   const f = (n: number) => (n >= 100 ? Math.round(n).toLocaleString() : n.toFixed(2))
   if (low != null && high != null) return `${sym}${f(low)}–${sym}${f(high)}`
   const one = low ?? high
-  return one != null ? `${sym}${f(one)}` : '—'
+  return one != null ? `${sym}${f(one)}` : '-'
 }
 
 const GRID = '24px 2fr 0.9fr 0.85fr 1fr'
 
 function CompPill({ band, index }: { band: string; index: number | null }) {
   const g = GCOMP[band]
-  if (!g) return <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.stone }}>—</span>
+  if (!g) return <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.stone }}>-</span>
   return (
     <span title={index != null ? `Google advertiser-competition index ${index}/100` : 'Google advertiser competition'}
       style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 100, background: g.bg, color: g.fg, fontSize: 12.5, fontFamily: MONO, fontWeight: 600, width: 'fit-content', cursor: 'help' }}>
@@ -51,7 +51,7 @@ export const KeywordIdeasPanel = memo(function KeywordIdeasPanel({
   const { isFavorite, toggle } = useFavorites()
   const [sort, setSort] = useState<'searches' | 'competition'>('searches')
 
-  // "Openings" — real demand (volume) with low advertiser competition. The exact
+  // "Openings" - real demand (volume) with low advertiser competition. The exact
   // signal a seller wants: people are searching, few are bidding.
   const openings = useMemo(
     () => ideas.filter(i => i.competition === 'LOW' && i.searches >= 100).length,
@@ -84,7 +84,7 @@ export const KeywordIdeasPanel = memo(function KeywordIdeasPanel({
         Google Keyword Ideas
       </SectionTitle>
       <p style={{ fontSize: 13, color: C.graphite, lineHeight: 1.6, marginTop: -8, marginBottom: 14 }}>
-        Keywords <strong style={{ color: C.ink }}>Google itself suggests</strong> for &ldquo;{seed}&rdquo; — genuine
+        Keywords <strong style={{ color: C.ink }}>Google itself suggests</strong> for &ldquo;{seed}&rdquo; - genuine
         discovery beyond your Etsy tags. Rows with real search volume and{' '}
         <strong style={{ color: D.good }}>low advertiser competition</strong> are the openings.
       </p>
@@ -97,7 +97,7 @@ export const KeywordIdeasPanel = memo(function KeywordIdeasPanel({
         </div>
       ) : !configured ? (
         <EmptyState icon="🔌" title="Keyword ideas appear when search data is available"
-          sub="Real keyword suggestions — with volume, competition and CPC — appear here when search data is available." />
+          sub="Real keyword suggestions - with volume, competition and CPC - appear here when search data is available." />
       ) : !ideas.length ? (
         <EmptyState icon="💡" title="No keyword ideas returned" sub={`Google had no suggestions for “${seed}”. Try a broader seed keyword.`} />
       ) : (

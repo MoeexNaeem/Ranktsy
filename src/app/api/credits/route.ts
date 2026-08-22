@@ -3,7 +3,7 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { connectDB } from '@/lib/db'
 import { getCreditState } from '@/lib/credits'
 
-// The signed-in user's current daily credit balance — read fresh from the DB
+// The signed-in user's current daily credit balance - read fresh from the DB
 // (reflects a just-purchased upgrade or a midnight reset). Powers the dashboard
 // top-bar credits pill.
 export const runtime = 'nodejs'

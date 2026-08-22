@@ -11,7 +11,7 @@ import type { EtsyListing, ListingReviewStats } from '@/types'
 
 // Real columns are exact Etsy fields (or a ratio of two): Age, Views, Favs/View,
 // Hearts, Reviews, Price, Qty… The Est. Sales / Revenue columns are the Everbee-
-// style ESTIMATES — Etsy publishes no per-listing sales, so they're derived from
+// style ESTIMATES - Etsy publishes no per-listing sales, so they're derived from
 // review count + 30-day review velocity ÷ a review rate (see salesEstimate.ts) and
 // clearly badged "~ est". Never presented as real, measured sales.
 
@@ -55,7 +55,7 @@ const ALL_COLS: Col[] = [
 ]
 const DEFAULT_HIDDEN = new Set(['fpd', 'rev30'])
 
-// Sort indicators — mirror the Keyword table: an active column shows a single
+// Sort indicators - mirror the Keyword table: an active column shows a single
 // caret (asc/desc); every other sortable column shows a faint up+down pair so the
 // little "sortable" arrows are visible on all columns, not just the active one.
 const AscIcon  = () => <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15" /></svg>
@@ -74,7 +74,7 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
   const [expanded, setExpanded] = useState<Set<number>>(new Set())
   const [allTags, setAllTags] = useState(false)
   const [detail, setDetail] = useState<Row | null>(null)
-  // Captured once at mount (lazy init) — keeps age stable across re-renders and
+  // Captured once at mount (lazy init) - keeps age stable across re-renders and
   // avoids calling Date.now() during render.
   const [nowSec] = useState(() => Date.now() / 1000)
 
@@ -96,7 +96,7 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
   // Real per-listing review stats (count = a verified sold-floor; last30d = recent
   // velocity). When the listings come from the shared Collective store they already
   // carry `review_count`, so use those (velocity unknown → null) and skip the network.
-  // Otherwise fetch lazily (capped to the top rows — each id is its own Etsy call).
+  // Otherwise fetch lazily (capped to the top rows - each id is its own Etsy call).
   const storedReviews = useMemo(() => {
     const m: Record<number, ListingReviewStats> = {}
     let has = false
@@ -113,7 +113,7 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
 
   // Everbee-style per-listing sales ESTIMATE, from review count + 30-day velocity ÷
   // a review rate. Recomputed as review stats arrive. estimateListingSales returns
-  // all-null when there's no review data yet, so cells read "—" until then.
+  // all-null when there's no review data yet, so cells read "-" until then.
   const estimates = useMemo(() => {
     const m: Record<number, ListingSalesEstimate> = {}
     for (const r of rows) {
@@ -191,15 +191,15 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
 
   const num = (v: number | null, opts?: { digits?: number; color?: string; suffix?: string }) =>
     v == null
-      ? <span style={{ fontFamily: MONO, fontSize: 17.5, color: C.stone }}>—</span>
+      ? <span style={{ fontFamily: MONO, fontSize: 17.5, color: C.stone }}>-</span>
       : <span style={{ fontFamily: MONO, fontSize: 17.5, color: opts?.color ?? C.ink }}>{opts?.digits != null ? v.toFixed(opts.digits) : formatNumber(v)}{opts?.suffix ?? ''}</span>
 
   // Estimate cell: a "~" prefix + amber tone flag it as a modelled figure, never a
   // real, measured number. `prefix` carries a currency symbol for the revenue column.
   const estNum = (v: number | null, loading: boolean, prefix = '') => {
     if (v == null && loading) return <span className="shimmer" style={{ height: 15, width: 46, borderRadius: 4, background: '#e8e7e2', display: 'inline-block' }} />
-    if (v == null) return <span style={{ fontFamily: MONO, fontSize: 17.5, color: C.stone }}>—</span>
-    return <span style={{ fontFamily: MONO, fontSize: 17.5, color: D.mid, fontWeight: 600 }} title="Estimated — from review count & velocity, not real, measured sales">~{prefix}{formatNumber(v)}</span>
+    if (v == null) return <span style={{ fontFamily: MONO, fontSize: 17.5, color: C.stone }}>-</span>
+    return <span style={{ fontFamily: MONO, fontSize: 17.5, color: D.mid, fontWeight: 600 }} title="Estimated - from review count & velocity, not real, measured sales">~{prefix}{formatNumber(v)}</span>
   }
 
   const cell = (c: Col, r: Row) => {
@@ -215,7 +215,7 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
               ? <img src={r.l.images[0].url_75x75} alt="" style={{ width: 60, height: 60, borderRadius: 11, objectFit: 'cover', flexShrink: 0, background: C.bone }} />
               : <div style={{ width: 60, height: 60, borderRadius: 11, background: C.bone, flexShrink: 0 }} />}
             <div style={{ minWidth: 0 }}>
-              {/* Title opens the in-app detail panel (NOT Etsy) — the row click does
+              {/* Title opens the in-app detail panel (NOT Etsy) - the row click does
                   the same; only "See on Etsy" below leaves the app. */}
               <span title="Click for full details"
                 style={{ display: 'block', fontSize: 17.5, color: C.ink, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3, cursor: 'pointer' }}
@@ -263,13 +263,13 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
       case 'fpd':    return <span key={c.id}>{num(r.favsPerDay, { digits: 2 })}</span>
       case 'price': {
         // Show price in USD when a live rate is available (else the listing's own
-        // currency — never a guessed conversion).
+        // currency - never a guessed conversion).
         const rate = usdRates?.[(r.l.price.currency_code ?? 'USD').toUpperCase()]
         const usd = rate != null ? r.price * rate : null
         return <span key={c.id} style={{ fontFamily: MONO, fontSize: 17.5, color: C.orange, fontWeight: 600 }}>{usd != null ? `$${usd.toFixed(2)}` : `${sym(r.l.price.currency_code)}${r.price.toFixed(2)}`}</span>
       }
       case 'qty':    return <span key={c.id}>{num(r.l.quantity ?? null)}</span>
-      case 'ships':  return <span key={c.id} style={{ fontFamily: MONO, fontSize: 17.5, color: (r.l.processing_min != null || r.l.processing_max != null) ? C.ink : C.stone }}>{r.l.processing_min != null && r.l.processing_max != null ? `${r.l.processing_min}–${r.l.processing_max}` : (r.l.processing_min ?? r.l.processing_max ?? '—')}</span>
+      case 'ships':  return <span key={c.id} style={{ fontFamily: MONO, fontSize: 17.5, color: (r.l.processing_min != null || r.l.processing_max != null) ? C.ink : C.stone }}>{r.l.processing_min != null && r.l.processing_max != null ? `${r.l.processing_min}–${r.l.processing_max}` : (r.l.processing_min ?? r.l.processing_max ?? '-')}</span>
       case 'tags':   return <span key={c.id} style={{ fontFamily: MONO, fontSize: 17.5, color: (r.l.tags?.length ?? 0) > 0 ? C.ink : C.stone }}>{r.l.tags?.length ?? 0}</span>
       default:       return <span key={c.id} />
     }
@@ -311,13 +311,13 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
         <ExportBtn onClick={exportCsv} />
       </div>
 
-      {/* Top-mounted horizontal scrollbar — mirrors the table's scroll so the
+      {/* Top-mounted horizontal scrollbar - mirrors the table's scroll so the
           control is visible at the TOP, not hidden at the bottom of a long table. */}
       <div ref={topRef} onScroll={onTopScroll} className="rtable-topscroll" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
         <div style={{ width: minTableW, height: 1 }} />
       </div>
 
-      {/* Table — scrolls horizontally when the columns need more room than the
+      {/* Table - scrolls horizontally when the columns need more room than the
           container has; its own bottom bar is hidden (the top strip drives it). */}
       <div ref={tableRef} onScroll={onTableScroll} className="rtable rtable-hidescroll" style={{ ...tableCard, overflowX: 'auto' }}>
         {/* Header */}
@@ -389,14 +389,14 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
         <span style={{ fontSize: 12.5, fontFamily: MONO, color: C.graphite }}>{view.length} listing{view.length === 1 ? '' : 's'}</span>
         <span style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.5, textAlign: 'right', maxWidth: 680 }}>
           Real columns are exact live fields or a ratio of two (Views/day = views ÷ age; Favs/View = hearts ÷ views).
-          <strong style={{ color: C.graphite }}> Reviews</strong> is the real review count — a verified <em>units-sold floor</em>.
-          The <strong style={{ color: D.mid }}>~ Sales / Revenue / Total</strong> columns are <em>estimates</em> — modelled from the
+          <strong style={{ color: C.graphite }}> Reviews</strong> is the real review count - a verified <em>units-sold floor</em>.
+          The <strong style={{ color: D.mid }}>~ Sales / Revenue / Total</strong> columns are <em>estimates</em> - modelled from the
           strongest real signal (reviews, views × conversion, or favorites), since Etsy publishes no per-listing sales.
           Directional, not exact. Click a row for the full breakdown.
         </span>
       </div>
 
-      {/* In-app detail drawer — opened by clicking a row/title (NOT Etsy). */}
+      {/* In-app detail drawer - opened by clicking a row/title (NOT Etsy). */}
       <ListingDetailPanel
         row={detail}
         reviewStats={detail ? (reviews?.[detail.l.listing_id] ?? null) : null}

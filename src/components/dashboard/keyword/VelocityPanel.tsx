@@ -46,14 +46,14 @@ function Metric({ label, value, sub, color = C.ink }: { label: string; value: st
  *
  * The honest part: Etsy publishes a lifetime total and no series, and history
  * can't be backfilled. Before there are two days of snapshots there is no
- * velocity — so this renders a "tracking started" state rather than a zero,
+ * velocity - so this renders a "tracking started" state rather than a zero,
  * which would read as "this shop sold nothing".
  */
 export const VelocityPanel = memo(function VelocityPanel({
   shopId, shopName,
 }: { shopId: number; shopName: string }) {
   const [days, setDays] = useState(30)
-  const [nowMs] = useState(() => Date.now())  // captured once — avoids Date.now() during render
+  const [nowMs] = useState(() => Date.now())  // captured once - avoids Date.now() during render
   // Fetch the full 90-day window so the summary metrics (last 7 / last 30) stay
   // accurate; the range toggle slices only the CHART, client-side, so switching
   // ranges is instant and never re-queries.
@@ -103,11 +103,11 @@ export const VelocityPanel = memo(function VelocityPanel({
       {hasVelocity ? (
         <>
           <div className="rwrap-sm" style={{ display: 'flex', flexWrap: 'wrap', gap: '18px 0', marginBottom: 18 }}>
-            <Metric label="Sold yesterday" value={v.soldYesterday != null ? formatNumber(v.soldYesterday) : '—'} color={D.good} sub="units" />
-            <Metric label="Last 7 days" value={v.soldLast7 != null ? formatNumber(v.soldLast7) : '—'} color={D.good} sub="units" />
-            <Metric label="Last 30 days" value={v.soldLast30 != null ? formatNumber(v.soldLast30) : '—'} color="#2E6DB4" sub="units" />
-            <Metric label="Avg / day" value={v.avgPerDay != null ? String(v.avgPerDay) : '—'} sub="across tracked days" />
-            <Metric label="Lifetime" value={v.latestSales != null ? formatNumber(v.latestSales) : '—'} sub="total sales" />
+            <Metric label="Sold yesterday" value={v.soldYesterday != null ? formatNumber(v.soldYesterday) : '-'} color={D.good} sub="units" />
+            <Metric label="Last 7 days" value={v.soldLast7 != null ? formatNumber(v.soldLast7) : '-'} color={D.good} sub="units" />
+            <Metric label="Last 30 days" value={v.soldLast30 != null ? formatNumber(v.soldLast30) : '-'} color="#2E6DB4" sub="units" />
+            <Metric label="Avg / day" value={v.avgPerDay != null ? String(v.avgPerDay) : '-'} sub="across tracked days" />
+            <Metric label="Lifetime" value={v.latestSales != null ? formatNumber(v.latestSales) : '-'} sub="total sales" />
           </div>
           <BarChart labels={chart.labels} values={chart.values} colors={chart.colors} height={210} />
           <p style={{ fontSize: 11.5, color: C.stone, marginTop: 8, lineHeight: 1.55 }}>
@@ -120,12 +120,12 @@ export const VelocityPanel = memo(function VelocityPanel({
           <span style={{ display: 'flex', flexShrink: 0 }}><Icon name="chart" size={17} color={C.ink} /></span>
           <div>
             <p style={{ fontSize: 14, fontWeight: 500, color: C.ink, marginBottom: 5 }}>
-              Tracking started {v.trackedSince ? fmtDay(v.trackedSince) : 'today'} — no velocity yet
+              Tracking started {v.trackedSince ? fmtDay(v.trackedSince) : 'today'} - no velocity yet
             </p>
             <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.6, maxWidth: 620 }}>
               Etsy publishes a shop&apos;s <strong>lifetime</strong>{' '}sales total and no history, and it can&apos;t be
               backfilled. We now record this shop daily, so units-sold-per-day appears from
-              tomorrow. Lifetime sales so far: <strong style={{ color: D.good }}>{v.latestSales != null ? formatNumber(v.latestSales) : '—'}</strong>.
+              tomorrow. Lifetime sales so far: <strong style={{ color: D.good }}>{v.latestSales != null ? formatNumber(v.latestSales) : '-'}</strong>.
             </p>
           </div>
         </div>

@@ -4,7 +4,7 @@ import { startCheckout } from '@/lib/checkout'
 
 /**
  * A deal's call-to-action. When `plan` is set it starts a Lemon Squeezy
- * checkout for that plan (the same flow the pricing page uses) — sending the
+ * checkout for that plan (the same flow the pricing page uses) - sending the
  * buyer straight to the hosted checkout. If the visitor isn't logged in we
  * bounce them to login and return here. When no `plan` is given it's a plain
  * link to `url`.
@@ -31,7 +31,7 @@ export function DealCta({ plan, url, label, style }: { plan?: string; url?: stri
           } else if (r === 'error') {
             setLoading(false)
           }
-          // On 'redirecting' we're leaving the page — keep the spinner.
+          // On 'redirecting' we're leaving the page - keep the spinner.
         }}>
         {loading ? 'Starting checkout…' : label}
       </button>

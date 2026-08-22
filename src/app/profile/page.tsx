@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { Navbar } from '@/components/landing/Navbar'
 import { Card } from '@/components/dashboard/kit'
+import { NavButton } from '@/components/ui/NavButton'
 import { C } from '@/utils'
 
 const MONO = "'General Sans',monospace"
@@ -15,7 +16,7 @@ interface Profile {
 const label: React.CSSProperties = { display: 'block', fontSize: 11, fontFamily: MONO, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6E6E64', marginBottom: 8 }
 const input: React.CSSProperties = { width: '100%', background: C.canvas, border: `1px solid ${C.hair}`, borderRadius: 8, padding: '11px 14px', fontSize: 14, fontFamily: 'inherit', outline: 'none', color: '#1a1a1a', boxSizing: 'border-box' }
 const btn: React.CSSProperties = { background: C.orange, color: '#fff', border: 'none', borderRadius: 28, padding: '11px 22px', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }
-const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : '—'
+const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : '-'
 
 function Pill({ children, tone = 'neutral' }: { children: React.ReactNode; tone?: 'neutral' | 'orange' | 'green' }) {
   const map = { neutral: { bg: C.bone, c: C.ink }, orange: { bg: C.orangeFaint, c: C.orange }, green: { bg: C.successBg, c: C.success } }[tone]
@@ -110,8 +111,8 @@ export default function ProfilePage() {
                   </div>
                 </div>
                 <div className="rfull-sm rwrap-sm" style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
-                  {p.role === 'admin' && <Link href="/admin" style={{ ...btn, background: C.ink, textDecoration: 'none' }}>Admin →</Link>}
-                  <Link href="/dashboard" style={{ ...btn, background: 'transparent', color: C.ink, border: `1px solid ${C.hairInk}`, textDecoration: 'none' }}>Dashboard →</Link>
+                  {p.role === 'admin' && <NavButton href="/admin" spinnerColor="#fff" style={{ ...btn, background: C.ink }}>Admin →</NavButton>}
+                  <NavButton href="/dashboard" spinnerColor={C.ink} style={{ ...btn, background: 'transparent', color: C.ink, border: `1px solid ${C.hairInk}` }}>Dashboard →</NavButton>
                 </div>
               </div>
 
@@ -137,7 +138,7 @@ export default function ProfilePage() {
                     <h3 style={{ fontSize: 15, fontWeight: 500, color: C.ink, marginBottom: 12 }}>Your plan</h3>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                       <Pill tone="orange">{p.plan} plan</Pill>
-                      <Link href="/pricing" style={{ ...btn, padding: '9px 18px', fontSize: 13.5, textDecoration: 'none' }}>Upgrade plan →</Link>
+                      <NavButton href="/pricing" spinnerColor="#fff" style={{ ...btn, padding: '9px 18px', fontSize: 13.5 }}>Upgrade plan →</NavButton>
                     </div>
                   </Card>
 

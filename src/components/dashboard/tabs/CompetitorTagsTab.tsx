@@ -38,7 +38,7 @@ export function CompetitorTagsTab() {
       .map(([tag, d]) => ({ tag, count: d.c, avgViews: Math.round(d.v / d.c), avgFavs: Math.round(d.f / d.c) }))
   }, [data])
 
-  // Real facts for the AI tag-strategy read — every figure measured from the
+  // Real facts for the AI tag-strategy read - every figure measured from the
   // shop's active listings. Gemini interprets the strategy; it invents nothing.
   const aiFacts = useMemo<AiFact[]>(() => {
     if (!tags.length || !data) return []
@@ -85,7 +85,7 @@ export function CompetitorTagsTab() {
               ))}
             </div>
             <p style={{ fontSize: 13, color: C.graphite, marginTop: 12, lineHeight: 1.55 }}>
-              For market research — see which tags a shop uses across its active listings and how those tags correlate with views &amp; favorites. Tags come from the official live data. Always write your own tags that genuinely describe your product.
+              For market research - see which tags a shop uses across its active listings and how those tags correlate with views &amp; favorites. Tags come from the official live data. Always write your own tags that genuinely describe your product.
             </p>
           </div>
 
@@ -95,13 +95,13 @@ export function CompetitorTagsTab() {
               tool="Competitor Tags"
               subject={String(data?.shop.shop_name ?? shop)}
               facts={aiFacts}
-              notes="Tags are from the shop's active listings; avg views/favorites are the real averages of the listings carrying each tag. Interpret this shop's tag strategy — which tags correlate with the strongest engagement, how broad vs focused the strategy is, and what a competitor could learn. Advise writing original tags that describe one's own product."
+              notes="Tags are from the shop's active listings; avg views/favorites are the real averages of the listings carrying each tag. Interpret this shop's tag strategy - which tags correlate with the strongest engagement, how broad vs focused the strategy is, and what a competitor could learn. Advise writing original tags that describe one's own product."
             />
           )}
         </>
       )}
 
-      {!shop && !isLoading && <EmptyState icon="🔖" title="Analyze a shop's tags" sub="See which tags a shop uses across its listings and how they perform — for niche research" />}
+      {!shop && !isLoading && <EmptyState icon="🔖" title="Analyze a shop's tags" sub="See which tags a shop uses across its listings and how they perform - for niche research" />}
     </div>
   )
 }

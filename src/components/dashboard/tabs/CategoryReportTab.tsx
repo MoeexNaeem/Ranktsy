@@ -42,11 +42,11 @@ export function CategoryReportTab() {
     const avgViews = Math.round(listings.reduce((s, l) => s + (l.views ?? 0), 0) / listings.length)
     const avgFaves = Math.round(listings.reduce((s, l) => s + (l.num_favorers ?? 0), 0) / listings.length)
 
-    // Median price — robust to the joke/placeholder listings (e.g. £1M) that skew a mean.
+    // Median price - robust to the joke/placeholder listings (e.g. £1M) that skew a mean.
     const pct = (q: number) => allPrices[Math.min(allPrices.length - 1, Math.max(0, Math.floor(allPrices.length * q)))] ?? 0
     const median = allPrices.length ? allPrices[Math.floor((allPrices.length - 1) / 2)] : 0
 
-    // Price histogram — 6 buckets over the trimmed (p5–p95) range so a single
+    // Price histogram - 6 buckets over the trimmed (p5–p95) range so a single
     // absurd listing can't collapse every real listing into one bucket.
     const prices = allPrices.filter(p => p >= pct(0.02) && p <= pct(0.95))
     const min = prices[0] ?? 0, max = prices[prices.length - 1] ?? 1
@@ -102,7 +102,7 @@ export function CategoryReportTab() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
         <SearchBar value={input} onChange={setInput} onSubmit={go}
-          placeholder="Analyze a category or niche — e.g. macrame wall hanging" button="Analyze →" />
+          placeholder="Analyze a category or niche - e.g. macrame wall hanging" button="Analyze →" />
         <p style={{ fontSize: 13, color: C.graphite, marginTop: 10, fontFamily: MONO }}>
           A market snapshot from the top live listings: pricing, demand signals, and the tags that define this niche.
         </p>
@@ -170,7 +170,7 @@ export function CategoryReportTab() {
               tool="Category Report"
               subject={query}
               facts={aiFacts}
-              notes="A market snapshot measured from the top live Etsy listings for this niche — prices, views, favorites and tag adoption are all real. Interpret saturation, pricing headroom, engagement, and where an opening exists. Etsy publishes no search volume."
+              notes="A market snapshot measured from the top live Etsy listings for this niche - prices, views, favorites and tag adoption are all real. Interpret saturation, pricing headroom, engagement, and where an opening exists. Etsy publishes no search volume."
             />
           )}
         </>

@@ -11,7 +11,7 @@ const SANS = "'General Sans',sans-serif";
 
 /* ─── Card icon ────────────────────────────────────────────────────────────────
    Emoji were used here originally, but the site sets `font-family: 'General Sans'`
-   and that face carries no emoji glyphs — on real devices they fell back to a
+   and that face carries no emoji glyphs - on real devices they fell back to a
    blank tofu box (visible in the contact card on iOS). Inline SVG renders
    identically everywhere, inherits colour, and matches the icon set the
    dashboard already uses. */
@@ -69,7 +69,7 @@ export function SectionTag({
 /* ─── Features ─────────────────────────────────────────────────────────────────
    Copy here must describe only what the official Etsy API actually returns.
    It previously advertised "avg. searches, clicks, and CTR" and "smart tag
-   recommendations based on real search data" — Etsy publishes no search-volume
+   recommendations based on real search data" - Etsy publishes no search-volume
    or click data at all, so those promised numbers we cannot legally obtain, and
    claiming them invites the obvious question of where we got them.
    The `icon` emoji were dead data (the cards render a numbered index) and are gone. */
@@ -80,7 +80,7 @@ const FEATURES = [
   },
   {
     title: "Competition Analysis",
-    desc: "See the true count of active listings for any exact keyword, and how strongly the incumbents convert views into favorites — so you know what you're up against before you list.",
+    desc: "See the true count of active listings for any exact keyword, and how strongly the incumbents convert views into favorites - so you know what you're up against before you list.",
   },
   {
     title: "Market Insights",
@@ -88,11 +88,11 @@ const FEATURES = [
   },
   {
     title: "Top Sellers & Real Sales",
-    desc: "Rank the leading shops in any niche by their real lifetime sales — Etsy's own transaction count — alongside reviews, rating, country and year opened.",
+    desc: "Rank the leading shops in any niche by their real lifetime sales - Etsy's own transaction count - alongside reviews, rating, country and year opened.",
   },
   {
     title: "Tag Optimizer",
-    desc: "Score your 13 tags against the tags the listings ranking for your keyword actually use, taken straight from the Etsy API — not generic advice.",
+    desc: "Score your 13 tags against the tags the listings ranking for your keyword actually use, taken straight from the Etsy API - not generic advice.",
   },
   {
     title: "Shop Analytics",
@@ -101,7 +101,7 @@ const FEATURES = [
 ];
 
 
-// A restrained accent per card — colour lives in the icon chip, the hover border
+// A restrained accent per card - colour lives in the icon chip, the hover border
 // and the top accent bar, so the section reads calm/premium, not loud.
 const F_ACCENTS = [
   { fg: "#FB5E09", bg: "rgba(251,94,9,0.10)",   sh: "rgba(251,94,9,0.34)" },   // brand orange
@@ -170,7 +170,7 @@ function Plus({ size, color, style, dur, delay }: {
   );
 }
 
-/* Crisp hand-drawn doodle rendered in its own SVG (stays sharp — no full-bleed
+/* Crisp hand-drawn doodle rendered in its own SVG (stays sharp - no full-bleed
    stretching). `d` is drawn in a 0..vb box; scaled by `size`. */
 function Doodle({ d, vb = 60, size, color, style, dur, delay, dashed }: {
   d: string; vb?: number; size: number; color: string
@@ -187,7 +187,7 @@ function Doodle({ d, vb = 60, size, color, style, dur, delay, dashed }: {
   );
 }
 
-/* Teal from the illustrations (#1C5D5F) — deliberately darker accent so the
+/* Teal from the illustrations (#1C5D5F) - deliberately darker accent so the
    line-work reads as intentional, not faint texture. */
 const TEAL = "#1C5D5F";
 const SQUIGGLE = "M2 19 C 8 6, 15 6, 20 15 S 32 26, 38 15 S 52 6, 58 16";
@@ -341,7 +341,7 @@ export function HowItWorks() {
   ];
 
   // Scroll-scrubbed reveal: on desktop the section PINS (sticky stage inside a tall
-  // track) and scroll progress (0→1) drives the chain — node 01 on arrival, then
+  // track) and scroll progress (0→1) drives the chain - node 01 on arrival, then
   // 02, 03, 04 reveal one per scroll. `at(i)` returns the settled transform when
   // progress passes that step's threshold, keeping the multiply-blend intact once
   // landed. Below 1024px there's no pin: everything is simply shown.
@@ -395,12 +395,12 @@ export function HowItWorks() {
               </p>
             </Reveal>
 
-            {/* Overlapping colour-chain — draws node-by-node as you scroll (01→04) */}
+            {/* Overlapping colour-chain - draws node-by-node as you scroll (01→04) */}
             <div className="hiw-chain" aria-hidden>
               {/* soft blobs bleeding off both edges */}
               <div className="hiw-shape" style={{ left: -60, top: 21, width: 90, height: 90, borderRadius: "50%", background: "#F6B03A", ...at(0) }} />
               <div className="hiw-shape" style={{ right: -60, top: 21, width: 90, height: 90, borderRadius: "50%", background: "#1C5D5F", ...at(3) }} />
-              {/* connecting pills — each appears with the node it leads INTO */}
+              {/* connecting pills - each appears with the node it leads INTO */}
               {PILLS.map((p, i) => (
                 <div key={i} className="hiw-shape" style={{ left: p.left, top: 43, width: "25%", height: 46, borderRadius: 23, background: p.color, ...at(i + 1) }} />
               ))}
@@ -419,7 +419,7 @@ export function HowItWorks() {
             <div className="rgrid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 28 }}>
               {steps.map((s, i) => (
                 <div key={s.n} style={{ textAlign: "center", ...at(i) }}>
-                  {/* inline badge — the chain's mobile fallback */}
+                  {/* inline badge - the chain's mobile fallback */}
                   <span className="hiw-badge" style={{ width: 54, height: 54, borderRadius: "50%", background: STEP_COLORS[i], color: "#fff", fontSize: 22, fontWeight: 600, fontFamily: "'General Sans',monospace", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
                     {s.n}
                   </span>
@@ -444,7 +444,7 @@ export function HowItWorks() {
 
 /* ─── Pricing ────────────────────────────────────────────────────────────────
    Roomy plan cards live in ./plans (shared with the /pricing page + compare table).
-   Display-only for now — CTAs carry the chosen plan to /register (?plan=slug). */
+   Display-only for now - CTAs carry the chosen plan to /register (?plan=slug). */
 
 export function Pricing() {
   return (
@@ -471,7 +471,7 @@ export function Pricing() {
             Compare all features →
           </Link>
           <p style={{ textAlign: "center", fontSize: 13.5, color: "#6E6E64" }}>
-            <PriceNote /> Cancel anytime — no long-term contracts.
+            <PriceNote /> Cancel anytime - no long-term contracts.
           </p>
         </div>
       </div>
@@ -484,7 +484,7 @@ export function AboutContactTeaser() {
   return (
     <section style={{ padding: '96px 40px', background: C.paper }}>
       <Reveal className="rsplit" style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
-        {/* About card — bone surface */}
+        {/* About card - bone surface */}
         <a
           href="/about"
           style={{
@@ -494,7 +494,7 @@ export function AboutContactTeaser() {
           onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-3px)')}
           onMouseLeave={e => (e.currentTarget.style.transform = 'none')}
         >
-          {/* icon chip — SVG, not emoji: 'General Sans' carries no emoji glyph. */}
+          {/* icon chip - SVG, not emoji: 'General Sans' carries no emoji glyph. */}
           <span style={{ width: 52, height: 52, borderRadius: 15, background: C.paper, display: 'grid', placeItems: 'center', marginBottom: 24, boxShadow: '0 6px 16px rgba(61,62,59,0.08)' }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1F7A42" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M12 21c0-6 3-9 8-10-1 6-4 9-8 10z" /><path d="M12 21c0-5-2-8-6-9 1 5 3 8 6 9z" /><line x1="12" y1="21" x2="12" y2="14" />
@@ -518,7 +518,7 @@ export function AboutContactTeaser() {
           </span>
         </a>
 
-        {/* Contact card — charcoal surface */}
+        {/* Contact card - charcoal surface */}
         <a
           href="/contact"
           style={{
@@ -557,7 +557,7 @@ export function AboutContactTeaser() {
   )
 }
 
-/* ─── CTA — full-bleed lime accent panel (Perk's signature) ─────────────────── */
+/* ─── CTA - full-bleed lime accent panel (Perk's signature) ─────────────────── */
 export function CTA() {
   return (
     <section style={{ padding: "56px 24px 120px", background: C.paper }}>
@@ -572,13 +572,13 @@ export function CTA() {
             Ready to grow your Etsy shop?
           </h2>
           <p style={{ fontSize: 19, color: "rgba(245,245,235,0.6)", marginBottom: 40, maxWidth: 480, marginLeft: "auto", marginRight: "auto", lineHeight: 1.5 }}>
-            Start using real Etsy data to rank higher and sell more — free to start, upgrade anytime.
+            Start using real Etsy data to rank higher and sell more - free to start, upgrade anytime.
           </p>
           <div style={{ display: "flex", gap: 24, justifyContent: "center", alignItems: "center", flexWrap: "wrap" }}>
             <Link href="/register" style={{ background: C.orange, color: "#fff", textDecoration: "none", padding: "16px 34px", borderRadius: 30, fontSize: 16, fontWeight: 600, letterSpacing: "-0.01em", display: "inline-flex", alignItems: "center", gap: 9, boxShadow: "0 16px 34px rgba(251,94,9,0.34)", transition: "opacity 0.18s" }}
               onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
               onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}>
-              Start free — no card <ArrowIcon color="#fff" size={16} />
+              Start free - no card <ArrowIcon color="#fff" size={16} />
             </Link>
             <a href="#keywords" style={{ color: "#F5F5EB", fontSize: 16, fontWeight: 600, textDecoration: "underline", textUnderlineOffset: 5, textDecorationColor: "rgba(245,245,235,0.4)" }}>
               Try the keyword tool ↓
@@ -590,7 +590,7 @@ export function CTA() {
   );
 }
 
-/* ─── Footer — dark island (Perk's only inverted moment) ────────────────────── */
+/* ─── Footer - dark island (Perk's only inverted moment) ────────────────────── */
 export function Footer() {
   const cols = [
     { t: "Etsy Tools", l: [
@@ -621,7 +621,7 @@ export function Footer() {
             </div>
             <SocialRow color={dim} hoverColor="#fff" />
 
-            {/* WhatsApp — opens a chat with support */}
+            {/* WhatsApp - opens a chat with support */}
             <a href={WHATSAPP_HREF} target="_blank" rel="noopener noreferrer"
               aria-label={`Chat with us on WhatsApp: ${WHATSAPP_DISPLAY}`}
               style={{ display: "inline-flex", alignItems: "center", gap: 10, marginTop: 22, padding: "10px 16px", borderRadius: 100, background: "#25D366", color: "#0B141A", textDecoration: "none", fontSize: 14.5, fontWeight: 600, fontFamily: SANS, transition: "opacity 0.15s" }}

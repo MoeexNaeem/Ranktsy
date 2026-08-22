@@ -74,7 +74,7 @@ export function PopupAdsAdmin() {
         }>Popup ads</SectionTitle>
 
         <p style={{ fontSize: 13, color: C.graphite, lineHeight: 1.55, marginBottom: 16 }}>
-          The popup shows to visitors on the marketing site (once per session, never inside the dashboard). Only one ad can be <strong>enabled</strong> at a time — enabling one turns the others off.
+          The popup shows to visitors on the marketing site (once per session, never inside the dashboard). Only one ad can be <strong>enabled</strong> at a time - enabling one turns the others off.
         </p>
         {err && <p style={{ color: C.danger, fontSize: 13.5, marginBottom: 12 }}>{err}</p>}
 
@@ -144,7 +144,7 @@ export function PopupAdsAdmin() {
               <label style={label}>Badge (optional)</label>
               <input style={field} value={f.badge || ''} onChange={e => set('badge', e.target.value)} placeholder="Best value" />
               <label style={{ ...label, marginTop: 12 }}>Title</label>
-              <input style={field} value={f.title || ''} onChange={e => set('title', e.target.value)} placeholder="Pro · 1-Year — Best Value" />
+              <input style={field} value={f.title || ''} onChange={e => set('title', e.target.value)} placeholder="Pro · 1-Year - Best Value" />
               <label style={{ ...label, marginTop: 12 }}>Description</label>
               <textarea style={{ ...field, minHeight: 80, resize: 'vertical' }} value={f.description || ''} onChange={e => set('description', e.target.value)} placeholder="A full year of Rankkw Pro at a locked-in price…" />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 12, marginTop: 12 }}>
@@ -163,7 +163,7 @@ export function PopupAdsAdmin() {
           <Card>
             <label style={label}>Status</label>
             <button onClick={() => set('enabled', !f.enabled)} style={{ ...chip, width: '100%', textAlign: 'center', padding: '10px', background: f.enabled ? 'rgba(31,138,76,0.12)' : C.paper, color: f.enabled ? '#1F8A4C' : C.ink, borderColor: f.enabled ? '#1F8A4C' : C.ash }}>
-              {f.enabled ? '● Live — showing to visitors' : 'Off — not shown'}
+              {f.enabled ? '● Live - showing to visitors' : 'Off - not shown'}
             </button>
             <p style={{ fontSize: 11.5, color: C.stone, marginTop: 8, lineHeight: 1.5 }}>Enabling this ad turns any other live ad off.</p>
           </Card>

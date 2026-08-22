@@ -27,22 +27,22 @@ const ONE_YEAR_SEED_KEY = 'pro-1yr-deal'
  */
 export async function ensureDefaultDeals(): Promise<void> {
   await connectDB()
-  const content = `## Lock in a full year of Pro — for less
+  const content = `## Lock in a full year of Pro - for less
 
-The **Pro · 1-Year** plan gives you everything in Rankkw Pro for twelve months at a locked-in price that works out to about **$7.50 / month** — our best value. One payment, a whole year of real Etsy & Google data at your side.
+The **Pro · 1-Year** plan gives you everything in Rankkw Pro for twelve months at a locked-in price that works out to about **$7.50 / month** - our best value. One payment, a whole year of real Etsy & Google data at your side.
 
 ## Everything in Pro, all year
 
-- **1,000 credits every day** for the tools — plenty of room to research, generate and optimize.
+- **1,000 credits every day** for the tools - plenty of room to research, generate and optimize.
 - **200 keyword searches / day** with real search volume, competition and CTR.
-- **Etsy Listing Pro — 20 AI listing images per month** (four times the monthly Pro allowance).
+- **Etsy Listing Pro - 20 AI listing images per month** (four times the monthly Pro allowance).
 - Trends, product research, competitor & rank tracking.
 - AI title, tag and description generators grounded in real data.
 - CSV export and priority support.
 
 ## A serious head start for your shop
 
-New for 1-Year members — a one-time bonus pack to get products live fast:
+New for 1-Year members - a one-time bonus pack to get products live fast:
 
 - **100 digital products** ready to list
 - **100 SEO-optimized product titles**
@@ -52,13 +52,13 @@ New for 1-Year members — a one-time bonus pack to get products live fast:
 
 ## Why a yearly plan
 
-If you're serious about growing on Etsy, a year of consistent, data-backed optimization beats stop-start monthly effort — and you lock today's price for the next twelve months. Click below to check out securely and start today.`
+If you're serious about growing on Etsy, a year of consistent, data-backed optimization beats stop-start monthly effort - and you lock today's price for the next twelve months. Click below to check out securely and start today.`
 
   await Deal.updateOne(
     { seedKey: ONE_YEAR_SEED_KEY },
     {
       $setOnInsert: {
-        title: 'Pro · 1-Year — Best Value',
+        title: 'Pro · 1-Year - Best Value',
         slug: 'pro-1-year-plan',
         summary: 'A full year of Rankkw Pro at ~$7.50/mo, 20 AI listing images a month, plus a one-time bonus pack of 100 ready-to-list products, titles, descriptions and images.',
         content,

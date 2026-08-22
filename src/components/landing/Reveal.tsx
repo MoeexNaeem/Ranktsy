@@ -5,9 +5,9 @@ import {
 } from 'react'
 
 /**
- * Scroll-reveal helpers — IntersectionObserver + CSS transitions.
+ * Scroll-reveal helpers - IntersectionObserver + CSS transitions.
  * Robust by design: IO callbacks fire even in background tabs, and a safety
- * timer reveals content if the observer ever misfires — so a section can never
+ * timer reveals content if the observer ever misfires - so a section can never
  * get stuck hidden. Motion (fade + slide-up + subtle scale, staggered) is tuned
  * to match the GSAP-animated hero.
  */
@@ -91,7 +91,7 @@ export function RevealItem({ children, style, className, _i = 0 }: {
   )
 }
 
-/** Entrance (reveals on mount) — for above-the-fold hero content. */
+/** Entrance (reveals on mount) - for above-the-fold hero content. */
 export function Entrance({ children, delay = 0, y = 20, style }: {
   children: ReactNode; delay?: number; y?: number; style?: CSSProperties
 }) {

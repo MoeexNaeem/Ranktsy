@@ -8,7 +8,7 @@ ChartJS.register(LinearScale, CategoryScale, BarElement, PointElement, ArcElemen
 
 const SANS = "'General Sans',sans-serif"
 
-// ─── Opportunity Bar Chart — a big, readable horizontal bar graph ────────────
+// ─── Opportunity Bar Chart - a big, readable horizontal bar graph ────────────
 // Related keywords ranked by an Opportunity score (real search demand balanced
 // against ranking difficulty). Horizontal bars so long keyword names fit, coloured
 // by tier, sized big so it reads at a glance. Hover any bar for the real numbers.
@@ -125,7 +125,7 @@ export const OpportunityBarChart = memo(function OpportunityBarChart({ points, u
 // ─── Mix donut with a centred total (competition breakdown, etc.) ────────────
 export interface Segment { label: string; value: number; color: string }
 
-// ─── Bubble chart — x vs y, bubble size = a third metric (leaderboards) ──────
+// ─── Bubble chart - x vs y, bubble size = a third metric (leaderboards) ──────
 export interface BubblePoint { x: number; y: number; r: number; label: string; color: string }
 
 export const BubbleChart = memo(function BubbleChart({ points, xLabel, yLabel }: { points: BubblePoint[]; xLabel: string; yLabel: string }) {

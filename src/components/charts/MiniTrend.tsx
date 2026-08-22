@@ -6,19 +6,19 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 /**
  * Twelve-bar calendar-month sparkline (Jan→Dec).
  *
- * Shows real counts — currently "listings created per month". It previously
+ * Shows real counts - currently "listings created per month". It previously
  * rendered sine-wave arrays and highlighted the last three bars as "recent",
  * which implied a rolling search-history it never had. Calendar months have no
  * "recent" end, so the PEAK bar is highlighted instead.
  *
- * Renders nothing when there's no data — twelve zero-height bars would read as
+ * Renders nothing when there's no data - twelve zero-height bars would read as
  * "no activity" rather than "not measured".
  */
 export const MiniTrend = memo(function MiniTrend({
   data, title,
 }: { data: number[]; title?: string }) {
   if (!data?.length || data.every(v => v === 0)) {
-    return <span style={{ fontSize: 12, color: C.stone, fontFamily: "'General Sans', sans-serif" }}>—</span>
+    return <span style={{ fontSize: 12, color: C.stone, fontFamily: "'General Sans', sans-serif" }}>-</span>
   }
   const max = Math.max(...data, 1)
   const peak = data.indexOf(max)

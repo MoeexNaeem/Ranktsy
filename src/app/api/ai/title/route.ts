@@ -11,7 +11,7 @@ export const runtime = 'nodejs'
 export const maxDuration = 60
 export const GET = withApiGuard(getHandler, { limit: 20, windowMs: 60_000 })
 
-/** AI Title generator — 10 Etsy titles, grounded in real Google + Etsy data. */
+/** AI Title generator - 10 Etsy titles, grounded in real Google + Etsy data. */
 async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<AiTitleResult>>> {
   const { searchParams } = new URL(req.url)
   const keyword = searchParams.get('q')?.trim().toLowerCase()

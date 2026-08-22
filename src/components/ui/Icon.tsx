@@ -9,7 +9,7 @@ import React from 'react'
  * identically everywhere, scales cleanly, inherits colour, and matches the icon
  * set the dashboard already uses.
  *
- * Decorative by definition — always aria-hidden, since the adjacent heading
+ * Decorative by definition - always aria-hidden, since the adjacent heading
  * already carries the meaning for screen readers.
  */
 export type IconName =

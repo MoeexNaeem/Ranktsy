@@ -3,14 +3,14 @@ import { User } from '@/lib/models'
 import type { IUserDoc } from '@/lib/models'
 
 /**
- * Plan lifecycle for ADMIN-GRANTED (comp) plans — a plan an admin gave a user
+ * Plan lifecycle for ADMIN-GRANTED (comp) plans - a plan an admin gave a user
  * without a Lemon Squeezy purchase (the Free→Pro promo or the admin plan
  * dropdown). Such a grant carries `compExpiresAt`; on/after it the user reverts
- * to 'free'. (Real PAID subscriptions expire via the LS webhook + planRenewsAt —
+ * to 'free'. (Real PAID subscriptions expire via the LS webhook + planRenewsAt -
  * see effectivePlan; this file never touches those.)
  */
 
-/** Exactly one CALENDAR month from `from` (default now) — a "1-month" grant. */
+/** Exactly one CALENDAR month from `from` (default now) - a "1-month" grant. */
 export function addOneMonth(from: Date = new Date()): Date {
   const d = new Date(from)
   d.setMonth(d.getMonth() + 1)
@@ -48,7 +48,7 @@ export async function reconcileUserPlan(user: IUserDoc): Promise<boolean> {
 }
 
 /** Give legacy admin grants (non-free, no paid sub, no expiry) a one-month clock
- *  from now — a one-off so pre-existing gifts also start reverting. Returns count. */
+ *  from now - a one-off so pre-existing gifts also start reverting. Returns count. */
 export async function backfillCompExpiries(): Promise<number> {
   await connectDB()
   const r = await User.updateMany(

@@ -5,10 +5,10 @@ import { C } from '@/utils'
 import { abs } from '@/lib/seo/site'
 
 export const metadata: Metadata = {
-  title: 'Terms of Service — Rankkw',
+  title: 'Terms of Service - Rankkw',
   description: 'The terms that govern your use of Rankkw, the independent Etsy keyword research and analytics platform.',
   alternates: { canonical: abs('/terms') },
-  openGraph: { title: 'Terms of Service — Rankkw', description: 'The terms that govern your use of Rankkw.', url: abs('/terms'), type: 'website' },
+  openGraph: { title: 'Terms of Service - Rankkw', description: 'The terms that govern your use of Rankkw.', url: abs('/terms'), type: 'website' },
 }
 
 const sections = [
@@ -26,7 +26,7 @@ const sections = [
       'Rankkw is an independent keyword research and analytics platform designed to help Etsy sellers analyze search trends, optimize listings, and track shop performance. The Service includes:',
     bullets: [
       { label: 'Keyword Research', text: 'Analysis of live Etsy listing competition, engagement and pricing. Etsy publishes no search-volume or click data; where we show search volume it comes from Google, and where a figure is an estimate the app says so. See our Methodology page for exactly what is measured and what we deliberately don’t show.' },
-      { label: 'Trend Analytics', text: 'Etsy publishes no search volume and no search history, so we show no Etsy demand curve. Where seasonality is shown it is real Google Ads monthly volume, or the real month each competing listing was created — labelled as seller behaviour, not buyer demand. Note: Etsy\'s Open API does not expose raw search volume counts.' },
+      { label: 'Trend Analytics', text: 'Etsy publishes no search volume and no search history, so we show no Etsy demand curve. Where seasonality is shown it is real Google Ads monthly volume, or the real month each competing listing was created - labelled as seller behaviour, not buyer demand. Note: Etsy\'s Open API does not expose raw search volume counts.' },
       { label: 'Competition Analysis', text: 'Insights into competing listings, tags, and titles within Etsy\'s marketplace.' },
       { label: 'Tag Optimizer', text: 'Data-backed tag recommendations to maximize listing visibility within Etsy\'s 13-tag allowance.' },
       { label: 'Shop Analytics', text: 'Optional integration to track your connected shop\'s views, favorites, and revenue trends.' },
@@ -49,7 +49,7 @@ const sections = [
     title: 'Service Access & Subscription Plans',
     content: 'Rankkw offers a free plan alongside paid subscription plans. By using the Service you agree that:',
     bullets: [
-      { label: 'Free Plan', text: 'A free plan is available with limited usage — including a daily cap on keyword searches. No credit card is required to use it.' },
+      { label: 'Free Plan', text: 'A free plan is available with limited usage - including a daily cap on keyword searches. No credit card is required to use it.' },
       { label: 'Paid Plans', text: 'Paid tiers (Starter, Pro, Business and Agency) unlock additional features and higher limits, billed monthly in Pakistani rupees (PKR) at the prices shown on our pricing page.' },
       { label: '3-Day Trial', text: 'A 3-day trial of a paid plan may be offered for a one-time Rs 299 charge. Unless cancelled before the trial ends, it converts to the applicable monthly subscription.' },
       { label: 'Cancellation & Changes', text: 'You may cancel a paid subscription at any time; access continues through the end of the current billing period. Prices may change with at least 30 days\' notice to existing subscribers.' },

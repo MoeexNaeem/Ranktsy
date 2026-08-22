@@ -10,7 +10,7 @@ const FAVORITES = 'Favorites'
 
 // localStorage is an external store, so this is a useSyncExternalStore subscription
 // rather than useEffect+setState. getSnapshot must return a STABLE reference
-// between changes or React re-renders forever — hence caching against the raw
+// between changes or React re-renders forever - hence caching against the raw
 // string and only reparsing when it actually differs.
 const EMPTY: string[] = []
 let cachedRaw: string | null = null
@@ -41,7 +41,7 @@ function getSnapshot(): string[] {
   return cachedFavs
 }
 
-// No localStorage during SSR — render unstarred, then hydrate.
+// No localStorage during SSR - render unstarred, then hydrate.
 function getServerSnapshot(): string[] { return EMPTY }
 
 /** Get the Favorites list, creating it if this is the first star. */
@@ -68,7 +68,7 @@ export function useFavorites() {
     save(lists)
   }, [])
 
-  /** Bulk-add — used by the table's "save selected" action. */
+  /** Bulk-add - used by the table's "save selected" action. */
   const addMany = useCallback((keywords: string[]) => {
     const clean = keywords.map(k => k.toLowerCase().trim()).filter(Boolean)
     if (!clean.length) return

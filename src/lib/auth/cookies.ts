@@ -9,7 +9,7 @@ const ACCESS_MAXAGE  = 60 * 15            // 15 min
 const REFRESH_MAXAGE = 60 * 60 * 24 * 30  // 30 days
 
 /**
- * Set the auth cookies directly on a NextResponse — used by the OAuth callback,
+ * Set the auth cookies directly on a NextResponse - used by the OAuth callback,
  * which returns a redirect and needs the Set-Cookie headers on that exact
  * response (rather than the ambient cookies() jar).
  */

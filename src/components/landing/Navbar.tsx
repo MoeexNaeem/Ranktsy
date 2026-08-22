@@ -3,17 +3,18 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useAuth, useLogout } from '@/hooks/useAuth'
+import { NavButton } from '@/components/ui/NavButton'
 import { C } from '@/utils'
 
 const SANS = "'General Sans',sans-serif"
 
-/* ── Icon set (inline SVG — 'General Sans' has no emoji glyphs) ───────────────── */
+/* ── Icon set (inline SVG - 'General Sans' has no emoji glyphs) ───────────────── */
 type IconName =
   | 'search' | 'users' | 'trend' | 'trophy' | 'flame' | 'tag' | 'wand' | 'check'
   | 'bars' | 'sparkle' | 'bolt' | 'calc' | 'grid' | 'dollar' | 'arrow' | 'info'
   | 'book' | 'mail' | 'shield'
 
-/* Accurate Lucide (MIT) glyphs — one consistent, professionally-drawn family at a
+/* Accurate Lucide (MIT) glyphs - one consistent, professionally-drawn family at a
    uniform 2px weight, replacing the earlier approximated outlines. */
 const ICONS: Record<IconName, React.ReactNode> = {
   search:  <><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></>,
@@ -46,7 +47,7 @@ function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   )
 }
 
-/* ── Menu data — every link points at a real page / on-page anchor / dashboard tool.
+/* ── Menu data - every link points at a real page / on-page anchor / dashboard tool.
    Dashboard tools deep-link via /dashboard?tab=<id>, which DashboardLayout opens on
    mount. Each item carries an accent colour for its icon chip. ────────────────── */
 type Item = { href: string; label: string; icon: IconName }
@@ -140,7 +141,7 @@ const S = {
   },
 }
 
-/* One icon-chip link — monochrome, with the single orange accent applied on hover
+/* One icon-chip link - monochrome, with the single orange accent applied on hover
    only (see .rnav-link / .rnav-chip in globals.css). `block` = roomier drawer row. */
 function MegaLink({ href, label, icon, onClose, block }: Item & { onClose: () => void; block?: boolean }) {
   return (
@@ -183,7 +184,7 @@ function MegaCard({ cols, footer, onClose }: { cols: Col[]; footer?: boolean; on
 }
 
 export function Navbar() {
-  const { data: user } = useAuth()
+  const { data: user, isLoading: authLoading } = useAuth()
   const logout = useLogout()
   const [openMenu, setOpenMenu] = useState<'features' | 'resources' | null>(null)
   const [drawer, setDrawer] = useState(false)
@@ -206,7 +207,7 @@ export function Navbar() {
       {/* Announcement strip */}
       <div className="rnav-strip" style={S.strip}>
         <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.orange, display: 'inline-block' }} />
-        Flexible plans for every stage — start free.{' '}
+        Flexible plans for every stage - start free.{' '}
         <Link href="/pricing" style={S.stripLink}>See pricing →</Link>
       </div>
 
@@ -215,7 +216,7 @@ export function Navbar() {
         <div className="rnav-inner" style={S.inner}>
           {/* Left: logo */}
           <Link href="/" style={S.logoWrap} onMouseEnter={() => setOpenMenu(null)}>
-            <Image src="/website_logo.png" alt="Rankkw — Etsy SEO Tools" width={44} height={38} style={{ objectFit: 'contain', display: 'block' }} priority />
+            <Image src="/website_logo.png" alt="Rankkw - Etsy SEO Tools" width={44} height={38} style={{ objectFit: 'contain', display: 'block' }} priority />
           </Link>
 
           {/* Center: triggers */}
@@ -241,7 +242,7 @@ export function Navbar() {
               </Link>
             </li>
             <li>
-              {/* Deals — frosted glass pill with a moving dashed border to draw the eye */}
+              {/* Deals - frosted glass pill with a moving dashed border to draw the eye */}
               <Link href="/deals" className="rk-deals-nav rk-ants" style={{ ...S.trigger, ['--ant' as string]: C.orange, color: C.orange, fontWeight: 600, textDecoration: 'none', padding: '7px 16px' }} onMouseEnter={() => setOpenMenu(null)}>
                 Deals
               </Link>
@@ -250,18 +251,25 @@ export function Navbar() {
 
           {/* Right: CTA + burger */}
           <div className="rnav-cta" style={S.cta} onMouseEnter={() => setOpenMenu(null)}>
-            {user ? (
+            {authLoading ? (
+              /* Resolve the session before showing Log in/Start free vs Dashboard,
+                 so a logged-in visitor never sees the wrong buttons flash first. */
+              <span className="rnav-cta-desktop" aria-hidden style={{ display: 'inline-flex', gap: 12, alignItems: 'center' }}>
+                <span className="shimmer" style={{ width: 70, height: 38, borderRadius: 24, background: '#e8e7e2' }} />
+                <span className="shimmer" style={{ width: 104, height: 40, borderRadius: 24, background: '#e8e7e2' }} />
+              </span>
+            ) : user ? (
               <>
                 <button className="rnav-cta-desktop" onClick={() => logout.mutate()} style={S.login}
                   onMouseEnter={e => (e.currentTarget.style.borderColor = C.ink)}
                   onMouseLeave={e => (e.currentTarget.style.borderColor = C.ash)}>
                   Log out
                 </button>
-                <Link href="/dashboard" style={S.start}
+                <NavButton href="/dashboard" style={S.start} spinnerColor="#fff"
                   onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
                   onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
                   Dashboard →
-                </Link>
+                </NavButton>
               </>
             ) : (
               <>
@@ -284,7 +292,7 @@ export function Navbar() {
           </div>
         </div>
 
-        {/* Contained mega cards — nav descendants, so moving onto them keeps them open */}
+        {/* Contained mega cards - nav descendants, so moving onto them keeps them open */}
         {openMenu === 'features' && <MegaCard cols={FEATURES_COLS} footer onClose={() => setOpenMenu(null)} />}
         {openMenu === 'resources' && <MegaCard cols={RESOURCES_COLS} onClose={() => setOpenMenu(null)} />}
       </nav>
@@ -292,7 +300,7 @@ export function Navbar() {
       {/* ── Mobile drawer ───────────────────────────────────────────────────────
           Wrapped in a viewport-sized clipping layer: a position:fixed panel escapes
           body's overflow clip, so the off-canvas (translateX(100%)) panel would add
-          page width. This layer (overflow:hidden, inset:0) contains it — without any
+          page width. This layer (overflow:hidden, inset:0) contains it - without any
           global overflow change that would break the How-it-works sticky pin. */}
       <div style={{ position: 'fixed', inset: 0, zIndex: 190, overflow: 'hidden', pointerEvents: drawer ? 'auto' : 'none' }}>
         <div onClick={closeAll} aria-hidden
@@ -329,9 +337,14 @@ export function Navbar() {
         </div>
 
         <div style={{ borderTop: `1px solid ${C.ash}`, padding: 16, display: 'grid', gap: 10 }}>
-          {user ? (
+          {authLoading ? (
             <>
-              <Link href="/dashboard" onClick={closeAll} style={{ ...S.start, textAlign: 'center', boxShadow: 'none' }}>Go to dashboard →</Link>
+              <span className="shimmer" style={{ height: 42, borderRadius: 24, background: '#e8e7e2' }} />
+              <span className="shimmer" style={{ height: 40, borderRadius: 24, background: '#e8e7e2' }} />
+            </>
+          ) : user ? (
+            <>
+              <NavButton href="/dashboard" onNavigate={closeAll} spinnerColor="#fff" style={{ ...S.start, textAlign: 'center', boxShadow: 'none', justifyContent: 'center' }}>Go to dashboard →</NavButton>
               <button onClick={() => { logout.mutate(); closeAll() }} style={{ ...S.login, textAlign: 'center' }}>Log out</button>
             </>
           ) : (

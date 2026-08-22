@@ -5,7 +5,7 @@
  * 26th requires solving a reCAPTCHA to continue. Solving it clears the counter,
  * granting the next 25. This throttles bots/scrapers hammering the tools.
  *
- * Storage is an in-process Map — fine for a single Node host (this app's setup).
+ * Storage is an in-process Map - fine for a single Node host (this app's setup).
  * If it ever runs multi-instance, back this with Redis/Mongo; the limit would
  * then just be enforced per-instance until then (fails safe, never over-blocks a
  * legitimate user beyond their own instance).
@@ -41,7 +41,7 @@ export function searchesRemaining(key: string): number {
   return Math.max(0, SEARCH_LIMIT - current(key).count)
 }
 
-/** Reset the window — called after a valid captcha, granting the next 25. */
+/** Reset the window - called after a valid captcha, granting the next 25. */
 export function clearSearchLimit(key: string): void {
   store.set(key, { count: 0, windowStart: Date.now() })
 }

@@ -10,7 +10,7 @@ export const runtime = 'nodejs'
  *
  * The rate is REAL (open.er-api.com, no key) and cached 12h. We never invent a
  * rate: if the lookup fails, `rate` is null and the UI keeps showing the original
- * account-currency figure rather than a converted guess — same principle as the
+ * account-currency figure rather than a converted guess - same principle as the
  * rest of the app (a missing number beats a fabricated one).
  */
 interface FxData { from: string; to: 'USD'; rate: number | null }

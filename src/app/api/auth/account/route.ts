@@ -6,7 +6,7 @@ import { clearAuthCookies } from '@/lib/auth/cookies'
 
 export const runtime = 'nodejs'
 
-/** Self-service account deletion — the user removing their OWN account. */
+/** Self-service account deletion - the user removing their OWN account. */
 export async function DELETE() {
   const auth = await getCurrentUser()
   if (!auth) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })

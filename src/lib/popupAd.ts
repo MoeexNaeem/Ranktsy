@@ -18,7 +18,7 @@ export async function ensureDefaultPopupAd(): Promise<void> {
         enabled: true,
         mode: 'card',
         badge: 'Best value',
-        title: 'Pro · 1-Year — Best Value',
+        title: 'Pro · 1-Year - Best Value',
         description: 'A full year of Rankkw Pro at a locked-in price, 20 AI listing images every month, plus a one-time bonus pack of 100 ready-to-list products, titles, descriptions and images.',
         price: '$99.99',
         priceNote: 'per year · ~$7.50 / mo',

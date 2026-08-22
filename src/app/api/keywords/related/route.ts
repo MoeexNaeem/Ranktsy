@@ -10,7 +10,7 @@ export const runtime = 'nodejs'
 export const GET = withUsage(getHandler)
 
 /**
- * Related keywords with their REAL competition — the expensive stage (~24 live
+ * Related keywords with their REAL competition - the expensive stage (~24 live
  * Etsy searches, one per keyword, ~4s behind the rate gate).
  *
  * Split out of /api/keywords so the page can paint in ~1s and fill this in when
@@ -33,7 +33,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
     if (!core.related.length) return NextResponse.json({ success: true, data: [] })
 
     // If the core came from the shared Collective store, its related keywords are
-    // already enriched (competition/KD/Google) — return them as-is, no re-probe,
+    // already enriched (competition/KD/Google) - return them as-is, no re-probe,
     // no API calls.
     if (core.related.some(r => r.competition != null)) {
       memCache.set(key, core.related, CACHE_TTL.KEYWORD)

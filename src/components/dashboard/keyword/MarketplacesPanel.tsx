@@ -5,7 +5,7 @@ import { C, D, formatNumber } from '@/utils'
 import type { KeywordStats } from '@/types'
 
 // Only Etsy is wired to a live API. Every other marketplace here is an outbound
-// search link and says so — no interpolated numbers, no scraping. Google fills
+// search link and says so - no interpolated numbers, no scraping. Google fills
 // in on its own once Google Ads credentials are configured (see google-ads.ts).
 interface Market {
   id: string
@@ -59,7 +59,7 @@ function MarketCard({ m, query, value, unit }: {
             <span style={{ fontSize: 13, fontWeight: 400, color: C.graphite, marginLeft: 8, letterSpacing: 0 }}>{unit}</span>
           </p>
         ) : (
-          <p style={{ fontSize: 34, fontWeight: 400, color: C.lightGray, letterSpacing: '-0.03em', lineHeight: 1 }}>—</p>
+          <p style={{ fontSize: 34, fontWeight: 400, color: C.lightGray, letterSpacing: '-0.03em', lineHeight: 1 }}>-</p>
         )}
         <p style={{ fontSize: 12, color: C.stone, marginTop: 8, lineHeight: 1.5 }}>{m.note}</p>
       </div>
@@ -92,7 +92,7 @@ export const MarketplacesPanel = memo(function MarketplacesPanel({
       <Card>
         <SectionTitle>Where &ldquo;{query}&rdquo; sells</SectionTitle>
         <p style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.6, marginTop: -8 }}>
-          Rankkw is built on the <strong style={{ color: C.ink }}>official our live data</strong>{' '}— that&apos;s the only marketplace
+          Rankkw is built on the <strong style={{ color: C.ink }}>official our live data</strong>{' '}- that&apos;s the only marketplace
           we can report real numbers for, and we won&apos;t invent the rest. Amazon and eBay open a live search in a new tab so you
           can eyeball demand yourself. Search demand fills in automatically once available.
         </p>

@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
 
     const { email, code, password } = parsed.data
 
-    // Also cap reset attempts per target email — an IP cap alone is bypassable
+    // Also cap reset attempts per target email - an IP cap alone is bypassable
     // with rotating IPs, so bound guesses against the 6-digit code per account.
     const emailRL = rateLimit(`reset:email:${email}`, 6, 15 * 60 * 1000)
     if (!emailRL.allowed) return tooManyResponse(emailRL.retryAfterSec)

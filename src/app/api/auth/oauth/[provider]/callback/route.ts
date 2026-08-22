@@ -44,7 +44,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ prov
     }
 
     if (!user) {
-      // No password is known — store an unguessable placeholder so the account
+      // No password is known - store an unguessable placeholder so the account
       // can only be entered via the provider (or a password reset).
       const placeholder = await hashPassword(`${globalThis.crypto.randomUUID()}${globalThis.crypto.randomUUID()}`)
       user = await User.create({
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ prov
         authProvider: provider,
       })
     } else if (!user.authProvider) {
-      // First social login on an existing email/password account — link them.
+      // First social login on an existing email/password account - link them.
       user.authProvider = provider
       await user.save()
     }

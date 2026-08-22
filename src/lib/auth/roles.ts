@@ -2,7 +2,7 @@ import type { AuthUser } from '@/types'
 
 /**
  * Emails listed in ADMIN_EMAILS (comma-separated, case-insensitive) are always
- * treated as admins. This is the bootstrap mechanism — it lets you grant the
+ * treated as admins. This is the bootstrap mechanism - it lets you grant the
  * first admin without touching the database. A user's stored `role` can also be
  * 'admin' (set via the admin dashboard).
  */

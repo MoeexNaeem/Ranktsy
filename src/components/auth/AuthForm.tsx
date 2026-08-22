@@ -79,7 +79,7 @@ function EyeIcon({ off }: { off: boolean }) {
 }
 
 // Decorative, on-palette backdrop (dotted grid + colour blobs + dashed rings +
-// floating shapes + sparkles). Purely visual — aria-hidden, no pointer events.
+// floating shapes + sparkles). Purely visual - aria-hidden, no pointer events.
 // A few pieces gently float via the shared .float-card class (auto-disabled for
 // prefers-reduced-motion).
 function AuthBackdrop() {
@@ -221,7 +221,7 @@ function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: Fo
       if (!json.success) {
         setErrors(json.errors ?? { _: json.error ?? 'Something went wrong' })
         // The captcha token is single-use and was already spent server-side, so
-        // reset the widget for the next attempt — no page refresh needed.
+        // reset the widget for the next attempt - no page refresh needed.
         if (needsCaptcha) { setCaptcha(''); setCaptchaKey(k => k + 1) }
         return
       }

@@ -5,10 +5,10 @@ import { C, SNAPSHOT_RETENTION_DAYS } from '@/utils'
 import { abs } from '@/lib/seo/site'
 
 export const metadata: Metadata = {
-  title: 'Data & Methodology — How Rankkw measures Etsy data',
-  description: 'Exactly how Rankkw measures Etsy and Google data — the sources, the caching, and what it deliberately never fabricates.',
+  title: 'Data & Methodology - How Rankkw measures Etsy data',
+  description: 'Exactly how Rankkw measures Etsy and Google data - the sources, the caching, and what it deliberately never fabricates.',
   alternates: { canonical: abs('/methodology') },
-  openGraph: { title: 'Data & Methodology — Rankkw', description: 'How Rankkw measures Etsy and Google data, honestly.', url: abs('/methodology'), type: 'website' },
+  openGraph: { title: 'Data & Methodology - Rankkw', description: 'How Rankkw measures Etsy and Google data, honestly.', url: abs('/methodology'), type: 'website' },
 }
 
 const MONO = "'General Sans', monospace"
@@ -28,16 +28,16 @@ const OFFICIAL: { field: string; source: string }[] = [
   { field: 'Your own sales, orders & receipts (with your consent)', source: 'GET /shops/{id}/receipts · OAuth' },
 ]
 
-// ── Metrics we DERIVE — computed FROM the real fields above, never invented ────
+// ── Metrics we DERIVE - computed FROM the real fields above, never invented ────
 // Anything Etsy doesn't publish is absent from the product rather than estimated
 // into existence. The list of what's missing is deliberately public: see NOT_SHOWN.
 const DERIVED: { metric: string; how: string }[] = [
   { metric: 'Keyword Difficulty (KD)', how: 'A 0–100 estimate combining two real measurements: the true total of competing live listings, and how strongly the incumbents convert views into favorites. Labelled an estimate everywhere it appears.' },
-  { metric: 'Favorites per view', how: 'A plain ratio of two real Etsy fields — num_favorers ÷ views — across the listings ranking for a keyword. It is a save rate, not a click-through rate; Etsy exposes no click data.' },
-  { metric: 'Listings created per month', how: 'A calendar-month histogram built from each listing’s real creation timestamp. It shows when sellers list, which is not the same as when buyers search — and we say so wherever it appears.' },
+  { metric: 'Favorites per view', how: 'A plain ratio of two real Etsy fields - num_favorers ÷ views - across the listings ranking for a keyword. It is a save rate, not a click-through rate; Etsy exposes no click data.' },
+  { metric: 'Listings created per month', how: 'A calendar-month histogram built from each listing’s real creation timestamp. It shows when sellers list, which is not the same as when buyers search - and we say so wherever it appears.' },
   { metric: 'Trend Buzz “heat”', how: 'A 0–100 relative index over real inputs: how many sampled live listings carry a tag, weighted by those listings’ engagement. An index, never a search volume.' },
   { metric: 'Competition Low / Med / High', how: 'A band over the real count of active listings for that exact keyword, from its own live Etsy search.' },
-  { metric: 'Sales velocity (units/day)', how: 'Etsy publishes only a lifetime sales total. We snapshot it daily and difference consecutive days. Before two days of history exist we show “tracking started” — never a zero.' },
+  { metric: 'Sales velocity (units/day)', how: 'Etsy publishes only a lifetime sales total. We snapshot it daily and difference consecutive days. Before two days of history exist we show “tracking started” - never a zero.' },
 ]
 
 // ── What we DON'T show, because Etsy doesn't publish it ───────────────────────
@@ -46,7 +46,7 @@ const DERIVED: { metric: string; how: string }[] = [
 const NOT_SHOWN: { metric: string; why: string }[] = [
   { metric: 'Etsy search volume / “avg. searches”', why: 'The Etsy Open API exposes no search-volume data of any kind. We previously derived a figure from listing views; it is gone. Real Google search volume appears instead when Google Ads is connected.' },
   { metric: 'Clicks & click-through rate', why: 'Etsy publishes no click data for listings you don’t own. Any CTR figure would be a guess.' },
-  { metric: 'Etsy search seasonality', why: 'No search history exists in the API. We show real Google monthly volume when available, and otherwise when competing listings were created — labelled as seller behaviour, not buyer demand.' },
+  { metric: 'Etsy search seasonality', why: 'No search history exists in the API. We show real Google monthly volume when available, and otherwise when competing listings were created - labelled as seller behaviour, not buyer demand.' },
   { metric: 'Per-listing sales', why: 'Listings expose quantity (stock on hand), never units sold. Sales are published per shop only, so they cannot be attributed to a keyword or a single listing.' },
   { metric: 'Buyer geography for other shops', why: 'Buyer country appears only on your own order receipts, under your own OAuth consent. There is no public equivalent for a competitor.' },
   { metric: 'Shop traffic & visit sources', why: 'No public endpoint exists for page visits or traffic sources.' },
@@ -87,7 +87,7 @@ export default function MethodologyPage() {
               Data &amp; Methodology
             </h1>
             <p style={{ fontSize: 18, color: C.graphite, lineHeight: 1.6, maxWidth: 640 }}>
-              Exactly where every number comes from — what is real, unmodified Etsy data, and what we compute as an estimate.
+              Exactly where every number comes from - what is real, unmodified Etsy data, and what we compute as an estimate.
             </p>
           </div>
         </div>
@@ -97,7 +97,7 @@ export default function MethodologyPage() {
           <p style={{ fontSize: 17, color: C.ink, lineHeight: 1.75, marginBottom: 52, borderLeft: `3px solid ${C.orange}`, paddingLeft: 20 }}>
             Rankkw uses <strong>only</strong> the official <a href="https://developers.etsy.com" target="_blank" rel="noopener noreferrer" style={{ color: C.orange, textDecoration: 'underline', textUnderlineOffset: 3 }}>Etsy Open API v3</a>.
             No scraping, no unofficial endpoints, no third-party data proxies. Some fields are shown exactly as Etsy returns them;
-            other figures are <strong>estimates we derive</strong> from that data — and we always label them as such.
+            other figures are <strong>estimates we derive</strong> from that data - and we always label them as such.
           </p>
 
           <Section title="Straight from the Etsy API">
@@ -119,7 +119,7 @@ export default function MethodologyPage() {
 
           <Section title="Metrics we compute">
             <p style={{ fontSize: 15.5, color: C.graphite, lineHeight: 1.6, marginBottom: 22 }}>
-              Everything below is calculated <strong>from the real Etsy fields above</strong> — no invented coefficients,
+              Everything below is calculated <strong>from the real Etsy fields above</strong> - no invented coefficients,
               no modelled curves. Where a figure is an estimate rather than a measurement, it says so in the app itself.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -157,19 +157,19 @@ export default function MethodologyPage() {
           <Section title="Google data (optional)">
             <p style={{ fontSize: 15.5, color: C.graphite, lineHeight: 1.65 }}>
               When a Google Ads account is connected, real Google monthly search volume and country breakdowns come from Google&apos;s
-              official Keyword Planner API — attributed to <strong>Google</strong>, never presented as Etsy data. If Google isn&apos;t connected, these fields simply don&apos;t appear.
+              official Keyword Planner API - attributed to <strong>Google</strong>, never presented as Etsy data. If Google isn&apos;t connected, these fields simply don&apos;t appear.
             </p>
           </Section>
 
           <Section title="Freshness &amp; caching">
             <p style={{ fontSize: 15.5, color: C.graphite, lineHeight: 1.65, marginBottom: 18 }}>
-              To respect Etsy&apos;s API Terms, cached Etsy content is always refreshed well inside Etsy&apos;s limits —
+              To respect Etsy&apos;s API Terms, cached Etsy content is always refreshed well inside Etsy&apos;s limits -
               listing-derived data within <strong>5 hours</strong> (Etsy&apos;s ceiling is 6 hours) and shop data within{' '}
               <strong>15 minutes</strong> (ceiling 24 hours). Every figure you see as a <em>current</em> number is fetched
               live from Etsy, never served from an expired cache.
             </p>
             <p style={{ fontSize: 15.5, color: C.graphite, lineHeight: 1.65, marginBottom: 18 }}>
-              We also send no more than <strong>8 requests per second</strong> to Etsy — under their published ceiling —
+              We also send no more than <strong>8 requests per second</strong> to Etsy - under their published ceiling -
               and back off automatically if Etsy ever asks us to slow down. All calls go to the official
               <code style={{ fontFamily: MONO, fontSize: 13.5, background: C.bone, padding: '1px 6px', borderRadius: 4, margin: '0 4px' }}>openapi.etsy.com</code>
               endpoints. We do not scrape Etsy, and we use no third-party Etsy data resellers.
@@ -184,12 +184,12 @@ export default function MethodologyPage() {
             </p>
             <p style={{ fontSize: 15.5, color: C.graphite, lineHeight: 1.65, marginBottom: 18 }}>
               That is <em>not</em> caching, and we&apos;re careful about the difference. A cache re-serves Etsy&apos;s
-              content as though it were current — we never do that. A snapshot is a dated measurement, always presented as
+              content as though it were current - we never do that. A snapshot is a dated measurement, always presented as
               history and always labelled with the date it was taken. Until two days of history exist for a shop, we show
               &ldquo;tracking started&rdquo; rather than a misleading zero.
             </p>
             <p style={{ fontSize: 15.5, color: C.graphite, lineHeight: 1.65 }}>
-              Snapshots are capped at <strong>{SNAPSHOT_RETENTION_DAYS} days</strong> (~13 months — a full year of
+              Snapshots are capped at <strong>{SNAPSHOT_RETENTION_DAYS} days</strong> (~13 months - a full year of
               seasonality plus a same-month-last-year comparison) and are deleted automatically by the database after
               that. Sellers can stop tracking a shop at any time.
             </p>

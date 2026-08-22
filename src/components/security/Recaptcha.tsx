@@ -9,7 +9,7 @@
 import { useEffect, useRef } from 'react'
 
 const SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY ?? ''
-/** Whether the widget is live — callers use this to require a token before submit. */
+/** Whether the widget is live - callers use this to require a token before submit. */
 export const RECAPTCHA_ENABLED = !!SITE_KEY
 
 interface Grecaptcha {

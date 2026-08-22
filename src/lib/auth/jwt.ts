@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from 'jose'
 import type { AuthUser } from '@/types'
 
 /**
- * Auth secrets are REQUIRED — never fall back to a shared/public string in a
+ * Auth secrets are REQUIRED - never fall back to a shared/public string in a
  * deployed build. A guessable signing key means anyone can forge a session
  * (including an admin one). In production a missing secret is a hard boot error;
  * only local development is allowed a clearly-marked throwaway default.

@@ -21,7 +21,7 @@ export const PLAN_LABELS: Record<PlanSlug, string> = {
 /**
  * The plan we should actually treat the user as being on. Two expiry paths:
  *   • PAID (Lemon Squeezy): the webhook sets 'expired' on end; this is also a
- *     safety net for a missed webhook — a non-active paid sub past renews_at
+ *     safety net for a missed webhook - a non-active paid sub past renews_at
  *     (+1-day grace) falls back to free.
  *   • ADMIN-GRANTED (comp): a plan an admin gave without a purchase carries a
  *     `compExpiresAt`; on/after it the user reverts to free (e.g. a 1-month Pro

@@ -112,7 +112,7 @@ export function DeliveryStatusTab() {
                     {o.ageDays}d
                   </span>
                   <span style={{ fontSize: 13.5, fontFamily: MONO, color: C.ink }}>{sym(o.currency)}{o.total.toFixed(2)}</span>
-                  <span style={{ fontSize: 13.5, fontFamily: MONO, color: C.ink }}>{o.countryIso ? `${flag(o.countryIso)} ${o.countryIso}` : '—'}</span>
+                  <span style={{ fontSize: 13.5, fontFamily: MONO, color: C.ink }}>{o.countryIso ? `${flag(o.countryIso)} ${o.countryIso}` : '-'}</span>
                   <a href="https://www.etsy.com/your/orders/sold" target="_blank" rel="noopener noreferrer"
                     style={{ fontSize: 12.5, fontFamily: MONO, color: C.graphite, textDecoration: 'none' }}
                     onMouseEnter={e => (e.currentTarget.style.color = C.orange)}
@@ -134,7 +134,7 @@ export function DeliveryStatusTab() {
 
       <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6 }}>
         Real fulfilment state from your {data.sampled} most recent Etsy receipts (<code>is_paid</code> / <code>is_shipped</code>).
-        Etsy doesn&apos;t expose carrier tracking progress through this API, so &ldquo;shipped&rdquo; means you marked it dispatched — not delivered.
+        Etsy doesn&apos;t expose carrier tracking progress through this API, so &ldquo;shipped&rdquo; means you marked it dispatched - not delivered.
       </p>
     </div>
   )

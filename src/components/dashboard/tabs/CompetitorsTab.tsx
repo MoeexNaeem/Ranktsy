@@ -14,7 +14,7 @@ const FETCH = 48        // fetched once live
 const PER_PAGE = 12     // paginated client-side
 
 function priceStr(l: EtsyListing) {
-  if (!l.price?.amount) return '—'
+  if (!l.price?.amount) return '-'
   // Currency code shown explicitly: a keyword search returns listings priced in
   // many currencies with no FX rate, so a bare number would invite comparing
   // 410,000 VND against $410.
@@ -60,7 +60,7 @@ export function CompetitorsTab() {
     return { bubble, tags }
   }, [sorted])
 
-  // Currency-agnostic market signals (price is deliberately omitted — a cross-shop
+  // Currency-agnostic market signals (price is deliberately omitted - a cross-shop
   // search mixes currencies with no FX rate).
   const market = useMemo(() => {
     if (!sorted.length) return null
@@ -105,7 +105,7 @@ export function CompetitorsTab() {
           <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
             <Card>
               <SectionTitle right={<span style={{ fontSize: 12, fontFamily: MONO, color: C.graphite }}>top 40</span>}>Competitive landscape</SectionTitle>
-              <p style={{ fontSize: 13, color: C.graphite, marginTop: -8, marginBottom: 10 }}>Each bubble is a listing — <strong style={{ color: C.orange }}>orange</strong> ones convert views to favorites best.</p>
+              <p style={{ fontSize: 13, color: C.graphite, marginTop: -8, marginBottom: 10 }}>Each bubble is a listing - <strong style={{ color: C.orange }}>orange</strong> ones convert views to favorites best.</p>
               <BubbleChart points={charts.bubble} xLabel="Views" yLabel="Favorites" />
             </Card>
             <Card>
@@ -143,14 +143,14 @@ export function CompetitorsTab() {
                       onMouseEnter={e => (e.currentTarget.style.color = C.orange)}
                       onMouseLeave={e => (e.currentTarget.style.color = C.ink)}>{l.title}</a>
                   </div>
-                  {/* Who you're actually up against — the obvious next question,
+                  {/* Who you're actually up against - the obvious next question,
                       and the jump-off point into Shop Analytics. */}
                   {l.shop_name ? (
                     <a href={`https://www.etsy.com/shop/${encodeURIComponent(l.shop_name)}`} target="_blank" rel="noopener noreferrer"
                       style={{ fontSize: 13.5, color: C.graphite, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                       onMouseEnter={e => (e.currentTarget.style.color = C.orange)}
                       onMouseLeave={e => (e.currentTarget.style.color = C.graphite)}>{l.shop_name}</a>
-                  ) : <span style={{ fontSize: 13.5, color: C.stone }}>—</span>}
+                  ) : <span style={{ fontSize: 13.5, color: C.stone }}>-</span>}
                   <span style={{ ...tdMono, color: C.ink, fontWeight: 500 }}>{priceStr(l)}</span>
                   <span style={{ ...tdMono, color: '#2E6DB4' }}>{formatNumber(l.views ?? 0)}</span>
                   <span style={{ ...tdMono, color: D.hard }}>{formatNumber(l.num_favorers ?? 0)}</span>

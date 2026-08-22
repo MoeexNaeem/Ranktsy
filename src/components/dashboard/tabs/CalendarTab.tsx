@@ -38,7 +38,7 @@ function nthWeekdayOfMonth(year: number, month: number, weekday: number, n: numb
 
 /**
  * First day of Hanukkah (25 Kislev), resolved via the platform's own Hebrew
- * calendar rather than a guessed Gregorian date — it drifts by weeks each year.
+ * calendar rather than a guessed Gregorian date - it drifts by weeks each year.
  * Falls back to null if Intl lacks Hebrew calendar data, so the event is hidden
  * rather than shown on a wrong day.
  */
@@ -80,7 +80,7 @@ const EVENTS: Event[] = [
   { name: 'Back to School',           date: y => new Date(y, 8, 1),   prep: 5,  themes: ['back to school', 'teacher gift', 'classroom', 'student'] },
   { name: 'Halloween',                date: y => new Date(y, 9, 31),  prep: 8,  themes: ['halloween decor', 'spooky', 'costume', 'fall'] },
   { name: 'Thanksgiving (US)',        date: y => nthWeekdayOfMonth(y, 11, 4, 4), prep: 6, themes: ['thanksgiving', 'fall decor', 'gratitude', 'harvest'] },
-  // Always the day after US Thanksgiving — derived, never guessed.
+  // Always the day after US Thanksgiving - derived, never guessed.
   { name: 'Black Friday / Cyber Monday', date: y => new Date(nthWeekdayOfMonth(y, 11, 4, 4).getTime() + MS_DAY), prep: 6, themes: ['gift ideas', 'holiday sale', 'stocking stuffer'] },
   { name: 'Hanukkah',                 date: hanukkahStart,            prep: 8,  themes: ['hanukkah', 'menorah', 'jewish holiday'] },
   { name: 'Christmas',                date: y => new Date(y, 11, 25), prep: 10, themes: ['christmas gift', 'holiday decor', 'ornament', 'stocking stuffer'] },
@@ -96,7 +96,7 @@ export function CalendarTab() {
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     return EVENTS.map(e => {
       // Resolve for this year; if it's already passed, resolve NEXT year properly
-      // rather than reusing this year's month/day — a moving feast lands on a
+      // rather than reusing this year's month/day - a moving feast lands on a
       // different date each year.
       let date = e.date(now.getFullYear())
       if (!date || date < startOfToday) {
@@ -122,7 +122,7 @@ export function CalendarTab() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Card pad="16px">
         <p style={{ fontSize: 13, color: C.ink, lineHeight: 1.55 }}>
-          Plan ahead — Etsy shoppers search seasonal terms <strong>weeks before</strong>{' '}the date. Refresh titles &amp; tags for each event by its prep deadline. Ranked by what&apos;s coming up next.
+          Plan ahead - Etsy shoppers search seasonal terms <strong>weeks before</strong>{' '}the date. Refresh titles &amp; tags for each event by its prep deadline. Ranked by what&apos;s coming up next.
           Moving feasts (Easter, Mother&apos;s/Father&apos;s Day, Thanksgiving, Hanukkah) are computed for the actual year, not fixed to a calendar slot.
         </p>
       </Card>

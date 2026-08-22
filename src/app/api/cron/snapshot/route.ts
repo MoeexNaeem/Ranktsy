@@ -9,7 +9,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 /**
- * Daily snapshot job — guarantees a row for every tracked shop even when nobody
+ * Daily snapshot job - guarantees a row for every tracked shop even when nobody
  * browses it. Ordinary traffic already captures shops opportunistically (see
  * lib/snapshots.ts); this closes the gap for shops users are tracking but not
  * actively viewing.
@@ -19,14 +19,14 @@ export const dynamic = 'force-dynamic'
  *
  * Auth: set CRON_SECRET and send `Authorization: Bearer <secret>`. Vercel Cron
  * sends this header automatically. Without CRON_SECRET set, the route refuses to
- * run rather than sitting open — an unauthenticated endpoint that burns the Etsy
+ * run rather than sitting open - an unauthenticated endpoint that burns the Etsy
  * rate budget is a liability.
  */
 export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<unknown>>> {
   const secret = process.env.CRON_SECRET
   if (!secret) {
     return NextResponse.json(
-      { success: false, error: 'CRON_SECRET is not configured — refusing to run unauthenticated.' },
+      { success: false, error: 'CRON_SECRET is not configured - refusing to run unauthenticated.' },
       { status: 503 },
     )
   }
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<un
   try {
     await connectDB()
 
-    // Distinct shops across all users — two users tracking the same shop is one fetch.
+    // Distinct shops across all users - two users tracking the same shop is one fetch.
     const tracked = await TrackedShop.find({}).select('shopId shopName').lean()
     const unique = [...new Map(tracked.map(t => [t.shopId, t])).values()]
 

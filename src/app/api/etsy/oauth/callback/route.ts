@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     const shop = await getShopByOwner(tokens.access_token, etsyUserId)
     if (!shop.shop_id) return back(req, 'etsy=no_shop')
 
-    // Upserts by (userId, shopId) — connecting this shop never disturbs any
+    // Upserts by (userId, shopId) - connecting this shop never disturbs any
     // other shop the user already connected. Stored in its own collection, not
     // the session, so it survives logout and only goes away on disconnect.
     await saveEtsyTokens(user.id, tokens, shop.shop_id, shop.shop_name)

@@ -1,6 +1,6 @@
 /**
  * Small concurrency primitives for load resilience. Both are per-process
- * (in-memory) — which is exactly where a burst lands on a single instance, and
+ * (in-memory) - which is exactly where a burst lands on a single instance, and
  * fail-safe on multi-instance (each instance protects itself). No dependencies.
  */
 
@@ -9,7 +9,7 @@
 // while one call is in flight, they all await that ONE promise instead of each
 // hammering the upstream (Etsy/Google/DB). Classic "thundering herd" guard for
 // viral keywords. The entry is removed as soon as the promise settles, so this
-// never caches results — it only collapses *in-flight* duplicates.
+// never caches results - it only collapses *in-flight* duplicates.
 const inflight = new Map<string, Promise<unknown>>()
 
 export function singleFlight<T>(key: string, fn: () => Promise<T>): Promise<T> {
@@ -22,7 +22,7 @@ export function singleFlight<T>(key: string, fn: () => Promise<T>): Promise<T> {
 
 // ─── Semaphore (concurrency cap) ──────────────────────────────────────────────
 // Caps how many of an expensive operation run at once on this instance. Excess
-// callers queue (FIFO) and proceed as slots free up — so a spike of, say, image
+// callers queue (FIFO) and proceed as slots free up - so a spike of, say, image
 // generations is smoothed into a steady stream rather than a burst that trips
 // the provider's rate limit. `acquire()` resolves with a `release` function.
 export interface Limiter {

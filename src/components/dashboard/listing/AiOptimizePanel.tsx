@@ -1,11 +1,11 @@
 'use client'
 import { Icon } from '@/components/ui/Icon'
 /**
- * AI Improvement Suggestions + One-Click Optimization — sits under the Listing
+ * AI Improvement Suggestions + One-Click Optimization - sits under the Listing
  * Audit checklist. The audit finds the gaps; this panel sends those REAL
  * findings (plus the real keyword-gap tags, scanned server-side) to Gemini,
  * which writes the fixes: a prioritised suggestion list and a complete
- * ready-to-paste rewrite. AI writes copy only — every number shown here was
+ * ready-to-paste rewrite. AI writes copy only - every number shown here was
  * measured before the model ever saw it.
  */
 import { useMemo, useState, useCallback } from 'react'
@@ -90,7 +90,7 @@ export function AiOptimizePanel({ listing, findings }: { listing: EtsyListing; f
       <Card pad="18px">
         <p style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.55, marginBottom: 14 }}>
           Turn this audit into fixes: AI reads the findings above plus the real tags winners use for your keyword,
-          then writes a prioritised fix list and a complete optimized rewrite. It writes copy only — every number
+          then writes a prioritised fix list and a complete optimized rewrite. It writes copy only - every number
           it cites was measured first.
         </p>
         <div className="rsplit" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -128,7 +128,7 @@ export function AiOptimizePanel({ listing, findings }: { listing: EtsyListing; f
               {r.grounding.sampled > 0 && (
                 <p style={{ fontSize: 11.5, fontFamily: MONO, color: C.stone, marginTop: 6 }}>
                   Grounded in the top {r.grounding.sampled} live listings for “{r.grounding.keyword}”
-                  {r.grounding.missingTags.length ? ` — ${r.grounding.missingTags.length} high-adoption tags you're missing` : ''}.
+                  {r.grounding.missingTags.length ? ` - ${r.grounding.missingTags.length} high-adoption tags you're missing` : ''}.
                 </p>
               )}
             </div>
@@ -146,7 +146,7 @@ export function AiOptimizePanel({ listing, findings }: { listing: EtsyListing; f
             })}
           </Card>
 
-          {/* One-Click Optimization — the ready-to-paste rewrite */}
+          {/* One-Click Optimization - the ready-to-paste rewrite */}
           <Card pad="18px" style={{ borderColor: C.orange }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
               <h4 style={{ fontSize: 16.5, fontWeight: 500, color: C.ink, letterSpacing: '-0.02em' }}><Icon name="bolt" size={16} color={C.ink} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 7 }} />One-Click Optimization</h4>
@@ -196,13 +196,13 @@ export function AiOptimizePanel({ listing, findings }: { listing: EtsyListing; f
                 <p style={{ fontSize: 11.5, fontFamily: MONO, fontWeight: 600, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Description · {r.description.length} chars</p>
                 <CopyBtn text={r.description} copied={copiedKey === 'desc'} onCopied={() => markCopied('desc')} />
               </div>
-              <p style={{ fontSize: 14, color: C.ink, background: C.bone, padding: '13px 15px', borderRadius: 10, lineHeight: 1.6, whiteSpace: 'pre-wrap', maxHeight: 320, overflowY: 'auto' }}>{r.description || '—'}</p>
+              <p style={{ fontSize: 14, color: C.ink, background: C.bone, padding: '13px 15px', borderRadius: 10, lineHeight: 1.6, whiteSpace: 'pre-wrap', maxHeight: 320, overflowY: 'auto' }}>{r.description || '-'}</p>
             </div>
 
             <p style={{ fontSize: 11.5, color: C.stone, marginTop: 14, lineHeight: 1.55 }}>
               {r.ai
-                ? 'Copy written by AI from your real audit findings and the measured tags of top-ranking listings — review before publishing. Etsy caps: title 140 chars, 13 tags of 20 chars.'
-                : 'AI is a little busy right now — this rewrite keeps your own copy and tops up your tags with the measured high-adoption ones. Try again in a moment for the full AI rewrite.'}
+                ? 'Copy written by AI from your real audit findings and the measured tags of top-ranking listings - review before publishing. Etsy caps: title 140 chars, 13 tags of 20 chars.'
+                : 'AI is a little busy right now - this rewrite keeps your own copy and tops up your tags with the measured high-adoption ones. Try again in a moment for the full AI rewrite.'}
             </p>
           </Card>
         </div>

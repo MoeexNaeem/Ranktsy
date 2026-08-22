@@ -4,7 +4,7 @@
  *
  * A cold keyword takes ~13s to fully measure (33 live Etsy calls behind an
  * 8/sec rate gate). The page paints from the fast core in ~1–2s and the
- * expensive stages fill in behind it — so the UI has to say WHICH part is still
+ * expensive stages fill in behind it - so the UI has to say WHICH part is still
  * measuring, not just spin.
  *
  * Skeletons mirror the real layout (same heights, same column grid) so nothing
@@ -21,7 +21,7 @@ export function Shimmer({ h = 16, w = '100%', r = 6, style }: {
   return <div className="shimmer" style={{ height: h, width: w, borderRadius: r, background: '#e8e7e2', ...style }} />
 }
 
-/** Deterministic pseudo-random width — varied bars read as content, not a grid. */
+/** Deterministic pseudo-random width - varied bars read as content, not a grid. */
 function widthFor(seed: number, min = 45, max = 90): string {
   const n = Math.abs(Math.sin(seed * 12.9898) * 43758.5453) % 1
   return `${Math.round(min + n * (max - min))}%`
@@ -118,7 +118,7 @@ export interface Stage { label: string; done: boolean; failed?: boolean }
 
 /**
  * Per-stage progress. Names what's still being measured and roughly why it
- * takes a moment — "Measuring 24 keywords against Etsy" is a reason to wait;
+ * takes a moment - "Measuring 24 keywords against Etsy" is a reason to wait;
  * an anonymous spinner is not.
  */
 export function LoadingStages({ stages, note }: { stages: Stage[]; note?: string }) {

@@ -10,7 +10,7 @@ export interface ShopSummary {
   reviewAverage: number; activeListings: number; yearOpened: number | null
 }
 
-// Lightweight, cached shop-level stats for the listing-detail panel — real
+// Lightweight, cached shop-level stats for the listing-detail panel - real
 // numbers (lifetime sales, reviews, rating, shop age) that give a single listing
 // honest context, especially when its per-listing review count is low.
 export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<ShopSummary>>> {

@@ -10,7 +10,7 @@ export const runtime = 'nodejs'
 export const GET = withUsage(getHandler)
 
 /**
- * Near matches — plural/hyphen/word-order variants, each measured against its
+ * Near matches - plural/hyphen/word-order variants, each measured against its
  * OWN live Etsy search (~6 calls, ~1s behind the rate gate).
  *
  * Split out of /api/keywords so it can't hold up the first paint.
@@ -25,7 +25,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Ne
   const hit = memCache.get<NearMatch[]>(key)
   if (hit) return NextResponse.json({ success: true, data: hit, cached: true })
 
-  // Shared Collective store first — if the saved package carries near matches,
+  // Shared Collective store first - if the saved package carries near matches,
   // serve them with no Etsy calls. (Near matches are geo-independent; checked
   // under the default US doc.)
   const shared = await getCollectivePackage(query, 'US')

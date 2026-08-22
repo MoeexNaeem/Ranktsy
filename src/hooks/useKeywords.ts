@@ -29,14 +29,14 @@ const dontRetry4xx = (failureCount: number, error: unknown) => {
 /**
  * The keyword pipeline is deliberately three parallel requests, not one.
  *
- * A cold keyword needs ~33 Etsy calls and the rate gate makes that ~13s — but
+ * A cold keyword needs ~33 Etsy calls and the rate gate makes that ~13s - but
  * only ~3 of them are needed to paint the page. `useKeywordSearch` is the fast
  * core (~1–2s); the two below carry the expensive per-keyword probes and fill in
  * behind it. Each owns its own loading state so the UI can show exactly which
  * part is still measuring rather than one long spinner.
  */
 
-// ─── useKeywordSearch — fast core: stats, listings, analysis ──────────────────
+// ─── useKeywordSearch - fast core: stats, listings, analysis ──────────────────
 export function useKeywordSearch(query: string, geo = 'US') {
   return useQuery({
     queryKey:  [...queryKeys.keywords(query), geo] as const,
@@ -49,14 +49,14 @@ export function useKeywordSearch(query: string, geo = 'US') {
       return data.data
     },
     enabled:     query.trim().length >= 2, // don't fetch on empty input
-    staleTime:   1000 * 60 * 30,           // 30 min — keyword data is stable
+    staleTime:   1000 * 60 * 30,           // 30 min - keyword data is stable
     gcTime:      1000 * 60 * 60,           // 1 hour in React Query cache
     placeholderData: (prev) => prev,       // keep previous data while fetching
     retry: dontRetry4xx,
   })
 }
 
-// ─── useRelatedKeywords — the slow stage: one live search per keyword ─────────
+// ─── useRelatedKeywords - the slow stage: one live search per keyword ─────────
 export function useRelatedKeywords(query: string, geo = 'US') {
   return useQuery({
     queryKey: [...queryKeys.related(query), geo] as const,
@@ -74,7 +74,7 @@ export function useRelatedKeywords(query: string, geo = 'US') {
   })
 }
 
-// ─── useKeywordListings — listings WITH images, only when the tab is opened ───
+// ─── useKeywordListings - listings WITH images, only when the tab is opened ───
 // Etsy needs a separate ~1.5s batch call for images and only this grid uses
 // them, so it's fetched lazily rather than on every keyword search.
 export function useKeywordListings(query: string, enabled: boolean) {
@@ -94,7 +94,7 @@ export function useKeywordListings(query: string, enabled: boolean) {
   })
 }
 
-// ─── useNearMatches — morphological variants, each measured ───────────────────
+// ─── useNearMatches - morphological variants, each measured ───────────────────
 export function useNearMatches(query: string) {
   return useQuery({
     queryKey: queryKeys.near(query),
@@ -112,7 +112,7 @@ export function useNearMatches(query: string) {
   })
 }
 
-// ─── useKeywordIdeas — Google-suggested keywords (generateKeywordIdeas) ───────
+// ─── useKeywordIdeas - Google-suggested keywords (generateKeywordIdeas) ───────
 // Genuine discovery: Google returns terms we never searched for. Returns an empty
 // `ideas` array (not an error) when Google Ads isn't configured, so the panel can
 // render a "connect Google Ads" state.

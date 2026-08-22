@@ -6,7 +6,7 @@ import type { ApiResponse, KeywordGap, GapTag, GapWord, EtsyListing } from '@/ty
 
 export const runtime = 'nodejs'
 
-// Words that carry no SEO signal — dropped from the title-word gap.
+// Words that carry no SEO signal - dropped from the title-word gap.
 const STOP = new Set([
   'with','from','this','that','your','have','will','been','they','their','what','when','and','the','for',
   'you','are','our','out','set','made','made','more','than','into','a','an','of','in','on','to','by','is',
@@ -22,39 +22,44 @@ function tokens(title: string): string[] {
  *
  * Reads the live listings that rank for a keyword and reports, as real counts,
  * the tags and title-words the winners share. If the caller supplies their own
- * listing, it flags exactly which of those the listing is missing — the "hidden
+ * listing, it flags exactly which of those the listing is missing - the "hidden
  * keywords" they should add. Nothing is estimated: adoption is a count, views
  * are Etsy's own numbers.
  */
 export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<KeywordGap>>> {
   const { searchParams } = new URL(req.url)
-  const query = searchParams.get('q')?.trim().toLowerCase()
-  const listingParam = searchParams.get('listing')?.trim()   // optional — a URL or id
-
-  if (!query || query.length < 2) {
-    return NextResponse.json({ success: false, error: 'Enter a keyword (2+ characters).' }, { status: 400 })
-  }
+  let query = (searchParams.get('q')?.trim().toLowerCase()) || ''
+  const listingParam = searchParams.get('listing')?.trim()   // a keyword OR a listing URL/id
 
   const gate = await guardSearch<KeywordGap>(req)
   if (gate) return gate
 
-  // Cache the keyword scan (expensive) separately from the per-listing overlay
-  // (cheap), so trying different listings against one keyword is fast.
-  const scanKey = cacheKey('gap', 'v1', 'scan', query)
-  let scan = memCache.get<{ listings: EtsyListing[]; count: number }>(scanKey)
   try {
-    if (!scan) {
-      scan = await searchEtsyListingsPaged(query, 100, 0, { skipImages: true })
-      memCache.set(scanKey, scan, CACHE_TTL.KEYWORD)
-    }
-
-    // Resolve the caller's own listing, if given.
+    // Resolve the caller's own listing FIRST - it's both the analysis target and,
+    // when no keyword was typed, the source we derive the search keyword from. That
+    // lets a single input box accept either a keyword or a listing URL/ID.
     let target: EtsyListing | null = null
     if (listingParam) {
       const m = listingParam.match(/listing\/(\d+)/) || listingParam.match(/(\d{6,})/)
       const id = m ? Number(m[1]) : NaN
       if (id) target = await getListingById(id).catch(() => null)
     }
+
+    // Only a listing was given → use its first few meaningful title words as the keyword.
+    if (query.length < 2 && target) query = tokens(target.title).slice(0, 3).join(' ')
+    if (query.length < 2) {
+      return NextResponse.json({ success: false, error: 'Enter a keyword, or paste a valid Etsy listing URL.' }, { status: 400 })
+    }
+
+    // Cache the keyword scan (expensive) separately from the per-listing overlay
+    // (cheap), so trying different listings against one keyword is fast.
+    const scanKey = cacheKey('gap', 'v1', 'scan', query)
+    let scan = memCache.get<{ listings: EtsyListing[]; count: number }>(scanKey)
+    if (!scan) {
+      scan = await searchEtsyListingsPaged(query, 100, 0, { skipImages: true })
+      memCache.set(scanKey, scan, CACHE_TTL.KEYWORD)
+    }
+
     const yourTags = new Set((target?.tags ?? []).map(t => t.toLowerCase().trim()))
     const yourWords = new Set(target ? tokens(target.title) : [])
 

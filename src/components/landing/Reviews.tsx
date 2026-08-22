@@ -6,7 +6,7 @@ import { C } from '@/utils'
 const SANS = "'General Sans',sans-serif"
 
 /* NOTE ON HONESTY: Rankkw's whole identity is "no fabricated data". The `quote`
-   cards below are PLACEHOLDER testimonials — swap them for real, attributable
+   cards below are PLACEHOLDER testimonials - swap them for real, attributable
    seller reviews before relying on them. The `stat` cards are all true facts about
    the product. */
 type Card =
@@ -15,13 +15,13 @@ type Card =
 
 const CARDS: Card[] = [
   { kind: 'quote', bg: '#1E2A5A', fg: '#fff', who: 'Maya R.', role: 'Handmade jewelry seller',
-    quote: 'Finally an Etsy tool that shows the actual competition — not made-up sales guesses. I trust the numbers.' },
+    quote: 'Finally an Etsy tool that shows the actual competition - not made-up sales guesses. I trust the numbers.' },
   { kind: 'stat', bg: '#3B5BFF', fg: '#fff', big: '100%', sub: 'real data',
-    body: 'Every metric is measured live from the official Etsy & Google APIs. If it isn’t available, you see a dash — never an invented number.' },
+    body: 'Every metric is measured live from the official Etsy & Google APIs. If it isn’t available, you see a dash - never an invented number.' },
   { kind: 'quote', bg: '#F3B6DD', fg: '#3D3E3B', who: 'Daniel K.', role: 'Vintage prints shop',
     quote: 'Real favorites-per-view and keyword difficulty helped me pick winners I would have completely skipped.' },
   { kind: 'stat', bg: '#2E7D46', fg: '#fff', big: '33', sub: 'tools, one dashboard',
-    body: 'Keywords, competitors, trends, listing audits and AI title / tag / description generators — all in one place.' },
+    body: 'Keywords, competitors, trends, listing audits and AI title / tag / description generators - all in one place.' },
   { kind: 'quote', bg: '#FB5E09', fg: '#fff', who: 'Priya S.', role: 'Digital planner creator',
     quote: 'The Google search volume next to Etsy competition finally tells me what’s worth making before I make it.' },
   { kind: 'stat', bg: '#14352A', fg: '#fff', big: '2', sub: 'live data sources',

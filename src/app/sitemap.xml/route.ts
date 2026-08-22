@@ -3,7 +3,7 @@ import { sitemapIndex, XML_HEADERS } from '@/lib/seo/sitemap'
 
 export const revalidate = 3600
 
-// Master sitemap INDEX — submit THIS one to Google Search Console. Every other
+// Master sitemap INDEX - submit THIS one to Google Search Console. Every other
 // sitemap (features, pages, and blogs once published) is referenced here, so a
 // single submission covers the whole site.
 export function GET() {

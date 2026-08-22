@@ -1,6 +1,6 @@
 'use client'
 /**
- * Slide-in drawer with EVERYTHING we hold about one user — opened by clicking a
+ * Slide-in drawer with EVERYTHING we hold about one user - opened by clicking a
  * row in the Users table. Fetches /api/admin/users/[id] (full detail) on open.
  */
 import { useEffect, useState } from 'react'
@@ -22,8 +22,8 @@ interface Detail {
 }
 
 const exact = (n: number) => (n ?? 0).toLocaleString('en-US')
-const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
-const fmtWhen = (d: string | null) => d ? new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'
+const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'
+const fmtWhen = (d: string | null) => d ? new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '-'
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -120,7 +120,7 @@ export function UserDetailPanel({ userId, onClose }: { userId: string | null; on
               <Group title="Plan & billing">
                 <Field label="Plan">{d.effectivePlan}{d.plan !== d.effectivePlan ? ` (set: ${d.plan})` : ''}</Field>
                 <Field label="Paid customer">{d.paidViaLemonSqueezy ? '★ Yes (Lemon Squeezy)' : 'No'}</Field>
-                <Field label="Subscription">{d.subscriptionStatus ? d.subscriptionStatus.replace(/_/g, ' ') : '—'}</Field>
+                <Field label="Subscription">{d.subscriptionStatus ? d.subscriptionStatus.replace(/_/g, ' ') : '-'}</Field>
                 {d.lsCustomerId && <Field label="LS customer">{d.lsCustomerId}</Field>}
                 {d.planRenewsAt && <Field label="Renews">{fmtDate(d.planRenewsAt)}</Field>}
                 {!d.paidViaLemonSqueezy && d.compExpiresAt && d.effectivePlan !== 'free' && (
@@ -138,7 +138,7 @@ export function UserDetailPanel({ userId, onClose }: { userId: string | null; on
                 <Field label="Total searches">{exact(d.searchTotal)}</Field>
                 <Field label="Images this month">{exact(d.imagesThisMonth)}</Field>
                 <Field label="Saved keywords">{exact(d.savedKeywords)}</Field>
-                <Field label="Connected shops">{d.shops.length ? d.shops.map(s => s.shopName).join(', ') : '—'}</Field>
+                <Field label="Connected shops">{d.shops.length ? d.shops.map(s => s.shopName).join(', ') : '-'}</Field>
               </Group>
 
               <Group title="Searches · last 14 days">

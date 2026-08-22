@@ -6,7 +6,7 @@ import { C } from '@/utils'
 
 const SANS = "'General Sans',sans-serif"
 
-/* The public keyword tool used to run a LIVE Etsy/Google search on every visitor —
+/* The public keyword tool used to run a LIVE Etsy/Google search on every visitor -
    burning real API quota and putting live data on an unauthenticated page. It's now
    a static product showcase: a framed screenshot of the real dashboard, no calls.
    The section keeps id="keywords" so the hero's "Try the keyword tool ↓" still lands
@@ -62,7 +62,7 @@ export function KeywordTool() {
               See the real numbers behind any keyword
             </h2>
             <p style={{ fontSize: 'clamp(16px,1.4vw,18px)', color: C.graphite, lineHeight: 1.55, maxWidth: 560, margin: '0 auto' }}>
-              Search volume, competition, KD, 12-month trends and the top-ranking listings —
+              Search volume, competition, KD, 12-month trends and the top-ranking listings -
               measured live from the official Etsy &amp; Google APIs. No estimates, no demo data.
             </p>
           </div>
@@ -71,7 +71,7 @@ export function KeywordTool() {
         {/* Colour-framed product shot */}
         <Reveal delay={0.08}>
           <div className="kw-stage" style={{ position: 'relative', borderRadius: 30, padding: 'clamp(16px,3.4vw,44px)', background: BAND, boxShadow: '0 44px 100px rgba(61,62,59,0.22)' }}>
-            <Frame src="/DashboardUI.webp" alt="Rankkw keyword research dashboard — search volume, competition, KD and trends" />
+            <Frame src="/DashboardUI.webp" alt="Rankkw keyword research dashboard - search volume, competition, KD and trends" />
 
             {/* Floating callouts */}
             <Chip label="Real Etsy search volume" style={{ top: 26, left: -14 }} />
@@ -86,7 +86,7 @@ export function KeywordTool() {
             <Link href="/register" style={{ display: 'inline-block', background: C.orange, color: '#fff', textDecoration: 'none', fontSize: 16, fontWeight: 500, padding: '15px 30px', borderRadius: 28, letterSpacing: '-0.01em', boxShadow: '0 12px 26px rgba(251,94,9,0.28)', transition: 'opacity 0.18s' }}
               onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
               onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
-              Start free — research any keyword →
+              Start free - research any keyword →
             </Link>
             <p style={{ fontSize: 13.5, color: C.stone, marginTop: 14, fontFamily: SANS }}>
               Free plan · no card required · real data from your first search

@@ -94,7 +94,7 @@ export default async function BlogPost({ params }: { params: Promise<{ slug: str
         <section style={{ background: C.charcoal, padding: '72px 24px', textAlign: 'center' }}>
           <div style={{ maxWidth: 560, margin: '0 auto' }}>
             <h2 style={{ fontSize: 'clamp(24px,3vw,36px)', fontWeight: 600, color: '#F5F5EB', letterSpacing: '-0.03em', marginBottom: 14 }}>Put this into practice</h2>
-            <p style={{ fontSize: 16, color: 'rgba(245,245,235,0.72)', lineHeight: 1.55, marginBottom: 24 }}>Research keywords with real Etsy &amp; Google data — free to start.</p>
+            <p style={{ fontSize: 16, color: 'rgba(245,245,235,0.72)', lineHeight: 1.55, marginBottom: 24 }}>Research keywords with real Etsy &amp; Google data - free to start.</p>
             <Link href="/register" style={{ background: C.orange, color: '#fff', textDecoration: 'none', fontSize: 16, fontWeight: 500, padding: '14px 30px', borderRadius: 28, display: 'inline-block' }}>Start free →</Link>
           </div>
         </section>

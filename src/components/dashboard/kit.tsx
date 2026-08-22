@@ -1,6 +1,6 @@
 'use client'
 /**
- * Shared dashboard UI kit — readable, data-dense, eRank-inspired.
+ * Shared dashboard UI kit - readable, data-dense, eRank-inspired.
  * Bigger type, higher contrast, colorful stat/chart accents. Orange brand.
  */
 import React from 'react'
@@ -80,7 +80,7 @@ export function StatCard({ label, value, sub, accent = 'var(--accent, #FB5E09)',
 }) {
   return (
     <div style={{ ...cardStyle, position: 'relative', padding: '18px 22px 20px', overflow: 'hidden' }}>
-      {/* Accent cap — a thin coloured strip across the card top */}
+      {/* Accent cap - a thin coloured strip across the card top */}
       <span style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: accent }} />
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
         <p style={{ fontSize: 12, fontFamily: MONO, fontWeight: 500, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</p>
@@ -112,7 +112,7 @@ export function CompBadge({ level }: { level: 'Low' | 'Med' | 'High' }) {
   )
 }
 
-// ─── Tag pill (outlined — orange) ───────────────────────────────────────────
+// ─── Tag pill (outlined - orange) ───────────────────────────────────────────
 export function TagPill({ children }: { children: React.ReactNode }) {
   return (
     <span style={{ fontSize: 12.5, background: C.orangeFaint, color: C.orange, border: `1px solid ${C.orange}`, padding: '3px 12px', borderRadius: 100, fontFamily: MONO, whiteSpace: 'nowrap' }}>
@@ -164,7 +164,7 @@ export function Loading({ label }: { label?: string }) {
     </div>
   )
 }
-// A calm, non-alarming note — shown while an AI result is slow/busy, or in place
+// A calm, non-alarming note - shown while an AI result is slow/busy, or in place
 // of a red error box when a generation needs to be retried. Deliberately warm
 // amber, NEVER the red ErrorBox: to the user, nothing has "gone wrong".
 // Pass `onRetry` to turn it into a gentle "please try again" with a button.
@@ -172,7 +172,7 @@ export function BusyNote({ children, onRetry }: { children?: React.ReactNode; on
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(194,129,17,0.10)', border: '1px solid rgba(194,129,17,0.35)', borderRadius: 12, padding: '13px 16px', color: '#8a5a12', fontSize: 14.5 }}>
       {!onRetry && <span className="shimmer" style={{ width: 9, height: 9, borderRadius: '50%', background: '#C28111', flexShrink: 0 }} />}
-      <span style={{ flex: 1, minWidth: 0 }}>{children ?? "Please wait — we're a little busy. Your results are coming up…"}</span>
+      <span style={{ flex: 1, minWidth: 0 }}>{children ?? "Please wait - we're a little busy. Your results are coming up…"}</span>
       {onRetry && (
         <button onClick={onRetry}
           style={{ flexShrink: 0, background: '#C28111', color: '#fff', border: 'none', borderRadius: 100, padding: '7px 16px', fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
@@ -184,18 +184,18 @@ export function BusyNote({ children, onRetry }: { children?: React.ReactNode; on
 }
 
 // The single decision point for what (if anything) to show ABOVE a generation
-// skeleton, driven purely by how long we've waited — never a red error box:
-//   • first ~30s (phase 'normal', no error): nothing — just the skeleton.
+// skeleton, driven purely by how long we've waited - never a red error box:
+//   • first ~30s (phase 'normal', no error): nothing - just the skeleton.
 //   • past 30s ('busy'): "we're a little busy today".
 //   • past ~2 min ('long') OR a failure (`error`): a calm "please try again" + button.
 export function GenNote({ phase, error, onRetry }: { phase: WaitPhase; error?: boolean; onRetry: () => void }) {
-  if (error) return <BusyNote onRetry={onRetry}>{"We couldn't finish that just now — please try again."}</BusyNote>
+  if (error) return <BusyNote onRetry={onRetry}>{"We couldn't finish that just now - please try again."}</BusyNote>
   if (phase === 'long') return <BusyNote onRetry={onRetry}>{"This is taking longer than usual. Please try again."}</BusyNote>
-  if (phase === 'busy') return <BusyNote>{"Please wait — we're a little busy today. Your results are coming up…"}</BusyNote>
+  if (phase === 'busy') return <BusyNote>{"Please wait - we're a little busy today. Your results are coming up…"}</BusyNote>
   return null
 }
 
-// Generation skeleton — a few shimmering lines that read as "content is loading"
+// Generation skeleton - a few shimmering lines that read as "content is loading"
 // rather than a plain block. Used in place of a spinner/"Generating…" text.
 export function GenSkeleton({ lines = 4, height }: { lines?: number; height?: number }) {
   if (height) return <Card><div className="shimmer" style={{ height, borderRadius: 10, background: '#e8e7e2' }} /></Card>

@@ -1,7 +1,7 @@
 import React from 'react'
 
 /**
- * Official social profiles — the single source of truth.
+ * Official social profiles - the single source of truth.
  *
  * Defined once and imported by both the footer and the contact page, so a
  * changed handle can never end up correct in one place and stale in the other.
@@ -9,7 +9,7 @@ import React from 'react'
 export interface SocialLink {
   name: string
   href: string
-  /** Accessible label — these are icon-only links, so this is the only text a screen reader gets. */
+  /** Accessible label - these are icon-only links, so this is the only text a screen reader gets. */
   label: string
 }
 
@@ -24,7 +24,7 @@ export const SOCIALS: SocialLink[] = [
 
 /**
  * Brand marks are filled paths on a 24×24 grid (not the outline set in Icon.tsx)
- * because a brand's logo has one correct shape — approximating it with strokes
+ * because a brand's logo has one correct shape - approximating it with strokes
  * reads as wrong rather than as a style choice.
  */
 const MARKS: Record<string, React.ReactNode> = {
@@ -81,7 +81,7 @@ export function SocialRow({
           style={{
             color,
             display: 'inline-flex',
-            // 40px hit area around an 18px glyph — a bare icon is too small to
+            // 40px hit area around an 18px glyph - a bare icon is too small to
             // tap reliably on a phone.
             padding: 11,
             margin: -11,

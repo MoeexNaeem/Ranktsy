@@ -21,7 +21,7 @@ interface Factor {
 }
 
 /**
- * Shop Health Score — a 0–100 composite of REAL shop-record measurements. It is
+ * Shop Health Score - a 0–100 composite of REAL shop-record measurements. It is
  * explicitly an estimate (a weighted blend), never presented as an Etsy-official
  * figure, and every factor shows the real number it came from so the score is
  * auditable rather than a black box.
@@ -32,7 +32,7 @@ interface Factor {
 function computeHealth(s: ShopHealthInput): { score: number; factors: Factor[] } {
   const factors: Factor[] = []
 
-  // Rating — the strongest trust signal. 4.0→5.0 maps to 0→30; below 4.0 is a real problem.
+  // Rating - the strongest trust signal. 4.0→5.0 maps to 0→30; below 4.0 is a real problem.
   const ratingScore = s.reviewCount > 0
     ? Math.max(0, Math.min(30, Math.round((s.reviewAvg - 4.0) / 1.0 * 30)))
     : 0
@@ -42,7 +42,7 @@ function computeHealth(s: ShopHealthInput): { score: number; factors: Factor[] }
     detail: s.reviewCount > 0 ? `${s.reviewAvg.toFixed(2)}★ average` : 'no reviews yet',
   })
 
-  // Review volume — social proof. Log-scaled: ~5k reviews saturates.
+  // Review volume - social proof. Log-scaled: ~5k reviews saturates.
   const volScore = s.reviewCount > 0
     ? Math.min(25, Math.round(Math.log10(s.reviewCount + 1) / Math.log10(5000) * 25))
     : 0
@@ -52,7 +52,7 @@ function computeHealth(s: ShopHealthInput): { score: number; factors: Factor[] }
     detail: `${formatNumber(s.reviewCount)} reviews`,
   })
 
-  // Sales traction — how well the catalog actually converts. Sales-per-listing,
+  // Sales traction - how well the catalog actually converts. Sales-per-listing,
   // log-scaled (~200 sales/listing is excellent).
   const tracScore = s.salesPerListing != null && s.salesPerListing > 0
     ? Math.min(25, Math.round(Math.log10(s.salesPerListing + 1) / Math.log10(200) * 25))
@@ -63,7 +63,7 @@ function computeHealth(s: ShopHealthInput): { score: number; factors: Factor[] }
     detail: s.salesPerListing != null ? `${s.salesPerListing.toFixed(0)} sales per listing` : 'sales not published',
   })
 
-  // Catalog — enough surface to be found, without rewarding thin shops. Sweet
+  // Catalog - enough surface to be found, without rewarding thin shops. Sweet
   // spot ~50+ active listings; caps at 15.
   const catScore = Math.min(15, Math.round(Math.log10(s.activeListings + 1) / Math.log10(300) * 15))
   factors.push({
@@ -72,11 +72,11 @@ function computeHealth(s: ShopHealthInput): { score: number; factors: Factor[] }
     detail: `${formatNumber(s.activeListings)} active listings`,
   })
 
-  // Availability — a shop on vacation is invisible to buyers right now.
+  // Availability - a shop on vacation is invisible to buyers right now.
   factors.push({
     label: 'Open for business',
     score: s.onVacation ? 0 : 5, max: 5,
-    detail: s.onVacation ? 'on vacation — hidden from search' : 'open',
+    detail: s.onVacation ? 'on vacation - hidden from search' : 'open',
   })
 
   const score = factors.reduce((sum, f) => sum + f.score, 0)
@@ -109,7 +109,7 @@ export const ShopHealthPanel = memo(function ShopHealthPanel({ input }: { input:
         <div style={{ height: '100%', width: `${score}%`, background: color, borderRadius: 999, transition: 'width 0.6s' }} />
       </div>
 
-      {/* Factor breakdown — every score shows the real number behind it */}
+      {/* Factor breakdown - every score shows the real number behind it */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
         {factors.map(f => {
           const pct = (f.score / f.max) * 100
@@ -131,7 +131,7 @@ export const ShopHealthPanel = memo(function ShopHealthPanel({ input }: { input:
       </div>
 
       <p style={{ fontSize: 11, color: C.stone, marginTop: 16, fontFamily: MONO, lineHeight: 1.6 }}>
-        A weighted blend of the shop&apos;s real, measured record — rating, reviews, sales-per-listing, catalog size and
+        A weighted blend of the shop&apos;s real, measured record - rating, reviews, sales-per-listing, catalog size and
         availability. An estimate to compare shops at a glance, not an official Etsy metric.
       </p>
     </Card>

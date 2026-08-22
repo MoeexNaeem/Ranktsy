@@ -17,8 +17,8 @@ export interface ToolPage {
   dashTab: string
   tagline: string            // hero subheading
   intro: string              // 1–2 sentence lede
-  overview: string[]         // "Overview" — 2 narrative paragraphs
-  useCases: ToolStep[]       // "What you'll do with it" — real scenarios
+  overview: string[]         // "Overview" - 2 narrative paragraphs
+  useCases: ToolStep[]       // "What you'll do with it" - real scenarios
   what: string[]             // "What it does"
   how: ToolStep[]            // "How it works"
   benefits: ToolStep[]       // "How it helps you"
@@ -35,20 +35,20 @@ export const TOOL_PAGES: ToolPage[] = [
     name: 'Keyword Research',
     category: 'Research',
     dashTab: 'keywords',
-    tagline: 'Find the keywords worth ranking for — measured, not guessed.',
+    tagline: 'Find the keywords worth ranking for - measured, not guessed.',
     intro: 'Rankkw’s Etsy keyword research tool shows the real demand and competition behind any search term, using live data from the official Etsy Open API and Google Ads Keyword Planner.',
     overview: [
-      'Keyword research is where every successful Etsy listing starts. Before you write a title, choose your 13 tags, or even decide what to make, you need to know two things: how many people are actually searching for a term, and how many sellers you’ll be competing against for it. Rankkw answers both with measured data — Google Ads Keyword Planner for real monthly search demand, and the live Etsy Open API for the exact number of active listings already targeting the phrase.',
-      'Instead of a single vanity “score”, you get the full picture on one screen: search volume by country, advertiser competition and CPC, the true Etsy listing count, and engagement signals — views, favorites and favorites-per-view — from the listings that genuinely rank. Related, long-tail and near-match suggestions branch out from every search, each with its own numbers, so you can steer toward the low-competition, high-intent phrases real buyers type instead of fighting over saturated head terms.',
+      'Keyword research is where every successful Etsy listing starts. Before you write a title, choose your 13 tags, or even decide what to make, you need to know two things: how many people are actually searching for a term, and how many sellers you’ll be competing against for it. Rankkw answers both with measured data - Google Ads Keyword Planner for real monthly search demand, and the live Etsy Open API for the exact number of active listings already targeting the phrase.',
+      'Instead of a single vanity “score”, you get the full picture on one screen: search volume by country, advertiser competition and CPC, the true Etsy listing count, and engagement signals - views, favorites and favorites-per-view - from the listings that genuinely rank. Related, long-tail and near-match suggestions branch out from every search, each with its own numbers, so you can steer toward the low-competition, high-intent phrases real buyers type instead of fighting over saturated head terms.',
     ],
     useCases: [
-      { title: 'Validate a product idea', desc: 'Check real demand and competition before you spend hours photographing and listing — commit only to what has an audience.' },
+      { title: 'Validate a product idea', desc: 'Check real demand and competition before you spend hours photographing and listing - commit only to what has an audience.' },
       { title: 'Escape saturated terms', desc: 'Trade “wall art” for the specific long-tail phrases you can realistically rank for and that convert far better.' },
       { title: 'Build a keyword shortlist', desc: 'Collect winners across a session and feed them straight into the Tag Optimizer and AI generators.' },
     ],
     what: [
       'Real Google monthly search volume, advertiser competition and CPC for any keyword, with a per-country breakdown.',
-      'The true number of active Etsy listings competing for the exact phrase — your real competition, not an estimate.',
+      'The true number of active Etsy listings competing for the exact phrase - your real competition, not an estimate.',
       'Engagement signals from the listings that actually rank: views, favorites and favorites-per-view.',
       'Related, long-tail and near-match keywords surfaced from live Etsy search, each with its own metrics.',
     ],
@@ -59,20 +59,20 @@ export const TOOL_PAGES: ToolPage[] = [
       { title: 'Act on it', desc: 'Save winners to a list, feed them into the AI generators, or check the top-ranking listings.' },
     ],
     benefits: [
-      { title: 'Target what’s reachable', desc: 'Stop competing for saturated head terms — find long-tail keywords real buyers use that you can actually rank for.' },
+      { title: 'Target what’s reachable', desc: 'Stop competing for saturated head terms - find long-tail keywords real buyers use that you can actually rank for.' },
       { title: 'Decide before you make', desc: 'See demand and competition for a product idea before you spend hours listing it.' },
       { title: 'Trust every number', desc: 'Every figure is measured from an official API or shown as a dash. Nothing is invented.' },
     ],
     features: ['Google search volume', 'Etsy competition count', 'Keyword Difficulty (KD)', 'Favs ÷ views', 'Country filter', 'CSV export'],
     faqs: [
-      { q: 'Where does the search volume come from?', a: 'From the Google Ads Keyword Planner — real monthly search demand, competition and CPC. Etsy itself publishes no search volume, so we never invent one.' },
-      { q: 'Is the competition number real?', a: 'Yes — it’s the actual count of active Etsy listings for the exact keyword, pulled live from the Etsy Open API.' },
+      { q: 'Where does the search volume come from?', a: 'From the Google Ads Keyword Planner - real monthly search demand, competition and CPC. Etsy itself publishes no search volume, so we never invent one.' },
+      { q: 'Is the competition number real?', a: 'Yes - it’s the actual count of active Etsy listings for the exact keyword, pulled live from the Etsy Open API.' },
       { q: 'Do I need to connect my Etsy shop?', a: 'No. Keyword research works without connecting anything. You only connect a shop for your own private analytics.' },
       { q: 'Can I research keywords for any country?', a: 'Yes. Google demand, competition and CPC can be scoped to the US, UK, AU, CA, FR, DE, IN or shown globally.' },
     ],
     related: ['etsy-competitor-analysis', 'etsy-tag-optimizer', 'etsy-trend-analysis'],
-    metaTitle: 'Etsy Keyword Research Tool — Real Search Volume & Competition | Rankkw',
-    metaDescription: 'Research Etsy keywords with real Google search volume, live Etsy competition and Keyword Difficulty. No estimates, no demo data — measured from official APIs.',
+    metaTitle: 'Etsy Keyword Research Tool - Real Search Volume & Competition | Rankkw',
+    metaDescription: 'Research Etsy keywords with real Google search volume, live Etsy competition and Keyword Difficulty. No estimates, no demo data - measured from official APIs.',
   },
   {
     slug: 'etsy-competitor-analysis',
@@ -80,14 +80,14 @@ export const TOOL_PAGES: ToolPage[] = [
     category: 'Research',
     dashTab: 'competitors',
     tagline: 'See exactly what the shops beating you are doing right.',
-    intro: 'Analyze the top-ranking Etsy shops and listings for any keyword — their tags, prices, engagement and listing age — so you know what you’re up against before you list.',
+    intro: 'Analyze the top-ranking Etsy shops and listings for any keyword - their tags, prices, engagement and listing age - so you know what you’re up against before you list.',
     overview: [
-      'Ranking on Etsy never happens in a vacuum — for every search you’re competing against specific shops and specific listings. Competitor Analysis shows you exactly who those incumbents are and what they’re doing right, so you can position against them deliberately instead of guessing. Everything comes from Etsy’s official public API: the real count of active listings, the shops that rank, and the tags, prices, quantities and listing ages behind the top results.',
-      'Open any leading listing to see its full 13-tag set and the price band it sits in, then read shop-level signals — lifetime transaction counts, review totals, rating and shop age — to judge how established your competition really is. Where the incumbents show weak engagement, you’ve found an opening worth taking; where they’re strong, you’ve found the exact playbook to match and then beat.',
+      'Ranking on Etsy never happens in a vacuum - for every search you’re competing against specific shops and specific listings. Competitor Analysis shows you exactly who those incumbents are and what they’re doing right, so you can position against them deliberately instead of guessing. Everything comes from Etsy’s official public API: the real count of active listings, the shops that rank, and the tags, prices, quantities and listing ages behind the top results.',
+      'Open any leading listing to see its full 13-tag set and the price band it sits in, then read shop-level signals - lifetime transaction counts, review totals, rating and shop age - to judge how established your competition really is. Where the incumbents show weak engagement, you’ve found an opening worth taking; where they’re strong, you’ve found the exact playbook to match and then beat.',
     ],
     useCases: [
       { title: 'Reverse-engineer winners', desc: 'Copy the tags, price points and title patterns that keep appearing across the top listings for your keyword.' },
-      { title: 'Spot soft niches', desc: 'Find keywords where the leaders have low favorites-per-view — weaker competition you can outrank.' },
+      { title: 'Spot soft niches', desc: 'Find keywords where the leaders have low favorites-per-view - weaker competition you can outrank.' },
       { title: 'Benchmark before launch', desc: 'Know the shop age, reviews and sales volume you’re up against so your entry plan is realistic.' },
     ],
     what: [
@@ -103,17 +103,17 @@ export const TOOL_PAGES: ToolPage[] = [
     ],
     benefits: [
       { title: 'Reverse-engineer winners', desc: 'Learn the tags, titles and price bands that consistently rank, then out-position them.' },
-      { title: 'Find weak spots', desc: 'Spot keywords where incumbents have low engagement — an opening you can take.' },
+      { title: 'Find weak spots', desc: 'Spot keywords where incumbents have low engagement - an opening you can take.' },
       { title: 'No guesswork', desc: 'Every competitor metric is a real Etsy field or a ratio of two, never an estimate.' },
     ],
     features: ['Top-ranking listings', 'Competitor tags', 'Price distribution', 'Engagement rate', 'Shop lifetime sales', 'Reviews & rating'],
     faqs: [
-      { q: 'Can I see a competitor’s sales?', a: 'Etsy publishes shop-lifetime transaction counts (real) but not per-listing sales — so we show the real lifetime figure and verified review counts, never a fabricated per-listing “estimated sales”.' },
-      { q: 'How do I see their tags?', a: 'Open any top listing in the results and its full 13-tag set is shown — one click to copy.' },
+      { q: 'Can I see a competitor’s sales?', a: 'Etsy publishes shop-lifetime transaction counts (real) but not per-listing sales - so we show the real lifetime figure and verified review counts, never a fabricated per-listing “estimated sales”.' },
+      { q: 'How do I see their tags?', a: 'Open any top listing in the results and its full 13-tag set is shown - one click to copy.' },
       { q: 'Is this against Etsy’s rules?', a: 'No. All data comes from Etsy’s official public API for active listings; we don’t scrape.' },
     ],
     related: ['etsy-keyword-research', 'etsy-tag-optimizer', 'etsy-top-sellers'],
-    metaTitle: 'Etsy Competitor Analysis — Tags, Prices & Engagement | Rankkw',
+    metaTitle: 'Etsy Competitor Analysis - Tags, Prices & Engagement | Rankkw',
     metaDescription: 'Analyze top-ranking Etsy competitors: their real tags, prices, listing age and engagement. Reverse-engineer what ranks, measured from the official Etsy API.',
   },
   {
@@ -124,8 +124,8 @@ export const TOOL_PAGES: ToolPage[] = [
     tagline: 'Catch demand rising before everyone else does.',
     intro: 'Track how interest in a keyword moves over the year and spot seasonal windows and emerging niches while there’s still room to rank.',
     overview: [
-      'Demand on Etsy is seasonal and always shifting — the difference between a listing that takes off and one that stalls is often nothing more than timing. Trends & Demand tracks how interest in a keyword moves across the year so you can list into a rising curve instead of arriving during a crowded peak. Seasonal context comes from Google search demand, while emerging-keyword signals surface the niches heating up on Etsy right now.',
-      'Because Etsy’s API returns current state rather than a history, Rankkw builds its own timeline from daily snapshots going forward — real data accumulated over time, never back-filled with an invented trend line. Read the shape of the curve, identify the run-up before a season peaks, and publish early enough for your listing to mature, gather reviews and rank before the rush actually arrives.',
+      'Demand on Etsy is seasonal and always shifting - the difference between a listing that takes off and one that stalls is often nothing more than timing. Trends & Demand tracks how interest in a keyword moves across the year so you can list into a rising curve instead of arriving during a crowded peak. Seasonal context comes from Google search demand, while emerging-keyword signals surface the niches heating up on Etsy right now.',
+      'Because Etsy’s API returns current state rather than a history, Rankkw builds its own timeline from daily snapshots going forward - real data accumulated over time, never back-filled with an invented trend line. Read the shape of the curve, identify the run-up before a season peaks, and publish early enough for your listing to mature, gather reviews and rank before the rush actually arrives.',
     ],
     useCases: [
       { title: 'Time seasonal launches', desc: 'Publish 4–8 weeks ahead of a demand spike so your listing is already ranking when buyers arrive.' },
@@ -149,7 +149,7 @@ export const TOOL_PAGES: ToolPage[] = [
     ],
     features: ['12-month demand', 'Seasonal windows', 'Emerging keywords', 'Monthly trends', 'Google + Etsy context'],
     faqs: [
-      { q: 'Does Etsy provide search history?', a: 'No — Etsy returns current state, not a series. Seasonal demand context comes from Google, and our own daily snapshots build history over time; we never back-fill fake trend data.' },
+      { q: 'Does Etsy provide search history?', a: 'No - Etsy returns current state, not a series. Seasonal demand context comes from Google, and our own daily snapshots build history over time; we never back-fill fake trend data.' },
       { q: 'How early should I list for a season?', a: 'Use the demand curve to publish during the run-up (often 4–8 weeks before peak) so your listing matures before the spike.' },
     ],
     related: ['etsy-keyword-research', 'etsy-find-hot-products', 'etsy-top-sellers'],
@@ -161,11 +161,11 @@ export const TOOL_PAGES: ToolPage[] = [
     name: 'Find Hot Products',
     category: 'Research',
     dashTab: 'hotproducts',
-    tagline: 'Discover trending products by real engagement — not hype.',
+    tagline: 'Discover trending products by real engagement - not hype.',
     intro: 'Surface products gaining traction on Etsy right now, ranked by a Hot Score built from real favorite velocity and engagement, with clickable tags to explore each niche.',
     overview: [
-      'Finding what’s “trending” usually means trusting someone’s estimated-sales figure — a number Etsy never publishes and no tool can truly know. Find Hot Products takes a different, honest route: it ranks products by a Hot Score built only from signals Etsy does expose — favorite velocity (how fast an item is gaining favorites relative to its age) and overall engagement.',
-      'Browse trending items across niches or filter to the category you care about, read the Hot Score to see what’s genuinely accelerating, then click any tag to jump straight into its keyword space and find your own angle. It’s a discovery engine grounded in real buyer behavior rather than hype — so the opportunities you chase are ones with authentic momentum behind them.',
+      'Finding what’s “trending” usually means trusting someone’s estimated-sales figure - a number Etsy never publishes and no tool can truly know. Find Hot Products takes a different, honest route: it ranks products by a Hot Score built only from signals Etsy does expose - favorite velocity (how fast an item is gaining favorites relative to its age) and overall engagement.',
+      'Browse trending items across niches or filter to the category you care about, read the Hot Score to see what’s genuinely accelerating, then click any tag to jump straight into its keyword space and find your own angle. It’s a discovery engine grounded in real buyer behavior rather than hype - so the opportunities you chase are ones with authentic momentum behind them.',
     ],
     useCases: [
       { title: 'Discover rising products', desc: 'See what’s gaining favorites fastest while the niche still has room to rank.' },
@@ -185,11 +185,11 @@ export const TOOL_PAGES: ToolPage[] = [
     benefits: [
       { title: 'Spot opportunities early', desc: 'Find rising products while the niche still has ranking room.' },
       { title: 'Validate ideas fast', desc: 'See engagement before committing time to a new product line.' },
-      { title: 'Honest signals only', desc: 'Hot Score uses real favorites and engagement — Etsy publishes no per-listing sales, so we don’t fake them.' },
+      { title: 'Honest signals only', desc: 'Hot Score uses real favorites and engagement - Etsy publishes no per-listing sales, so we don’t fake them.' },
     ],
     features: ['Hot Score', 'Favorite velocity', 'Clickable tags', 'Tag analysis', 'Niche filtering'],
     faqs: [
-      { q: 'How is the Hot Score calculated?', a: 'From real signals Etsy does publish — favorite velocity (favorites relative to age) and engagement — never invented sales numbers.' },
+      { q: 'How is the Hot Score calculated?', a: 'From real signals Etsy does publish - favorite velocity (favorites relative to age) and engagement - never invented sales numbers.' },
       { q: 'Can I see how many sales a hot product has?', a: 'Etsy doesn’t publish per-listing sales, so we don’t show them. We rank by real favorites and engagement instead.' },
     ],
     related: ['etsy-trend-analysis', 'etsy-keyword-research', 'etsy-top-sellers'],
@@ -202,10 +202,10 @@ export const TOOL_PAGES: ToolPage[] = [
     category: 'Optimize',
     dashTab: 'tags',
     tagline: 'Score your 13 tags against the tags that actually rank.',
-    intro: 'Grade your listing’s tags against the tags the top-ranking listings for your keyword actually use — taken straight from the Etsy API, not generic advice.',
+    intro: 'Grade your listing’s tags against the tags the top-ranking listings for your keyword actually use - taken straight from the Etsy API, not generic advice.',
     overview: [
-      'Every Etsy listing gets 13 tags, and each one is a separate chance to match a buyer’s search — so leaving any of them weak, duplicated or unused simply throws away ranking potential. Most tag tools hand you a generic word list. Tag Optimizer instead grades your tags against the tags the top-ranking live listings for your keyword are actually using, read straight from the Etsy Open API.',
-      'Paste your current tags (or start from a keyword) and Rankkw scores all 13, flags the high-value tags you’re missing, and points out the ones pulling no weight so you can swap them out. Because every suggestion is grounded in what’s genuinely ranking today, you cover the long-tail phrases real competitors win with — not advice pulled from a static dictionary that never changes.',
+      'Every Etsy listing gets 13 tags, and each one is a separate chance to match a buyer’s search - so leaving any of them weak, duplicated or unused simply throws away ranking potential. Most tag tools hand you a generic word list. Tag Optimizer instead grades your tags against the tags the top-ranking live listings for your keyword are actually using, read straight from the Etsy Open API.',
+      'Paste your current tags (or start from a keyword) and Rankkw scores all 13, flags the high-value tags you’re missing, and points out the ones pulling no weight so you can swap them out. Because every suggestion is grounded in what’s genuinely ranking today, you cover the long-tail phrases real competitors win with - not advice pulled from a static dictionary that never changes.',
     ],
     useCases: [
       { title: 'Fix a stalled listing', desc: 'Find the missing high-value tags keeping you off searches your competitors already rank for.' },
@@ -223,29 +223,29 @@ export const TOOL_PAGES: ToolPage[] = [
       { title: 'Fill the gaps', desc: 'Add the recommended high-value tags and drop the ones pulling no weight.' },
     ],
     benefits: [
-      { title: 'Use all 13 tags well', desc: 'Every tag is a ranking opportunity — make each one count.' },
+      { title: 'Use all 13 tags well', desc: 'Every tag is a ranking opportunity - make each one count.' },
       { title: 'Beat generic tools', desc: 'Recommendations come from real ranking listings, not a static word list.' },
       { title: 'Rank for more searches', desc: 'Cover the long-tail phrases buyers actually type.' },
     ],
     features: ['13-tag scoring', 'Gap detection', 'Real competitor tags', 'One-click copy', 'Keyword-grounded'],
     faqs: [
-      { q: 'Where do the suggested tags come from?', a: 'From the tags the top-ranking live listings for your keyword actually use — read from the Etsy API, not a generic list.' },
-      { q: 'Does Etsy really use all 13 tags?', a: 'Yes — each tag is a chance to match a buyer search, so leaving any unused wastes ranking potential.' },
+      { q: 'Where do the suggested tags come from?', a: 'From the tags the top-ranking live listings for your keyword actually use - read from the Etsy API, not a generic list.' },
+      { q: 'Does Etsy really use all 13 tags?', a: 'Yes - each tag is a chance to match a buyer search, so leaving any unused wastes ranking potential.' },
     ],
     related: ['etsy-ai-title-tag-generator', 'etsy-keyword-research', 'etsy-listing-audit'],
-    metaTitle: 'Etsy Tag Optimizer — Score Tags Against What Ranks | Rankkw',
-    metaDescription: 'Grade your Etsy tags against the tags top-ranking listings actually use. Find missing high-value tags and replace weak ones — grounded in real Etsy data.',
+    metaTitle: 'Etsy Tag Optimizer - Score Tags Against What Ranks | Rankkw',
+    metaDescription: 'Grade your Etsy tags against the tags top-ranking listings actually use. Find missing high-value tags and replace weak ones - grounded in real Etsy data.',
   },
   {
     slug: 'etsy-listing-generator',
     name: 'Etsy Listing Pro',
     category: 'Optimize',
     dashTab: 'listingpro',
-    tagline: 'A whole optimized listing — title, tags, description and images — in one click.',
-    intro: 'Generate a complete, publish-ready Etsy listing: an SEO title, 13 tags, a full description, a market-anchored price, and Etsy-style product images — all from one keyword.',
+    tagline: 'A whole optimized listing - title, tags, description and images - in one click.',
+    intro: 'Generate a complete, publish-ready Etsy listing: an SEO title, 13 tags, a full description, a market-anchored price, and Etsy-style product images - all from one keyword.',
     overview: [
-      'A complete Etsy listing is a surprising amount of separate work: an SEO title, 13 tags, a persuasive description, a sensible price, and photos that fit Etsy’s style. Etsy Listing Pro produces all of it from a single keyword — a publish-ready draft you can review and paste in minutes instead of piecing together over hours.',
-      'The copy isn’t generic AI filler: the title and tags are grounded in real Google search volume and the tags the top-50 live listings use, and the suggested price is anchored to the real market median for your keyword. Four AI product images are generated in authentic Etsy photography styles — hero, lifestyle, feature callout and collage — which you review before publishing, since Etsy requires listing photos to represent the actual item you’re selling.',
+      'A complete Etsy listing is a surprising amount of separate work: an SEO title, 13 tags, a persuasive description, a sensible price, and photos that fit Etsy’s style. Etsy Listing Pro produces all of it from a single keyword - a publish-ready draft you can review and paste in minutes instead of piecing together over hours.',
+      'The copy isn’t generic AI filler: the title and tags are grounded in real Google search volume and the tags the top-50 live listings use, and the suggested price is anchored to the real market median for your keyword. Four AI product images are generated in authentic Etsy photography styles - hero, lifestyle, feature callout and collage - which you review before publishing, since Etsy requires listing photos to represent the actual item you’re selling.',
     ],
     useCases: [
       { title: 'Launch a listing fast', desc: 'Turn a product idea into a full, optimized draft without the blank-page struggle.' },
@@ -271,13 +271,13 @@ export const TOOL_PAGES: ToolPage[] = [
     ],
     features: ['SEO title', '13 tags', 'Full description', 'Market-median price', 'AI Etsy images', 'One click'],
     faqs: [
-      { q: 'Are the images really usable?', a: 'They’re AI-generated in real Etsy photography styles. Always review before publishing — Etsy requires listing photos to represent the actual item.' },
-      { q: 'Is the copy just generic AI text?', a: 'No — it’s grounded in the real Google volume and the tags the top-50 live listings use, so it targets terms that actually get searched.' },
+      { q: 'Are the images really usable?', a: 'They’re AI-generated in real Etsy photography styles. Always review before publishing - Etsy requires listing photos to represent the actual item.' },
+      { q: 'Is the copy just generic AI text?', a: 'No - it’s grounded in the real Google volume and the tags the top-50 live listings use, so it targets terms that actually get searched.' },
       { q: 'How is the price decided?', a: 'It’s anchored to the real median price of listings ranking for your keyword, in the dominant currency.' },
     ],
     related: ['etsy-ai-title-tag-generator', 'etsy-tag-optimizer', 'etsy-listing-audit'],
-    metaTitle: 'Etsy Listing Generator — Title, Tags, Description & Images | Rankkw',
-    metaDescription: 'Generate a full Etsy listing in one click: SEO title, 13 tags, description, market-anchored price and Etsy-style AI images — grounded in real data.',
+    metaTitle: 'Etsy Listing Generator - Title, Tags, Description & Images | Rankkw',
+    metaDescription: 'Generate a full Etsy listing in one click: SEO title, 13 tags, description, market-anchored price and Etsy-style AI images - grounded in real data.',
   },
   {
     slug: 'etsy-ai-title-tag-generator',
@@ -285,10 +285,10 @@ export const TOOL_PAGES: ToolPage[] = [
     category: 'Optimize',
     dashTab: 'titlegen',
     tagline: 'AI Etsy titles and tags built from real search data.',
-    intro: 'Generate SEO-optimized Etsy titles, tags and descriptions grounded in real Google volume and the tags top-ranking listings use — so the keywords are real, not invented.',
+    intro: 'Generate SEO-optimized Etsy titles, tags and descriptions grounded in real Google volume and the tags top-ranking listings use - so the keywords are real, not invented.',
     overview: [
-      'Writing SEO titles and tags by hand means juggling keyword research, character limits and readability all at the same time. This generator does the heavy lifting: it produces front-loaded, high-intent titles, full 13-tag sets, and structured descriptions — all built from real search data rather than the model’s imagination.',
-      'Give it a focus keyword (and optional product details, audience or features) and it grounds every suggestion in measured Google demand and the tags top-ranking listings use. The AI writes the copy; it never invents analytics — so the keywords you end up targeting are ones people genuinely search for. Generate several distinct description versions and keep the one that best fits your brand voice.',
+      'Writing SEO titles and tags by hand means juggling keyword research, character limits and readability all at the same time. This generator does the heavy lifting: it produces front-loaded, high-intent titles, full 13-tag sets, and structured descriptions - all built from real search data rather than the model’s imagination.',
+      'Give it a focus keyword (and optional product details, audience or features) and it grounds every suggestion in measured Google demand and the tags top-ranking listings use. The AI writes the copy; it never invents analytics - so the keywords you end up targeting are ones people genuinely search for. Generate several distinct description versions and keep the one that best fits your brand voice.',
     ],
     useCases: [
       { title: 'Draft titles & tags instantly', desc: 'Skip manual keyword-stuffing and get a strong, data-grounded first draft in seconds.' },
@@ -301,22 +301,22 @@ export const TOOL_PAGES: ToolPage[] = [
       'Descriptions structured to rank and convert.',
     ],
     how: [
-      { title: 'Enter your focus keyword', desc: 'Add optional product details, audience and features — or let the AI infer them.' },
+      { title: 'Enter your focus keyword', desc: 'Add optional product details, audience and features - or let the AI infer them.' },
       { title: 'Generate', desc: 'Rankkw writes titles/tags/descriptions grounded in real keyword and competitor data.' },
       { title: 'Copy & refine', desc: 'Pick the version you like, tweak, and paste into Etsy.' },
     ],
     benefits: [
       { title: 'Real keywords, not filler', desc: 'Suggestions are grounded in measured demand and ranking tags.' },
       { title: 'Save hours', desc: 'Skip the manual keyword-stuffing and get a strong first draft instantly.' },
-      { title: 'Stay honest', desc: 'The AI writes copy — it never invents analytics or fake numbers.' },
+      { title: 'Stay honest', desc: 'The AI writes copy - it never invents analytics or fake numbers.' },
     ],
     features: ['SEO titles', '13 tags', 'Descriptions', 'Real-data grounding', 'Multiple versions'],
     faqs: [
       { q: 'Does the AI make up search numbers?', a: 'No. The model writes copy only; all volume/competition figures come from the Etsy and Google APIs.' },
-      { q: 'Can I generate more than one version?', a: 'Yes — the description generator produces multiple distinct versions to choose from.' },
+      { q: 'Can I generate more than one version?', a: 'Yes - the description generator produces multiple distinct versions to choose from.' },
     ],
     related: ['etsy-listing-generator', 'etsy-tag-optimizer', 'etsy-keyword-research'],
-    metaTitle: 'AI Etsy Title & Tag Generator — Grounded in Real Data | Rankkw',
+    metaTitle: 'AI Etsy Title & Tag Generator - Grounded in Real Data | Rankkw',
     metaDescription: 'Generate SEO Etsy titles, tags and descriptions grounded in real Google volume and top-ranking tags. Real keywords, never invented.',
   },
   {
@@ -327,8 +327,8 @@ export const TOOL_PAGES: ToolPage[] = [
     tagline: 'Score any listing’s SEO and see exactly what to fix.',
     intro: 'Run any Etsy listing through an SEO audit that scores its title, tags and structure against best practice and the keywords that actually rank.',
     overview: [
-      'You can’t fix what you can’t see. Listing Audit runs any active Etsy listing — your own or a competitor’s — through an SEO check that scores its title, tags and structure against best practice and against the listings that actually rank in your niche. The result is a clear overall score plus a prioritized list of exactly what to change, in order of impact.',
-      'Instead of vague “improve your SEO” advice, you get specifics: whether your title uses its keywords well, whether all 13 tags are working, and how your structure compares to ranking listings. Re-audit after you make edits to confirm the score actually moved — measurable progress rather than guesswork, and no promises of sales that no honest tool can make.',
+      'You can’t fix what you can’t see. Listing Audit runs any active Etsy listing - your own or a competitor’s - through an SEO check that scores its title, tags and structure against best practice and against the listings that actually rank in your niche. The result is a clear overall score plus a prioritized list of exactly what to change, in order of impact.',
+      'Instead of vague “improve your SEO” advice, you get specifics: whether your title uses its keywords well, whether all 13 tags are working, and how your structure compares to ranking listings. Re-audit after you make edits to confirm the score actually moved - measurable progress rather than guesswork, and no promises of sales that no honest tool can make.',
     ],
     useCases: [
       { title: 'Prioritize your next fix', desc: 'Work down an ordered list instead of guessing which change matters most.' },
@@ -352,11 +352,11 @@ export const TOOL_PAGES: ToolPage[] = [
     ],
     features: ['SEO score', 'Title check', 'Tag coverage', 'Priority fixes', 'Competitor benchmark'],
     faqs: [
-      { q: 'Can I audit a competitor’s listing?', a: 'Yes — paste any active Etsy listing and it’s scored the same way, using public API data.' },
+      { q: 'Can I audit a competitor’s listing?', a: 'Yes - paste any active Etsy listing and it’s scored the same way, using public API data.' },
       { q: 'Does a higher score guarantee more sales?', a: 'No tool can promise sales. A better score means better SEO fundamentals, which improves your chance to rank.' },
     ],
     related: ['etsy-tag-optimizer', 'etsy-ai-title-tag-generator', 'etsy-shop-analytics'],
-    metaTitle: 'Etsy Listing Audit — Score Your SEO & Fix It | Rankkw',
+    metaTitle: 'Etsy Listing Audit - Score Your SEO & Fix It | Rankkw',
     metaDescription: 'Audit any Etsy listing’s SEO: score its title, tags and structure against what ranks, with a prioritized fix list. Real data, honest scoring.',
   },
   {
@@ -364,11 +364,11 @@ export const TOOL_PAGES: ToolPage[] = [
     name: 'Shop Analytics',
     category: 'Analytics',
     dashTab: 'shop',
-    tagline: 'Understand any Etsy shop — including your own.',
+    tagline: 'Understand any Etsy shop - including your own.',
     intro: 'Analyze any Etsy shop’s listings, engagement and lifetime performance, and connect your own shop for private views, favorites, orders and buyer geography.',
     overview: [
-      'Shop Analytics works two ways. For any public Etsy shop, it summarizes the whole catalog — listing count, engagement, lifetime transactions, reviews and rating — so you can study the strong shops in your niche. Connect your own shop through Etsy’s official OAuth and it unlocks private analytics: your views, favorites, orders and buyer geography, all in one place.',
-      'Because Etsy’s API returns current state rather than history, Rankkw records daily snapshots to build a real sales-over-time view going forward — a timeline Etsy itself doesn’t expose and that can’t be back-filled after the fact. Connecting is read-only and revocable at any time, and your password is never seen by us; you grant read access through Etsy directly.',
+      'Shop Analytics works two ways. For any public Etsy shop, it summarizes the whole catalog - listing count, engagement, lifetime transactions, reviews and rating - so you can study the strong shops in your niche. Connect your own shop through Etsy’s official OAuth and it unlocks private analytics: your views, favorites, orders and buyer geography, all in one place.',
+      'Because Etsy’s API returns current state rather than history, Rankkw records daily snapshots to build a real sales-over-time view going forward - a timeline Etsy itself doesn’t expose and that can’t be back-filled after the fact. Connecting is read-only and revocable at any time, and your password is never seen by us; you grant read access through Etsy directly.',
     ],
     useCases: [
       { title: 'See your shop in one place', desc: 'Views, favorites, orders and a buyer map together in one private dashboard.' },
@@ -392,11 +392,11 @@ export const TOOL_PAGES: ToolPage[] = [
     ],
     features: ['Shop overview', 'Connected-shop analytics', 'Buyer geography', 'Daily snapshots', 'Reviews & rating'],
     faqs: [
-      { q: 'Is connecting my shop safe?', a: 'Yes — it uses Etsy’s official OAuth 2.0. You grant read access and can revoke it anytime; we never see your password.' },
-      { q: 'Why is sales history limited at first?', a: 'Etsy returns current state, not history, so we build it from daily snapshots going forward — it can’t be back-filled.' },
+      { q: 'Is connecting my shop safe?', a: 'Yes - it uses Etsy’s official OAuth 2.0. You grant read access and can revoke it anytime; we never see your password.' },
+      { q: 'Why is sales history limited at first?', a: 'Etsy returns current state, not history, so we build it from daily snapshots going forward - it can’t be back-filled.' },
     ],
     related: ['etsy-competitor-analysis', 'etsy-listing-audit', 'etsy-top-sellers'],
-    metaTitle: 'Etsy Shop Analytics — Yours & Any Shop | Rankkw',
+    metaTitle: 'Etsy Shop Analytics - Yours & Any Shop | Rankkw',
     metaDescription: 'Analyze any Etsy shop’s engagement and lifetime performance, or connect your own for private views, favorites, orders and buyer geography.',
   },
   {
@@ -404,15 +404,15 @@ export const TOOL_PAGES: ToolPage[] = [
     name: 'Top Sellers',
     category: 'Research',
     dashTab: 'topsellers',
-    tagline: 'See the leading shops in any niche — by real lifetime sales.',
+    tagline: 'See the leading shops in any niche - by real lifetime sales.',
     intro: 'Rank the leading Etsy shops for any niche by their real lifetime transaction count, alongside reviews, rating, country and shop age.',
     overview: [
-      'When you enter a niche, the first thing you need to know is who already owns it. Top Sellers ranks the leading Etsy shops for any keyword or category by their real lifetime transaction count — a figure Etsy genuinely publishes — alongside reviews, rating, country and shop age for context you can act on.',
+      'When you enter a niche, the first thing you need to know is who already owns it. Top Sellers ranks the leading Etsy shops for any keyword or category by their real lifetime transaction count - a figure Etsy genuinely publishes - alongside reviews, rating, country and shop age for context you can act on.',
       'This is deliberately a shop-level view, not per-listing “estimated sales” (which Etsy never releases and we never fabricate). Sort the field by lifetime sales, reviews or age to find the true leaders, then open any shop to study the catalog, tags and pricing that got them there. It’s the fastest honest read on how competitive a niche is and how established its top players really are.',
     ],
     useCases: [
       { title: 'Size up a niche', desc: 'See who dominates and how established they are before you commit to entering.' },
-      { title: 'Model proven shops', desc: 'Learn from sellers with real, verifiable lifetime sales volume — not estimates.' },
+      { title: 'Model proven shops', desc: 'Learn from sellers with real, verifiable lifetime sales volume - not estimates.' },
       { title: 'Find your opening', desc: 'Spot where leaders are old and slow, and where a newcomer can realistically break in.' },
     ],
     what: [
@@ -432,11 +432,11 @@ export const TOOL_PAGES: ToolPage[] = [
     ],
     features: ['Lifetime sales rank', 'Reviews & rating', 'Shop age', 'Country', 'Niche search'],
     faqs: [
-      { q: 'Are the sales numbers real?', a: 'Yes — Etsy publishes each shop’s lifetime transaction count, which is what we rank by. It’s a shop total, not per-listing.' },
+      { q: 'Are the sales numbers real?', a: 'Yes - Etsy publishes each shop’s lifetime transaction count, which is what we rank by. It’s a shop total, not per-listing.' },
       { q: 'Can I see their best-selling item?', a: 'Etsy doesn’t publish per-listing sales, so no tool can show a true best-seller. We show real shop totals and engagement instead.' },
     ],
     related: ['etsy-competitor-analysis', 'etsy-find-hot-products', 'etsy-shop-analytics'],
-    metaTitle: 'Etsy Top Sellers — Leading Shops by Real Sales | Rankkw',
+    metaTitle: 'Etsy Top Sellers - Leading Shops by Real Sales | Rankkw',
     metaDescription: 'Find the leading Etsy shops in any niche ranked by real lifetime transaction counts, with reviews, rating, country and shop age.',
   },
 ]

@@ -23,7 +23,7 @@ export function ListingsTab() {
   const [applied, setApplied] = useState({ q: 'handmade jewelry', min: '', max: '', sort: 'score' as SortKey, cat: '' })
   const [page, setPage] = useState(1)
 
-  // Etsy seller taxonomy — the "browse by category" picker (top 2 levels).
+  // Etsy seller taxonomy - the "browse by category" picker (top 2 levels).
   const { data: taxo } = useQuery({
     queryKey: ['taxonomy'],
     queryFn: async () => {
@@ -152,7 +152,7 @@ export function ListingsTab() {
               tool="Listings Search"
               subject={applied.q}
               facts={aiFacts}
-              notes="A page of live Etsy search results. Median price is scoped to the dominant currency (Etsy mixes currencies with no FX rate). Views/favorites are lifetime; engagement is favorites ÷ views. Interpret the market — pricing, demand, competition — and how a seller should position."
+              notes="A page of live Etsy search results. Median price is scoped to the dominant currency (Etsy mixes currencies with no FX rate). Views/favorites are lifetime; engagement is favorites ÷ views. Interpret the market - pricing, demand, competition - and how a seller should position."
             />
           )}
         </>

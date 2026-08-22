@@ -17,7 +17,7 @@ function AdoptionBar({ pct, color }: { pct: number; color: string }) {
 }
 
 function TagRow({ t }: { t: GapTag }) {
-  // Missing-but-popular tags are the whole point — flag them in orange.
+  // Missing-but-popular tags are the whole point - flag them in orange.
   const missing = t.yoursMissing
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1.4fr 0.7fr', gap: 12, alignItems: 'center', padding: '9px 0', borderBottom: `1px solid ${C.hair}` }}>
@@ -34,32 +34,37 @@ function TagRow({ t }: { t: GapTag }) {
   )
 }
 
+// Does the typed value look like an Etsy listing (a URL or a bare 6+ digit id)?
+const LISTING_RE = /etsy\.com\/listing\/\d+|\/listing\/\d+|^\s*\d{6,}\s*$/i
+
 export function KeywordGapTab() {
-  const [kwInput, setKwInput] = useState('ceramic mug')
-  const [listingInput, setListingInput] = useState('')
+  const [input, setInput] = useState('ceramic mug')
   const [q, setQ] = useState('ceramic mug')
   const [listing, setListing] = useState('')
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['keyword-gap', q, listing],
     queryFn: async ({ signal }) => {
-      const url = `/api/keywords/gap?q=${encodeURIComponent(q)}${listing ? `&listing=${encodeURIComponent(listing)}` : ''}`
-      const { data } = await axios.get<ApiResponse<KeywordGap>>(url, { signal })
+      const parts = [q ? `q=${encodeURIComponent(q)}` : '', listing ? `listing=${encodeURIComponent(listing)}` : ''].filter(Boolean)
+      const { data } = await axios.get<ApiResponse<KeywordGap>>(`/api/keywords/gap?${parts.join('&')}`, { signal })
       if (!data.success || !data.data) throw new Error(data.error ?? 'Failed')
       return data.data
     },
-    enabled: q.trim().length >= 2,
+    enabled: q.trim().length >= 2 || listing.trim().length > 0,
     staleTime: 1000 * 60 * 30,
     placeholderData: prev => prev,
     retry: false,
   })
 
   const run = useCallback(async () => {
-    const kw = kwInput.trim()
-    if (kw.length < 2) return
+    const val = input.trim()
+    if (val.length < 2) return
     if (!(await chargeCredits('gap'))) return
-    setQ(kw); setListing(listingInput.trim())
-  }, [kwInput, listingInput])
+    // One field, two modes: a listing URL/ID analyses that listing (its keyword is
+    // derived from it server-side); anything else is treated as a keyword.
+    if (LISTING_RE.test(val)) { setListing(val); setQ('') }
+    else { setQ(val); setListing('') }
+  }, [input])
 
   const exportCsv = useCallback(() => {
     if (!data) return
@@ -74,19 +79,11 @@ export function KeywordGapTab() {
       <Card pad="18px">
         <SectionTitle>Keyword Gap &amp; Hidden Keywords</SectionTitle>
         <p style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.55, marginTop: -8, marginBottom: 16 }}>
-          See the exact tags and title words the listings ranking for a keyword actually use — measured live, as real
-          adoption counts. Paste your own listing URL to reveal the <strong style={{ color: C.orange }}>high-value tags
-          you&apos;re missing</strong>.
+          Enter a keyword to see the exact tags and title words the top listings actually use, measured live as real
+          adoption counts. Or paste your own Etsy listing URL / ID to reveal the <strong style={{ color: C.orange }}>high-value
+          tags you&apos;re missing</strong>.
         </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <SearchBar value={kwInput} onChange={setKwInput} onSubmit={run} placeholder="Keyword — e.g. ceramic mug" button="Analyze →" />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 100, padding: '10px 16px', maxWidth: 560 }}>
-            <span style={{ fontSize: 11, fontFamily: MONO, color: C.stone, textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>Optional</span>
-            <input value={listingInput} onChange={e => setListingInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && run()}
-              placeholder="Your Etsy listing URL or ID — to find your gaps"
-              style={{ background: 'transparent', border: 'none', outline: 'none', fontSize: 14.5, fontFamily: 'inherit', flex: 1, color: C.ink, minWidth: 0 }} />
-          </div>
-        </div>
+        <SearchBar value={input} onChange={setInput} onSubmit={run} placeholder="Keyword, or your Etsy listing URL / ID" button="Analyze →" />
       </Card>
 
       {isLoading && <Loading label="Reading the top listings live…" />}
@@ -94,24 +91,24 @@ export function KeywordGapTab() {
 
       {data && !isLoading && (
         <>
-          {/* The actionable shortlist — only when a listing was given */}
+          {/* The actionable shortlist - only when a listing was given */}
           {data.hasTarget && (
             <Card style={{ borderColor: data.topMissingTags.length ? C.orange : C.ash }}>
               <SectionTitle right={<span style={{ fontSize: 11, fontFamily: MONO, color: C.stone }}>your listing · {data.targetTagCount}/13 tags</span>}>
-                {data.topMissingTags.length ? `${data.topMissingTags.length} tags the top “${data.query}” listings use — that yours is missing` : 'No obvious gaps'}
+                {data.topMissingTags.length ? `${data.topMissingTags.length} tags the top “${data.query}” listings use - that yours is missing` : 'No obvious gaps'}
               </SectionTitle>
               <p style={{ fontSize: 12.5, color: C.graphite, marginTop: -8, marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 Your listing: <strong style={{ color: C.ink }}>{data.targetTitle}</strong>
               </p>
               {data.topMissingTags.length > 0 && (
                 <p style={{ fontSize: 12, color: C.stone, marginBottom: 14, lineHeight: 1.5 }}>
-                  The <strong style={{ color: C.graphite }}>%</strong> is how many of the top-ranking “{data.query}” listings already use that tag — higher = more important to add. Click any to copy.
+                  The <strong style={{ color: C.graphite }}>%</strong> is how many of the top-ranking “{data.query}” listings already use that tag - higher = more important to add. Click any to copy.
                 </p>
               )}
               {data.topMissingTags.length ? (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {data.topMissingTags.map(t => (
-                    <button key={t.tag} onClick={() => navigator.clipboard?.writeText(t.tag)} title={`${t.usedPct}% of the top “${data.query}” listings use “${t.tag}” — click to copy`}
+                    <button key={t.tag} onClick={() => navigator.clipboard?.writeText(t.tag)} title={`${t.usedPct}% of the top “${data.query}” listings use “${t.tag}” - click to copy`}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontFamily: MONO, color: C.orange, background: C.orangeFaint, border: `1px solid ${C.orange}`, padding: '6px 13px', borderRadius: 100, cursor: 'pointer' }}>
                       {t.tag}
                       <span style={{ fontSize: 11, color: C.graphite }} title={`${t.usedPct}% adoption`}>{t.usedPct}%</span>
@@ -123,7 +120,7 @@ export function KeywordGapTab() {
               )}
               {(data.targetTagCount ?? 13) < 13 && (
                 <p style={{ fontSize: 12, color: D.mid, marginTop: 12 }}>
-                  You&apos;re using {data.targetTagCount} of 13 tags — {13 - (data.targetTagCount ?? 0)} slots are empty. Every slot is free reach.
+                  You&apos;re using {data.targetTagCount} of 13 tags - {13 - (data.targetTagCount ?? 0)} slots are empty. Every slot is free reach.
                 </p>
               )}
             </Card>
@@ -177,7 +174,7 @@ export function KeywordGapTab() {
       )}
 
       {!data && !isLoading && !isError && (
-        <EmptyState icon="🧩" title="Find your keyword gaps" sub="Enter a keyword — add your listing URL to see exactly what you're missing." />
+        <EmptyState icon="🧩" title="Find your keyword gaps" sub="Enter a keyword - add your listing URL to see exactly what you're missing." />
       )}
     </div>
   )

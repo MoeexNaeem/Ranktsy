@@ -4,14 +4,14 @@
  * Why this exists: Etsy's Open API returns STATE, never HISTORY. A shop record
  * carries `transaction_sold_count` (lifetime sales) and nothing about last week.
  * There is no historical endpoint and no way to backfill. So every time-based
- * feature — sales velocity, "sold yesterday", Competitor Sales, listing Changes,
- * honest monthly trends — depends on us recording state ourselves, starting now.
+ * feature - sales velocity, "sold yesterday", Competitor Sales, listing Changes,
+ * honest monthly trends - depends on us recording state ourselves, starting now.
  *
  * Two capture paths, deliberately:
- *   1. Opportunistic (`recordShopSnapshot`) — fires whenever any surface reads a
+ *   1. Opportunistic (`recordShopSnapshot`) - fires whenever any surface reads a
  *      shop. History therefore accrues from day one with zero configuration, and
  *      popular shops get covered for free.
- *   2. Scheduled (`/api/cron/snapshot`) — guarantees a daily row for tracked
+ *   2. Scheduled (`/api/cron/snapshot`) - guarantees a daily row for tracked
  *      shops even if nobody browses them.
  *
  * This is NOT the Etsy caching rule in cache.ts. We never re-serve stale Etsy
@@ -21,7 +21,7 @@ import { connectDB } from '@/lib/db'
 import { ShopSnapshot, ListingSnapshot } from '@/lib/models'
 import type { EtsyListing, SalesPoint, ShopVelocity } from '@/types'
 
-/** UTC day key — the dedupe unit. Local time would double-count across zones. */
+/** UTC day key - the dedupe unit. Local time would double-count across zones. */
 export function dayKey(d: Date = new Date()): string {
   return d.toISOString().slice(0, 10)
 }
@@ -45,7 +45,7 @@ export interface ShopSnapshotInput {
 
 /**
  * Record today's shop state. Idempotent per shop per UTC day via the unique
- * {shopId, day} index — safe to call on every read.
+ * {shopId, day} index - safe to call on every read.
  *
  * Never throws: capture is a side-effect of someone else's request, so a snapshot
  * failure must not break the page they actually asked for.
@@ -156,7 +156,7 @@ export function recordListingSnapshots(listings: EtsyListing[]): void {
  * Gaps are real: if nobody read a shop for three days, there's no row. Rather
  * than inventing points, the delta is spread across the elapsed days so a
  * 3-day gap reads as an average, not a spike. Days before the first snapshot
- * are simply absent — we can't know them.
+ * are simply absent - we can't know them.
  */
 function toPoints(rows: { day: string; sales: number | null }[]): SalesPoint[] {
   const known = rows.filter(r => r.sales != null) as { day: string; sales: number }[]

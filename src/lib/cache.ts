@@ -48,8 +48,11 @@ class InMemoryCache {
   }
 }
 
-// Singleton cache instance (shared across API route invocations in the same process)
-export const memCache = new InMemoryCache(500)
+// Singleton cache instance (shared across API route invocations in the same process).
+// Sized generously: each entry is small, and a bigger cache means fewer repeat
+// Etsy/Google calls when many users research overlapping keywords under load.
+// Tunable via MEMCACHE_MAX_ENTRIES.
+export const memCache = new InMemoryCache(Number(process.env.MEMCACHE_MAX_ENTRIES ?? 5000))
 
 // Cache TTLs (seconds)
 //
@@ -59,9 +62,9 @@ export const memCache = new InMemoryCache(500)
 // All values below are kept safely UNDER those ceilings so cached data is always
 // refreshed before it can breach Etsy's limits.
 export const CACHE_TTL = {
-  KEYWORD:  60 * 60 * 5,   // 5 h  — listing-derived data (Etsy limit: 6 h)
-  TRENDING: 60 * 60 * 1,   // 1 h  — listing content (Etsy limit: 6 h)
-  SHOP:     60 * 15,       // 15 m — shop + listing content (Etsy limit: 6 h)
+  KEYWORD:  60 * 60 * 5,   // 5 h  - listing-derived data (Etsy limit: 6 h)
+  TRENDING: 60 * 60 * 1,   // 1 h  - listing content (Etsy limit: 6 h)
+  SHOP:     60 * 15,       // 15 m - shop + listing content (Etsy limit: 6 h)
 } as const
 
 export function cacheKey(...parts: string[]): string {

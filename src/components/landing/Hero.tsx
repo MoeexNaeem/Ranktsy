@@ -6,7 +6,7 @@ import { C } from '@/utils'
 
 const SANS = "'General Sans',sans-serif"
 
-/* Scattered Etsy keyword/niche tags — position (%), variant, parallax depth */
+/* Scattered Etsy keyword/niche tags - position (%), variant, parallax depth */
 type Tag = { label: string; l: number; t: number; ghost?: boolean; depth: number }
 // Positioned to keep a clear center channel (l 20–80) for the headline/subcopy/CTA
 const TAGS: Tag[] = [
@@ -75,7 +75,7 @@ export function Hero() {
     let onMove: ((e: MouseEvent) => void) | null = null
 
     const ctx = gsap.context(() => {
-      // Entrance via `from` — elements default to visible, so a killed/reverted
+      // Entrance via `from` - elements default to visible, so a killed/reverted
       // tween can never leave them stuck hidden.
       gsap.from('.float-inner', {
         opacity: 0, scale: 0.82, duration: 0.7, ease: 'power3.out',
@@ -86,7 +86,7 @@ export function Hero() {
       if (reduce) return
 
       // Mouse parallax on the dedicated parallax layer (float is CSS on the card,
-      // entrance scale is on .float-inner — every transform lives on its own node).
+      // entrance scale is on .float-inner - every transform lives on its own node).
       const par = gsap.utils.toArray<HTMLElement>('.float-parallax')
       onMove = (e: MouseEvent) => {
         const dx = (e.clientX / window.innerWidth - 0.5) * 2
@@ -132,7 +132,7 @@ export function Hero() {
         </div>
 
         <p className="hero-reveal" style={{ fontSize: 'clamp(16px,1.4vw,19px)', lineHeight: 1.5, color: C.graphite, marginBottom: 34, maxWidth: 520, marginLeft: 'auto', marginRight: 'auto' }}>
-          Research the keywords, tags and competition behind top-ranking Etsy listings — real signals from the official Etsy API, in one toolkit.
+          Research the keywords, tags and competition behind top-ranking Etsy listings - real signals from the official Etsy API, in one toolkit.
         </p>
 
         <div className="hero-reveal" style={{ display: 'inline-flex', alignItems: 'center', gap: 30, justifyContent: 'center', flexWrap: 'wrap', background: C.canvas, borderRadius: 40, padding: '6px 6px 6px 8px' }}>

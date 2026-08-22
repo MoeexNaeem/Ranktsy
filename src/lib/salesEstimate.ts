@@ -1,10 +1,10 @@
 /**
- * Estimated per-listing sales — the honest, multi-signal version of Everbee's
+ * Estimated per-listing sales - the honest, multi-signal version of Everbee's
  * "Monthly Sales / Total Sales / Revenue" columns.
  *
  * Etsy publishes NO per-listing sales, so every estimator (Everbee, eRank, us)
  * MODELS it. We blend the three real signals Etsy DOES expose, and take the
- * strongest — so a listing whose reviews are under-reported (Etsy pools an item's
+ * strongest - so a listing whose reviews are under-reported (Etsy pools an item's
  * reviews across relisted/variant listings, leaving the per-listing API count low)
  * is still measured by its real traffic, instead of collapsing to ~0:
  *
@@ -12,13 +12,13 @@
  *   • views    → sales ≈ views × conversionRate      (traffic model; Etsy's avg CR)
  *   • favorites→ sales ≈ favorites × favToSales       (purchase-intent proxy)
  *
- *   estTotalSales   ≈ max(reviewFloor, viewsEst, favEst)   — strongest real signal
+ *   estTotalSales   ≈ max(reviewFloor, viewsEst, favEst)   - strongest real signal
  *   estMonthlySales ≈ recent review velocity ÷ reviewRate, else estTotal amortised
  *                     over the listing's real age (lifetime average).
  *   estMonthlyRevenue ≈ estMonthlySales × price
  *
  * OUTPUT IS AN ESTIMATE and is always badged as one (see the no-fabricated-data
- * rule) — the review COUNT, view/favorite counts and age are the hard numbers;
+ * rule) - the review COUNT, view/favorite counts and age are the hard numbers;
  * everything derived here is modelled. A listing with genuinely low traffic AND
  * no reviews still estimates ~0 (we never invent sales from nothing).
  *
@@ -47,7 +47,7 @@ export function favToSales(): number {
   return Math.min(6, Math.max(0.2, envNum('NEXT_PUBLIC_ETSY_FAV_TO_SALES', 1.5)))
 }
 
-/** What real signal the total estimate leaned on — for an honest UI hint. */
+/** What real signal the total estimate leaned on - for an honest UI hint. */
 export type EstimateBasis = 'reviews' | 'traffic' | 'favorites' | null
 
 export interface ListingSalesEstimate {
@@ -55,11 +55,11 @@ export interface ListingSalesEstimate {
   reviewCount: number | null
   /** Real reviews in the trailing 30 days (recent momentum). */
   reviewsLast30d: number | null
-  /** ESTIMATE — lifetime units sold. */
+  /** ESTIMATE - lifetime units sold. */
   estTotalSales: number | null
-  /** ESTIMATE — units sold per month (recent velocity, or lifetime average). */
+  /** ESTIMATE - units sold per month (recent velocity, or lifetime average). */
   estMonthlySales: number | null
-  /** ESTIMATE — revenue per month = estMonthlySales × price. */
+  /** ESTIMATE - revenue per month = estMonthlySales × price. */
   estMonthlyRevenue: number | null
   /** True when estMonthlySales fell back to the lifetime average (no recent reviews). */
   monthlyIsAverage: boolean
@@ -99,7 +99,7 @@ export function estimateListingSales(input: {
   // Nothing to go on at all → empty (never invent).
   if (reviewFloor == null && viewsEst == null && favEst == null) return EMPTY
 
-  // Strongest real signal drives the total — reviews are a hard floor, traffic and
+  // Strongest real signal drives the total - reviews are a hard floor, traffic and
   // favorites capture the unreviewed sales Etsy's per-listing review count misses.
   const signals: { v: number; b: EstimateBasis }[] = []
   if (reviewFloor != null) signals.push({ v: reviewFloor, b: 'reviews' })

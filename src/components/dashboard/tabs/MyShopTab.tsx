@@ -29,10 +29,10 @@ export function MyShopTab() {
   // Only tracks an explicit user pick; falls back to the first connected shop
   // below. Deriving the fallback each render (rather than syncing it into
   // state via an effect) means there's nothing to keep in sync when the shop
-  // list loads or a shop is disconnected — it just recomputes.
+  // list loads or a shop is disconnected - it just recomputes.
   const [manualShopId, setManualShopId] = useState<string | null>(null)
 
-  // Every shop this account has connected — a user can have more than one.
+  // Every shop this account has connected - a user can have more than one.
   const { data: shops, isLoading: shopsLoading, isError: shopsError } = useQuery({
     queryKey: ['etsy-shops'],
     queryFn: async () => (await axios.get('/api/etsy/shops')).data.data as ConnectedShop[],
@@ -77,7 +77,7 @@ export function MyShopTab() {
             Connect your Etsy shop to unlock real sales insights.
           </h2>
           <p style={{ fontSize: 14.5, color: 'rgba(252,252,247,0.75)', lineHeight: 1.6, maxWidth: 520, marginBottom: 24 }}>
-            See your revenue, orders, best-selling listings, and a map of where your buyers are — pulled securely from the official live data. You can connect more than one shop, and your data is never shared — disconnect anytime.
+            See your revenue, orders, best-selling listings, and a map of where your buyers are - pulled securely from the official live data. You can connect more than one shop, and your data is never shared - disconnect anytime.
           </p>
           <a href="/api/etsy/oauth/connect"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: C.orange, color: '#fff', textDecoration: 'none', padding: '13px 26px', borderRadius: 28, fontSize: 15, fontWeight: 500, transition: 'opacity 0.18s' }}
@@ -94,7 +94,7 @@ export function MyShopTab() {
           </div>
         </div>
         <p style={{ fontSize: 11.5, color: '#9a9a92', fontFamily: MONO, lineHeight: 1.6 }}>
-          Note: Etsy&apos;s API exposes orders, listings and shop stats — but not page-visit/traffic analytics, so those aren&apos;t shown.
+          Note: Etsy&apos;s API exposes orders, listings and shop stats - but not page-visit/traffic analytics, so those aren&apos;t shown.
         </p>
       </div>
     )
@@ -102,7 +102,7 @@ export function MyShopTab() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Shop switcher — only meaningful once a second shop is connected, but
+      {/* Shop switcher - only meaningful once a second shop is connected, but
           always shown so "add another shop" has a permanent home. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         {shops.map(s => {
@@ -139,7 +139,7 @@ export function MyShopTab() {
           { label: 'Orders', value: formatNumber(sum.orders), hint: 'recent receipts' },
           { label: 'Avg order value', value: `${cur}${sum.avgOrder}` },
           { label: 'Active listings', value: formatNumber(s.active_listings) },
-          { label: 'Rating', value: `${s.review_average?.toFixed(2) ?? '—'}★`, hint: `${formatNumber(s.review_count)} reviews` },
+          { label: 'Rating', value: `${s.review_average?.toFixed(2) ?? '-'}★`, hint: `${formatNumber(s.review_count)} reviews` },
           { label: 'Admirers', value: formatNumber(s.favorers) },
         ]
         if (countries[0]) aiFacts.push({ label: 'Top buyer country', value: countries[0].name, hint: `${cur}${formatNumber(countries[0].value)} revenue` })
@@ -158,7 +158,7 @@ export function MyShopTab() {
                   <span style={{ fontSize: 10.5, fontFamily: MONO, background: C.successBg, color: C.success, padding: '2px 9px', borderRadius: 999, fontWeight: 500, textTransform: 'uppercase' }}>Connected</span>
                 </div>
                 <p style={{ fontSize: 12.5, color: '#8a8a82', marginTop: 2, fontFamily: MONO }}>
-                  {formatNumber(s.active_listings)} active listings · {formatNumber(s.favorers)} admirers · ★ {s.review_average?.toFixed(1) ?? '—'} ({formatNumber(s.review_count)})
+                  {formatNumber(s.active_listings)} active listings · {formatNumber(s.favorers)} admirers · ★ {s.review_average?.toFixed(1) ?? '-'} ({formatNumber(s.review_count)})
                 </p>
               </div>
               <div className="rfull-sm" style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
@@ -224,7 +224,7 @@ export function MyShopTab() {
               tool="My Shop"
               subject={s.shop_name}
               facts={aiFacts}
-              notes="These are the seller's OWN connected-shop figures from the official live data (receipts, listings, shop stats — Etsy exposes no page-traffic analytics). Interpret the shop's recent performance, best markets and listings, and give prioritised growth actions."
+              notes="These are the seller's OWN connected-shop figures from the official live data (receipts, listings, shop stats - Etsy exposes no page-traffic analytics). Interpret the shop's recent performance, best markets and listings, and give prioritised growth actions."
             />
 
             {data.note && <p style={{ fontSize: 11.5, color: '#9a9a92', fontFamily: MONO, lineHeight: 1.6 }}>{data.note}</p>}

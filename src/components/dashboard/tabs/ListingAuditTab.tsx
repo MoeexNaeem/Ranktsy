@@ -55,10 +55,10 @@ function benchmarkChecks(l: EtsyListing, b?: ListingBenchmark): Check[] {
     const ratio = yours / b.medianPrice
     out.push({
       label: 'Price position',
-      // Neither extreme is inherently wrong — but being 2× the median without
+      // Neither extreme is inherently wrong - but being 2× the median without
       // knowing it is.
       status: ratio > 2 || ratio < 0.5 ? 'warn' : 'pass',
-      detail: `${b.currency} ${yours.toFixed(2)} vs a niche median of ${b.currency} ${b.medianPrice.toFixed(2)} — pricier than ${pct}% of ${b.priceSample} rivals.`,
+      detail: `${b.currency} ${yours.toFixed(2)} vs a niche median of ${b.currency} ${b.medianPrice.toFixed(2)} - pricier than ${pct}% of ${b.priceSample} rivals.`,
     })
   }
   if (b.yourFavoritesPercentile != null) {
@@ -73,7 +73,7 @@ function benchmarkChecks(l: EtsyListing, b?: ListingBenchmark): Check[] {
 }
 
 /**
- * Tag-hygiene checks — real, computed from the listing's own 13 tags. These
+ * Tag-hygiene checks - real, computed from the listing's own 13 tags. These
  * catch the mistakes that quietly waste tag slots: duplicates, near-duplicates,
  * and tags over Etsy's 20-character limit (which Etsy truncates).
  */
@@ -82,7 +82,7 @@ function tagHygieneChecks(l: EtsyListing): Check[] {
   if (!tags.length) return []
   const out: Check[] = []
 
-  // Exact duplicates (case-insensitive) — each one is a wasted slot.
+  // Exact duplicates (case-insensitive) - each one is a wasted slot.
   const seen = new Map<string, number>()
   for (const t of tags) seen.set(t.toLowerCase(), (seen.get(t.toLowerCase()) ?? 0) + 1)
   const dupes = [...seen.entries()].filter(([, c]) => c > 1).map(([t]) => t)
@@ -90,17 +90,17 @@ function tagHygieneChecks(l: EtsyListing): Check[] {
     label: 'Duplicate tags',
     status: dupes.length ? 'fail' : 'pass',
     detail: dupes.length
-      ? `${dupes.length} duplicate tag${dupes.length === 1 ? '' : 's'} (${dupes.slice(0, 3).join(', ')}) — each repeat wastes one of your 13 slots.`
-      : 'No duplicate tags — every slot is a distinct phrase.',
+      ? `${dupes.length} duplicate tag${dupes.length === 1 ? '' : 's'} (${dupes.slice(0, 3).join(', ')}) - each repeat wastes one of your 13 slots.`
+      : 'No duplicate tags - every slot is a distinct phrase.',
   })
 
-  // Over-length tags — Etsy caps tags at 20 chars and truncates the rest.
+  // Over-length tags - Etsy caps tags at 20 chars and truncates the rest.
   const tooLong = tags.filter(t => t.length > 20)
   if (tooLong.length) {
     out.push({
       label: 'Tag length',
       status: 'warn',
-      detail: `${tooLong.length} tag${tooLong.length === 1 ? '' : 's'} over 20 characters — Etsy truncates these (e.g. “${tooLong[0]}”).`,
+      detail: `${tooLong.length} tag${tooLong.length === 1 ? '' : 's'} over 20 characters - Etsy truncates these (e.g. “${tooLong[0]}”).`,
     })
   }
 
@@ -121,37 +121,37 @@ function auditListing(l: EtsyListing, hasVariations = false, b?: ListingBenchmar
     {
       label: 'Product options',
       status: hasVariations ? 'pass' : 'warn',
-      detail: hasVariations ? 'Offers variations (size/colour/etc.) — buyers get choice in one listing.' : 'No variations found — options like size or colour can lift conversions.',
+      detail: hasVariations ? 'Offers variations (size/colour/etc.) - buyers get choice in one listing.' : 'No variations found - options like size or colour can lift conversions.',
     },
     {
       label: 'Title length',
       status: titleLen >= 70 && titleLen <= 140 ? 'pass' : titleLen >= 40 ? 'warn' : 'fail',
-      detail: `${titleLen} / 140 chars — aim for 70–140 to use Etsy's full title space.`,
+      detail: `${titleLen} / 140 chars - aim for 70–140 to use Etsy's full title space.`,
     },
     {
       label: 'Title keyword depth',
       status: titleWords >= 8 ? 'pass' : titleWords >= 5 ? 'warn' : 'fail',
-      detail: `${titleWords} words — front-load descriptive, searchable phrases.`,
+      detail: `${titleWords} words - front-load descriptive, searchable phrases.`,
     },
     {
       label: 'Tags used',
       status: tags.length >= 13 ? 'pass' : tags.length >= 8 ? 'warn' : 'fail',
-      detail: `${tags.length} / 13 tags — use all 13 for maximum reach.`,
+      detail: `${tags.length} / 13 tags - use all 13 for maximum reach.`,
     },
     {
       label: 'Long-tail tags',
       status: longTail >= 8 ? 'pass' : longTail >= 4 ? 'warn' : 'fail',
-      detail: `${longTail} multi-word tags — long-tail phrases rank easier than single words.`,
+      detail: `${longTail} multi-word tags - long-tail phrases rank easier than single words.`,
     },
     {
       label: 'Description depth',
       status: descLen >= 250 ? 'pass' : descLen >= 100 ? 'warn' : 'fail',
-      detail: `${descLen} chars — a richer description helps context & conversions.`,
+      detail: `${descLen} chars - a richer description helps context & conversions.`,
     },
     {
       label: 'Photos',
       status: imgs >= 7 ? 'pass' : imgs >= 4 ? 'warn' : 'fail',
-      detail: `${imgs} / 10 photos — more angles lift click-through & trust.`,
+      detail: `${imgs} / 10 photos - more angles lift click-through & trust.`,
     },
   ]
   const all = [...checks, ...tagHygieneChecks(l), ...benchmarkChecks(l, b)]
@@ -160,7 +160,7 @@ function auditListing(l: EtsyListing, hasVariations = false, b?: ListingBenchmar
 }
 
 function priceStr(l: EtsyListing) {
-  if (!l.price?.amount) return '—'
+  if (!l.price?.amount) return '-'
   return `${l.price.currency_code} ${(l.price.amount / (l.price.divisor || 100)).toFixed(2)}`
 }
 
@@ -175,7 +175,7 @@ export function ListingAuditTab() {
       const [lRes, vRes, bRes] = await Promise.all([
         axios.get(`/api/etsy/listing?id=${id}`),
         axios.get(`/api/etsy/variations?id=${id}`).catch(() => ({ data: { data: { hasVariations: false, variations: [] } } })),
-        // Benchmarking is a bonus signal — a failure here must not sink the audit.
+        // Benchmarking is a bonus signal - a failure here must not sink the audit.
         axios.get(`/api/etsy/benchmark?id=${id}`).catch(() => ({ data: { data: undefined } })),
       ])
       return {
@@ -202,7 +202,7 @@ export function ListingAuditTab() {
     () => (listing ? auditListing(listing, variations?.hasVariations, benchmark) : null),
     [listing, variations, benchmark])
   const scoreTone = audit ? (audit.score >= 80 ? C.success : audit.score >= 55 ? C.warn : C.danger) : C.ink
-  const scoreLabel = audit ? (audit.score >= 80 ? 'Excellent' : audit.score >= 55 ? 'Good — room to improve' : 'Needs work') : ''
+  const scoreLabel = audit ? (audit.score >= 80 ? 'Excellent' : audit.score >= 55 ? 'Good - room to improve' : 'Needs work') : ''
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -262,7 +262,7 @@ export function ListingAuditTab() {
             </Card>
           </div>
 
-          {/* AI Improvement Suggestions + One-Click Optimization — the audit
+          {/* AI Improvement Suggestions + One-Click Optimization - the audit
               finds the gaps, Gemini writes the fixes. */}
           <AiOptimizePanel listing={listing} findings={audit.checks} />
 

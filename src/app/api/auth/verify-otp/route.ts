@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   try {
     const body   = await req.json()
 
-    // A 6-digit OTP is only ~1M combos — without a tight cap it's brute-forceable.
+    // A 6-digit OTP is only ~1M combos - without a tight cap it's brute-forceable.
     // Limit by IP and (below) by target email so guesses can't be sprayed.
     const ipRL = rateLimit(`otp:ip:${clientIp(req)}`, 10, 15 * 60 * 1000)
     if (!ipRL.allowed) return tooManyResponse(ipRL.retryAfterSec)

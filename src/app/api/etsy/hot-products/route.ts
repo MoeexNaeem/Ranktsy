@@ -8,10 +8,10 @@ import type { ApiResponse, HotProduct, HotProductsResponse, EtsyListing } from '
 export const runtime = 'nodejs'
 
 /**
- * Find Hot Products — a product-research database over LIVE Etsy listings.
+ * Find Hot Products - a product-research database over LIVE Etsy listings.
  *
  * Compliance (the product's whole identity): Etsy's API exposes no per-listing
- * sales, revenue, or history — so this tool never shows them. "Hot" is ranked
+ * sales, revenue, or history - so this tool never shows them. "Hot" is ranked
  * from REAL signals only: how strongly a listing engages buyers (favorites ÷
  * views) and how fast it accrues favorites for its age (favorites ÷ days live).
  * Everything returned is measured from the Etsy API. See no-fabricated-data-rule.
@@ -20,7 +20,7 @@ export const runtime = 'nodejs'
 type SortKey = 'hot' | 'favorites' | 'views' | 'newest' | 'price_low' | 'price_high' | 'engagement' | 'velocity'
 
 // Map the UI sort to how we fetch from Etsy. Etsy can sort globally by relevance,
-// created date and price — but NOT by views/favorites, so those are scored on the
+// created date and price - but NOT by views/favorites, so those are scored on the
 // fetched sample (honest: "hottest among the top matches", stated in the UI).
 function fetchSort(sort: SortKey): Pick<EtsySearchOpts, 'sortOn' | 'sortOrder'> {
   switch (sort) {
@@ -31,7 +31,7 @@ function fetchSort(sort: SortKey): Pick<EtsySearchOpts, 'sortOn' | 'sortOrder'> 
   }
 }
 
-/** Hot Score 0–100 from real fields only — favorite-velocity + engagement. */
+/** Hot Score 0–100 from real fields only - favorite-velocity + engagement. */
 function hotScore(l: EtsyListing): { score: number; favPerDay: number | null; engagementPct: number } {
   const views = l.views ?? 0
   const favs = l.num_favorers ?? 0

@@ -5,7 +5,7 @@ import { isSearchAllowed, recordSearch, clearSearchLimit } from '@/lib/searchLim
 import type { ApiResponse } from '@/types'
 
 /**
- * Search rate gate — call at the top of each user-facing SEARCH route:
+ * Search rate gate - call at the top of each user-facing SEARCH route:
  *
  *   const gate = await guardSearch(req); if (gate) return gate
  *
@@ -15,12 +15,12 @@ import type { ApiResponse } from '@/types'
  * `captchaRequired: true` so the client can prompt a reCAPTCHA and retry with
  * the token header. Otherwise it records the search and returns null (allowed).
  *
- * Only gate ONE endpoint per user "search" action — e.g. the core keyword route,
- * not its parallel sub-fetches — or a single search would burn several counts.
+ * Only gate ONE endpoint per user "search" action - e.g. the core keyword route,
+ * not its parallel sub-fetches - or a single search would burn several counts.
  */
 export async function guardSearch<T = unknown>(req: NextRequest): Promise<NextResponse<ApiResponse<T>> | null> {
   // The gate is only meaningful with reCAPTCHA (that's how a blocked user
-  // continues). Until keys are configured it's fully dormant — searches are
+  // continues). Until keys are configured it's fully dormant - searches are
   // never blocked, so no dead-end and no behaviour change from today.
   if (!isRecaptchaConfigured()) return null
 

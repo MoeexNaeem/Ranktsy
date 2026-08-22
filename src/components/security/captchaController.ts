@@ -39,7 +39,7 @@ export function attachCaptchaInterceptor(instance: AxiosInstance) {
           cfg.headers.set('x-captcha-token', token)
           return instance.request(cfg)
         } catch {
-          // user cancelled — fall through to reject
+          // user cancelled - fall through to reject
         }
       }
       return Promise.reject(error)

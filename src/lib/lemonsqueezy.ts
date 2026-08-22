@@ -1,7 +1,7 @@
 import crypto from 'crypto'
 
 /**
- * Lemon Squeezy server helpers — create a hosted/overlay checkout for a variant,
+ * Lemon Squeezy server helpers - create a hosted/overlay checkout for a variant,
  * and verify inbound webhook signatures. All secrets come from env; nothing here
  * is exposed to the client.
  */

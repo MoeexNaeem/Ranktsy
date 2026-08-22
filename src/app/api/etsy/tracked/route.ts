@@ -9,7 +9,7 @@ export const runtime = 'nodejs'
 
 /**
  * Shops a user has asked us to track daily. Tracking is what guarantees an
- * unbroken sales history for a competitor — opportunistic capture only covers
+ * unbroken sales history for a competitor - opportunistic capture only covers
  * shops someone happens to look at.
  */
 export async function GET(): Promise<NextResponse<ApiResponse<unknown>>> {

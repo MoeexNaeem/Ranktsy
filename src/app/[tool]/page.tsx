@@ -112,7 +112,7 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
             <p style={{ fontSize: 'clamp(15px,1.4vw,17px)', color: C.graphite, lineHeight: 1.62, maxWidth: 620, margin: '0 auto 32px' }}>{t.intro}</p>
             <div style={{ display: 'inline-flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center' }}>
               <Link href="/register" style={{ background: C.orange, color: '#fff', textDecoration: 'none', fontSize: 16, fontWeight: 600, padding: '14px 28px', borderRadius: 30, boxShadow: '0 14px 30px rgba(251,94,9,0.28)', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                Start free — try it now <Arrow color="#fff" />
+                Start free - try it now <Arrow color="#fff" />
               </Link>
               <Link href={`/dashboard?tab=${t.dashTab}`} rel="nofollow" style={{ background: C.paper, color: C.ink, textDecoration: 'none', fontSize: 16, fontWeight: 600, padding: '14px 26px', borderRadius: 30, border: `1px solid ${C.ash}` }}>
                 Open in dashboard
@@ -121,7 +121,7 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
           </div>
         </section>
 
-        {/* ── Overview — narrative ── */}
+        {/* ── Overview - narrative ── */}
         <section style={{ background: C.paper, padding: '84px 24px' }}>
           <div className="rsplit" style={{ maxWidth: 1100, margin: '0 auto', display: 'grid', gridTemplateColumns: '0.85fr 1.15fr', gap: 64, alignItems: 'start' }}>
             <div>
@@ -138,7 +138,7 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
           </div>
         </section>
 
-        {/* ── What it does — pastel bento tiles ── */}
+        {/* ── What it does - pastel bento tiles ── */}
         <section style={{ background: C.canvas, padding: '84px 24px' }}>
           <div style={{ maxWidth: 1100, margin: '0 auto' }}>
             {sectionTag('What it does')}
@@ -161,7 +161,7 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
           </div>
         </section>
 
-        {/* ── How it works — numbered steps ── */}
+        {/* ── How it works - numbered steps ── */}
         <section style={{ background: C.paper, padding: '84px 24px' }}>
           <div style={{ maxWidth: 1100, margin: '0 auto' }}>
             {sectionTag('How it works')}
@@ -182,7 +182,7 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
           </div>
         </section>
 
-        {/* ── Why it helps — bold solid blocks ── */}
+        {/* ── Why it helps - bold solid blocks ── */}
         <section style={{ background: C.canvas, padding: '84px 24px' }}>
           <div style={{ maxWidth: 1100, margin: '0 auto' }}>
             {sectionTag('Why it helps')}
@@ -237,13 +237,13 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
           <div style={{ maxWidth: 820, margin: '0 auto' }}>
             {sectionTag('FAQ')}
             <h2 style={{ fontSize: 'clamp(28px,3.4vw,44px)', fontWeight: 600, letterSpacing: '-0.035em', color: C.ink, lineHeight: 1.06, marginBottom: 28 }}>
-              {t.name} — questions, answered
+              {t.name} - questions, answered
             </h2>
             <FaqList items={t.faqs} />
           </div>
         </section>
 
-        {/* ── Related tools — tinted cards ── */}
+        {/* ── Related tools - tinted cards ── */}
         {related.length > 0 && (
           <section style={{ background: C.paper, padding: '80px 24px' }}>
             <div style={{ maxWidth: 1100, margin: '0 auto' }}>
@@ -267,7 +267,7 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
           </section>
         )}
 
-        {/* ── Final CTA — charcoal block ── */}
+        {/* ── Final CTA - charcoal block ── */}
         <section style={{ background: C.paper, padding: '0 24px 96px' }}>
           <div style={{ maxWidth: 1100, margin: '0 auto', background: C.charcoal, borderRadius: 40, padding: 'clamp(56px,7vw,84px) 32px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
             <div aria-hidden style={{ position: 'absolute', top: '-40%', left: '50%', transform: 'translateX(-50%)', width: 700, height: 500, background: 'radial-gradient(50% 50% at 50% 50%, rgba(251,94,9,0.22), transparent 70%)', pointerEvents: 'none' }} />
@@ -276,7 +276,7 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
                 Ready to try {t.name}?
               </h2>
               <p style={{ fontSize: 17.5, color: 'rgba(245,245,235,0.72)', lineHeight: 1.55, marginBottom: 30, maxWidth: 520, marginInline: 'auto' }}>
-                Start free — real Etsy &amp; Google data from your very first search.
+                Start free - real Etsy &amp; Google data from your very first search.
               </p>
               <Link href="/register" style={{ background: C.orange, color: '#fff', textDecoration: 'none', fontSize: 16, fontWeight: 600, padding: '15px 32px', borderRadius: 30, display: 'inline-flex', alignItems: 'center', gap: 8, boxShadow: '0 14px 30px rgba(251,94,9,0.34)' }}>
                 Get started free <Arrow color="#fff" />

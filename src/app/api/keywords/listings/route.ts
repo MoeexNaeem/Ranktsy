@@ -12,7 +12,7 @@ export const GET = withUsage(getHandler)
 /**
  * The same top listings as the core, but WITH images.
  *
- * Etsy's search endpoint returns no images — they need a second ~1.5s batch call
+ * Etsy's search endpoint returns no images - they need a second ~1.5s batch call
  * against /listings/batch. Only the Top Listings grid renders them, so that cost
  * is paid when the user opens that tab rather than on every keyword search.
  */
@@ -26,7 +26,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Et
   const hit = memCache.get<EtsyListing[]>(key)
   if (hit) return NextResponse.json({ success: true, data: hit, cached: true })
 
-  // Shared Collective store first — its listings already include images, so a
+  // Shared Collective store first - its listings already include images, so a
   // present keyword needs no Etsy call. (Listings are geo-independent; the package
   // is checked under the default US doc.)
   const shared = await getCollectivePackage(query, 'US')

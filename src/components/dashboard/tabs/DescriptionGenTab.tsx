@@ -73,7 +73,7 @@ export function DescriptionGenTab() {
           Generate an Etsy description
         </SectionTitle>
         <p style={{ fontSize: 14, color: C.graphite, lineHeight: 1.55, margin: '2px 0 14px' }}>
-          Enter your focus keyword. The extra fields are optional — leave them blank and the AI infers sensible details.
+          Enter your focus keyword. The extra fields are optional - leave them blank and the AI infers sensible details.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div><label style={label}>Focus keyword *</label><input style={field} value={q} onChange={e => { setQ(e.target.value); saved.q = e.target.value }} placeholder="e.g. wedding invitation template" /></div>
@@ -87,7 +87,7 @@ export function DescriptionGenTab() {
             </select>
           </div>
           <div><label style={label}>Target audience</label><input style={field} value={audience} onChange={e => { setAudience(e.target.value); saved.audience = e.target.value }} placeholder="optional" /></div>
-          <div style={{ gridColumn: '1 / -1' }}><label style={label}>Key features</label><textarea style={{ ...field, resize: 'vertical', minHeight: 62 }} rows={2} value={features} onChange={e => { setFeatures(e.target.value); saved.features = e.target.value }} placeholder="optional — e.g. editable in Canva, instant download, A4 + US Letter" /></div>
+          <div style={{ gridColumn: '1 / -1' }}><label style={label}>Key features</label><textarea style={{ ...field, resize: 'vertical', minHeight: 62 }} rows={2} value={features} onChange={e => { setFeatures(e.target.value); saved.features = e.target.value }} placeholder="optional - e.g. editable in Canva, instant download, A4 + US Letter" /></div>
         </div>
         <button onClick={run} disabled={isFetching || q.trim().length < 2}
           style={{ ...primaryBtn, marginTop: 14, opacity: isFetching || q.trim().length < 2 ? 0.6 : 1, cursor: isFetching || q.trim().length < 2 ? 'not-allowed' : 'pointer' }}>
@@ -98,7 +98,7 @@ export function DescriptionGenTab() {
       {isFetching && <GenNote phase={phase} onRetry={() => refetch()} />}
       {isFetching && <GenSkeleton height={320} />}
       {isError && !isFetching && <GenNote phase="normal" error onRetry={() => refetch()} />}
-      {!isFetching && !data && !isError && <EmptyState icon="📝" title="No description yet" sub="Fill in your keyword and hit Generate — you'll get 3 versions to choose from." />}
+      {!isFetching && !data && !isError && <EmptyState icon="📝" title="No description yet" sub="Fill in your keyword and hit Generate - you'll get 3 versions to choose from." />}
 
       {data && data.length > 0 && !isFetching && (() => {
         const cur = data[Math.min(active, data.length - 1)]
@@ -115,7 +115,7 @@ export function DescriptionGenTab() {
                 Etsy description
               </SectionTitle>
 
-              {/* Version switcher — one tab per generated variant */}
+              {/* Version switcher - one tab per generated variant */}
               {data.length > 1 && (
                 <div style={{ display: 'flex', gap: 8, margin: '4px 0 14px', flexWrap: 'wrap' }}>
                   {data.map((_, i) => (

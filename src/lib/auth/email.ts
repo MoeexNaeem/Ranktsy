@@ -3,7 +3,7 @@ import { siteUrl } from '@/lib/seo/site'
 
 /**
  * Email delivery. Preferred path is Resend (set RESEND_API_KEY) sending from
- * support@rankkw.com — this is what powers the password-reset OTP and welcome
+ * support@rankkw.com - this is what powers the password-reset OTP and welcome
  * emails in production. If no Resend key is set, we fall back to SMTP
  * (nodemailer) so local/dev setups still work.
  *
@@ -27,12 +27,12 @@ const transporter = nodemailer.createTransport({
 // From). Override either with EMAIL_FROM.
 const RESEND_FROM = process.env.EMAIL_FROM || 'Rankkw Support <support@rankkw.com>'
 const SMTP_FROM   = process.env.EMAIL_FROM || `"Rankkw" <${process.env.SMTP_USER ?? 'noreply@rankkw.com'}>`
-// Absolute URLs — email clients can't resolve relative paths, and siteUrl()
+// Absolute URLs - email clients can't resolve relative paths, and siteUrl()
 // returns the real production origin (never localhost) in prod.
 const APP_URL  = siteUrl()
 const LOGO_URL = `${APP_URL}/website_logo.png`
 
-/** Send one email — via Resend's REST API when configured, else SMTP. */
+/** Send one email - via Resend's REST API when configured, else SMTP. */
 async function sendEmail(to: string, subject: string, html: string): Promise<void> {
   if (RESEND_API_KEY) {
     const res = await fetch('https://api.resend.com/emails', {

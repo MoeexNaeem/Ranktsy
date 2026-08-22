@@ -10,12 +10,12 @@ if (!MONGODB_URI) {
 
 // `mongodb+srv://` requires SRV + TXT DNS records to be resolved before connecting.
 // On some networks the default resolver times out on these (`queryTxt ETIMEOUT`),
-// which makes the MongoDB driver hard-fail and blocks ALL database access — login,
+// which makes the MongoDB driver hard-fail and blocks ALL database access - login,
 // signup and the keyword cache. Point Node's c-ares resolver at reliable public DNS
 // (does not affect the OS getaddrinfo used by `fetch`, so Etsy calls are unchanged).
 try {
   dns.setServers(['1.1.1.1', '8.8.8.8', '1.0.0.1', '8.8.4.4'])
-} catch { /* some runtimes disallow setServers — ignore */ }
+} catch { /* some runtimes disallow setServers - ignore */ }
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error('dns-timeout')), ms))])
@@ -42,10 +42,10 @@ async function connectableUri(): Promise<string> {
     txtPromise.catch(() => {}) // avoid unhandledRejection if the timeout wins
     const txt = (await withTimeout(txtPromise, 1500)).flat().join('&')
     new URLSearchParams(txt).forEach((v, k) => { if (!params.has(k)) params.set(k, v) })
-  } catch { /* TXT unavailable — the driver discovers the replica set from the seeds */ }
+  } catch { /* TXT unavailable - the driver discovers the replica set from the seeds */ }
 
   const dbPath = u.pathname && u.pathname !== '/' ? u.pathname : ''
-  // username/password are already percent-encoded by URL — reuse verbatim.
+  // username/password are already percent-encoded by URL - reuse verbatim.
   return `mongodb://${u.username}:${u.password}@${hosts}${dbPath}?${params.toString()}`
 }
 
@@ -76,7 +76,7 @@ export async function connectDB(): Promise<typeof mongoose> {
       maxIdleTimeMS: Number(process.env.MONGO_MAX_IDLE_MS ?? 30_000), // close idle conns after 30s
       serverSelectionTimeoutMS: 8000,
       socketTimeoutMS: 45000,
-      family: 4,               // prefer IPv4 — avoids stalls on broken IPv6 setups
+      family: 4,               // prefer IPv4 - avoids stalls on broken IPv6 setups
     }))
   }
 

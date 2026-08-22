@@ -43,7 +43,7 @@ function useShop(shop: string) {
 /**
  * eRank's Competitor Sales, honestly.
  *
- * Etsy gives a shop's lifetime sales total and no series — so "sold yesterday"
+ * Etsy gives a shop's lifetime sales total and no series - so "sold yesterday"
  * only exists once we've captured the shop on two different days. Tracking a
  * shop guarantees a daily capture from that moment; nothing can recover the past.
  */
@@ -102,10 +102,10 @@ export function CompetitorSalesTab() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
         <SearchBar value={input} onChange={setInput} onSubmit={go}
-          placeholder="Competitor shop name — e.g. CaitlynMinimalist" button="Analyze →" />
+          placeholder="Competitor shop name - e.g. CaitlynMinimalist" button="Analyze →" />
         <p style={{ fontSize: 13, color: C.graphite, marginTop: 10, lineHeight: 1.55, maxWidth: 720 }}>
           Etsy publishes each shop&apos;s <strong style={{ color: D.good }}>lifetime</strong>{' '}sales total and no history.
-          Track a shop and we record it daily from then on — that&apos;s what turns a single number into sales-per-day.
+          Track a shop and we record it daily from then on - that&apos;s what turns a single number into sales-per-day.
         </p>
       </div>
 
@@ -149,7 +149,7 @@ export function CompetitorSalesTab() {
             <div style={{ flex: 1, minWidth: 200 }}>
               <h2 style={{ fontSize: 21, fontWeight: 500, color: C.snow, marginBottom: 6, letterSpacing: '-0.02em' }}>{shop.shop_name}</h2>
               <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 13.5, color: 'rgba(245,245,235,0.65)' }}>
-                <span style={{ color: D.good, fontWeight: 500 }}>{shop.sales != null ? formatNumber(shop.sales) : '—'} lifetime sales</span>
+                <span style={{ color: D.good, fontWeight: 500 }}>{shop.sales != null ? formatNumber(shop.sales) : '-'} lifetime sales</span>
                 {shop.review_count ? <span>★ {(shop.review_average ?? 0).toFixed(2)} · {formatNumber(shop.review_count)} reviews</span> : null}
                 {shop.countryIso && <span>{flag(shop.countryIso)} {shop.countryIso}</span>}
                 {shop.yearOpened && <span>since {shop.yearOpened}</span>}
@@ -177,7 +177,7 @@ export function CompetitorSalesTab() {
               tool="Competitor Sales"
               subject={shop.shop_name}
               facts={aiFacts}
-              notes="Figures are from the competitor's real, measured shop record (transaction_sold_count is genuine lifetime sales; Etsy publishes no daily history — that only builds once the shop is tracked). Interpret the competitor's scale, maturity and efficiency, and how a seller can compete against them."
+              notes="Figures are from the competitor's real, measured shop record (transaction_sold_count is genuine lifetime sales; Etsy publishes no daily history - that only builds once the shop is tracked). Interpret the competitor's scale, maturity and efficiency, and how a seller can compete against them."
             />
           )}
 

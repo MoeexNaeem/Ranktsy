@@ -1,6 +1,6 @@
 'use client'
 /**
- * Saved keyword lists — the single owner of the localStorage bucket that both
+ * Saved keyword lists - the single owner of the localStorage bucket that both
  * the Keyword Lists tab and the star control read.
  *
  * The key is namespaced by brand, so the Ranktsy → Rankkw rename would have
@@ -18,7 +18,7 @@ const LEGACY_KEYS = ['ranktsy:keyword-lists']
 /**
  * One-time move from any previous brand's key. Runs before every read, but the
  * work only happens once: after a successful copy the legacy key is removed.
- * Never throws — a storage failure must not take the tab down with it.
+ * Never throws - a storage failure must not take the tab down with it.
  */
 export function migrate(): void {
   if (typeof window === 'undefined') return
@@ -37,7 +37,7 @@ export function migrate(): void {
       }
     }
   } catch {
-    /* private mode / quota — fall through to an empty list */
+    /* private mode / quota - fall through to an empty list */
   }
 }
 

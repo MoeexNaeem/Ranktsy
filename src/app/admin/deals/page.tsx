@@ -4,7 +4,7 @@ import { DealsAdmin } from '@/components/admin/DealsAdmin'
 import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin } from '@/lib/auth/roles'
 
-export const metadata = { title: 'Deals — Admin — Rankkw' }
+export const metadata = { title: 'Deals - Admin - Rankkw' }
 export const dynamic = 'force-dynamic'
 
 export default async function AdminDealsPage() {

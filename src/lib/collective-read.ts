@@ -1,7 +1,7 @@
 /**
  * Read-only access to the shared `collectivekeyworddatas` store.
  *
- * That collection is written PERMANENTLY by Ranktsy's Bulk Keyword Search — a full
+ * That collection is written PERMANENTLY by Ranktsy's Bulk Keyword Search - a full
  * package per keyword: core stats, related keywords WITH competition/KD/Google,
  * top listings WITH images, and a review count on every listing. Rankkw's single
  * Keyword Search reads it here: if a keyword is present it's served straight from

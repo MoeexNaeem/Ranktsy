@@ -21,7 +21,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<A
     const ipRL = rateLimit(`login:ip:${ip}`, 10, FIFTEEN_MIN)
     if (!ipRL.allowed) return tooManyResponse(ipRL.retryAfterSec)
 
-    // Bot protection — verify the reCAPTCHA token (a no-op if keys aren't set).
+    // Bot protection - verify the reCAPTCHA token (a no-op if keys aren't set).
     if (!(await verifyRecaptcha(body?.captchaToken, ip))) {
       return NextResponse.json({ success: false, errors: { _: 'Please complete the “I’m not a robot” check.' } }, { status: 400 })
     }
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<A
     await connectDB()
 
     // Use ONE generic message whether the email is unknown or the password is
-    // wrong — distinct errors let an attacker enumerate which emails are
+    // wrong - distinct errors let an attacker enumerate which emails are
     // registered. (Signup's live email-check is the intended place to learn that.)
     const INVALID = 'Invalid email or password.'
     const user = await User.findOne({ email }).select('+password').lean()

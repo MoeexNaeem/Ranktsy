@@ -7,7 +7,7 @@ import type { ApiResponse, KeywordIdeasResponse } from '@/types'
 export const runtime = 'nodejs'
 
 /**
- * Google Keyword Ideas — genuine keyword DISCOVERY via generateKeywordIdeas.
+ * Google Keyword Ideas - genuine keyword DISCOVERY via generateKeywordIdeas.
  *
  * Unlike /api/keywords/related (which measures terms Etsy already surfaced),
  * Google returns keywords we never asked about, so this is the one place the tool
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
 
   try {
     const [ideas, currency] = await Promise.all([googleKeywordIdeas(query, geo), googleAccountCurrency()])
-    // Highest real demand first — the actionable order for discovery.
+    // Highest real demand first - the actionable order for discovery.
     ideas.sort((a, b) => (b.searches ?? 0) - (a.searches ?? 0))
     // GoogleIdea.competition is a raw string from the API; the response type
     // narrows it to the LOW/MEDIUM/HIGH/UNSPECIFIED union the client renders.

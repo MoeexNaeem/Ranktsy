@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
       <h1>✅ Copy your refresh token</h1>
       <p>Add this line to your <code>.env.local</code>, then restart the dev server:</p>
       <div class="box"><textarea readonly onclick="this.select()">GOOGLE_ADS_REFRESH_TOKEN=${j.refresh_token}</textarea></div>
-      <p>You also need <code>GOOGLE_ADS_CUSTOMER_ID</code> (your Google Ads account id, 10 digits, no dashes) — and
+      <p>You also need <code>GOOGLE_ADS_CUSTOMER_ID</code> (your Google Ads account id, 10 digits, no dashes) - and
       <code>GOOGLE_ADS_LOGIN_CUSTOMER_ID</code> if that account sits under a manager (MCC).</p>
       <p>Once set, the Keyword Tool's <strong>Google Searches</strong> column and <strong>Searchers by Country</strong> panel light up automatically.</p>
       <p><a href="/dashboard">← Back to dashboard</a></p>`)

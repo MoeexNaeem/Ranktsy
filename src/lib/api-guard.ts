@@ -1,5 +1,5 @@
 /**
- * Route guard for the metered API surface — a drop-in replacement for withUsage
+ * Route guard for the metered API surface - a drop-in replacement for withUsage
  * that ALSO enforces a logged-in caller and a per-user rate cap.
  *
  *   export const GET = withApiGuard(async (req) => { ... }, { limit: 20, windowMs: 60_000 })

@@ -21,7 +21,7 @@ export const runtime = 'nodejs'
  * With no key (or a 429), a rule-based path still returns real, useful fixes.
  */
 
-// The audit findings the client computed — passed through as prompt context.
+// The audit findings the client computed - passed through as prompt context.
 interface Finding { label: string; status: 'pass' | 'warn' | 'fail'; detail: string }
 
 const STOP = new Set(['the', 'and', 'for', 'with', 'from', 'your', 'gift', 'gifts', 'handmade', 'custom', 'personalized'])
@@ -85,7 +85,7 @@ function fallbackResult(
       priority: (f.status === 'fail' ? 'high' : 'medium') as AiSuggestion['priority'],
       area: f.label,
       issue: f.detail,
-      action: `Fix “${f.label}” — ${f.detail}`,
+      action: `Fix “${f.label}” - ${f.detail}`,
     }))
   if (grounding.missingTags.length) {
     suggestions.unshift({
@@ -100,7 +100,7 @@ function fallbackResult(
   const tags = dedupe([...currentTags, ...grounding.missingTags.map(t => t.tag)]).slice(0, 13)
 
   // Title: only extend a too-short title, and only with the measured missing
-  // tags — no invented phrasing.
+  // tags - no invented phrasing.
   let title = listing.title
   if (title.length < 70) {
     for (const t of grounding.missingTags) {
@@ -113,7 +113,7 @@ function fallbackResult(
   const high = suggestions.filter(s => s.priority === 'high').length
   return {
     ai: false,
-    summary: `${suggestions.length} fix${suggestions.length === 1 ? '' : 'es'} found (${high} high-priority). AI copywriting is unavailable right now — these are rule-based fixes built directly from your audit results.`,
+    summary: `${suggestions.length} fix${suggestions.length === 1 ? '' : 'es'} found (${high} high-priority). AI copywriting is unavailable right now - these are rule-based fixes built directly from your audit results.`,
     suggestions,
     title,
     tags,
@@ -160,23 +160,23 @@ async function aiResult(
     `Title (${listing.title.length}/140 chars): ${listing.title}\n` +
     `Tags (${(listing.tags ?? []).length}/13): ${(listing.tags ?? []).join(', ') || '(none)'}\n` +
     `Description (${(listing.description ?? '').length} chars):\n${(listing.description ?? '').slice(0, 1200) || '(empty)'}\n\n` +
-    `AUDIT FINDINGS (each measured from Etsy's API — cite these, do not invent new statistics):\n` +
+    `AUDIT FINDINGS (each measured from Etsy's API - cite these, do not invent new statistics):\n` +
     (issues.length ? issues.map(f => `- [${f.status.toUpperCase()}] ${f.label}: ${f.detail}`).join('\n') : '- (no failing checks)') + '\n\n' +
     (grounding.sampled
-      ? `KEYWORD GAP — measured across the top ${grounding.sampled} live listings ranking for "${grounding.keyword}". ` +
-        `High-adoption tags this listing is MISSING (tag — % of winners using it):\n` +
-        (grounding.missingTags.length ? grounding.missingTags.map(t => `- ${t.tag} — ${t.usedPct}%`).join('\n') : '- (none — tag coverage is already strong)') + '\n\n'
+      ? `KEYWORD GAP - measured across the top ${grounding.sampled} live listings ranking for "${grounding.keyword}". ` +
+        `High-adoption tags this listing is MISSING (tag - % of winners using it):\n` +
+        (grounding.missingTags.length ? grounding.missingTags.map(t => `- ${t.tag} - ${t.usedPct}%`).join('\n') : '- (none - tag coverage is already strong)') + '\n\n'
       : '') +
     `Rules:\n` +
     `- suggestions: ordered most-impactful first. Each "issue" must restate a finding above (with its real numbers); each "action" is the concrete fix. Never invent a statistic.\n` +
     `- title: ONE optimized title, MAX 140 chars, front-load searchable phrases, keep what already works in the current title.\n` +
     `- tags: exactly 13, each MAX 20 chars, lowercase, no duplicates, no '#'. Keep the listing's strong existing tags, add the missing high-adoption tags, prefer multi-word phrases.\n` +
-    `- description: 90–180 words, scannable — short intro, bullet points, natural keyword line. Keep real product facts from the current description; do not invent materials, sizes, or claims.`
+    `- description: 90–180 words, scannable - short intro, bullet points, natural keyword line. Keep real product facts from the current description; do not invent materials, sizes, or claims.`
 
   const parsed = await geminiJSON<{ summary: string; suggestions: AiSuggestion[]; title: string; tags: string[]; description: string }>({
     prompt,
     schema: OPTIMIZE_SCHEMA as unknown as Record<string, unknown>,
-    system: 'You rewrite Etsy listings from real audit findings. You write copy only — every statistic you mention must come verbatim from the findings provided. Never invent numbers, materials, or product claims.',
+    system: 'You rewrite Etsy listings from real audit findings. You write copy only - every statistic you mention must come verbatim from the findings provided. Never invent numbers, materials, or product claims.',
     temperature: 0.6,
     // Headroom for the model's default thinking + the full JSON (see gemini.ts).
     maxOutputTokens: 4096,
@@ -210,7 +210,7 @@ async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<A
   const body = await req.json().catch(() => ({}))
   const listingId = Number(body.listingId)
   const keywordIn = String(body.keyword ?? '').trim().toLowerCase().slice(0, 80)
-  // Findings come from the client's audit run — sanitise hard since they enter a prompt.
+  // Findings come from the client's audit run - sanitise hard since they enter a prompt.
   const findings: Finding[] = Array.isArray(body.findings)
     ? (body.findings as Finding[])
         .filter(f => f && typeof f.label === 'string' && typeof f.detail === 'string')
@@ -235,7 +235,7 @@ async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<A
     const keyword = keywordIn.length >= 2 ? keywordIn : seedFromTitle(listing.title)
     const yourTags = new Set((listing.tags ?? []).map(t => t.toLowerCase().trim()))
 
-    // The gap scan is a grounding bonus — its failure must not sink the feature.
+    // The gap scan is a grounding bonus - its failure must not sink the feature.
     let grounding: { keyword: string; sampled: number; missingTags: { tag: string; usedPct: number }[] } =
       { keyword, sampled: 0, missingTags: [] }
     if (keyword.length >= 2) {

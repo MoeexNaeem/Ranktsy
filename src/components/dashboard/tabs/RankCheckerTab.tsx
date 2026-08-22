@@ -61,7 +61,7 @@ export function RankCheckerTab() {
 
   const ranked = rows?.filter(r => r.best != null).length ?? 0
 
-  // Real facts for the AI ranking read — positions are measured from live Etsy search.
+  // Real facts for the AI ranking read - positions are measured from live Etsy search.
   const aiFacts = useMemo<AiFact[]>(() => {
     if (!rows?.length) return []
     const f: AiFact[] = [{ label: 'Keywords checked', value: String(rows.length), hint: `${ranked} rank in Etsy's top 100` }]
@@ -110,7 +110,7 @@ export function RankCheckerTab() {
                 <div key={r.keyword} style={tableRow(GRID)}>
                   <span style={tdTitle}>{r.keyword}</span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, width: 'fit-content', padding: '4px 13px', borderRadius: 100, fontSize: 13, fontWeight: 600, background: tone.bg, color: tone.color }}>{r.error ? 'error' : tone.label}</span>
-                  {r.url ? <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ ...tdTitle, color: C.ink, textDecoration: 'none' }}>{r.listing}</a> : <span style={{ ...tdMono, color: C.stone }}>—</span>}
+                  {r.url ? <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ ...tdTitle, color: C.ink, textDecoration: 'none' }}>{r.listing}</a> : <span style={{ ...tdMono, color: C.stone }}>-</span>}
                   <span style={tdMono}>{formatNumber(r.total)}</span>
                 </div>
               )
@@ -126,7 +126,7 @@ export function RankCheckerTab() {
               tool="Rank Checker"
               subject={shop.trim() || 'your shop'}
               facts={aiFacts}
-              notes="Positions are the shop's best rank within Etsy's top-100 relevance results for each keyword (lower is better; 'not in top 100' means unranked). Total competing listings shows how contested each keyword is. Interpret which keywords the shop is winning, which are close and worth pushing, and which are too contested — with a prioritised action plan."
+              notes="Positions are the shop's best rank within Etsy's top-100 relevance results for each keyword (lower is better; 'not in top 100' means unranked). Total competing listings shows how contested each keyword is. Interpret which keywords the shop is winning, which are close and worth pushing, and which are too contested - with a prioritised action plan."
             />
           )}
         </div>

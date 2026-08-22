@@ -10,7 +10,7 @@ import type { KeywordData } from '@/types'
 type SortKey = keyof Pick<KeywordData, 'avgViews' | 'avgFavorites' | 'favPerView' | 'competition' | 'difficulty' | 'tagOccurrences' | 'charCount' | 'wordCount' | 'googleSearches' | 'googleCompetitionIndex' | 'googleCpcHigh'>
 
 // Google's advertiser-competition band → semantic colour (green/amber/red).
-// Low competition to advertise usually means an under-served buyer intent — good.
+// Low competition to advertise usually means an under-served buyer intent - good.
 const GCOMP: Record<string, { fg: string; bg: string; label: string }> = {
   LOW:    { fg: D.good, bg: D.goodBg, label: 'Low' },
   MEDIUM: { fg: D.mid,  bg: D.midBg,  label: 'Med' },
@@ -34,12 +34,12 @@ interface Col {
   label: string
   key?: SortKey
   width: string
-  /** Locked columns can't be hidden — the table is meaningless without them. */
+  /** Locked columns can't be hidden - the table is meaningless without them. */
   locked?: boolean
 }
 
 // Column labels state exactly what Etsy measured. There is no "Avg. Searches" or
-// "Avg. Clicks" column because Etsy publishes neither — the old ones were listing
+// "Avg. Clicks" column because Etsy publishes neither - the old ones were listing
 // views and favourites wearing those names.
 const ALL_COLS: Col[] = [
   { id: 'keyword',  label: 'Keywords',        width: '1.9fr', locked: true },
@@ -66,7 +66,7 @@ function fmtCpc(low: number | null | undefined, high: number | null | undefined,
   const f = (n: number) => (n >= 100 ? Math.round(n).toLocaleString() : n.toFixed(2))
   if (low != null && high != null) return `${sym}${f(low)}–${sym}${f(high)}`
   const one = low ?? high
-  return one != null ? `${sym}${f(one)}` : '—'
+  return one != null ? `${sym}${f(one)}` : '-'
 }
 
 const AscIcon  = () => <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
@@ -77,12 +77,12 @@ function CompCell({ level, value, measuring }: {
   level: KeywordData['competitionLevel']; value: number | null; measuring?: boolean
 }) {
   // Competition is probed per keyword AFTER the page paints, so a null here can
-  // mean "still measuring" or "Etsy didn't answer" — two different things, and
+  // mean "still measuring" or "Etsy didn't answer" - two different things, and
   // the user shouldn't have to guess which.
   if (value == null || level == null) {
     return measuring
       ? <span className="shimmer" style={{ height: 12, width: 54, borderRadius: 4, background: '#e8e7e2', display: 'inline-block' }} />
-      : <span title="Etsy didn't return a listing count for this keyword" style={{ ...tdMono, color: C.stone, cursor: 'help' }}>—</span>
+      : <span title="Etsy didn't return a listing count for this keyword" style={{ ...tdMono, color: C.stone, cursor: 'help' }}>-</span>
   }
   const { fg, bg } = compColor(level)
   return (
@@ -105,29 +105,29 @@ const KeywordRow = memo(function KeywordRow({
 }) {
   const num = (v: number | null, color?: string) =>
     v == null
-      ? <span style={{ ...tdMono, color: C.stone }}>—</span>
+      ? <span style={{ ...tdMono, color: C.stone }}>-</span>
       : <span style={{ ...tdMono, color: color ?? C.ink }}>{formatNumber(v)}</span>
 
   const cell = (c: Col) => {
     switch (c.id) {
       case 'keyword':  return <span key={c.id} style={tdTitle}>{row.keyword}</span>
-      case 'bymonth':  return <MiniTrend key={c.id} data={row.listingsByMonth} title={`${row.keyword} — listings created per calendar month (Jan→Dec)`} />
+      case 'bymonth':  return <MiniTrend key={c.id} data={row.listingsByMonth} title={`${row.keyword} - listings created per calendar month (Jan→Dec)`} />
       case 'comp':     return <CompCell key={c.id} level={row.competitionLevel} value={row.competition} measuring={measuring} />
       case 'kd':       return row.difficulty != null
                          ? <HeatPill key={c.id} score={row.difficulty} />
                          : measuring
                            ? <span key={c.id} className="shimmer" style={{ height: 12, width: 30, borderRadius: 4, background: '#e8e7e2', display: 'inline-block' }} />
-                           : <span key={c.id} style={{ ...tdMono, color: C.stone }}>—</span>
+                           : <span key={c.id} style={{ ...tdMono, color: C.stone }}>-</span>
       case 'views':    return <span key={c.id}>{num(row.avgViews, '#2E6DB4')}</span>
       case 'favs':     return <span key={c.id}>{num(row.avgFavorites, D.hard)}</span>
-      case 'fpv':      return <span key={c.id} style={tdMono}>{row.favPerView != null ? `${row.favPerView}%` : '—'}</span>
+      case 'fpv':      return <span key={c.id} style={tdMono}>{row.favPerView != null ? `${row.favPerView}%` : '-'}</span>
       case 'tags':     return <span key={c.id} style={{ ...tdMono, color: row.tagOccurrences > 0 ? C.ink : C.stone }}>{row.tagOccurrences}</span>
       case 'chars':    return <span key={c.id} style={tdMono}>{row.charCount}</span>
       case 'words':    return <span key={c.id} style={tdMono}>{row.wordCount}</span>
       case 'google':   return <span key={c.id}>{num(row.googleSearches)}</span>
       case 'gcomp': {
         const band = row.googleCompetition
-        if (!band || band === 'UNSPECIFIED' || !GCOMP[band]) return <span key={c.id} style={{ ...tdMono, color: C.stone }}>—</span>
+        if (!band || band === 'UNSPECIFIED' || !GCOMP[band]) return <span key={c.id} style={{ ...tdMono, color: C.stone }}>-</span>
         const g = GCOMP[band]
         return (
           <span key={c.id}
@@ -139,7 +139,7 @@ const KeywordRow = memo(function KeywordRow({
         )
       }
       case 'gcpc': {
-        if (row.googleCpcLow == null && row.googleCpcHigh == null) return <span key={c.id} style={{ ...tdMono, color: C.stone }}>—</span>
+        if (row.googleCpcLow == null && row.googleCpcHigh == null) return <span key={c.id} style={{ ...tdMono, color: C.stone }}>-</span>
         return <span key={c.id} style={tdMono}>{fmtCpc(row.googleCpcLow, row.googleCpcHigh, currency)}</span>
       }
       default:         return <span key={c.id} />
@@ -162,7 +162,7 @@ export const KeywordTable = memo(function KeywordTable({
   rows, query = '', onSelect, measuring, currency,
 }: {
   rows: KeywordData[]; query?: string; onSelect?: (r: KeywordData) => void
-  /** Competition/KD probes still in flight — cells shimmer instead of showing "—". */
+  /** Competition/KD probes still in flight - cells shimmer instead of showing "-". */
   measuring?: boolean
   /** ISO code of the Ads account currency, for the Google CPC column. */
   currency?: string | null
@@ -204,7 +204,7 @@ export const KeywordTable = memo(function KeywordTable({
       if (match === 'broad')  base = base.filter(r => qWords.some(w => r.keyword.toLowerCase().includes(w)))
     }
 
-    // Nulls (no data) always sort last, regardless of direction — they're absent
+    // Nulls (no data) always sort last, regardless of direction - they're absent
     // data, not low values, so they shouldn't win an "ascending" sort.
     const dir = sortDir === 'desc' ? -1 : 1
     return [...base].sort((a, b) => {
@@ -334,7 +334,7 @@ export const KeywordTable = memo(function KeywordTable({
           <div style={{ padding: '44px 20px', textAlign: 'center' }}>
             <p style={{ fontSize: 15, color: C.ink, fontWeight: 500 }}>No keywords match</p>
             <p style={{ fontSize: 13.5, color: C.graphite, marginTop: 5 }}>
-              {longTail ? 'No 3+ word phrases here — try turning off “Long-tail only”' : tagsOnly ? 'Try turning off “Show tags only”' : match !== 'default' ? `Try a broader match than “${MATCH_LABEL[match]}”` : 'Try clearing the filter'}
+              {longTail ? 'No 3+ word phrases here - try turning off “Long-tail only”' : tagsOnly ? 'Try turning off “Show tags only”' : match !== 'default' ? `Try a broader match than “${MATCH_LABEL[match]}”` : 'Try clearing the filter'}
             </p>
           </div>
         ) : view.map(row => (

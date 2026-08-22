@@ -1,16 +1,16 @@
 /**
  * How long snapshot history is kept, in days (~13 months).
  *
- * Lives here rather than in lib/models so the Methodology page — a client
- * component — can quote the real number without importing mongoose. The TTL
+ * Lives here rather than in lib/models so the Methodology page - a client
+ * component - can quote the real number without importing mongoose. The TTL
  * index in lib/models reads this, so the number the public page states and the
  * number the database enforces cannot drift apart.
  */
 export const SNAPSHOT_RETENTION_DAYS = 400
 
 export const C = {
-  // ── Brand palette — ONLY orange #FB5E09, dark #3D3E3B, parchment #F5F5EB ─
-  orange:      '#FB5E09',        // primary action / CTA — the single chromatic charge
+  // ── Brand palette - ONLY orange #FB5E09, dark #3D3E3B, parchment #F5F5EB ─
+  orange:      '#FB5E09',        // primary action / CTA - the single chromatic charge
   orangeLight: '#FF7A2E',        // hover state
   orangeFaint: 'rgba(251,94,9,0.10)', // soft orange wash
   lime:        '#FB5E09',        // (no lime allowed) → aliased to orange as a safety net
@@ -18,28 +18,28 @@ export const C = {
   softLime:    '#FCE7D8',        // → soft orange tile
 
   charcoal:    '#3D3E3B',        // dark island / footer / dark surfaces (brand dark)
-  charcoalMid: '#6E6E64',        // graphite — secondary text
+  charcoalMid: '#6E6E64',        // graphite - secondary text
   charcoalSoft:'rgba(61,62,59,0.07)', // faint dividers
   deepCharcoal:'#3D3E3B',        // inverted surface
 
   // ── Neutrals (Perk parchment stack) ────────────────────────
-  snow:        '#FFFFFF',        // pure white — highest surface / card fills
+  snow:        '#FFFFFF',        // pure white - highest surface / card fills
   offWhite:    '#F5F5EB',        // warm parchment page background (exact Perk)
   warmGray:    '#ECEBE1',        // tinted section surface
   lightGray:   '#D2D2C8',        // ash borders
-  ghostGray:   '#919183',        // stone — placeholder / faint
-  overlay:     '#6E6E64',        // graphite — muted body text
+  ghostGray:   '#919183',        // stone - placeholder / faint
+  overlay:     '#6E6E64',        // graphite - muted body text
 
   // ── Data-tool surfaces (parchment) ─────────────────────────
-  bg:          '#F5F5EB',        // app background — parchment
+  bg:          '#F5F5EB',        // app background - parchment
   card:        '#FFFFFF',        // card / table surface
   cardBorder:  '#E2E0D4',        // faint card + row borders
-  headerBg:    '#F5F5EB',        // table header strip — parchment
+  headerBg:    '#F5F5EB',        // table header strip - parchment
   rowHover:    '#F5F5EB',        // table row hover
-  inkSoft:     '#6E6E64',        // table body text — graphite
-  inkFaint:    '#919183',        // labels / captions — stone
+  inkSoft:     '#6E6E64',        // table body text - graphite
+  inkFaint:    '#919183',        // labels / captions - stone
 
-  // ── Semantic status (NO green — neutral "good", amber/red kept) ────
+  // ── Semantic status (NO green - neutral "good", amber/red kept) ────
   success:     '#3D3E3B',  successBg: 'rgba(61,62,59,0.09)',     // Low competition = good → neutral ink
   warn:        '#C07A12',  warnBg:    'rgba(232,160,40,0.16)',   // Medium
   danger:      '#CF463A',  dangerBg:  'rgba(207,70,58,0.12)',    // High competition = hard
@@ -49,12 +49,12 @@ export const C = {
   canvas:      '#F5F5EB',        // warm parchment background
   bone:        '#ECEBE1',        // secondary tinted surface
   softOrange:  '#FCE7D8',        // soft orange category tile
-  hair:        '#D2D2C8',        // ash hairline (dividers) — Perk warm gray
+  hair:        '#D2D2C8',        // ash hairline (dividers) - Perk warm gray
   hairInk:     '#D2D2C8',        // ash card hairline (Perk: no crisp outlines)
-  ash:         '#D2D2C8',        // Perk ash — borders / dividers
-  graphite:    '#6E6E64',        // Perk graphite — muted copy
-  stone:       '#919183',        // Perk stone — faint strokes
-  ink:         '#3D3E3B',        // brand dark — headlines & body text
+  ash:         '#D2D2C8',        // Perk ash - borders / dividers
+  graphite:    '#6E6E64',        // Perk graphite - muted copy
+  stone:       '#919183',        // Perk stone - faint strokes
+  ink:         '#3D3E3B',        // brand dark - headlines & body text
 } as const
 
 // Contrast guide (avoids the dark-text-on-orange readability bug):
@@ -62,9 +62,9 @@ export const C = {
 //   • C.charcoal background → always use C.snow (white) text
 //   • C.orangeFaint / warmGray / snow backgrounds → use C.charcoal text
 
-// ─── D — DATA palette ────────────────────────────────────────────────────────
+// ─── D - DATA palette ────────────────────────────────────────────────────────
 // Deliberately separate from `C` (brand). The brand's "no green" rule governs
-// chrome — nav, buttons, hero, CTA, footer. Data signals are the exception: a
+// chrome - nav, buttons, hero, CTA, footer. Data signals are the exception: a
 // real green→amber→red scale reads faster than a monochrome one, so stats, KD
 // scores, competition badges and charts use these.
 //
@@ -77,7 +77,7 @@ export const D = {
   hard:      '#CF463A',  hardBg:   'rgba(207,70,58,0.12)',    hardSoft:  '#F7DCD9',  // hard / high competition
   neutral:   '#6E6E64',  neutralBg:'rgba(110,110,100,0.10)',                         // no data
 
-  // Categorical series — for multi-series charts (tags, categories, marketplaces).
+  // Categorical series - for multi-series charts (tags, categories, marketplaces).
   // Ordered for maximum adjacent contrast.
   series: ['#1F8A4C', '#2E6DB4', '#C08A12', '#CF463A', '#7A4FB5', '#0F9A9A', '#D9702B', '#6E6E64'] as const,
 } as const
@@ -85,9 +85,9 @@ export const D = {
 // ─── Per-tool ACCENT system ──────────────────────────────────────────────────
 // The brand's single-orange chrome read as monotone across 29 tools. Each tool
 // now carries its own identity hue, drawn from one curated, professional ramp
-// (Tailwind-600-class hues — all ≥3:1 on white, harmonious as a set). The hue
-// drives the nav item, the tab header chip, and — via the `--accent` CSS var set
-// on the dashboard content wrapper — the shared kit (stat cards, section dots,
+// (Tailwind-600-class hues - all ≥3:1 on white, harmonious as a set). The hue
+// drives the nav item, the tab header chip, and - via the `--accent` CSS var set
+// on the dashboard content wrapper - the shared kit (stat cards, section dots,
 // primary buttons, search bars) on every tab, with orange as the fallback.
 //
 // Kept separate from `C` (brand chrome) and `D` (data signals): an accent names
@@ -134,7 +134,7 @@ export function heatColor(score: number): string {
 /**
  * ISO-3166 alpha-2 → flag emoji, by offsetting each letter into the Unicode
  * regional-indicator block. Derived rather than mapped, so it covers every
- * country Etsy can return — a hardcoded map silently drops the ones it misses.
+ * country Etsy can return - a hardcoded map silently drops the ones it misses.
  */
 export function flag(iso: string | null | undefined): string {
   if (!iso || !/^[A-Za-z]{2}$/.test(iso)) return ''
@@ -149,14 +149,14 @@ export function compColor(level: 'Low' | 'Med' | 'High'): { fg: string; bg: stri
 }
 
 export function formatNumber(n: number | null): string {
-  if (n === null || n === undefined) return '—'
+  if (n === null || n === undefined) return '-'
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
   if (n >= 1_000)     return (n / 1_000).toFixed(1) + 'K'
   return n.toString()
 }
 
 export function formatPercent(n: number | null): string {
-  if (n === null || n === undefined) return '—'
+  if (n === null || n === undefined) return '-'
   return n.toFixed(1) + '%'
 }
 
