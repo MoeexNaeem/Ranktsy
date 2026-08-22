@@ -295,7 +295,71 @@ const PopupAdSchema = new Schema<IPopupAd>({
 }, { timestamps: true })
 PopupAdSchema.index({ enabled: 1, updatedAt: -1 })
 
+// ─── Automation: "Automate Etsy Shop" (HIDDEN, admin-only for now) ───────────────
+// A batch that generates N SEO listings from real market data and (optionally)
+// pushes each to the owner's shop as a DRAFT, one by one. Resumable: each item
+// is advanced independently by the /step endpoint, so a run survives restarts and
+// can later be driven by a proper queue/worker instead of the client loop.
+export interface IAutomationItem {
+  idx: number
+  keyword: string
+  status: 'pending' | 'running' | 'done' | 'error'
+  title?: string
+  tags?: string[]
+  description?: string
+  price?: number
+  listingId?: number
+  listingUrl?: string
+  error?: string
+}
+export interface IAutomationRun extends Document {
+  userId: string
+  status: 'pending' | 'running' | 'done' | 'error' | 'canceled'
+  mode: 'keywords' | 'niche'
+  niche?: string
+  geo: string
+  publishToEtsy: boolean
+  shopId?: string
+  taxonomyId?: number
+  listingType: 'physical' | 'download'
+  whoMade: 'i_did' | 'someone_else' | 'collective'
+  quantity: number
+  items: IAutomationItem[]
+  error?: string
+  createdAt?: Date
+  updatedAt?: Date
+}
+const AutomationItemSchema = new Schema<IAutomationItem>({
+  idx:         { type: Number, required: true },
+  keyword:     { type: String, required: true },
+  status:      { type: String, enum: ['pending', 'running', 'done', 'error'], default: 'pending' },
+  title:       String,
+  tags:        [String],
+  description: String,
+  price:       Number,
+  listingId:   Number,
+  listingUrl:  String,
+  error:       String,
+}, { _id: false })
+const AutomationRunSchema = new Schema<IAutomationRun>({
+  userId:        { type: String, required: true, index: true },
+  status:        { type: String, enum: ['pending', 'running', 'done', 'error', 'canceled'], default: 'pending', index: true },
+  mode:          { type: String, enum: ['keywords', 'niche'], default: 'keywords' },
+  niche:         String,
+  geo:           { type: String, default: 'US' },
+  publishToEtsy: { type: Boolean, default: false },
+  shopId:        String,
+  taxonomyId:    Number,
+  listingType:   { type: String, enum: ['physical', 'download'], default: 'physical' },
+  whoMade:       { type: String, enum: ['i_did', 'someone_else', 'collective'], default: 'i_did' },
+  quantity:      { type: Number, default: 1 },
+  items:         { type: [AutomationItemSchema], default: [] },
+  error:         String,
+}, { timestamps: true })
+AutomationRunSchema.index({ userId: 1, createdAt: -1 })
+
 export const User          = models.User          ?? model<IUserDoc>('User', UserSchema)
+export const AutomationRun = (models.AutomationRun as mongoose.Model<IAutomationRun>) ?? model<IAutomationRun>('AutomationRun', AutomationRunSchema)
 export const Blog          = (models.Blog as mongoose.Model<IBlog>) ?? model<IBlog>('Blog', BlogSchema)
 export const Deal          = (models.Deal as mongoose.Model<IDeal>) ?? model<IDeal>('Deal', DealSchema)
 export const PopupAd       = (models.PopupAd as mongoose.Model<IPopupAd>) ?? model<IPopupAd>('PopupAd', PopupAdSchema)

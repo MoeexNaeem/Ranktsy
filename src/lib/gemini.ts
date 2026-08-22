@@ -102,6 +102,12 @@ interface GenerateOpts {
    * genuinely benefits (e.g. the AI mentor's multi-step answers).
    */
   think?: boolean
+  /**
+   * Override the API key pool for THIS call (e.g. the Etsy-Shop automation uses its
+   * own dedicated key so its cost is isolated and a heavy batch can't drain the
+   * main app's quota). Falls back to the shared keys when empty/omitted.
+   */
+  apiKeys?: string[]
 }
 
 /** Why a text generation failed - callers can turn 'quota' into an honest message. */
@@ -151,7 +157,7 @@ export async function geminiGenerate(opts: GenerateOpts, meta?: GeminiMeta): Pro
   return textLimiter.run(async () => {
     for (let i = 0; i < models.length; i++) {
       const isLast = i === models.length - 1
-      const out = await sendGemini(models[i], body, meta)
+      const out = await sendGemini(models[i], body, meta, opts.apiKeys)
       if (out != null) return out
       // Only overloaded/error is worth retrying on the next model.
       if (isLast || (meta && (meta.reason === 'blocked' || meta.reason === 'model_retired' || meta.reason === 'unconfigured'))) return out
@@ -160,8 +166,8 @@ export async function geminiGenerate(opts: GenerateOpts, meta?: GeminiMeta): Pro
   })
 }
 
-async function sendGemini(model: string, body: Record<string, unknown>, meta?: GeminiMeta): Promise<string | null> {
-  const keys = keyOrder()
+async function sendGemini(model: string, body: Record<string, unknown>, meta?: GeminiMeta, override?: string[]): Promise<string | null> {
+  const keys = override && override.length ? override : keyOrder()
   if (!keys.length) { if (meta) meta.reason = 'unconfigured'; return null }
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
   // With MULTIPLE keys: visit every key once, plus a couple of passes for a
