@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyAccessToken, verifyRefreshToken } from '@/lib/auth/jwt'
 import { ACCESS_TOKEN_NAME, REFRESH_TOKEN_NAME } from '@/lib/auth/cookies'
 
+// Next 16 renamed "middleware" to "proxy" (same functionality). This runs before
+// a request completes: it login-gates the API surface and redirects auth/protected
+// pages.
+
 const PROTECTED = ['/dashboard', '/profile', '/admin']
 const AUTH_ONLY = ['/login', '/register', '/forgot-password', '/reset-password'] // redirect if already logged in
 
@@ -23,7 +27,7 @@ const PUBLIC_API = [
 ]
 const isPublicApi = (p: string) => PUBLIC_API.some(a => p === a || p.startsWith(a))
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
   const isProtected  = PROTECTED.some(p => pathname === p || pathname.startsWith(p + '/'))
   const isAuthPage   = AUTH_ONLY.some(p => pathname === p || pathname.startsWith(p))
