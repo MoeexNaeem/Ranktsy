@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
     listingType: body.listingType === 'download' ? 'download' : 'physical',
     whoMade: (['i_did', 'someone_else', 'collective'] as string[]).includes(String(body.whoMade)) ? (body.whoMade as 'i_did' | 'someone_else' | 'collective') : 'i_did',
     quantity: Math.max(1, Number(body.quantity) || 1),
+    options: body.options && typeof body.options === 'object' ? body.options as Record<string, unknown> : undefined,
     items,
   })
 

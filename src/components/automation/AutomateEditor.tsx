@@ -1,11 +1,11 @@
 'use client'
 import '@xyflow/react/dist/style.css'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import {
   ReactFlow, ReactFlowProvider, Background, Controls, BackgroundVariant,
-  useNodesState, useEdgesState, addEdge, Handle, Position, useReactFlow,
+  useNodesState, useEdgesState, addEdge, Handle, Position, useReactFlow, useStoreApi, ConnectionMode,
   type Node, type Edge, type Connection, type NodeProps,
 } from '@xyflow/react'
 
@@ -88,6 +88,7 @@ const panelLabel: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 
 
 function Editor() {
   const rf = useReactFlow()
+  const storeApi = useStoreApi()
   const [nodes, setNodes, onNodesChange] = useNodesState<WFNode>([
     { id: 'source', type: 'wf', position: { x: 80, y: 180 }, data: { kind: 'source', status: 'idle', config: { mode: 'niche', niche: '', seeds: '', count: 5, geo: 'US' } } },
   ])
@@ -101,7 +102,75 @@ function Editor() {
   const { data: shops } = useQuery({ queryKey: ['etsy-shops'], queryFn: async () => (await axios.get('/api/etsy/shops')).data.data as Shop[], staleTime: 60_000 })
   const { data: taxonomy } = useQuery({ queryKey: ['etsy-taxonomy'], queryFn: async () => (await axios.get('/api/etsy/taxonomy')).data.data as Taxonomy[], staleTime: 3_600_000, enabled: nodes.some(n => n.data.kind === 'draft') })
 
+  // React Flow's automatic node measurement doesn't fire in this Next 16 / React 19
+  // / Turbopack setup, so nodes never get handle bounds and EDGES NEVER RENDER.
+  // Force-measure by handing React Flow each node's DOM element directly (the
+  // useUpdateNodeInternals hook can't find them because the ref registry is part of
+  // what's broken). Runs whenever the node count changes — this is what makes
+  // connections appear.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const map = new Map<string, { id: string; nodeElement: HTMLElement; force: boolean }>()
+      document.querySelectorAll<HTMLElement>('.react-flow__node').forEach(el => {
+        const id = el.getAttribute('data-id')
+        if (id) map.set(id, { id, nodeElement: el, force: true })
+      })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (map.size) (storeApi.getState() as any).updateNodeInternals(map)
+    }, 90)
+    return () => clearTimeout(t)
+  }, [nodes.length, storeApi])
+
   const onConnect = useCallback((c: Connection) => setEdges(eds => addEdge({ ...c, animated: true, style: { stroke: '#c3c8d4', strokeWidth: 2 } }, eds)), [setEdges])
+
+  // Proximity connect: drag a node near another and they link automatically (a
+  // dashed preview appears while dragging, committed on drop). Left node → right
+  // node by x-position. You can still drag handle-to-handle by hand.
+  const MIN_DIST = 240
+  const closestEdge = useCallback((node: Node) => {
+    // Use the LIVE absolute position from node internals (node.position lags during
+    // a drag, so the distance check never fired — that was the bug).
+    const dragged = rf.getInternalNode(node.id)
+    const dp = dragged?.internals.positionAbsolute
+    if (!dp) return null
+    let closest: { id: string; x: number } | null = null
+    let min = MIN_DIST
+    for (const n of rf.getNodes()) {
+      if (n.id === node.id) continue
+      const p = rf.getInternalNode(n.id)?.internals.positionAbsolute
+      if (!p) continue
+      const d = Math.hypot(p.x - dp.x, p.y - dp.y)
+      if (d < min) { min = d; closest = { id: n.id, x: p.x } }
+    }
+    if (!closest) return null
+    // The left-most node is the source; the right-most is the target.
+    const closeIsSource = closest.x < dp.x
+    const source = closeIsSource ? closest.id : node.id
+    const target = closeIsSource ? node.id : closest.id
+    return { id: `e-${source}-${target}`, source, target }
+  }, [rf])
+
+  const onNodeDrag = useCallback((_: unknown, node: Node) => {
+    const ce = closestEdge(node)
+    setEdges(es => {
+      const base = es.filter(e => e.className !== 'rk-temp')
+      if (ce && !base.some(e => e.source === ce.source && e.target === ce.target)) {
+        base.push({ ...ce, className: 'rk-temp', animated: true, style: { stroke: '#f59e0b', strokeWidth: 2.5, strokeDasharray: '6 5' } })
+      }
+      return base
+    })
+  }, [closestEdge, setEdges])
+
+  const onNodeDragStop = useCallback((_: unknown, node: Node) => {
+    const ce = closestEdge(node)
+    setEdges(es => {
+      const base = es.filter(e => e.className !== 'rk-temp')
+      if (ce && !base.some(e => e.source === ce.source && e.target === ce.target)) {
+        base.push({ ...ce, animated: true, style: { stroke: '#c3c8d4', strokeWidth: 2 } })
+      }
+      return base
+    })
+  }, [closestEdge, setEdges])
 
   const addNode = useCallback((kind: NodeKind) => {
     setPaletteOpen(false); setErr('')
@@ -113,6 +182,10 @@ function Editor() {
     const config: Record<string, unknown> =
       kind === 'draft' ? { taxonomyId: '', listingType: 'physical', whoMade: 'i_did', quantity: 1 }
       : kind === 'shop' ? { shopId: '' }
+      : kind === 'title' ? { titleStyle: 'keyword-first' }
+      : kind === 'tags' ? { tagFocus: 'long-tail' }
+      : kind === 'description' ? { descLength: 'standard' }
+      : kind === 'price' ? { priceStrategy: 'median' }
       : {}
     setNodes(ns => ns.concat({ id, type: 'wf', position: pos, data: { kind, status: 'idle', config } }))
     // Auto-connect so you don't have to drag — you can still add/remove edges by hand.
@@ -148,7 +221,15 @@ function Editor() {
     setAllStatus(k => (k === 'source' ? 'running' : 'idle'))
     try {
       const seeds = String(sc.seeds ?? '').split('\n').map(s => s.trim()).filter(Boolean)
+      const cfgOf = (k: NodeKind) => nodes.find(n => n.data.kind === k)?.data.config
+      const options = {
+        titleStyle: cfgOf('title')?.titleStyle,
+        tagFocus: cfgOf('tags')?.tagFocus,
+        descLength: cfgOf('description')?.descLength,
+        priceStrategy: cfgOf('price')?.priceStrategy,
+      }
       const payload = {
+        options,
         mode: sc.mode,
         niche: sc.mode === 'niche' ? sc.niche : undefined,
         seeds: sc.mode === 'keywords' ? seeds : undefined,
@@ -214,10 +295,15 @@ function Editor() {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
-            onNodeClick={(_, n) => setSelectedId(n.id)}
+            onNodeDrag={onNodeDrag}
+            onNodeDragStop={onNodeDragStop}
+            onNodeClick={(_, n) => { setSelectedId(n.id); setPaletteOpen(false) }}
             onPaneClick={() => setSelectedId(null)}
             nodeTypes={nodeTypes}
             fitView
+            selectNodesOnDrag={false}
+            connectionMode={ConnectionMode.Loose}
+            connectionRadius={48}
             proOptions={{ hideAttribution: true }}
           >
             <Background variant={BackgroundVariant.Dots} gap={22} size={1.4} color="#d3d7e0" />
@@ -246,10 +332,10 @@ function Editor() {
           <div style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #e2e5ec', borderRadius: 14, padding: '8px 10px', boxShadow: '0 14px 36px rgba(30,30,50,0.14)', zIndex: 15 }}>
             {PALETTE.map(k => (
               <button key={k} title={`Add ${DEFS[k].label}`} onClick={() => addNode(k)}
-                style={{ width: 40, height: 40, borderRadius: 11, border: 'none', background: `${DEFS[k].color}14`, color: DEFS[k].color, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .12s' }}
-                onMouseEnter={e => (e.currentTarget.style.background = `${DEFS[k].color}28`)}
-                onMouseLeave={e => (e.currentTarget.style.background = `${DEFS[k].color}14`)}>
-                {DEFS[k].icon}
+                style={{ width: 34, height: 34, borderRadius: 9, border: `1px solid ${DEFS[k].color}40`, background: '#fff', color: DEFS[k].color, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .12s, border-color .12s' }}
+                onMouseEnter={e => { e.currentTarget.style.background = `${DEFS[k].color}12`; e.currentTarget.style.borderColor = DEFS[k].color }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = `${DEFS[k].color}40` }}>
+                <span style={{ display: 'flex', transform: 'scale(0.8)' }}>{DEFS[k].icon}</span>
               </button>
             ))}
           </div>
@@ -319,9 +405,42 @@ function Editor() {
             )}
 
             {['research', 'title', 'tags', 'description', 'price', 'image'].includes(selected.data.kind) && (
-              <p style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6 }}>
-                {DEFS[selected.data.kind].hint}. Connect it into the flow after the Product Source. {selected.data.kind === 'image' ? 'Image generation is coming next.' : 'It’s produced automatically from the real market data for each product.'}
-              </p>
+              <div style={{ display: 'grid', gap: 14 }}>
+                {selected.data.kind === 'title' && (
+                  <div><label style={panelLabel}>Title style</label>
+                    <select value={String(selected.data.config.titleStyle ?? 'keyword-first')} onChange={e => setConfig({ titleStyle: e.target.value })} style={panelInput}>
+                      <option value="keyword-first">Keyword first (max SEO)</option>
+                      <option value="benefit-first">Benefit first (more clickable)</option>
+                    </select></div>
+                )}
+                {selected.data.kind === 'tags' && (
+                  <div><label style={panelLabel}>Tag focus</label>
+                    <select value={String(selected.data.config.tagFocus ?? 'long-tail')} onChange={e => setConfig({ tagFocus: e.target.value })} style={panelInput}>
+                      <option value="long-tail">Long-tail (specific, lower competition)</option>
+                      <option value="broad">Broad (high volume)</option>
+                      <option value="mixed">Mixed</option>
+                    </select></div>
+                )}
+                {selected.data.kind === 'description' && (
+                  <div><label style={panelLabel}>Length</label>
+                    <select value={String(selected.data.config.descLength ?? 'standard')} onChange={e => setConfig({ descLength: e.target.value })} style={panelInput}>
+                      <option value="concise">Concise (~80 words)</option>
+                      <option value="standard">Standard (~150 words)</option>
+                      <option value="detailed">Detailed (~250 words)</option>
+                    </select></div>
+                )}
+                {selected.data.kind === 'price' && (
+                  <div><label style={panelLabel}>Pricing strategy</label>
+                    <select value={String(selected.data.config.priceStrategy ?? 'median')} onChange={e => setConfig({ priceStrategy: e.target.value })} style={panelInput}>
+                      <option value="median">Match market median</option>
+                      <option value="undercut">Undercut ~10%</option>
+                      <option value="premium">Premium ~15%</option>
+                    </select></div>
+                )}
+                <p style={{ fontSize: 12.5, color: '#8a90a0', lineHeight: 1.6 }}>
+                  {DEFS[selected.data.kind].hint}. Generated automatically from the real market data for each product. {selected.data.kind === 'image' ? 'Image generation is coming next — this node is a placeholder for now.' : ''}
+                </p>
+              </div>
             )}
           </aside>
         )}

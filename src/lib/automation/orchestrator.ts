@@ -47,10 +47,31 @@ const LISTING_SCHEMA = {
   required: ['title', 'tags', 'description'],
 } as const
 
+/** Per-node generation options set on the workflow's nodes (all optional). */
+export interface ListingOptions {
+  titleStyle?: string     // 'keyword-first' | 'benefit-first'
+  tagFocus?: string       // 'long-tail' | 'broad' | 'mixed'
+  descLength?: string     // 'concise' | 'standard' | 'detailed'
+  priceStrategy?: string  // 'median' | 'undercut' | 'premium'
+}
+
 /** Generate ONE complete, real-data-grounded listing for a keyword. */
-export async function generateListing(keyword: string, geo = 'US'): Promise<GeneratedListing | null> {
+export async function generateListing(keyword: string, geo = 'US', options?: ListingOptions | Record<string, unknown> | null): Promise<GeneratedListing | null> {
   if (!isAutomationAiReady()) return null
+  const o = (options ?? {}) as ListingOptions
   const g = await buildGrounding(keyword, geo)
+
+  const titleRule = o.titleStyle === 'benefit-first'
+    ? 'Lead with the main buyer benefit, but include the focus keyword within the first 40 characters.'
+    : 'Front-load the focus keyword at the very start of the title.'
+  const tagRule = o.tagFocus === 'broad'
+    ? 'Favor broad, high-volume tags.'
+    : o.tagFocus === 'mixed' ? 'Mix broad high-volume tags with specific long-tail tags.'
+    : 'Favor specific long-tail tags (lower competition).'
+  const descRule = o.descLength === 'concise' ? 'Keep the description concise (~80 words).'
+    : o.descLength === 'detailed' ? 'Write a detailed description (~250 words).'
+    : 'Write a standard-length description (~150 words).'
+
   const meta: GeminiMeta = {}
   const result = await geminiJSON<GeneratedListing>({
     system: 'You are an elite Etsy SEO listing writer. Produce ONE complete, ready-to-publish Etsy listing. Use ONLY the real, provided data — never invent search volume, sales, ranking or competition numbers.',
@@ -58,9 +79,9 @@ export async function generateListing(keyword: string, geo = 'US'): Promise<Gene
       `Focus keyword: "${keyword}".\n\n` +
       `REAL market data (interpret it, do not fabricate anything):\n${g.text}\n\n` +
       `Return a JSON object:\n` +
-      `- title: a compelling, keyword-front-loaded Etsy title, max 140 characters.\n` +
-      `- tags: EXACTLY 13 multi-word Etsy tags, each 20 characters or fewer, buyer-intent, no duplicates, aligned with the real high-adoption tags above.\n` +
-      `- description: a persuasive, well-structured Etsy description in short paragraphs and bullet lines; the FIRST sentence must begin with the focus keyword.\n` +
+      `- title: a compelling Etsy title, max 140 characters. ${titleRule}\n` +
+      `- tags: EXACTLY 13 multi-word Etsy tags, each 20 characters or fewer, buyer-intent, no duplicates, aligned with the real high-adoption tags above. ${tagRule}\n` +
+      `- description: a persuasive, well-structured Etsy description in short paragraphs and bullet lines; the FIRST sentence must begin with the focus keyword. ${descRule}\n` +
       `- price: a sensible USD price NUMBER aligned to the market (no currency symbol).`,
     schema: LISTING_SCHEMA as unknown as Record<string, unknown>,
     temperature: 0.82,
@@ -69,11 +90,17 @@ export async function generateListing(keyword: string, geo = 'US'): Promise<Gene
   }, meta)
 
   if (!result || !result.title || !Array.isArray(result.tags) || !result.tags.length) return null
+  let price = typeof result.price === 'number' ? result.price : (result.price ? Number(result.price) : null)
+  // Apply the pricing strategy from the Price node.
+  if (price != null && Number.isFinite(price)) {
+    if (o.priceStrategy === 'undercut') price = Math.round(price * 0.9 * 100) / 100
+    else if (o.priceStrategy === 'premium') price = Math.round(price * 1.15 * 100) / 100
+  }
   return {
     title: String(result.title).slice(0, 140),
     tags: result.tags.map(t => String(t).slice(0, 20)).filter(Boolean).slice(0, 13),
     description: String(result.description ?? ''),
-    price: typeof result.price === 'number' ? result.price : (result.price ? Number(result.price) : null),
+    price,
   }
 }
 

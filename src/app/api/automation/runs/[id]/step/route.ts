@@ -45,7 +45,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   await run.save()
 
   try {
-    const listing = await generateListing(item.keyword, run.geo)
+    const listing = await generateListing(item.keyword, run.geo, run.options)
     if (!listing) {
       item.status = 'error'
       item.error = 'AI generation failed'

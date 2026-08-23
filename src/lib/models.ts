@@ -324,6 +324,7 @@ export interface IAutomationRun extends Document {
   listingType: 'physical' | 'download'
   whoMade: 'i_did' | 'someone_else' | 'collective'
   quantity: number
+  options?: Record<string, unknown>
   items: IAutomationItem[]
   error?: string
   createdAt?: Date
@@ -353,6 +354,7 @@ const AutomationRunSchema = new Schema<IAutomationRun>({
   listingType:   { type: String, enum: ['physical', 'download'], default: 'physical' },
   whoMade:       { type: String, enum: ['i_did', 'someone_else', 'collective'], default: 'i_did' },
   quantity:      { type: Number, default: 1 },
+  options:       { type: Schema.Types.Mixed },
   items:         { type: [AutomationItemSchema], default: [] },
   error:         String,
 }, { timestamps: true })
