@@ -1,0 +1,159 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Rankkw API",
+    "version": "1.0.0",
+    "description": "Machine-readable surface for Rankkw, an Etsy SEO & analytics platform. The public endpoints below need no authentication. Product endpoints (keyword research, competitor analysis, AI listing tools, shop connection) require an authenticated session and are documented for discovery; see the securitySchemes for the scopes Rankkw requests when connecting a seller's Etsy shop.",
+    "contact": { "name": "Rankkw Support", "email": "support@rankkw.com", "url": "https://rankkw.com/contact" },
+    "termsOfService": "https://rankkw.com/terms",
+    "license": { "name": "Proprietary" }
+  },
+  "servers": [{ "url": "https://rankkw.com", "description": "Production" }],
+  "externalDocs": { "description": "Product & guides", "url": "https://rankkw.com/blogs" },
+  "tags": [
+    { "name": "System", "description": "Public, unauthenticated utility endpoints." }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "Health / readiness probe",
+        "description": "Returns 200 when the service is up and its database answers a ping, or 503 when the database is unreachable. No authentication required.",
+        "tags": ["System"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Service healthy",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Health" } } }
+          },
+          "503": {
+            "description": "Database unreachable",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HealthDown" } } }
+          }
+        }
+      }
+    },
+    "/api/geo": {
+      "get": {
+        "operationId": "getGeo",
+        "summary": "Visitor geolocation",
+        "description": "Best-effort ISO country code for the caller, derived from edge headers. Used by the marketing site to default the market. No authentication required.",
+        "tags": ["System"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Geolocation result",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Geo" } } }
+          }
+        }
+      }
+    },
+    "/api/fx": {
+      "get": {
+        "operationId": "getFxRate",
+        "summary": "Currency rate to USD",
+        "description": "Live exchange rate of one unit of the given 3-letter currency to USD, cached 12h. Returns rate null (never a guessed value) if the upstream lookup fails. No authentication required.",
+        "tags": ["System"],
+        "security": [],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "description": "3-letter ISO 4217 currency code, e.g. PKR.",
+            "schema": { "type": "string", "pattern": "^[A-Za-z]{3}$", "example": "PKR" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "FX rate (rate may be null when unavailable)",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FxResponse" } } }
+          },
+          "400": {
+            "description": "Missing or malformed currency code",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "sr_access",
+        "description": "HttpOnly session cookie issued after login. Required by all product endpoints (keyword research, competitor analysis, AI tools, shop actions)."
+      },
+      "etsyOAuth": {
+        "type": "oauth2",
+        "description": "Scopes Rankkw requests, with the seller's consent, when connecting their Etsy shop. These are the least-privilege scopes the product uses against the Etsy Open API.",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://www.etsy.com/oauth/connect",
+            "tokenUrl": "https://api.etsy.com/v3/public/oauth/token",
+            "scopes": {
+              "shops_r": "Read the seller's shop information.",
+              "listings_r": "Read the seller's listings.",
+              "listings_w": "Create draft listings in the seller's shop.",
+              "transactions_r": "Read the seller's orders and receipts."
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Health": {
+        "type": "object",
+        "required": ["ok", "db"],
+        "properties": {
+          "ok": { "type": "boolean", "const": true },
+          "db": { "type": "string", "const": "up" },
+          "ms": { "type": "integer", "description": "DB ping latency in ms." },
+          "pid": { "type": "integer" }
+        }
+      },
+      "HealthDown": {
+        "type": "object",
+        "required": ["ok", "db"],
+        "properties": {
+          "ok": { "type": "boolean", "const": false },
+          "db": { "type": "string", "const": "down" },
+          "error": { "type": "string" }
+        }
+      },
+      "Geo": {
+        "type": "object",
+        "properties": {
+          "country": { "type": "string", "description": "ISO 3166-1 alpha-2 country code.", "example": "US" }
+        }
+      },
+      "FxResponse": {
+        "type": "object",
+        "required": ["success", "data"],
+        "properties": {
+          "success": { "type": "boolean" },
+          "data": {
+            "type": "object",
+            "required": ["from", "to", "rate"],
+            "properties": {
+              "from": { "type": "string", "example": "PKR" },
+              "to": { "type": "string", "const": "USD" },
+              "rate": { "type": ["number", "null"], "description": "Rate to USD, or null when unavailable.", "example": 0.0036 }
+            }
+          },
+          "cached": { "type": "boolean" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["success"],
+        "properties": {
+          "success": { "type": "boolean", "const": false },
+          "error": { "type": "string" }
+        }
+      }
+    }
+  },
+  "security": [{ "sessionCookie": [] }]
+}

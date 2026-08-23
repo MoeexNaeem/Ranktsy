@@ -21,6 +21,7 @@
     "@types/nodemailer": "^8.0.0",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
+    "@xyflow/react": "^12.11.3",
     "animejs": "^4.5.0",
     "axios": "^1.16.1",
     "bcryptjs": "^3.0.3",

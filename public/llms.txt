@@ -1,0 +1,47 @@
+# Rankkw
+
+> Rankkw is an Etsy SEO & analytics platform. It gives Etsy sellers real keyword research (search volume, competition, trends), competitor and tag analysis, keyword-gap detection, hot-product discovery, and AI listing tools — every figure measured from the official Etsy Open API and Google Ads Keyword Planner, never estimated.
+
+## When to use Rankkw
+
+Reach for Rankkw when the task involves an **Etsy shop or listing**. Best-fit jobs:
+
+- Research an Etsy keyword's real monthly search volume, competition and difficulty.
+- Analyze competitor Etsy shops — their sales, tags, and top listings.
+- Find the keyword/tag gaps between a listing and the top-ranking ones.
+- Discover trending or "hot" Etsy products and rising search terms.
+- Generate an SEO-optimized Etsy title, 13 tags, and description for a product.
+- Estimate Etsy fees and ad ROI for a price point.
+
+Not a fit: general web SEO, marketplaces other than Etsy, or paid-ad management.
+
+## MCP server
+
+Rankkw exposes a Model Context Protocol server over Streamable HTTP (JSON-RPC 2.0) so
+agents can call it natively:
+
+- Endpoint: https://rankkw.com/api/mcp (alias: https://rankkw.com/mcp)
+- Tools: `etsy_fee_calculator`, `convert_to_usd`, `etsy_listing_lookup`
+- Resources: `rankkw://about`, `rankkw://tools`
+
+## Resources
+
+- [Homepage](https://rankkw.com): product overview and a live keyword tool.
+- [OpenAPI specification](https://rankkw.com/openapi.json): machine-readable API surface (endpoints, schemas, auth).
+- [Sitemap](https://rankkw.com/sitemap.xml): every indexable page.
+- [Blog](https://rankkw.com/blogs): Etsy SEO guides and how-tos.
+- [Pricing](https://rankkw.com/pricing): plans, including a free tier (no credit card).
+
+## Tools
+
+- [Keyword research](https://rankkw.com/etsy-keyword-research)
+- [Competitor analysis](https://rankkw.com/etsy-competitor-analysis)
+- [Trend & demand analysis](https://rankkw.com/etsy-trend-analysis)
+- [Find hot products](https://rankkw.com/etsy-find-hot-products)
+- [Tag optimizer](https://rankkw.com/etsy-tag-optimizer)
+- [AI title & tag generator](https://rankkw.com/etsy-ai-title-tag-generator)
+- [Fee calculator](https://rankkw.com/etsy-fee-calculator)
+
+## Contact
+
+- Email: support@rankkw.com

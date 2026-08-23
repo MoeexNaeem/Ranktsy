@@ -24,6 +24,7 @@ const PUBLIC_API = [
   '/api/popup-ad',         // used by the public marketing site
   '/api/fx',               // harmless cached currency rate (sanitised input)
   '/api/health',           // uptime / load-balancer health probe
+  '/api/mcp',              // public MCP server (agents connect without a session)
 ]
 const isPublicApi = (p: string) => PUBLIC_API.some(a => p === a || p.startsWith(a))
 

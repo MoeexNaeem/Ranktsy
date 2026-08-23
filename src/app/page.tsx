@@ -14,7 +14,10 @@ const jsonLd = {
   '@context': 'https://schema.org',
   '@graph': [
     { '@type': 'Organization', '@id': abs('/#org'), name: 'Rankkw', url: siteUrl(), logo: abs('/website_logo.png'),
-      description: 'Etsy SEO & analytics platform: keyword research, competitor analysis, trends and listing optimization from real Etsy & Google data.' },
+      description: 'Etsy SEO & analytics platform: keyword research, competitor analysis, trends and listing optimization from real Etsy & Google data.',
+      email: 'support@rankkw.com',
+      contactPoint: { '@type': 'ContactPoint', email: 'support@rankkw.com', contactType: 'customer support', url: abs('/contact'), availableLanguage: 'English' },
+      address: { '@type': 'PostalAddress', addressCountry: 'PK' } },
     { '@type': 'WebSite', '@id': abs('/#website'), url: siteUrl(), name: 'Rankkw', publisher: { '@id': abs('/#org') } },
     { '@type': 'SoftwareApplication', name: 'Rankkw', applicationCategory: 'BusinessApplication', operatingSystem: 'Web', url: siteUrl(),
       description: 'Research Etsy keywords with real search volume, competition and trends - measured from the official Etsy Open API and Google Ads, never estimated.',

@@ -45,6 +45,9 @@ const nextConfig: NextConfig = {
           { key: 'Referrer-Policy',        value: 'strict-origin-when-cross-origin' },
           { key: 'Content-Security-Policy', value: csp },
           { key: 'Permissions-Policy',     value: 'camera=(), microphone=(), geolocation=()' },
+          // Agent readiness: markdown content-negotiation caches must key on Accept
+          // so a CDN never serves the HTML variant to an agent asking for markdown.
+          { key: 'Vary', value: 'Accept' },
         ],
       },
       {
@@ -78,6 +81,11 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
     ]
+  },
+
+  async rewrites() {
+    // Serve the MCP server at the conventional /mcp path too (agents probe both).
+    return [{ source: '/mcp', destination: '/api/mcp' }]
   },
 }
 
