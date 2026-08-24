@@ -16,8 +16,11 @@ export const ETSY_OAUTH_TOKEN     = 'https://api.etsy.com/v3/public/oauth/token'
 
 // Scopes: read shop info, listings and sales/receipts (Shop Insights), PLUS
 // listings_w so a seller can push an AI-generated listing to their shop as a
-// DRAFT ("Send to Etsy"). listings_w must also be enabled on the Etsy app itself;
-// existing users must reconnect their shop once to grant the new write scope.
+// DRAFT ("Send to Etsy"). Scopes are granted purely at OAuth consent time from this
+// list — Etsy has NO per-scope "enable" toggle in the developer console. The only
+// requirements are (a) the app has Commercial API access so third-party sellers can
+// connect at all, and (b) any seller who connected BEFORE listings_w was added must
+// reconnect their shop once, so their token carries the new write scope.
 export const ETSY_SCOPES = ['shops_r', 'listings_r', 'listings_w', 'transactions_r'] as const
 
 const CLIENT_ID = process.env.ETSY_API_KEY ?? ''

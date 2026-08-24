@@ -1,5 +1,9 @@
 'use client'
-import '@xyflow/react/dist/style.css'
+// NOTE: uses reactflow v11 (NOT @xyflow/react v12). v12's node measurement does not
+// fire in this Next 16 / React 19 / Turbopack stack, so handles never get bounds and
+// edges never render. v11 measures natively — no workaround needed. See the sibling
+// "Connect GS" project, which runs the same stack on v11 without issue.
+import 'reactflow/dist/style.css'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
@@ -7,7 +11,7 @@ import {
   ReactFlow, ReactFlowProvider, Background, Controls, BackgroundVariant,
   useNodesState, useEdgesState, addEdge, Handle, Position, useReactFlow, useStoreApi, ConnectionMode,
   type Node, type Edge, type Connection, type NodeProps,
-} from '@xyflow/react'
+} from 'reactflow'
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Node-based "Automate Etsy Shop" editor. Build a workflow by adding & connecting
@@ -22,6 +26,10 @@ type WFData = { kind: NodeKind; status: NodeStatus; config: Record<string, unkno
 type WFNode = Node<WFData>
 
 const ORANGE = '#FB5E09'
+
+// Connector line style. Kept deliberately dark/thick — the old #c3c8d4 was so close
+// to the canvas background that the (correctly rendered) edges read as "no line".
+const EDGE_STYLE = { stroke: '#7b8496', strokeWidth: 2.5 } as const
 
 function svg(path: React.ReactNode) {
   return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">{path}</svg>
@@ -42,7 +50,7 @@ const DEFS: Record<NodeKind, { label: string; color: string; role?: string; icon
 const STATUS_RING: Record<NodeStatus, string> = { idle: 'transparent', running: ORANGE, done: '#22C55E', error: '#DC2626' }
 
 /* ── Custom node: circular icon + label, with a status ring ─────────────────── */
-function WorkflowNode({ data, selected }: NodeProps<WFNode>) {
+function WorkflowNode({ data, selected }: NodeProps<WFData>) {
   const def = DEFS[data.kind]
   const isSource = data.kind === 'source'
   return (
@@ -89,7 +97,7 @@ const panelLabel: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 
 function Editor() {
   const rf = useReactFlow()
   const storeApi = useStoreApi()
-  const [nodes, setNodes, onNodesChange] = useNodesState<WFNode>([
+  const [nodes, setNodes, onNodesChange] = useNodesState<WFData>([
     { id: 'source', type: 'wf', position: { x: 80, y: 180 }, data: { kind: 'source', status: 'idle', config: { mode: 'niche', niche: '', seeds: '', count: 5, geo: 'US' } } },
   ])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
@@ -102,42 +110,53 @@ function Editor() {
   const { data: shops } = useQuery({ queryKey: ['etsy-shops'], queryFn: async () => (await axios.get('/api/etsy/shops')).data.data as Shop[], staleTime: 60_000 })
   const { data: taxonomy } = useQuery({ queryKey: ['etsy-taxonomy'], queryFn: async () => (await axios.get('/api/etsy/taxonomy')).data.data as Taxonomy[], staleTime: 3_600_000, enabled: nodes.some(n => n.data.kind === 'draft') })
 
-  // React Flow's automatic node measurement doesn't fire in this Next 16 / React 19
-  // / Turbopack setup, so nodes never get handle bounds and EDGES NEVER RENDER.
-  // Force-measure by handing React Flow each node's DOM element directly (the
-  // useUpdateNodeInternals hook can't find them because the ref registry is part of
-  // what's broken). Runs whenever the node count changes — this is what makes
-  // connections appear.
+  // Safety net for node measurement. v11 measures each node via a ResizeObserver,
+  // which is reliable in a normal visible tab (unlike v12 in this stack). This only
+  // nudges v11's OWN measurement (updateNodeDimensions) for nodes that don't yet have
+  // dimensions — a no-op the instant the observer has measured them. It exists purely
+  // to cover a paused/throttled observer (e.g. a backgrounded tab). Re-runs on node
+  // count changes and retries a few times to catch rapid adds and late paints.
   useEffect(() => {
-    const t = setTimeout(() => {
-      const map = new Map<string, { id: string; nodeElement: HTMLElement; force: boolean }>()
+    const api = storeApi
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let tries = 0
+    const tick = () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const st = api.getState() as any
+      const internals = st.nodeInternals as Map<string, { width?: number }>
+      const updates: { id: string; nodeElement: HTMLElement; forceUpdate: boolean }[] = []
       document.querySelectorAll<HTMLElement>('.react-flow__node').forEach(el => {
         const id = el.getAttribute('data-id')
-        if (id) map.set(id, { id, nodeElement: el, force: true })
+        if (!id || internals.get(id)?.width) return // already measured → skip
+        if (el.offsetWidth) updates.push({ id, nodeElement: el, forceUpdate: true })
       })
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if (map.size) (storeApi.getState() as any).updateNodeInternals(map)
-    }, 90)
-    return () => clearTimeout(t)
+      if (updates.length) st.updateNodeDimensions(updates)
+      if (++tries < 8) timer = setTimeout(tick, 100)
+    }
+    timer = setTimeout(tick, 30)
+    return () => { if (timer) clearTimeout(timer) }
   }, [nodes.length, storeApi])
 
-  const onConnect = useCallback((c: Connection) => setEdges(eds => addEdge({ ...c, animated: true, style: { stroke: '#c3c8d4', strokeWidth: 2 } }, eds)), [setEdges])
+  const onConnect = useCallback((c: Connection) => setEdges(eds => addEdge({ ...c, animated: true, style: { ...EDGE_STYLE } }, eds)), [setEdges])
 
   // Proximity connect: drag a node near another and they link automatically (a
   // dashed preview appears while dragging, committed on drop). Left node → right
   // node by x-position. You can still drag handle-to-handle by hand.
+  //
+  // Measurement-INDEPENDENT: distances are computed from each node's plain
+  // `position` (x/y in flow coords), never from React Flow's measured handle
+  // bounds / positionAbsolute. That's the trick the sibling "Connect GS" project
+  // uses — it means proximity works even if measurement is flaky, and `node`
+  // carries its own live position during a drag.
   const MIN_DIST = 240
   const closestEdge = useCallback((node: Node) => {
-    // Use the LIVE absolute position from node internals (node.position lags during
-    // a drag, so the distance check never fired — that was the bug).
-    const dragged = rf.getInternalNode(node.id)
-    const dp = dragged?.internals.positionAbsolute
+    const dp = node.position // live position of the dragged node
     if (!dp) return null
     let closest: { id: string; x: number } | null = null
     let min = MIN_DIST
     for (const n of rf.getNodes()) {
       if (n.id === node.id) continue
-      const p = rf.getInternalNode(n.id)?.internals.positionAbsolute
+      const p = n.position
       if (!p) continue
       const d = Math.hypot(p.x - dp.x, p.y - dp.y)
       if (d < min) { min = d; closest = { id: n.id, x: p.x } }
@@ -166,7 +185,7 @@ function Editor() {
     setEdges(es => {
       const base = es.filter(e => e.className !== 'rk-temp')
       if (ce && !base.some(e => e.source === ce.source && e.target === ce.target)) {
-        base.push({ ...ce, animated: true, style: { stroke: '#c3c8d4', strokeWidth: 2 } })
+        base.push({ ...ce, animated: true, style: { ...EDGE_STYLE } })
       }
       return base
     })
@@ -190,7 +209,7 @@ function Editor() {
     setNodes(ns => ns.concat({ id, type: 'wf', position: pos, data: { kind, status: 'idle', config } }))
     // Auto-connect so you don't have to drag — you can still add/remove edges by hand.
     if (from && from.id !== id) {
-      setEdges(es => addEdge({ id: `e-${from.id}-${id}`, source: from.id, target: id, animated: true, style: { stroke: '#c3c8d4', strokeWidth: 2 } }, es))
+      setEdges(es => addEdge({ id: `e-${from.id}-${id}`, source: from.id, target: id, animated: true, style: { ...EDGE_STYLE } }, es))
     }
     setSelectedId(id)
     setTimeout(() => rf.fitView({ duration: 300, padding: 0.2 }), 60)
