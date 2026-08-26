@@ -59,6 +59,12 @@ matching figure in the page body/meta for consistency.
 
 - `createDraftListing` in `lib/etsy.ts` + `POST /api/etsy/create-listing` + the
   `SendToEtsy` UI on Etsy Listing Pro. Creates a **DRAFT** (never live) in the seller's shop.
+- **Photos (added):** `uploadListingImage` in `lib/etsy.ts` (Etsy's per-image multipart
+  endpoint) + `POST /api/etsy/listing-image` (auth-gated, multipart, ≤10 imgs, ≤10MB,
+  jpg/png/gif). `SendToEtsy` now has a photo picker; submit is two steps — create draft,
+  then attach the seller's own photos (first = cover). A draft WITH photos is
+  publish-ready; without, Etsy holds it as a draft. Uploads are sequential (rate limit +
+  stable rank order); partial-success is reported.
 - Added the `listings_w` scope to the Etsy OAuth request.
 - **Action needed:** there is NO "enable `listings_w`" toggle in Etsy's dev console —
   scopes are granted at OAuth consent from `ETSY_SCOPES`. The real prerequisites are

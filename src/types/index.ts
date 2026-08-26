@@ -490,7 +490,48 @@ export interface IListingSnapshot {
   currency: string
   views: number
   favorers: number
+  /** Lifetime review count on that day. Its day-over-day delta is the only real
+   *  per-listing sales signal Etsy exposes (reviews ÷ review-rate = units sold). */
+  reviewCount?: number | null
   capturedAt: Date
+}
+
+/** A listing the crowd (extension) or a user is having us track daily, so its
+ *  review/views/favorites history stays unbroken. Keyed globally by listingId -
+ *  this is a shared research dataset, not per-user. */
+export interface ITrackedListing {
+  _id?: string
+  listingId: number
+  shopId: number
+  title?: string
+  observeCount: number
+  lastSeenAt: Date
+  createdAt?: Date
+}
+
+/** Per-day delta for one listing, derived from consecutive snapshots. */
+export interface ListingSalesPoint {
+  day: string
+  reviews: number | null       // cumulative review count that day
+  soldEst: number | null       // estimated units sold that day (review delta ÷ rate)
+  views: number | null
+  favorers: number | null
+}
+
+/** Measured per-listing velocity from OUR snapshot history. Null windows mean
+ *  "not enough history yet" - never a real zero. */
+export interface ListingVelocity {
+  listingId: number
+  trackedSince: string | null
+  days: number
+  points: ListingSalesPoint[]
+  reviewsLatest: number | null
+  reviewsLast7: number | null
+  reviewsLast30: number | null
+  soldLast30Est: number | null    // measured 30-day sales estimate (review-delta based)
+  favsLast30: number | null
+  viewsLast30: number | null
+  measured: boolean               // true once there's a real multi-day span to diff
 }
 
 export interface ITrackedShop {

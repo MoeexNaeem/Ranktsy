@@ -18,8 +18,9 @@
  * content as current; a snapshot is a dated measurement presented as history.
  */
 import { connectDB } from '@/lib/db'
-import { ShopSnapshot, ListingSnapshot } from '@/lib/models'
-import type { EtsyListing, SalesPoint, ShopVelocity } from '@/types'
+import { ShopSnapshot, ListingSnapshot, TrackedListing } from '@/lib/models'
+import { reviewRate } from '@/lib/salesEstimate'
+import type { EtsyListing, SalesPoint, ShopVelocity, ListingVelocity, ListingSalesPoint } from '@/types'
 
 /** UTC day key - the dedupe unit. Local time would double-count across zones. */
 export function dayKey(d: Date = new Date()): string {
@@ -247,5 +248,163 @@ export async function getListingChanges(listingId: number, days = 90): Promise<L
   } catch (e) {
     console.error('[Snapshots] change read failed:', e)
     return []
+  }
+}
+
+// ─── Crowd capture (extension) ─────────────────────────────────────────────────
+
+export interface ObservedListing {
+  listingId: number
+  shopId: number
+  title?: string
+  tags?: string[]
+  price?: number | null
+  currency?: string
+  views?: number | null
+  favorers?: number | null
+  reviewCount?: number | null
+}
+
+/**
+ * Record listings observed by the extension as users browse Etsy - the crowd-
+ * sourced data flywheel. One snapshot per listing per UTC day; only fields that
+ * were actually observed are written, so a later, richer observation (e.g. the
+ * listing page, which knows reviewCount) never gets clobbered by a thinner one
+ * (a search card, which doesn't). Also upserts the TrackedListing watchlist so
+ * the daily cron keeps hot listings' history unbroken. Returns rows captured.
+ */
+export async function recordObservedListings(rows: ObservedListing[]): Promise<number> {
+  const valid = rows.filter(r => r.listingId && r.shopId)
+  if (!valid.length) return 0
+  try {
+    await connectDB()
+    const day = dayKey()
+    const now = new Date()
+
+    const snapOps = valid.map(r => {
+      const set: Record<string, unknown> = { capturedAt: now, shopId: r.shopId }
+      if (r.title != null) set.title = r.title
+      if (r.tags != null) set.tags = r.tags
+      if (r.price != null) { set.price = r.price; if (r.currency) set.currency = r.currency }
+      if (r.views != null) set.views = r.views
+      if (r.favorers != null) set.favorers = r.favorers
+      if (r.reviewCount != null) set.reviewCount = r.reviewCount
+      return {
+        updateOne: {
+          filter: { listingId: r.listingId, day },
+          update: { $set: set, $setOnInsert: { listingId: r.listingId, day } },
+          upsert: true,
+        },
+      }
+    })
+
+    const trackOps = valid.map(r => ({
+      updateOne: {
+        filter: { listingId: r.listingId },
+        update: {
+          $set: { shopId: r.shopId, lastSeenAt: now, ...(r.title != null ? { title: r.title } : {}) },
+          $setOnInsert: { listingId: r.listingId },
+          $inc: { observeCount: 1 },
+        },
+        upsert: true,
+      },
+    }))
+
+    await ListingSnapshot.bulkWrite(snapOps, { ordered: false })
+    await TrackedListing.bulkWrite(trackOps, { ordered: false })
+    return valid.length
+  } catch (e) {
+    console.error('[Snapshots] observe capture failed:', e)
+    return 0
+  }
+}
+
+// ─── Per-listing velocity ──────────────────────────────────────────────────────
+
+/**
+ * Measured per-listing velocity from OUR snapshot history. Etsy exposes no
+ * per-listing sales, so the review-count DELTA is the real signal: units sold ≈
+ * (reviews gained) ÷ review-rate. Views/favorites deltas come along for free.
+ *
+ * A young or single-point series returns `measured:false` and null windows - the
+ * caller must fall back to the point-in-time estimate and say "tracking started",
+ * never imply a real zero.
+ */
+export async function getListingVelocity(listingId: number, days = 90): Promise<ListingVelocity | null> {
+  try {
+    await connectDB()
+    const since = daysAgoKey(days)
+    const rows = await ListingSnapshot.find({ listingId, day: { $gte: since } })
+      .sort({ day: 1 })
+      .select('day reviewCount views favorers')
+      .lean<{ day: string; reviewCount: number | null; views: number | null; favorers: number | null }[]>()
+    if (!rows.length) return null
+
+    const rate = reviewRate()
+
+    const points: ListingSalesPoint[] = rows.map((r, i) => {
+      let soldEst: number | null = null
+      if (r.reviewCount != null && i > 0) {
+        for (let j = i - 1; j >= 0; j--) {
+          const prev = rows[j]
+          if (prev.reviewCount != null) {
+            const gap = Math.max(1, Math.round(
+              (Date.parse(r.day + 'T00:00:00Z') - Date.parse(prev.day + 'T00:00:00Z')) / 86_400_000))
+            const delta = Math.max(0, r.reviewCount - prev.reviewCount)
+            soldEst = Math.round(delta / gap / rate)
+            break
+          }
+        }
+      }
+      return { day: r.day, reviews: r.reviewCount ?? null, soldEst, views: r.views ?? null, favorers: r.favorers ?? null }
+    })
+
+    // Reviews are SPARSE - a listing can go days without a new one - so a 30-day
+    // sales figure is only trustworthy once the tracked span is wide enough for
+    // review events to accrue. Below that we return `measured:false` and the client
+    // keeps showing the point-in-time estimate (never a misleading tracked 0).
+    const MIN_MEASURE_DAYS = 14
+
+    const dayGap = (a: string, b: string) =>
+      Math.max(0, Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86_400_000))
+
+    // Growth of a cumulative field over the FULL tracked span, projected to 30 days.
+    const projected30 = (field: 'reviewCount' | 'views' | 'favorers'): { per30: number; spanDays: number } | null => {
+      const withField = rows.filter(r => r[field] != null)
+      if (withField.length < 2) return null
+      const first = withField[0], last = withField[withField.length - 1]
+      const spanDays = dayGap(first.day, last.day)
+      if (spanDays < 1) return null
+      const delta = Math.max(0, (last[field] as number) - (first[field] as number))
+      return { per30: Math.round((delta / spanDays) * 30), spanDays }
+    }
+
+    const reviewProj = projected30('reviewCount')
+    const favProj = projected30('favorers')
+    const viewProj = projected30('views')
+    const measured = !!reviewProj && reviewProj.spanDays >= MIN_MEASURE_DAYS
+
+    const reviewsLast30 = measured ? reviewProj!.per30 : null
+    const reviewsLast7 = measured ? Math.round(reviewProj!.per30 * 7 / 30) : null
+    const favsLast30 = measured ? favProj?.per30 ?? null : null
+    const viewsLast30 = measured ? viewProj?.per30 ?? null : null
+    const soldLast30Est = reviewsLast30 != null ? Math.round(reviewsLast30 / rate) : null
+
+    return {
+      listingId,
+      trackedSince: rows[0].day,
+      days: rows.length,
+      points,
+      reviewsLatest: [...rows].reverse().find(r => r.reviewCount != null)?.reviewCount ?? null,
+      reviewsLast7,
+      reviewsLast30,
+      soldLast30Est,
+      favsLast30,
+      viewsLast30,
+      measured,
+    }
+  } catch (e) {
+    console.error('[Snapshots] listing velocity failed:', e)
+    return null
   }
 }

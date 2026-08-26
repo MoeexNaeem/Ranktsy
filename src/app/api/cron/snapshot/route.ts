@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
-import { TrackedShop, ShopSnapshot } from '@/lib/models'
-import { getEtsyShop } from '@/lib/etsy'
-import { dayKey } from '@/lib/snapshots'
+import { TrackedShop, ShopSnapshot, TrackedListing, ListingSnapshot } from '@/lib/models'
+import { getEtsyShop, getListingById, getListingReviewStats } from '@/lib/etsy'
+import { dayKey, recordObservedListings } from '@/lib/snapshots'
 import type { ApiResponse } from '@/types'
+
+// Cap the nightly per-listing refresh so it can't blow the Etsy rate budget.
+// Each listing costs 2 calls (listing + reviews); 200 → ~400 calls/night.
+const LISTING_CAP = Math.min(Math.max(Number(process.env.CRON_LISTING_CAP) || 200, 0), 1000)
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -63,9 +67,51 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<un
       }
     }
 
+    // ── Listings pass ──────────────────────────────────────────────────────────
+    // Refresh the hottest crowd-observed listings so their per-listing history
+    // (reviewCount over time → real sales velocity) stays unbroken even on days
+    // nobody views them. Newest-observed first; capped; skips ones done today.
+    let listingsCaptured = 0
+    const listingsFailed: number[] = []
+    if (LISTING_CAP > 0) {
+      const hot = await TrackedListing.find({}).sort({ lastSeenAt: -1 }).limit(LISTING_CAP)
+        .select('listingId shopId').lean()
+      const hotIds = hot.map(h => h.listingId)
+      const doneL = await ListingSnapshot.find({ day, listingId: { $in: hotIds } }).select('listingId').lean()
+      const doneLIds = new Set(doneL.map(d => d.listingId))
+      const todoL = hot.filter(h => !doneLIds.has(h.listingId))
+
+      for (const l of todoL) {
+        try {
+          const listing = await getListingById(l.listingId)
+          if (!listing) continue // inactive/removed - leave its history as-is
+          const reviews = await getListingReviewStats(l.listingId).catch(() => null)
+          await recordObservedListings([{
+            listingId: l.listingId,
+            shopId: listing.shop_id ?? l.shopId,
+            title: listing.title,
+            tags: listing.tags ?? [],
+            price: listing.price ? listing.price.amount / (listing.price.divisor || 100) : null,
+            currency: listing.price?.currency_code,
+            views: listing.views ?? null,
+            favorers: listing.num_favorers ?? null,
+            reviewCount: reviews?.count ?? null,
+          }])
+          listingsCaptured++
+        } catch (e) {
+          console.error(`[Cron] listing ${l.listingId} failed:`, e)
+          listingsFailed.push(l.listingId)
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      data: { day, tracked: unique.length, alreadyCaptured: doneIds.size, captured, failed: failed.length, failedIds: failed },
+      data: {
+        day,
+        shops: { tracked: unique.length, alreadyCaptured: doneIds.size, captured, failed: failed.length, failedIds: failed },
+        listings: { cap: LISTING_CAP, captured: listingsCaptured, failed: listingsFailed.length, failedIds: listingsFailed },
+      },
     })
   } catch (e) {
     console.error('[Cron] snapshot job failed:', e)

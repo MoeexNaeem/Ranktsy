@@ -19,6 +19,15 @@ interface AUser {
 type ConfirmAction = { user: AUser; kind: 'delete' | 'restrict' | 'unrestrict' }
 const isRealPaid = (u: AUser) => u.paidViaLemonSqueezy && u.plan !== 'free'
 interface Stats { total: number; admins: number; verified: number; searches: number }
+
+interface TrackStats {
+  trackedListings: number
+  listingSnapshots: number
+  snapshotsToday: number
+  shopSnapshots: number
+  measuredListings: number
+  recent: { listingId: number; title: string; observeCount: number; lastSeenAt: string }[]
+}
 interface UsageUser { userId: string; userEmail: string | null; etsyCalls: number; googleCalls: number; searches: number; cacheHits: number; apiHits: number; imageCalls: number; imageTokens: number; imageCostUsd: number; creditsSpent: number }
 interface UsageData {
   today: { day: string; totals: { etsyCalls: number; googleCalls: number; searches: number; cacheHits: number; apiHits: number; imageCalls: number; imageTokens: number; imageCostUsd: number; creditsSpent: number }; perUser: UsageUser[] }
@@ -102,6 +111,7 @@ export function AdminDashboard() {
   const [users, setUsers] = useState<AUser[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [usage, setUsage] = useState<UsageData | null>(null)
+  const [track, setTrack] = useState<TrackStats | null>(null)
   const [state, setState] = useState<'loading' | 'ok' | 'forbidden' | 'error'>('loading')
   const [section, setSection] = useState<Section>('overview')
   const [detailUserId, setDetailUserId] = useState<string | null>(null)
@@ -127,6 +137,10 @@ export function AdminDashboard() {
     fetch('/api/admin/usage').then(async r => {
       const d = await r.json().catch(() => null)
       if (r.ok && d?.success) setUsage(d.data)
+    }).catch(() => {})
+    fetch('/api/admin/snapshots-stats').then(async r => {
+      const d = await r.json().catch(() => null)
+      if (r.ok && d?.success) setTrack(d.data)
     }).catch(() => {})
   }, [])
   useEffect(load, [load])
@@ -296,6 +310,31 @@ export function AdminDashboard() {
                 <div style={{ ...cardStyle, padding: '20px 22px' }}>
                   <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>searches / day</span>}>API usage · last 7 days</SectionTitle>
                   <Bars data={[...usage.last7Days].reverse().map(d => ({ label: fmtDay(d.day).split(',')[0], value: d.searches }))} height={150} accent="#2563EB" />
+                </div>
+              )}
+
+              {/* ─── Snapshot tracking (crowd-sourced listing history) ─────────── */}
+              <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+                <Kpi label="Listings tracked" value={track?.trackedListings ?? 0} accent={C.orange} delay={0} sub="on the watchlist" />
+                <Kpi label="Measured listings" value={track?.measuredListings ?? 0} accent="#0D9488" delay={60} sub="real sales velocity" />
+                <Kpi label="Listing snapshots" value={track?.listingSnapshots ?? 0} accent={C.ink} delay={120} />
+                <Kpi label="Snapshots today" value={track?.snapshotsToday ?? 0} accent="#2563EB" delay={180} />
+              </div>
+
+              {track && track.recent.length > 0 && (
+                <div style={{ ...cardStyle, padding: '20px 22px' }}>
+                  <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>most recently observed</span>}>Tracking activity</SectionTitle>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {track.recent.map((r, i) => (
+                      <div key={r.listingId} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 12, alignItems: 'center', padding: '9px 0', borderTop: i ? `1px solid ${C.ash}` : 'none', fontSize: 13 }}>
+                        <a href={`https://www.etsy.com/listing/${r.listingId}`} target="_blank" rel="noreferrer" style={{ color: C.ink, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {r.title || `Listing ${r.listingId}`}
+                        </a>
+                        <span style={{ fontFamily: MONO, fontSize: 11.5, color: '#808080' }}>{r.observeCount}× seen</span>
+                        <span style={{ fontFamily: MONO, fontSize: 11.5, color: '#808080', minWidth: 84, textAlign: 'right' }}>{timeAgo(typeof r.lastSeenAt === 'string' ? r.lastSeenAt : new Date(r.lastSeenAt).toISOString())}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

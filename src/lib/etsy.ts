@@ -1304,6 +1304,46 @@ export async function createDraftListing(accessToken: string, shopId: number, in
   }
 }
 
+/**
+ * Attach a photo to a draft (Etsy `uploadListingImage`, one call per image).
+ *
+ * A text-only draft isn't a "real" listing until it has photos; this uploads the
+ * seller's own product images to the draft created by createDraftListing. Etsy
+ * takes multipart/form-data with an `image` file part and an optional `rank`
+ * (1-based display order). Requires the `listings_w` scope. Do NOT set the
+ * Content-Type header by hand - fetch must add the multipart boundary itself.
+ */
+export async function uploadListingImage(
+  accessToken: string,
+  shopId: number,
+  listingId: number,
+  image: { data: Uint8Array; filename: string; contentType?: string; rank?: number },
+): Promise<{ imageId: number }> {
+  const form = new FormData()
+  const blob = new Blob([image.data], { type: image.contentType || 'image/jpeg' })
+  form.append('image', blob, image.filename || 'image.jpg')
+  if (image.rank) form.append('rank', String(image.rank))
+
+  recordEtsyCall()
+  const res = await fetch(`${ETSY_BASE}/shops/${shopId}/listings/${listingId}/images`, {
+    method: 'POST',
+    headers: {
+      'x-api-key':     ETSY_KEY_HEADER,
+      'Authorization': `Bearer ${accessToken}`,
+      'Accept':        'application/json',
+    },
+    body: form,
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText)
+    throw new EtsyAuthError(res.status, `Etsy uploadImage ${res.status}: ${text}`)
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const j = await res.json() as any
+  return { imageId: Number(j?.listing_image_id ?? 0) }
+}
+
 export interface OwnerShop {
   shop_id: number
   shop_name: string

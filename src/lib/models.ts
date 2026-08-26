@@ -3,7 +3,7 @@ import { SNAPSHOT_RETENTION_DAYS } from '@/utils'
 import { PLAN_SLUGS, type PlanSlug } from '@/lib/plans'
 import type {
   IKeywordCache, IKeywordHistory, IOTP,
-  IShopSnapshot, IListingSnapshot, ITrackedShop, IConnectedShop,
+  IShopSnapshot, IListingSnapshot, ITrackedShop, ITrackedListing, IConnectedShop,
   ICollectiveKeywordData, IApiUsage, IBlog, IDeal, IPopupAd,
 } from '@/types'
 
@@ -202,6 +202,7 @@ const ListingSnapshotSchema = new Schema<IListingSnapshot>({
   currency:   { type: String, default: 'USD' },
   views:      { type: Number, default: 0 },
   favorers:   { type: Number, default: 0 },
+  reviewCount:{ type: Number, default: null },
   capturedAt: { type: Date, default: Date.now },
 }, { timestamps: false })
 
@@ -220,6 +221,20 @@ const TrackedShopSchema = new Schema<ITrackedShop>({
 }, { timestamps: true })
 
 TrackedShopSchema.index({ userId: 1, shopId: 1 }, { unique: true })
+
+// Listings the crowd has observed (via the extension) - one global row per
+// listing, upserted on every observation. The daily cron refreshes the hottest
+// of these so their per-listing history stays unbroken. `lastSeenAt` has a TTL so
+// listings no one has looked at in a long time fall out of the watchlist.
+const TrackedListingSchema = new Schema<ITrackedListing>({
+  listingId:    { type: Number, required: true, unique: true },
+  shopId:       { type: Number, required: true },
+  title:        { type: String, default: '' },
+  observeCount: { type: Number, default: 0 },
+  lastSeenAt:   { type: Date, default: Date.now },
+}, { timestamps: true })
+
+TrackedListingSchema.index({ lastSeenAt: -1 })
 
 // ─── Connected Shop ────────────────────────────────────────────────────────────
 // A user's OWN Etsy shop(s), connected via OAuth. One row per (userId, shopId) -
@@ -369,6 +384,7 @@ export const AppSetting     = (models.AppSetting as mongoose.Model<IAppSetting>)
 export const ShopSnapshot    = models.ShopSnapshot    ?? model<IShopSnapshot>('ShopSnapshot', ShopSnapshotSchema)
 export const ListingSnapshot = models.ListingSnapshot ?? model<IListingSnapshot>('ListingSnapshot', ListingSnapshotSchema)
 export const TrackedShop     = models.TrackedShop     ?? model<ITrackedShop>('TrackedShop', TrackedShopSchema)
+export const TrackedListing  = models.TrackedListing  ?? model<ITrackedListing>('TrackedListing', TrackedListingSchema)
 export const ConnectedShop   = models.ConnectedShop   ?? model<IConnectedShop>('ConnectedShop', ConnectedShopSchema)
 export const OTP           = models.OTP           ?? model<IOTP>('OTP', OTPSchema)
 export const KeywordCache  = models.KeywordCache  ?? model<IKeywordCache>('KeywordCache', KeywordCacheSchema)
