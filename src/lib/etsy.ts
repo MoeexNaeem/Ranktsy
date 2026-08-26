@@ -1320,7 +1320,9 @@ export async function uploadListingImage(
   image: { data: Uint8Array; filename: string; contentType?: string; rank?: number },
 ): Promise<{ imageId: number }> {
   const form = new FormData()
-  const blob = new Blob([image.data], { type: image.contentType || 'image/jpeg' })
+  // Cast: TS 5.7 types Uint8Array as Uint8Array<ArrayBufferLike>, which isn't a
+  // BlobPart; the value is a valid BlobPart at runtime.
+  const blob = new Blob([image.data as unknown as BlobPart], { type: image.contentType || 'image/jpeg' })
   form.append('image', blob, image.filename || 'image.jpg')
   if (image.rank) form.append('rank', String(image.rank))
 
