@@ -80,19 +80,51 @@ const sections = [
   },
   {
     number: '06',
+    title: 'Browser Extension (Rankkw for Etsy)',
+    content: 'Our optional "Rankkw for Etsy" browser extension shows product and keyword research directly on Etsy pages you are already viewing. It handles data as follows:',
+    bullets: [
+      {
+        label: 'Pages It Reads',
+        text: 'The extension runs only on etsy.com. When you view an Etsy listing or search page, it reads that page’s publicly visible content (such as the listing ID, title, price and shop name) to look up analytics for what you are viewing. It does not read pages on any other website.',
+      },
+      {
+        label: 'What It Sends',
+        text: 'To return analytics, the extension sends the identifier of the listing, shop or keyword you are viewing to Rankkw.com, which computes results using official data providers (the Etsy API and Google Ads Keyword Planner). No data is sent to any third party other than Rankkw.com.',
+      },
+      {
+        label: 'Authentication',
+        text: 'The extension uses your existing Rankkw.com login session to authorize requests. It never asks for, sees, or stores your Etsy username, password, or any Etsy credentials, and it does not sign you in to Etsy.',
+      },
+      {
+        label: 'Aggregated Listing Tracking',
+        text: 'To improve sales estimates over time, the extension records anonymous, non-personal public metrics for the Etsy listings that are viewed (such as a listing’s public review, view, and favorite counts on a given day). This data describes public Etsy listings, not you.',
+      },
+      {
+        label: 'Local Storage',
+        text: 'The extension stores your settings in your browser’s local extension storage. This never leaves your device except as part of the analytics requests described above.',
+      },
+      {
+        label: 'What It Does Not Do',
+        text: 'The extension does not collect personally identifiable information, financial or payment data, or your browsing history on non-Etsy sites. It does not sell or share your data, and it does not use tracking for advertising.',
+      },
+    ],
+    footer: 'Extension permissions: access to etsy.com (to read the page you are viewing), access to rankkw.com (to fetch analytics), cookies (to detect your Rankkw.com sign-in), tabs and scripting (to open the analysis panel), and storage (to save your settings).',
+  },
+  {
+    number: '07',
     title: 'Third-Party Trademarks and Disclaimers',
     content: 'Rankkw is an independent analytics tool.',
     disclaimer: true,
     bullets: [],
   },
   {
-    number: '07',
+    number: '08',
     title: 'Changes to This Policy',
     content: `We reserve the right to update this Privacy Policy at any time. We will notify users of any significant changes by updating the "Effective Date" at the top of this page or via direct notification within the app dashboard.`,
     bullets: [],
   },
   {
-    number: '08',
+    number: '09',
     title: 'Contact Us',
     content: 'If you have any questions or concerns about this Privacy Policy, please reach out to us at:',
     contact: true,
