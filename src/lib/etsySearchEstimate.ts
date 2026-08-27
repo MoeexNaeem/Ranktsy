@@ -74,6 +74,37 @@ export function erankCountryShare(
 }
 
 /**
+ * eRank's CTR for a keyword — "clicks per search" (often >100%, since one search
+ * yields several listing clicks). Captured per keyword (its GLOBAL value), or null
+ * when we have no eRank data. eRank's own CTR pill is sometimes "Unknown" too.
+ */
+export function estimateCtr(
+  keyword: string | null | undefined,
+  country?: string,
+): number | null {
+  if (!keyword) return null
+  const cal = lookupErank(keyword)
+  if (!cal) return null
+  if (country && country !== 'GLO' && cal.ctrc?.[country] != null) return cal.ctrc[country]
+  return cal.ctr ?? null
+}
+
+/**
+ * eRank's Avg. Clicks, reconstructed from the exact identity clicks = searches × CTR.
+ * `searches` is the (already country-scaled) Avg-Searches figure, so this returns the
+ * matching per-country clicks. Null when we have no CTR (un-calibrated keyword).
+ */
+export function estimateAvgClicks(
+  keyword: string | null | undefined,
+  searches: number | null,
+  country?: string,
+): number | null {
+  const ctr = estimateCtr(keyword, country)
+  if (ctr == null || searches == null) return null
+  return Math.round(searches * ctr / 100)
+}
+
+/**
  * Scale the GLOBAL Etsy-search estimate down to one country: global × that country's
  * share of the keyword's search demand (eRank's exact per-country mechanism).
  *

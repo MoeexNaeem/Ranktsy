@@ -18,7 +18,7 @@ import { Card, SearchBar, SectionTitle, ErrorBox, EmptyState, MONO } from '../ki
 import { AiInsights } from '../AiInsights'
 import { TableSkeleton, CardSkeleton, GridSkeleton, LoadingStages, Measuring, Shimmer } from '../skeletons'
 import { useFx } from '@/hooks/useFx'
-import { estimateGlobalEtsySearches, erankCountryShare, scaleEtsySearchesToCountry } from '@/lib/etsySearchEstimate'
+import { estimateGlobalEtsySearches, erankCountryShare, scaleEtsySearchesToCountry, estimateAvgClicks, estimateCtr } from '@/lib/etsySearchEstimate'
 import { C, D, heatColor, formatNumber, formatPercent } from '@/utils'
 import type { TrendPlatform, KeywordStats, AiFact, CountryData } from '@/types'
 
@@ -238,8 +238,14 @@ function KeywordStatsPanel({ s, keyword, country, countryShare, geoName }: { s: 
   const share = country === 'GLO' ? 1 : (erankCountryShare(keyword, country) ?? countryShare)
   const etsy = scaleEtsySearchesToCountry(globalEtsy, share)
   const scaled = etsy != null && globalEtsy != null && share != null && share < 1
+  // eRank also shows Avg. Clicks and CTR (clicks-per-search). We have those for
+  // keywords with eRank data: clicks = searches × CTR (exact identity); '-' otherwise.
+  const avgClicks = estimateAvgClicks(keyword, etsy, country)
+  const ctr = estimateCtr(keyword, country)
   const rows = [
     { label: 'Average Etsy Searches', tip: `Estimated monthly Etsy searches in ${geoName}. Etsy publishes no search-volume data to anyone, so this is a modelled estimate: a global figure${scaled ? ', ' : ' - for Global -'} split to the selected country by its share of search demand.`, value: etsy != null ? formatNumber(etsy) : '-', color: etsy != null ? D.good : C.lightGray },
+    { label: 'Avg. Clicks', tip: `Estimated monthly clicks on the listings from those searches in ${geoName}, reconstructed from eRank's identity clicks = searches × CTR. Shown when we have eRank data for this keyword.`, value: avgClicks != null ? formatNumber(avgClicks) : '-', color: avgClicks != null ? '#2E6DB4' : C.lightGray },
+    { label: 'CTR', tip: 'Clicks per search, eRank-style. It can exceed 100% because a single search usually leads to several listing clicks. Shown when we have eRank data for this keyword.', value: ctr != null ? `${ctr}%` : '-', color: ctr != null ? D.good : C.lightGray },
     { label: 'Searches', tip: `Real monthly search-engine volume (${geoName}) - broad web search demand, distinct from the on-Etsy search estimate above.`, value: s.googleSearches != null ? formatNumber(s.googleSearches) : '-', color: s.googleSearches != null ? '#2E6DB4' : C.lightGray },
     { label: 'Avg. Views',    tip: 'Mean lifetime views of the listings ranking for this keyword - Etsy’s own `views` field. This is real traffic, shown instead of a fabricated “Avg. Clicks”.', value: formatNumber(s.avgViews), color: '#2E6DB4' },
     { label: 'Favs / View',   tip: 'Favorites ÷ views, a real engagement ratio (~1–3% is typical on Etsy). Shown instead of “CTR”: Etsy exposes no clicks, so a real click-through rate can’t be computed.', value: `${s.favPerView}%`, color: s.favPerView >= 4 ? D.good : s.favPerView >= 1.5 ? D.mid : D.neutral },
