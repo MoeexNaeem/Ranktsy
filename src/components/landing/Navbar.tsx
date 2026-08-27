@@ -216,7 +216,7 @@ export function Navbar() {
         <div className="rnav-inner" style={S.inner}>
           {/* Left: logo */}
           <Link href="/" style={S.logoWrap} onMouseEnter={() => setOpenMenu(null)}>
-            <Image src="/website_logo.png" alt="Rankkw - Etsy SEO Tools" width={44} height={38} style={{ objectFit: 'contain', display: 'block' }} priority />
+            <Image src="/website_logo_nav.png" alt="Rankkw - Etsy SEO Tools" width={44} height={40} style={{ objectFit: 'contain', display: 'block' }} priority />
           </Link>
 
           {/* Center: triggers */}
@@ -307,7 +307,7 @@ export function Navbar() {
           style={{ position: 'absolute', inset: 0, background: 'rgba(61,62,59,0.45)', opacity: drawer ? 1 : 0, transition: 'opacity 0.25s' }} />
         <aside style={{ position: 'absolute', top: 0, right: 0, height: '100%', width: 'min(350px, 88vw)', background: C.paper, transform: drawer ? 'translateX(0)' : 'translateX(100%)', transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)', boxShadow: '-20px 0 50px rgba(61,62,59,0.18)', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px', borderBottom: `1px solid ${C.ash}` }}>
-          <Image src="/website_logo.png" alt="Rankkw" width={40} height={34} style={{ objectFit: 'contain' }} />
+          <Image src="/website_logo_nav.png" alt="Rankkw" width={40} height={36} style={{ objectFit: 'contain' }} />
           <button aria-label="Close menu" onClick={closeAll} style={{ background: 'transparent', border: `1px solid ${C.ash}`, borderRadius: 10, width: 38, height: 38, cursor: 'pointer', color: C.ink, display: 'grid', placeItems: 'center' }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
           </button>

@@ -180,11 +180,6 @@ export function TopSellersTab() {
       <div>
         <SearchBar value={input} onChange={setInput} onSubmit={go}
           placeholder="Which niche's top shops? e.g. macrame wall hanging" button="Rank shops →" />
-        <p style={{ fontSize: 13, color: C.graphite, marginTop: 10, lineHeight: 1.55 }}>
-          Shops ranked by <strong style={{ color: D.good }}>real lifetime sales</strong>{' '}- Etsy&apos;s own{' '}
-          <code style={{ fontFamily: MONO, fontSize: 12, background: C.bone, padding: '1px 6px', borderRadius: 4 }}>transaction_sold_count</code>
-          {' '}from the official API, not an engagement proxy.
-        </p>
       </div>
 
       {isLoading && <Loading label="Ranking shops by real sales…" />}
