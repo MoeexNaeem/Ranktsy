@@ -32,6 +32,18 @@ function envNum(name: string, fallback: number): number {
 
 const K = envNum('NEXT_PUBLIC_ETSY_SEARCH_K', 86)
 const P = envNum('NEXT_PUBLIC_ETSY_SEARCH_P', 0.32)
+// eRank CTR (clicks-per-search) rises with search volume — fit CTR ≈ A + B·ln(searches)
+// across the calibrated keywords (r=0.66, ~10pt median error). Used to estimate CTR for
+// keywords we have no eRank data for, so Avg Clicks / CTR are never blank. Clamped to the
+// observed range. When we have no volume either, fall back to the median CTR.
+const CTR_A = envNum('NEXT_PUBLIC_ETSY_CTR_A', 30)
+const CTR_B = envNum('NEXT_PUBLIC_ETSY_CTR_B', 8.15)
+const FALLBACK_CTR = envNum('NEXT_PUBLIC_ETSY_CTR', 98)
+
+function modelledCtr(globalSearches?: number | null): number {
+  if (globalSearches == null || globalSearches <= 0) return FALLBACK_CTR
+  return Math.max(25, Math.min(130, Math.round(CTR_A + CTR_B * Math.log(globalSearches))))
+}
 
 /**
  * Fallback global estimate from live Etsy competition (totalResults), for keywords
@@ -81,12 +93,15 @@ export function erankCountryShare(
 export function estimateCtr(
   keyword: string | null | undefined,
   country?: string,
+  globalSearches?: number | null,
 ): number | null {
-  if (!keyword) return null
-  const cal = lookupErank(keyword)
-  if (!cal) return null
-  if (country && country !== 'GLO' && cal.ctrc?.[country] != null) return cal.ctrc[country]
-  return cal.ctr ?? null
+  const cal = keyword ? lookupErank(keyword) : null
+  if (cal) {
+    if (country && country !== 'GLO' && cal.ctrc?.[country] != null) return cal.ctrc[country]
+    if (cal.ctr != null) return cal.ctr
+  }
+  // Un-calibrated keyword → CTR modelled from its search volume, so the stat isn't blank.
+  return modelledCtr(globalSearches)
 }
 
 /**
@@ -98,8 +113,9 @@ export function estimateAvgClicks(
   keyword: string | null | undefined,
   searches: number | null,
   country?: string,
+  globalSearches?: number | null,
 ): number | null {
-  const ctr = estimateCtr(keyword, country)
+  const ctr = estimateCtr(keyword, country, globalSearches)
   if (ctr == null || searches == null) return null
   return Math.round(searches * ctr / 100)
 }
