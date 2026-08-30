@@ -228,26 +228,58 @@ function InfoDot({ title }: { title: string }) {
 }
 
 function KeywordStatsPanel({ s, geoName }: { s: KeywordStats; geoName: string }) {
-  // Authentic data only — every stat comes straight from a real API, nothing modelled
-  // to mimic a competitor. Search demand from Google Keyword Planner; the rest are
-  // Etsy's own signals (views, favorites, listing count). Etsy publishes no search
-  // volume or clicks, so we don't invent an "Etsy Avg Searches", "Avg Clicks" or
-  // "CTR" — we show the real engagement ratio (Favs/View) instead.
-  const rows = [
-    { label: 'Avg. Searches',  tip: `Real average monthly Google search volume for this keyword in ${geoName}, from the Google Keyword Planner API — genuine search demand.`, value: s.googleSearches != null ? formatNumber(s.googleSearches) : '—', color: s.googleSearches != null ? D.good : C.lightGray },
-    { label: 'Avg. Views',     tip: 'Mean lifetime views of the Etsy listings ranking for this keyword — Etsy’s own `views` field. Real on-Etsy traffic.', value: formatNumber(s.avgViews), color: '#2E6DB4' },
-    { label: 'Favs / View',    tip: 'Favorites ÷ views — a real Etsy engagement ratio (~1–3% is typical). Etsy exposes no clicks, so this real signal stands in for CTR rather than a fabricated number.', value: `${s.favPerView}%`, color: s.favPerView >= 4 ? D.good : s.favPerView >= 1.5 ? D.mid : D.neutral },
-    { label: 'Competition',    tip: 'Real total of Etsy listings competing for this keyword.', value: formatNumber(s.totalResults), color: s.totalResults > 250_000 ? D.hard : s.totalResults > 25_000 ? D.mid : D.good },
+  // Authentic data only, grouped by its real source so the origin of every number is
+  // explicit: GOOGLE = search demand from the Google Keyword Planner API; ETSY = Etsy's
+  // own listing signals. Nothing is modelled to mimic a competitor — Etsy publishes no
+  // search volume or clicks, so we show the real engagement ratio (Favs/View), never a
+  // fabricated Etsy "Avg Searches"/"Clicks"/"CTR".
+  const band = (b?: string | null) =>
+    b && b !== 'UNSPECIFIED' ? b.charAt(0) + b.slice(1).toLowerCase() : '—'
+  const money = (v: number, cur?: string | null) => {
+    const c = (cur || 'USD').toUpperCase()
+    try { return new Intl.NumberFormat('en-US', { style: 'currency', currency: c, maximumFractionDigits: 0 }).format(v) }
+    catch { return `${Math.round(v)} ${c}` }
+  }
+  // Exact, comma-separated integers (e.g. 1,900,000) — not abbreviated (1.9M / 981.7K).
+  const exact = (v: number) => Math.round(v).toLocaleString('en-US')
+  const groups = [
+    {
+      source: 'Google', dot: '#4285F4',
+      items: [
+        { label: 'Search Volume',  tip: `Real average monthly Google searches for this keyword in ${geoName} (Google Keyword Planner API) — genuine search demand.`, value: s.googleSearches != null ? exact(s.googleSearches) : '—', color: s.googleSearches != null ? D.good : C.lightGray },
+        { label: 'Ad Competition', tip: 'How strongly advertisers compete for this keyword on Google Ads — real Google advertiser-competition band.', value: band(s.googleCompetition), color: s.googleCompetition === 'HIGH' ? D.hard : s.googleCompetition === 'MEDIUM' ? D.mid : s.googleCompetition === 'LOW' ? D.good : C.lightGray },
+      ],
+    },
+    {
+      source: 'Etsy', dot: C.orange,
+      items: [
+        { label: 'Avg. Views',     tip: 'Mean lifetime views of the Etsy listings ranking for this keyword — Etsy’s own `views` field. Real on-Etsy traffic.', value: exact(s.avgViews), color: '#2E6DB4' },
+        { label: 'Avg. Favorites', tip: 'Mean favorites across those Etsy listings — Etsy’s own `num_favorers` field. Real buyer interest.', value: exact(s.avgFavorites), color: '#2E6DB4' },
+        { label: 'Favs / View',    tip: 'Favorites ÷ views — a real Etsy engagement ratio (~1–3% is typical). Etsy exposes no clicks, so this real signal stands in for CTR rather than a fabricated number.', value: `${s.favPerView}%`, color: s.favPerView >= 4 ? D.good : s.favPerView >= 1.5 ? D.mid : D.neutral },
+        { label: 'Avg. Price',     tip: 'Mean price of the Etsy listings ranking for this keyword — real, from Etsy.', value: money(s.avgPrice, s.currency), color: D.neutral },
+        { label: 'Competition',    tip: 'Real total of active Etsy listings competing for this keyword.', value: exact(s.totalResults), color: s.totalResults > 250_000 ? D.hard : s.totalResults > 25_000 ? D.mid : D.good },
+      ],
+    },
   ]
   return (
-    <Card>
+    <Card style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
       <SectionTitle>Keyword Statistics</SectionTitle>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 13, marginTop: 2 }}>
-        {rows.map(r => (
-          <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            <span style={{ fontSize: 14.5, color: C.ink, fontWeight: 500 }}>{r.label}</span>
-            <InfoDot title={r.tip} />
-            <span style={{ minWidth: 92, marginLeft: 'auto', textAlign: 'center', padding: '8px 14px', borderRadius: 9, background: r.color, color: '#fff', fontSize: 15, fontWeight: 600, fontFamily: MONO, letterSpacing: '-0.01em' }}>{r.value}</span>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 20, flex: 1 }}>
+        {groups.map(g => (
+          <div key={g.source}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 13 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: g.dot, flexShrink: 0 }} />
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: C.stone }}>{g.source}</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+              {g.items.map(r => (
+                <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                  <span style={{ fontSize: 14.5, color: C.ink, fontWeight: 500 }}>{r.label}</span>
+                  <InfoDot title={r.tip} />
+                  <span style={{ minWidth: 92, marginLeft: 'auto', textAlign: 'center', padding: '8px 14px', borderRadius: 9, background: r.color, color: '#fff', fontSize: 15, fontWeight: 600, fontFamily: MONO, letterSpacing: '-0.01em' }}>{r.value}</span>
+                </div>
+              ))}
+            </div>
           </div>
         ))}
       </div>
