@@ -18,9 +18,8 @@ import { Card, SearchBar, SectionTitle, ErrorBox, EmptyState, MONO } from '../ki
 import { AiInsights } from '../AiInsights'
 import { TableSkeleton, CardSkeleton, GridSkeleton, LoadingStages, Measuring, Shimmer } from '../skeletons'
 import { useFx } from '@/hooks/useFx'
-import { estimateGlobalEtsySearches, erankCountryShare, scaleEtsySearchesToCountry, estimateAvgClicks, estimateCtr } from '@/lib/etsySearchEstimate'
 import { C, D, heatColor, formatNumber, formatPercent } from '@/utils'
-import type { TrendPlatform, KeywordStats, AiFact, CountryData } from '@/types'
+import type { TrendPlatform, KeywordStats, AiFact } from '@/types'
 
 const CUR: Record<string, string> = { USD: '$', GBP: '£', EUR: '€', CAD: 'C$', AUD: 'A$', PKR: '₨', INR: '₹' }
 const sym = (c?: string) => CUR[c ?? 'USD'] ?? (c ? c + ' ' : '$')
@@ -228,28 +227,17 @@ function InfoDot({ title }: { title: string }) {
   )
 }
 
-function KeywordStatsPanel({ s, keyword, country, countryShare, geoName }: { s: KeywordStats; keyword: string; country: string; countryShare: number | null; geoName: string }) {
-  // eRank's "Avg. Searches" is a proprietary Etsy-search metric (not derivable from
-  // competition or Google — see etsySearchEstimate.ts). For keywords we have real
-  // eRank data for, the GLOBAL figure is eRank's captured value; otherwise a modelled
-  // fallback. eRank's per-country number is then CALCULATED as global × that country's
-  // share — using eRank's own captured share when we have it, else the live share.
-  const globalEtsy = estimateGlobalEtsySearches(keyword, s.totalResults)
-  const share = country === 'GLO' ? 1 : (erankCountryShare(keyword, country) ?? countryShare)
-  const etsy = scaleEtsySearchesToCountry(globalEtsy, share)
-  const scaled = etsy != null && globalEtsy != null && share != null && share < 1
-  // eRank also shows Avg. Clicks and CTR (clicks-per-search). We have those for
-  // keywords with eRank data: clicks = searches × CTR (exact identity); '-' otherwise.
-  const avgClicks = estimateAvgClicks(keyword, etsy, country, globalEtsy)
-  const ctr = estimateCtr(keyword, country, globalEtsy)
+function KeywordStatsPanel({ s, geoName }: { s: KeywordStats; geoName: string }) {
+  // Authentic data only — every stat comes straight from a real API, nothing modelled
+  // to mimic a competitor. Search demand from Google Keyword Planner; the rest are
+  // Etsy's own signals (views, favorites, listing count). Etsy publishes no search
+  // volume or clicks, so we don't invent an "Etsy Avg Searches", "Avg Clicks" or
+  // "CTR" — we show the real engagement ratio (Favs/View) instead.
   const rows = [
-    { label: 'Average Etsy Searches', tip: `Estimated monthly Etsy searches in ${geoName}. Etsy publishes no search-volume data to anyone, so this is a modelled estimate: a global figure${scaled ? ', ' : ' - for Global -'} split to the selected country by its share of search demand.`, value: etsy != null ? formatNumber(etsy) : '-', color: etsy != null ? D.good : C.lightGray },
-    { label: 'Avg. Clicks', tip: `Estimated monthly clicks on the listings from those searches in ${geoName}, from eRank's identity clicks = searches × CTR. Exact for keywords we have eRank data for; a typical-CTR estimate otherwise.`, value: avgClicks != null ? formatNumber(avgClicks) : '-', color: avgClicks != null ? '#2E6DB4' : C.lightGray },
-    { label: 'CTR', tip: 'Clicks per search, eRank-style — can exceed 100% because one search usually leads to several listing clicks. Exact for keywords we have eRank data for; a typical value otherwise.', value: ctr != null ? `${ctr}%` : '-', color: ctr != null ? D.good : C.lightGray },
-    { label: 'Searches', tip: `Real monthly search-engine volume (${geoName}) - broad web search demand, distinct from the on-Etsy search estimate above.`, value: s.googleSearches != null ? formatNumber(s.googleSearches) : '-', color: s.googleSearches != null ? '#2E6DB4' : C.lightGray },
-    { label: 'Avg. Views',    tip: 'Mean lifetime views of the listings ranking for this keyword - Etsy’s own `views` field. This is real traffic, shown instead of a fabricated “Avg. Clicks”.', value: formatNumber(s.avgViews), color: '#2E6DB4' },
-    { label: 'Favs / View',   tip: 'Favorites ÷ views, a real engagement ratio (~1–3% is typical on Etsy). Shown instead of “CTR”: Etsy exposes no clicks, so a real click-through rate can’t be computed.', value: `${s.favPerView}%`, color: s.favPerView >= 4 ? D.good : s.favPerView >= 1.5 ? D.mid : D.neutral },
-    { label: 'Competition',   tip: 'Real total of listings competing for this keyword.', value: formatNumber(s.totalResults), color: s.totalResults > 250_000 ? D.hard : s.totalResults > 25_000 ? D.mid : D.good },
+    { label: 'Avg. Searches',  tip: `Real average monthly Google search volume for this keyword in ${geoName}, from the Google Keyword Planner API — genuine search demand.`, value: s.googleSearches != null ? formatNumber(s.googleSearches) : '—', color: s.googleSearches != null ? D.good : C.lightGray },
+    { label: 'Avg. Views',     tip: 'Mean lifetime views of the Etsy listings ranking for this keyword — Etsy’s own `views` field. Real on-Etsy traffic.', value: formatNumber(s.avgViews), color: '#2E6DB4' },
+    { label: 'Favs / View',    tip: 'Favorites ÷ views — a real Etsy engagement ratio (~1–3% is typical). Etsy exposes no clicks, so this real signal stands in for CTR rather than a fabricated number.', value: `${s.favPerView}%`, color: s.favPerView >= 4 ? D.good : s.favPerView >= 1.5 ? D.mid : D.neutral },
+    { label: 'Competition',    tip: 'Real total of Etsy listings competing for this keyword.', value: formatNumber(s.totalResults), color: s.totalResults > 250_000 ? D.hard : s.totalResults > 25_000 ? D.mid : D.good },
   ]
   return (
     <Card>
@@ -369,13 +357,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
   // Google-suggested keywords (generateKeywordIdeas) - real discovery beyond Etsy tags.
   const ideas = useKeywordIdeas(query, country)
 
-  // eRank-style per-country scaling of "Average Etsy Searches": the selected
-  // country's share of Google demand, read from the same Searchers-by-Country
-  // breakdown the trends panel shows (Global → 1; no breakdown yet → null, so the
-  // stat falls back to the unscaled global estimate rather than guess a share).
   const geoName = COUNTRIES.find(c => c.code === country)?.name ?? country
-  const selShare = tr?.countries?.find((c: CountryData) => c.selected)?.percentage
-  const countryShare = country === 'GLO' ? 1 : (selShare != null ? selShare / 100 : null)
 
   // Related rows arrive unenriched with the core (competition: null) and are
   // replaced in place once probed - so the table shows keywords immediately and
@@ -508,7 +490,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
       {/* Overview - Keyword Statistics · Search Trends · Searchers by Country
           (the sample's three-panel row). Every figure is real or "-". */}
       <div className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1.55fr 1fr', gap: 12, alignItems: 'start' }}>
-        {kw ? <KeywordStatsPanel s={kw.stats} keyword={query} country={country} countryShare={countryShare} geoName={geoName} /> : <Card><Shimmer h={230} r={8} /></Card>}
+        {kw ? <KeywordStatsPanel s={kw.stats} geoName={geoName} /> : <Card><Shimmer h={230} r={8} /></Card>}
 
         <Card>
           <SectionTitle right={tr?.trends?.length ? <PlatformToggle active={plats} onChange={setPlats} /> : undefined}>
