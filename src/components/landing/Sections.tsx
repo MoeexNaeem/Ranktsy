@@ -601,7 +601,7 @@ export function Footer() {
     ] as [string, string][] },
     { t: "Product",  l: [["Live Keyword Tool", "/#keywords"], ["Pricing", "/pricing"], ["Blog", "/blogs"], ["Fee Calculator", "/etsy-fee-calculator"], ["Dashboard", "/dashboard"]] as [string, string][] },
     { t: "Company",  l: [["About", "/about"], ["Contact", "/contact"], ["Data & Methodology", "/methodology"]] as [string, string][] },
-    { t: "Legal",    l: [["Privacy Policy", "/privacy"], ["Terms", "/terms"], ["Service Policy", "/service-policy"], ["Refund & Return Policy", "/refund-policy"]] as [string, string][] },
+    { t: "Legal",    l: [["Privacy Policy", "/privacy"], ["Terms", "/terms"], ["Terms & Conditions", "/terms-and-conditions"], ["Service Policy", "/service-policy"], ["Refund & Return Policy", "/refund-policy"]] as [string, string][] },
   ];
   const dim = "rgba(245,245,235,0.62)";
   return (

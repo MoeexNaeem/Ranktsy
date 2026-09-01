@@ -14,6 +14,7 @@ const PAGES: { path: string; priority: number; changefreq: string }[] = [
   { path: '/methodology', priority: 0.6, changefreq: 'monthly' },
   { path: '/etsy-fee-calculator', priority: 0.7, changefreq: 'monthly' },
   { path: '/terms', priority: 0.3, changefreq: 'yearly' },
+  { path: '/terms-and-conditions', priority: 0.3, changefreq: 'yearly' },
   { path: '/privacy', priority: 0.3, changefreq: 'yearly' },
   { path: '/refund-policy', priority: 0.3, changefreq: 'yearly' },
   { path: '/service-policy', priority: 0.3, changefreq: 'yearly' },
