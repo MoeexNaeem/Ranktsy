@@ -2,6 +2,7 @@ import { Navbar }            from '@/components/landing/Navbar'
 import { Hero }              from '@/components/landing/Hero'
 import { Features, HowItWorks, Pricing, CTA, Footer, AboutContactTeaser } from '@/components/landing/Sections'
 import { KeywordTool }       from '@/components/landing/KeywordTool'
+import { ExtensionSection }  from '@/components/landing/ExtensionSection'
 import { ConnectSection }    from '@/components/landing/ConnectSection'
 import { Reviews }           from '@/components/landing/Reviews'
 import { Faq }               from '@/components/landing/Faq'
@@ -36,6 +37,7 @@ export default function HomePage() {
         <ConnectSection />
         <HowItWorks />
         <KeywordTool />
+        <ExtensionSection />
         <Reviews />
         <Pricing />
         <Faq />
