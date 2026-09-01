@@ -4,6 +4,7 @@ import { Deal } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin } from '@/lib/auth/roles'
 import { slugifyTitle, dealSummaryFrom, ensureDefaultDeals } from '@/lib/deals'
+import { notifyAll } from '@/lib/notify'
 import type { ApiResponse, IDeal } from '@/types'
 
 export const runtime = 'nodejs'
@@ -56,5 +57,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<u
     ctaUrl: b.ctaUrl?.trim() || '',
     status,
   })
+  // A newly published deal notifies every user in real time.
+  if (status === 'published') {
+    void notifyAll(`New deal: ${title}`, doc.summary || undefined, `/deals/${doc.slug}`, 'deal')
+  }
   return NextResponse.json({ success: true, data: { id: doc._id.toString(), slug: doc.slug } })
 }

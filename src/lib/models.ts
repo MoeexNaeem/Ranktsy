@@ -375,6 +375,86 @@ const AutomationRunSchema = new Schema<IAutomationRun>({
 }, { timestamps: true })
 AutomationRunSchema.index({ userId: 1, createdAt: -1 })
 
+// ─── Extension usage ────────────────────────────────────────────────────────────
+// One row per user who has used the "Rankkw for Etsy" browser extension, so the
+// admin can see who is on it, how active they are, and which version they run.
+export interface IExtensionUsageDoc extends Document {
+  userId: string
+  firstSeenAt: Date
+  lastSeenAt: Date
+  hits: number
+  version?: string | null
+  extensionId?: string | null
+  lastEndpoint?: string | null
+}
+const ExtensionUsageSchema = new Schema<IExtensionUsageDoc>({
+  userId:       { type: String, required: true, unique: true, index: true },
+  firstSeenAt:  { type: Date, default: Date.now },
+  lastSeenAt:   { type: Date, default: Date.now, index: true },
+  hits:         { type: Number, default: 0 },
+  version:      { type: String, default: null },
+  extensionId:  { type: String, default: null },
+  lastEndpoint: { type: String, default: null },
+})
+
+// ─── Notifications ──────────────────────────────────────────────────────────────
+// A notification is either a broadcast (audience 'all', shown to every user) or
+// targeted at one user. `readBy` holds the userIds who have dismissed/read it, so a
+// per-user unread count is a single query. Admins get their own broadcasts too.
+export interface INotificationDoc extends Document {
+  audience: 'all' | 'user' | 'admin'
+  userId?: string | null
+  type: string
+  title: string
+  body?: string
+  link?: string
+  readBy: string[]
+  createdAt?: Date
+}
+const NotificationSchema = new Schema<INotificationDoc>({
+  audience: { type: String, enum: ['all', 'user', 'admin'], default: 'user', index: true },
+  userId:   { type: String, default: null, index: true },
+  type:     { type: String, default: 'info' },
+  title:    { type: String, required: true },
+  body:     String,
+  link:     String,
+  readBy:   { type: [String], default: [] },
+}, { timestamps: true })
+NotificationSchema.index({ createdAt: -1 })
+
+// ─── Support chat ───────────────────────────────────────────────────────────────
+// One thread per user (keyed by userId); the user talks to the admin. `sender` says
+// who wrote it; the read flags drive unread badges on each side.
+export interface IChatMessageDoc extends Document {
+  userId: string
+  sender: 'user' | 'admin'
+  body: string
+  readByUser: boolean
+  readByAdmin: boolean
+  createdAt?: Date
+}
+const ChatMessageSchema = new Schema<IChatMessageDoc>({
+  userId:      { type: String, required: true, index: true },
+  sender:      { type: String, enum: ['user', 'admin'], required: true },
+  body:        { type: String, required: true, maxlength: 4000 },
+  readByUser:  { type: Boolean, default: false },
+  readByAdmin: { type: Boolean, default: false },
+}, { timestamps: true })
+ChatMessageSchema.index({ userId: 1, createdAt: 1 })
+
+// Auto-expire old chats and notifications via MongoDB TTL indexes: a document is removed
+// ~30 days after it was created, so these collections never grow unbounded and a user with
+// no recent activity simply starts a fresh conversation. No cron needed (Mongo's TTL monitor
+// sweeps every ~60s). Retention is env-tunable; db.ts leaves autoIndex on, so the index is
+// created automatically on the next connection.
+const RETENTION_SECONDS = (Number(process.env.CHAT_RETENTION_DAYS) > 0 ? Number(process.env.CHAT_RETENTION_DAYS) : 30) * 86400
+ChatMessageSchema.index({ createdAt: 1 }, { expireAfterSeconds: RETENTION_SECONDS })
+NotificationSchema.index({ createdAt: 1 }, { expireAfterSeconds: RETENTION_SECONDS })
+
+export const ExtensionUsage = (models.ExtensionUsage as mongoose.Model<IExtensionUsageDoc>) ?? model<IExtensionUsageDoc>('ExtensionUsage', ExtensionUsageSchema)
+export const Notification   = (models.Notification as mongoose.Model<INotificationDoc>)   ?? model<INotificationDoc>('Notification', NotificationSchema)
+export const ChatMessage    = (models.ChatMessage as mongoose.Model<IChatMessageDoc>)     ?? model<IChatMessageDoc>('ChatMessage', ChatMessageSchema)
+
 export const User          = models.User          ?? model<IUserDoc>('User', UserSchema)
 export const AutomationRun = (models.AutomationRun as mongoose.Model<IAutomationRun>) ?? model<IAutomationRun>('AutomationRun', AutomationRunSchema)
 export const Blog          = (models.Blog as mongoose.Model<IBlog>) ?? model<IBlog>('Blog', BlogSchema)

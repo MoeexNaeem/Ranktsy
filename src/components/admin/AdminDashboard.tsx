@@ -8,6 +8,7 @@ import { SectionTitle, Pagination, tableCard, tableHead, th, tableRow, tdMono, E
 import { AnimIcon, ICON } from '@/components/ui/AnimIcon'
 import { Kpi, Bars, Donut } from './AdminCharts'
 import { UserDetailPanel } from './UserDetailPanel'
+import { AdminMessages } from './AdminMessages'
 
 interface AUser {
   id: string; name: string; email: string; role: 'user' | 'admin'; plan: string
@@ -98,20 +99,28 @@ const selectStyle: React.CSSProperties = {
   fontSize: 12.5, fontFamily: MONO, color: C.ink, outline: 'none', cursor: 'pointer', width: '100%', minWidth: 0,
 }
 
-type Section = 'overview' | 'users' | 'analytics' | 'content' | 'settings'
+type Section = 'overview' | 'users' | 'analytics' | 'extension' | 'messages' | 'content' | 'settings'
 const NAV: { id: Section; label: string; icon: string }[] = [
   { id: 'overview',  label: 'Overview',  icon: ICON.home },
   { id: 'users',     label: 'Users',     icon: ICON.account },
   { id: 'analytics', label: 'Analytics', icon: ICON.coins },
+  { id: 'extension', label: 'Extension', icon: ICON.display },
+  { id: 'messages',  label: 'Messages',  icon: ICON.chat },
   { id: 'content',   label: 'Content',   icon: ICON.book },
   { id: 'settings',  label: 'Settings',  icon: ICON.settings },
 ]
+
+interface ExtRow { userId: string; name: string; email: string; plan: string; version: string | null; hits: number; firstSeenAt: string | null; lastSeenAt: string | null; lastEndpoint: string | null }
+interface ExtData { total: number; active7d: number; rows: ExtRow[] }
+const EXTGRID = '1.7fr 0.7fr 0.7fr 0.7fr 0.9fr 1fr'
 
 export function AdminDashboard() {
   const [users, setUsers] = useState<AUser[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [usage, setUsage] = useState<UsageData | null>(null)
   const [track, setTrack] = useState<TrackStats | null>(null)
+  const [ext, setExt] = useState<ExtData | null>(null)
+  const [msgUnread, setMsgUnread] = useState(0)
   const [state, setState] = useState<'loading' | 'ok' | 'forbidden' | 'error'>('loading')
   const [section, setSection] = useState<Section>('overview')
   const [detailUserId, setDetailUserId] = useState<string | null>(null)
@@ -142,8 +151,22 @@ export function AdminDashboard() {
       const d = await r.json().catch(() => null)
       if (r.ok && d?.success) setTrack(d.data)
     }).catch(() => {})
+    fetch('/api/admin/extension').then(async r => {
+      const d = await r.json().catch(() => null)
+      if (r.ok && d?.success) setExt(d.data)
+    }).catch(() => {})
   }, [])
   useEffect(load, [load])
+
+  // Keep the Messages nav badge current: poll the unread support-message count.
+  useEffect(() => {
+    let alive = true
+    const poll = () => fetch('/api/admin/chat').then(r => r.json()).then(d => { if (alive && d?.success) setMsgUnread(d.data.totalUnread) }).catch(() => {})
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    poll()
+    const t = setInterval(poll, 15000)
+    return () => { alive = false; clearInterval(t) }
+  }, [])
 
   const patchUser = useCallback(async (id: string, patch: Partial<AUser>) => {
     setBusy(id)
@@ -258,6 +281,9 @@ export function AdminDashboard() {
         onMouseLeave={e => { if (!on) e.currentTarget.style.background = 'transparent' }}>
         <AnimIcon src={item.icon} size={22} color={on ? C.orange : '#6E6E64'} active={on} />
         {item.label}
+        {item.id === 'messages' && msgUnread > 0 && (
+          <span style={{ marginLeft: 'auto', background: C.orange, color: '#fff', fontSize: 10.5, fontWeight: 700, fontFamily: MONO, borderRadius: 100, padding: '1px 7px', minWidth: 18, textAlign: 'center' }}>{msgUnread}</span>
+        )}
       </button>
     )
   }
@@ -501,6 +527,49 @@ export function AdminDashboard() {
               </div>
             ) : <EmptyState icon="📊" title="No usage data yet" sub="Analytics appear once the app records API activity." />
           )}
+
+          {section === 'extension' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+                <Kpi label="Extension users" value={ext?.total ?? 0} accent={C.orange} delay={0} sub="signed-in users on the extension" />
+                <Kpi label="Active last 7 days" value={ext?.active7d ?? 0} accent="#0D9488" delay={60} />
+                <Kpi label="Total captures" value={ext?.rows.reduce((s, r) => s + r.hits, 0) ?? 0} accent={C.ink} delay={120} />
+              </div>
+              <div>
+                <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>newest activity first</span>}>Extension users</SectionTitle>
+                {!ext || ext.rows.length === 0 ? (
+                  <EmptyState icon="🧩" title="No extension activity yet" sub="Usage appears here once a signed-in user browses Etsy with the Rankkw extension installed." />
+                ) : (
+                  <div className="rtable" style={tableCard}>
+                    <div style={tableHead(EXTGRID)}>
+                      {['User', 'Plan', 'Version', 'Captures', 'First seen', 'Last active'].map((h, i) => <span key={i} style={th}>{h}</span>)}
+                    </div>
+                    {ext.rows.map((r, i) => (
+                      <div key={r.userId} style={{ ...tableRow(EXTGRID), background: i % 2 ? C.canvas : 'transparent' }}>
+                        <div style={{ minWidth: 0 }}>
+                          <button onClick={() => setDetailUserId(r.userId)} title="View full detail"
+                            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit', maxWidth: '100%', textAlign: 'left' }}>
+                            <span style={{ fontSize: 14.5, fontWeight: 600, color: C.ink, textDecoration: 'underline', textUnderlineOffset: 3, textDecorationColor: C.ash }}>{r.name}</span>
+                          </button>
+                          <p style={{ fontSize: 12.5, color: '#6E6E64', fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 3 }}>{r.email}</p>
+                        </div>
+                        <span style={{ ...tdMono, textTransform: 'capitalize' }}>{r.plan}</span>
+                        <span style={tdMono}>{r.version || '-'}</span>
+                        <span style={tdMono}>{exact(r.hits)}</span>
+                        <span style={tdMono}>{fmtDate(r.firstSeenAt)}</span>
+                        <span style={{ ...tdMono, color: C.graphite }}>{timeAgo(r.lastSeenAt)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p style={{ fontSize: 12.5, color: '#808080', marginTop: 12, lineHeight: 1.5 }}>
+                  Detected from browser-extension requests and the extension-only capture endpoint. Version shows once the extension sends an <code style={{ fontFamily: MONO }}>X-Rankkw-Ext-Version</code> header. Captures count active minutes, not raw requests.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {section === 'messages' && <AdminMessages />}
 
           {section === 'content' && (
             <div className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>

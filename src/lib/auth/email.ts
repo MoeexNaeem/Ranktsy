@@ -48,6 +48,46 @@ async function sendEmail(to: string, subject: string, html: string): Promise<voi
   await transporter.sendMail({ from: SMTP_FROM, to, subject, html })
 }
 
+/**
+ * Send an admin-composed message to one user, wrapped in the Rankkw template.
+ * `message` is plain text (blank lines start new paragraphs); it is HTML-escaped so
+ * an admin cannot inject markup. Throws if delivery fails so the caller can report it.
+ */
+export async function sendUserEmail(to: string, subject: string, message: string, opts?: { heading?: string }) {
+  const heading = (opts?.heading || subject).trim()
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const bodyHtml = esc(message)
+    .split(/\n{2,}/)
+    .map(p => `<p style="font-size:14px;color:#444;line-height:1.7;margin:0 0 16px">${p.replace(/\n/g, '<br>')}</p>`)
+    .join('')
+
+  await sendEmail(to, subject, `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#EEEBE1;font-family:'Inter',-apple-system,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 20px">
+    <tr><td align="center">
+      <table width="480" cellpadding="0" cellspacing="0" style="background:#F6F4EC;border-radius:16px;overflow:hidden;border:1px solid rgba(0,0,0,0.08)">
+        <tr><td style="background:#FFFFFF;padding:26px 40px;text-align:center;border-bottom:1px solid rgba(0,0,0,0.06)">
+          <img src="${LOGO_URL}" alt="Rankkw" width="150" style="display:inline-block;height:auto;max-width:160px;border:0;outline:none;text-decoration:none" />
+        </td></tr>
+        <tr><td style="padding:40px">
+          <h1 style="font-size:22px;font-weight:400;color:#3D3E3B;margin:0 0 20px;letter-spacing:-0.5px">${esc(heading)}</h1>
+          ${bodyHtml}
+        </td></tr>
+        <tr><td style="padding:20px 40px;border-top:1px solid rgba(0,0,0,0.06);text-align:center">
+          <p style="font-size:11px;color:#bbb;margin:0;font-family:monospace">
+            © 2026 Rankkw. Not affiliated with Etsy, Inc.
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`)
+}
+
 export async function sendOtpEmail(email: string, otp: string, type: 'reset' | 'verify') {
   const subject = type === 'reset' ? 'Reset your Rankkw password' : 'Verify your Rankkw account'
   const action  = type === 'reset' ? 'reset your password' : 'verify your account'

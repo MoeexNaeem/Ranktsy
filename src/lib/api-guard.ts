@@ -12,6 +12,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/session'
 import { runWithUsageContext } from '@/lib/usage'
+import { recordExtensionUsage } from '@/lib/extension'
 import { rateLimit, clientIp, tooManyResponse } from '@/lib/auth/rateLimit'
 
 type Handler<C> = (req: NextRequest, ctx: C) => Promise<Response> | Response
@@ -32,6 +33,7 @@ export function withApiGuard<C = unknown>(handler: Handler<C>, opts: GuardOpts =
     if (!user) {
       return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 })
     }
+    void recordExtensionUsage(req, user.id)
 
     // Per-user + per-route bucket so one heavy tool can't starve another.
     const bucket = new URL(req.url).pathname

@@ -42,6 +42,49 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   )
 }
 
+// Compose and send a one-off email to this user, delivered to their inbox.
+function SendEmailForm({ userId, email }: { userId: string; email: string }) {
+  const [subject, setSubject] = useState('')
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null)
+
+  const field: React.CSSProperties = {
+    width: '100%', boxSizing: 'border-box', border: `1px solid ${C.ash}`, borderRadius: 9,
+    background: C.canvas, color: C.ink, fontSize: 13.5, fontFamily: 'inherit', padding: '10px 12px', outline: 'none',
+  }
+
+  const send = async () => {
+    if (!subject.trim() || !message.trim() || busy) return
+    setBusy(true); setNote(null)
+    try {
+      const r = await fetch(`/api/admin/users/${userId}/email`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject: subject.trim(), message: message.trim() }),
+      })
+      const j = await r.json().catch(() => null)
+      if (r.ok && j?.success) { setNote({ ok: true, text: `Sent to ${email}` }); setSubject(''); setMessage('') }
+      else setNote({ ok: false, text: j?.error || 'Could not send the email.' })
+    } catch { setNote({ ok: false, text: 'Network error, please try again.' }) }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <input value={subject} onChange={e => setSubject(e.target.value)} maxLength={200} placeholder="Subject" style={field} />
+      <textarea value={message} onChange={e => setMessage(e.target.value)} maxLength={5000} placeholder={`Write a message to ${email}`} rows={5} style={{ ...field, resize: 'vertical', lineHeight: 1.55 }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button onClick={send} disabled={busy || !subject.trim() || !message.trim()} style={{
+          background: busy || !subject.trim() || !message.trim() ? C.ash : C.orange, color: '#fff', border: 'none', borderRadius: 9,
+          padding: '9px 18px', fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit',
+          cursor: busy || !subject.trim() || !message.trim() ? 'default' : 'pointer',
+        }}>{busy ? 'Sending…' : 'Send email'}</button>
+        {note && <span style={{ fontSize: 12.5, color: note.ok ? C.orange : C.danger }}>{note.text}</span>}
+      </div>
+    </div>
+  )
+}
+
 export function UserDetailPanel({ userId, onClose }: { userId: string | null; onClose: () => void }) {
   const [d, setD] = useState<Detail | null>(null)
   const [state, setState] = useState<'loading' | 'ok' | 'error'>('loading')
@@ -160,6 +203,10 @@ export function UserDetailPanel({ userId, onClose }: { userId: string | null; on
                       ))}
                     </div>
                   )}
+              </Group>
+
+              <Group title="Send email">
+                <SendEmailForm userId={d.id} email={d.email} />
               </Group>
             </>
           )}

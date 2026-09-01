@@ -11,6 +11,8 @@ import { triggerUpgrade } from '@/lib/upgrade'
 import { AnimIcon, DASH_ICON } from '@/components/ui/AnimIcon'
 import { NavButton } from '@/components/ui/NavButton'
 import { DashboardLoader } from './DashboardLoader'
+import { DashboardTour } from './DashboardTour'
+import { RealtimeProvider, NotificationBell, ChatWidget } from './Realtime'
 
 const KeywordsTab      = dynamic(() => import('./tabs/KeywordsTab').then(m => ({ default: m.KeywordsTab })), { ssr: false })
 const ListingsTab      = dynamic(() => import('./tabs/ListingsTab').then(m => ({ default: m.ListingsTab })), { ssr: false })
@@ -159,6 +161,8 @@ export function DashboardLayout() {
     const tab = params.get('tab')
     if (tab && TABS.some(t => t.id === tab)) { target = tab as TabId; params.delete('tab') }
     if (target) {
+      // Deliberate one-time deep-link handling on mount (runs once, empty deps).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTab(target)
       const qs = params.toString()
       window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''))
@@ -194,6 +198,7 @@ export function DashboardLayout() {
   }
 
   return (
+    <RealtimeProvider isAdmin={user?.role === 'admin'}>
     <div style={{ display: 'flex', minHeight: '100vh', background: C.canvas }}>
 
       {/* Backdrop for the mobile drawer (only visible ≤900px) */}
@@ -209,10 +214,10 @@ export function DashboardLayout() {
         </div>
 
         {/* Nav */}
-        <nav style={{ flex: 1, padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <nav data-tour="nav" style={{ flex: 1, padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
           {/* Tool filter - type part of a tool's name to jump to it */}
           <div style={{ padding: '0 2px 12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.canvas, border: `1px solid ${C.ash}`, borderRadius: 10, padding: '8px 11px' }}>
+            <div data-tour="tool-search" style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.canvas, border: `1px solid ${C.ash}`, borderRadius: 10, padding: '8px 11px' }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={C.stone} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
               <input value={navFilter} onChange={e => setNavFilter(e.target.value)} placeholder="Find a tool..." aria-label="Find a tool"
                 style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', fontSize: 13.5, fontFamily: 'inherit', color: C.ink }} />
@@ -235,6 +240,7 @@ export function DashboardLayout() {
                 const hue = ACCENT[tab.accent]
                 return (
                   <button key={tab.id} onClick={() => handleTab(tab.id)}
+                    data-tour={tab.id === 'keywords' ? 'tool-keywords' : undefined}
                     style={{
                       position: 'relative',
                       display: 'flex', alignItems: 'center', gap: 12,
@@ -331,8 +337,13 @@ export function DashboardLayout() {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            <button onClick={() => window.dispatchEvent(new Event('rankkw:start-tour'))} title="Take a tour" aria-label="Take a tour"
+              className="rdash-badge" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: '50%', background: C.paper, border: `1px solid ${C.ash}`, color: C.graphite, cursor: 'pointer', flexShrink: 0 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </button>
+            <NotificationBell />
             {credits && (
-              <span className="rdash-badge" title={`${formatNumber(credits.credits)} of ${formatNumber(credits.limit)} daily credits left · 10 per tool use · resets midnight UTC`}
+              <span className="rdash-badge" data-tour="credits" title={`${formatNumber(credits.credits)} of ${formatNumber(credits.limit)} daily credits left · 10 per tool use · resets midnight UTC`}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, background: C.paper, color: C.ink, padding: '6px 12px', borderRadius: 999, fontFamily: "'General Sans',monospace", border: `1px solid ${credits.credits <= 0 ? C.orange : C.ash}`, fontWeight: 600, whiteSpace: 'nowrap' }}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={credits.credits <= 0 ? C.orange : C.charcoal} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                 {formatNumber(credits.credits)}<span style={{ color: C.stone, fontWeight: 500 }}>/{formatNumber(credits.limit)}</span>
@@ -345,7 +356,7 @@ export function DashboardLayout() {
               </span>
             )}
             {planInfo && !['business', 'agency', 'enterprise', 'custom'].includes(planInfo.plan) && (
-              <button onClick={() => triggerUpgrade({ title: 'Upgrade your plan', message: 'Unlock higher daily limits, Etsy Listing Pro images and more with a paid plan.' })}
+              <button data-tour="upgrade" onClick={() => triggerUpgrade({ title: 'Upgrade your plan', message: 'Unlock higher daily limits, Etsy Listing Pro images and more with a paid plan.' })}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, background: C.orange, color: '#fff', padding: '7px 15px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
                 onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
                 Upgrade
@@ -361,7 +372,7 @@ export function DashboardLayout() {
 
         {/* Content - the active tool's hue cascades into the shared kit (stat
             cards, section dots, buttons, search bars) via these CSS vars. */}
-        <div className="rdash-content" style={{
+        <div className="rdash-content" data-tour="content" style={{
           flex: 1, padding: '22px 28px', overflowY: 'auto',
           ['--accent' as string]: activeHue,
           ['--accent-soft' as string]: withAlpha(activeHue, 0.12),
@@ -380,6 +391,9 @@ export function DashboardLayout() {
         </div>
       </main>
       <UpgradeModalHost />
+      <DashboardTour />
+      <ChatWidget />
     </div>
+    </RealtimeProvider>
   )
 }

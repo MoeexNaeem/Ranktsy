@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/session'
 import { recordObservedListings, type ObservedListing } from '@/lib/snapshots'
+import { recordExtensionUsage } from '@/lib/extension'
 import type { ApiResponse } from '@/types'
 
 export const runtime = 'nodejs'
@@ -18,6 +19,8 @@ const MAX_ITEMS = 120
 export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{ captured: number }>>> {
   const user = await getCurrentUser().catch(() => null)
   if (!user) return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 })
+  // This endpoint is only ever called by the extension, so record usage for the user.
+  void recordExtensionUsage(req, user.id, true)
 
   const body = (await req.json().catch(() => ({}))) as { items?: unknown }
   const items = Array.isArray(body.items) ? body.items : []

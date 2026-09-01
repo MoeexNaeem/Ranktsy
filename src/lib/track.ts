@@ -10,12 +10,15 @@
 import type { NextRequest } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/session'
 import { runWithUsageContext } from '@/lib/usage'
+import { recordExtensionUsage } from '@/lib/extension'
 
 type Handler<C> = (req: NextRequest, ctx: C) => Promise<Response> | Response
 
 export function withUsage<C = unknown>(handler: Handler<C>): Handler<C> {
   return async (req: NextRequest, ctx: C) => {
     const user = await getCurrentUser().catch(() => null)
+    // Attribute extension traffic (chrome-extension origin / version header) to the user.
+    if (user) void recordExtensionUsage(req, user.id)
     const uctx = user ? { userId: user.id, userEmail: user.email } : { userId: 'anonymous' }
     return runWithUsageContext(uctx, () => handler(req, ctx))
   }
