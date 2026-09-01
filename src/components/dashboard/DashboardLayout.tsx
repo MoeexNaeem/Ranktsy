@@ -262,11 +262,11 @@ export function DashboardLayout() {
                         only on the active item so the idle rail stays clean, not tiled. */}
                     <span style={{
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                      width: 34, height: 34, borderRadius: 9, flexShrink: 0,
                       background: active ? withAlpha(hue, 0.14) : 'transparent',
                       color: hue,
                       transition: 'background 0.15s',
-                    }}><AnimIcon src={DASH_ICON[tab.id]} size={20} color={hue} active={active} target="button" /></span>
+                    }}><AnimIcon src={DASH_ICON[tab.id]} size={25} color={hue} active={active} target="button" /></span>
                     <span className="rlabel" style={{ fontSize: 14, fontWeight: active ? 600 : 500, color: active ? C.ink : C.inkSoft, letterSpacing: '-0.01em' }}>{tab.label}</span>
                   </button>
                 )
@@ -332,8 +332,8 @@ export function DashboardLayout() {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
             {/* Active-tool icon in its own hue - no background chip */}
-            <span className="rdash-titleicon" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 34, flexShrink: 0, color: activeHue }}>
-              <AnimIcon key={activeTab} src={DASH_ICON[activeTab]} size={26} color={activeHue} active />
+            <span className="rdash-titleicon" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 44, flexShrink: 0, color: activeHue }}>
+              <AnimIcon key={activeTab} src={DASH_ICON[activeTab]} size={34} color={activeHue} active />
             </span>
             <div style={{ minWidth: 0 }}>
               <h1 style={{ fontSize: 22, fontWeight: 600, color: C.ink, letterSpacing: '-0.03em', marginBottom: 2 }}>{activeInfo.label}</h1>

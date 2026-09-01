@@ -47,7 +47,7 @@ export function OverviewTab({ onNavigate }: { onNavigate?: (id: string) => void 
             style={{ position: 'relative', textAlign: 'left', background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 16, padding: '18px 18px', cursor: 'pointer', fontFamily: 'inherit', transition: 'transform 0.15s, border-color 0.15s, box-shadow 0.15s', overflow: 'hidden' }}
             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.borderColor = t.color; e.currentTarget.style.boxShadow = `0 10px 24px ${withAlpha(t.color, 0.16)}` }}
             onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = C.ash; e.currentTarget.style.boxShadow = 'none' }}>
-            <span style={{ display: 'inline-flex', color: t.color, marginBottom: 14 }}><AnimIcon src={DASH_ICON[t.id]} size={26} color={t.color} target="button" /></span>
+            <span style={{ display: 'inline-flex', color: t.color, marginBottom: 14 }}><AnimIcon src={DASH_ICON[t.id]} size={32} color={t.color} target="button" /></span>
             <p style={{ fontSize: 15.5, fontWeight: 600, color: C.ink, marginBottom: 3 }}>{t.label}</p>
             <p style={{ fontSize: 13, color: C.graphite }}>{t.desc}</p>
           </button>
