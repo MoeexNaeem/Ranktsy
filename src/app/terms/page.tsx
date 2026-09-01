@@ -6,131 +6,117 @@ import { abs } from '@/lib/seo/site'
 
 export const metadata: Metadata = {
   title: 'Terms of Service - Rankkw',
-  description: 'The terms that govern your use of Rankkw, the independent Etsy keyword research and analytics platform.',
+  description: 'The terms that govern your use of RankKW, the independent Etsy keyword research and analytics platform owned by Zafar Ali and operated by Letrank Marketing.',
   alternates: { canonical: abs('/terms') },
-  openGraph: { title: 'Terms of Service - Rankkw', description: 'The terms that govern your use of Rankkw.', url: abs('/terms'), type: 'website' },
+  openGraph: { title: 'Terms of Service - Rankkw', description: 'The terms that govern your use of RankKW.', url: abs('/terms'), type: 'website' },
 }
 
 const sections = [
   {
     number: '01',
-    title: 'Acceptance of Terms',
+    title: 'Introduction',
     content:
-      'By accessing or using Rankkw ("the Service," "our platform," "we," or "us"), you agree to be bound by these Terms of Service and all applicable laws and regulations. If you do not agree with any part of these terms, you may not access or use the Service. These Terms apply to all visitors, users, and others who access or use the Service.',
-    bullets: [],
+      'RankKW (the “Service”) is a digital software platform and website owned by Zafar Ali and operated by Letrank Marketing Software House (“Letrank Marketing”, “RankKW”, “we”, “us”, or “our”). The Service includes the RankKW website, dashboard, software tools, browser extension, analytics, integrations, subscription features, and related support services.',
+    bullets: [
+      { label: '', text: 'RankKW provides Etsy-focused keyword research, listing and competitor analysis, shop analytics, trend and market research, listing optimization tools, AI-assisted title/tag/description features, calculators, exports, and other digital tools made available from time to time.' },
+      { label: '', text: 'By accessing rankkw.com, creating an account, connecting a shop, using a free plan, purchasing a subscription, or otherwise using the Service, you agree to these Terms and Conditions and to any policies referenced on our website, including our Privacy Policy and Refund & Return Policy.' },
+      { label: '', text: 'If you need technical, billing, or account support, contact us using the support details shown on this page or through the contact page on rankkw.com.' },
+    ],
   },
   {
     number: '02',
-    title: 'Description of Service',
+    title: 'Applicability and Updates',
     content:
-      'Rankkw is an independent keyword research and analytics platform designed to help Etsy sellers analyze search trends, optimize listings, and track shop performance. The Service includes:',
+      'These Terms and Conditions apply to all visitors, registered users, free-plan users, paid subscribers, agency users, and any person or entity that accesses or uses the Service.',
     bullets: [
-      { label: 'Keyword Research', text: 'Analysis of live Etsy listing competition, engagement and pricing. Etsy publishes no search-volume or click data; where we show search volume it comes from Google, and where a figure is an estimate the app says so. See our Methodology page for exactly what is measured and what we deliberately don’t show.' },
-      { label: 'Trend Analytics', text: 'Etsy publishes no search volume and no search history, so we show no Etsy demand curve. Where seasonality is shown it is real Google Ads monthly volume, or the real month each competing listing was created - labelled as seller behaviour, not buyer demand. Note: Etsy\'s Open API does not expose raw search volume counts.' },
-      { label: 'Competition Analysis', text: 'Insights into competing listings, tags, and titles within Etsy\'s marketplace.' },
-      { label: 'Tag Optimizer', text: 'Data-backed tag recommendations to maximize listing visibility within Etsy\'s 13-tag allowance.' },
-      { label: 'Shop Analytics', text: 'Optional integration to track your connected shop\'s views, favorites, and revenue trends.' },
+      { label: '', text: 'You represent that you are at least 18 years old, have legal capacity to enter into a binding agreement, and are not prohibited from receiving or using the Service under the laws of Pakistan or any other applicable jurisdiction.' },
+      { label: '', text: 'We may update these Terms from time to time to reflect changes to our Service, subscriptions, payment arrangements, third-party APIs, security requirements, or applicable law. The latest version posted on RankKW will govern your continued use of the Service after the effective date of the update.' },
     ],
   },
   {
     number: '03',
-    title: 'User Accounts & Registration',
-    content: 'To access most features of the Service, you must create an account. By registering, you agree to:',
+    title: 'Terms of Usage',
+    content: 'You may use RankKW only for lawful business, research, analytics, and listing-optimization purposes. You must not:',
     bullets: [
-      { label: '', text: 'Provide accurate, current, and complete information during registration.' },
-      { label: '', text: 'Maintain the security of your password and promptly notify us of any unauthorized account access.' },
-      { label: '', text: 'Accept responsibility for all activities that occur under your account.' },
-      { label: '', text: 'Not share your account credentials or allow others to use your account.' },
+      { label: '', text: 'use the Service for any unlawful, fraudulent, deceptive, abusive, obscene, or harmful purpose;' },
+      { label: '', text: 'use the Service in a way that violates Etsy’s Terms of Use, Community Policies, API terms, or the rights of any marketplace participant;' },
+      { label: '', text: 'attempt to scrape, crawl, spider, reverse-engineer, decompile, copy, reproduce, bypass, or extract the Service, its code, protected data, rate limits, or security controls except where expressly permitted by applicable law;' },
+      { label: '', text: 'use bots, scripts, automated systems, or excessive requests that overload, disrupt, circumvent, or interfere with the Service or its infrastructure;' },
+      { label: '', text: 'resell, sublicense, share, redistribute, or commercially exploit your RankKW account, subscription access, proprietary reports, or restricted data without our written permission;' },
+      { label: '', text: 'share account credentials with unauthorized persons, impersonate another person or entity, or submit false or misleading account or payment information;' },
+      { label: '', text: 'upload or transmit malware, malicious code, spam, phishing content, or material that infringes intellectual property, privacy, or other rights;' },
+      { label: '', text: 'collect or track personal information of other users except where lawfully permitted and necessary for a legitimate purpose.' },
+      { label: 'Fair-use limits', text: 'We may apply fair-use limits, credits, search caps, image-generation limits, shop limits, API limits, or other plan restrictions shown on the RankKW pricing or dashboard pages. Attempts to bypass or manipulate these limits may result in restriction or termination.' },
+      { label: 'Account security', text: 'You are responsible for maintaining the confidentiality of your login credentials and for all activity performed through your account. You must promptly notify us if you believe your account has been compromised.' },
     ],
-    footer: 'We reserve the right to terminate accounts that violate these Terms or that have been inactive for more than 12 months on free plans.',
   },
   {
     number: '04',
-    title: 'Service Access & Subscription Plans',
-    content: 'Rankkw offers a free plan alongside paid subscription plans. By using the Service you agree that:',
+    title: 'Intellectual Property and Third-Party Data',
+    content:
+      'The RankKW website, software, interface, original content, product design, source code, databases created by us, branding, reports, documentation, images, and related materials are owned by or licensed to Letrank Marketing / RankKW and are protected by applicable intellectual property laws. All rights not expressly granted are reserved.',
+    disclaimer: true,
     bullets: [
-      { label: 'Free Plan', text: 'A free plan is available with limited usage - including a daily cap on keyword searches. No credit card is required to use it.' },
-      { label: 'Paid Plans', text: 'Paid tiers (Starter, Pro, Business and Agency) unlock additional features and higher limits, billed monthly in Pakistani rupees (PKR) at the prices shown on our pricing page.' },
-      { label: '3-Day Trial', text: 'A 3-day trial of a paid plan may be offered for a one-time Rs 299 charge. Unless cancelled before the trial ends, it converts to the applicable monthly subscription.' },
-      { label: 'Cancellation & Changes', text: 'You may cancel a paid subscription at any time; access continues through the end of the current billing period. Prices may change with at least 30 days\' notice to existing subscribers.' },
+      { label: 'Your content', text: 'You retain ownership of content or data that you lawfully upload or connect to the Service. You grant us a limited, non-exclusive right to process that content only as reasonably necessary to provide, secure, support, and improve the Service.' },
+      { label: 'Third-party data', text: 'Marketplace information, trademarks, and third-party data remain the property of their respective owners. RankKW uses third-party services and APIs, including Etsy-related data sources, to provide analytics and research features.' },
+      { label: 'Etsy trademarks', text: '“Etsy” and related marks are trademarks of Etsy, Inc. RankKW is an independent application and is not endorsed, sponsored, or certified by Etsy, Inc. Users who connect or analyze Etsy data remain responsible for complying with Etsy’s own policies and applicable API terms.' },
     ],
   },
   {
     number: '05',
-    title: 'Acceptable Use Policy',
-    content: 'You agree to use the Service only for lawful purposes and in accordance with these Terms. You must NOT:',
+    title: 'Subscriptions, Payments, Refunds, Indemnity and Limitation of Liability',
+    content:
+      'RankKW may offer free and paid subscription plans with different usage limits, features, credits, images, shop connections, research limits, support levels, and billing periods. Current plan features and prices are those displayed on the RankKW pricing page at the time of purchase, unless a written promotional offer states otherwise.',
     bullets: [
-      { label: '', text: 'Use the Service to engage in any activity that violates Etsy\'s own Terms of Service or Community Guidelines.' },
-      { label: '', text: 'Attempt to scrape, reverse-engineer, or extract data from the Service beyond what is provided through normal use.' },
-      { label: '', text: 'Use automated bots or scripts to interact with the Service in a way that places an excessive burden on our infrastructure.' },
-      { label: '', text: 'Resell, redistribute, or sublicense access to the Service or any data obtained through it.' },
-      { label: '', text: 'Use the Service to transmit any malware, spam, or otherwise harmful content.' },
-      { label: '', text: 'Impersonate any person or entity or misrepresent your affiliation with any person or entity.' },
+      { label: 'Digital service', text: 'RankKW is a digital subscription service. No physical goods are shipped. Payments may be processed through third-party payment providers made available at checkout. We do not require or intend to store your full card details on our own servers when a payment processor handles the transaction.' },
+      { label: 'Cancellation', text: 'You may cancel a recurring paid subscription in accordance with the cancellation options made available through your account or support. Unless otherwise stated, cancellation stops future renewal and access continues until the end of the paid billing period. Refund requests are governed by the Refund & Return Policy published on rankkw.com.' },
+      { label: 'Declined transactions', text: 'We may decline, cancel, suspend, or reverse a subscription or transaction where payment fails, fraud or abuse is suspected, a price or technical error occurs, the requested Service is unavailable, a legal or regulatory restriction applies, or circumstances outside our reasonable control prevent delivery of the Service.' },
+      { label: 'Indemnity', text: 'You agree to indemnify, defend, and hold harmless Letrank Marketing, RankKW, and their owners, officers, employees, contractors, service providers, affiliates, and licensors from claims, losses, liabilities, and reasonable costs arising from your breach of these Terms, unlawful use of the Service, infringement of third-party rights, or misuse of data or integrations.' },
+      { label: 'No guarantees', text: 'RankKW provides research, analytics, estimates, recommendations, and software tools for informational and business-support purposes. We do not guarantee sales, rankings, revenue, search position, marketplace approval, account standing, or any specific business outcome.' },
+      { label: 'As-is data', text: 'Data availability and accuracy may be affected by third-party APIs, marketplace changes, Google or Etsy data availability, algorithm changes, outages, rate limits, user-provided information, or other factors outside our control. The Service is provided on an “as available” and “as is” basis to the maximum extent permitted by law.' },
+      { label: 'Limitation of liability', text: 'To the maximum extent permitted by applicable law, neither Letrank Marketing nor RankKW will be liable for indirect, incidental, special, consequential, exemplary, or punitive damages, including loss of profits, data, goodwill, business opportunity, rankings, or marketplace access. Our aggregate liability for a claim relating to a paid subscription will not exceed the amount actually paid by the user to RankKW during the 12 months preceding the event giving rise to the claim, except where the law does not permit such limitation.' },
     ],
   },
   {
     number: '06',
-    title: 'Intellectual Property',
+    title: 'Suspension and Termination',
     content:
-      'The Service and its original content, features, and functionality are and will remain the exclusive property of Rankkw and its licensors. Our trademarks and trade dress may not be used in connection with any product or service without prior written consent.',
+      'We may immediately restrict, suspend, or terminate access to the Service, an account, connected shop, feature, API access, or subscription where we reasonably believe there has been a breach of these Terms, fraudulent activity, payment abuse, unauthorized automation, security risk, unlawful conduct, interference with other users, a request by a competent authority, or misuse of our intellectual property or third-party data.',
     bullets: [
-      { label: 'Your Content', text: 'You retain ownership of any data or content you upload to the Service. By using the Service, you grant us a limited license to process that data solely to provide you with the features of the Service.' },
-      { label: 'Third-Party Data', text: 'Marketplace data and trend metrics are sourced from publicly available APIs and databases. Such data remains the property of their respective owners.' },
+      { label: '', text: 'We may also modify or discontinue any part of the Service where required by changes in law, third-party APIs, marketplace access, infrastructure, security, or business operations. Where practical, we will provide reasonable notice of material changes affecting paid users.' },
+      { label: '', text: 'Upon termination, your right to use restricted parts of the Service ends immediately. Clauses relating to intellectual property, payment obligations, disclaimers, limitation of liability, indemnity, governing law, and any provisions intended by their nature to survive termination will remain in effect.' },
     ],
   },
   {
     number: '07',
-    title: 'Third-Party Services & Disclaimer',
+    title: 'Severability and Waiver',
     content:
-      'Rankkw uses the official Etsy Open API v3 (https://openapi.etsy.com) to retrieve publicly available marketplace data, such as active listing details, shop information, and product search results. We do not use scraping, unofficial endpoints, or any third-party data proxy services to access Etsy data.',
-    disclaimer: true,
-    bullets: [
-      { label: 'Data Source', text: 'All Etsy data displayed in Rankkw is retrieved via the official Etsy Open API v3. The API provides listing-level data (titles, tags, views, favorites, prices, images) for active public listings. It does not expose search volume, click data, or buyer country breakdowns; the engagement figures we show are the view and favorite counts returned by the API, and their ratio.' },
-      { label: 'Data Scope', text: 'We access only publicly available listing data (titles, tags, views, images, prices). We do not access private seller data without explicit OAuth consent.' },
-      { label: 'No Affiliation', text: 'Rankkw is an independent application. "Etsy" is a trademark of Etsy, Inc. This application uses the Etsy API but is not endorsed or certified by Etsy, Inc.' },
-    ],
+      'If any provision of these Terms is found unlawful, invalid, or unenforceable, that provision will be interpreted or modified to the minimum extent necessary to make it enforceable. If it cannot be made enforceable, it will be severed and the remaining provisions will continue in full force and effect. A failure by us to enforce any provision does not constitute a waiver. Any waiver must be in writing and authorized by us.',
+    bullets: [],
   },
   {
     number: '08',
-    title: 'Limitation of Liability',
+    title: 'Governing Law and Jurisdiction',
     content:
-      'To the maximum extent permitted by applicable law, Rankkw shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or business opportunities, resulting from:',
-    bullets: [
-      { label: '', text: 'Your use of or inability to use the Service.' },
-      { label: '', text: 'Inaccuracies in keyword data, trend metrics, or analytics provided by the Service.' },
-      { label: '', text: 'Changes to Etsy\'s platform, algorithm, or API that affect the accuracy of our data.' },
-      { label: '', text: 'Unauthorized access to or alteration of your data.' },
-    ],
-    footer: 'Our total liability to you for any claim arising out of or relating to these Terms or the Service shall not exceed the amount paid by you to Rankkw in the 12 months preceding the claim.',
+      'These Terms and Conditions are governed by the laws of the Islamic Republic of Pakistan. Subject to any mandatory consumer protection rights or dispute-resolution requirements that apply, the courts of competent jurisdiction in Pakistan, including any competent consumer court where applicable, will have jurisdiction over disputes arising from or relating to these Terms or the Service.',
+    bullets: [],
   },
   {
     number: '09',
-    title: 'Termination',
+    title: 'Contact and Business Identification',
     content:
-      'We may terminate or suspend your account and access to the Service immediately, without prior notice, for conduct that we determine, in our sole discretion, violates these Terms or is harmful to other users, us, third parties, or for any other reason. Upon termination, your right to use the Service will immediately cease.',
-    bullets: [],
-  },
-  {
-    number: '10',
-    title: 'Changes to Terms',
-    content:
-      'We reserve the right to modify these Terms at any time. We will provide notice of significant changes by updating the "Last Updated" date at the top of this page and, where appropriate, by sending an email to registered users. Your continued use of the Service after any changes constitutes acceptance of the new Terms.',
-    bullets: [],
-  },
-  {
-    number: '11',
-    title: 'Governing Law',
-    content:
-      'These Terms shall be governed by and construed in accordance with applicable law. Any disputes arising under these Terms shall be resolved through binding arbitration, except where prohibited by law, and you waive any right to participate in a class-action lawsuit.',
-    bullets: [],
-  },
-  {
-    number: '12',
-    title: 'Contact Information',
-    content: 'If you have any questions about these Terms of Service, please contact us at:',
+      'RankKW is owned by Zafar Ali and operated by Letrank Marketing Software House, Pakistan. For merchant or regulatory use, business registration details should match Letrank Marketing’s official records.',
     contact: true,
     bullets: [],
   },
+]
+
+const contactRows: { label: string; value: string; href?: string }[] = [
+  { label: 'OWNER', value: 'Zafar Ali' },
+  { label: 'OPERATOR', value: 'Letrank Marketing Software House, Pakistan' },
+  { label: 'PHONE / WHATSAPP', value: '+92 329 7890000', href: 'tel:+923297890000' },
+  { label: 'LOCATION', value: 'Leaving Dol Beauty Salone, College Road, Bahawalpur, Punjab, Pakistan' },
+  { label: 'CONTACT', value: 'rankkw.com/contact', href: 'https://rankkw.com/contact' },
 ]
 
 export default function TermsPage() {
@@ -177,7 +163,7 @@ export default function TermsPage() {
                 marginBottom: 18,
               }}
             >
-              Terms of Service
+              Terms and Conditions
             </h1>
             <p
               style={{
@@ -187,7 +173,7 @@ export default function TermsPage() {
                 letterSpacing: '0.02em',
               }}
             >
-              Last Updated: June 7, 2026
+              Effective Date: September 1, 2026 · Owned by Zafar Ali · Operated by Letrank Marketing Software House
             </p>
           </div>
         </div>
@@ -272,7 +258,7 @@ export default function TermsPage() {
                 paddingLeft: 20,
               }}
             >
-              Welcome to Rankkw. These Terms of Service govern your access to and use of our platform, including all features, tools, and analytics services. Please read these terms carefully before using the Service. By using Rankkw, you confirm that you are at least 18 years old and have the legal authority to agree to these terms.
+              These Terms and Conditions govern your access to and use of RankKW, a digital software platform owned by Zafar Ali and operated by Letrank Marketing Software House, Pakistan. Please read them carefully before using the Service. By using RankKW, you confirm that you are at least 18 years old and agree to be bound by these Terms and the policies referenced on rankkw.com.
             </p>
 
             {sections.map((s, i) => (
@@ -350,12 +336,6 @@ export default function TermsPage() {
                   </ul>
                 )}
 
-                {'footer' in s && s.footer && (
-                  <p style={{ fontSize: 14, color: '#666', lineHeight: 1.7, marginTop: 16, fontStyle: 'italic' }}>
-                    {s.footer}
-                  </p>
-                )}
-
                 {'disclaimer' in s && s.disclaimer && (
                   <div
                     style={{
@@ -375,7 +355,7 @@ export default function TermsPage() {
                         fontFamily: "'General Sans', monospace",
                       }}
                     >
-                      Important Disclaimer: The term &apos;Etsy&apos; is a trademark of Etsy, Inc. This application uses the Etsy API but is not endorsed or certified by Etsy, Inc. Use of Etsy&apos;s API is subject to Etsy&apos;s own Terms of Use, and users of Rankkw who connect their Etsy shops remain bound by Etsy&apos;s policies.
+                      Important Disclaimer: The term &apos;Etsy&apos; is a trademark of Etsy, Inc. This application uses the Etsy API but is not endorsed or certified by Etsy, Inc. Use of Etsy&apos;s API is subject to Etsy&apos;s own Terms of Use, and users of RankKW who connect their Etsy shops remain bound by Etsy&apos;s policies.
                     </p>
                   </div>
                 )}
@@ -392,36 +372,16 @@ export default function TermsPage() {
                       gap: 12,
                     }}
                   >
-                    <a
-                      href="mailto:support@rankkw.com"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 12,
-                        color: C.orange,
-                        textDecoration: 'none',
-                        fontSize: 14,
-                        fontFamily: "'General Sans', monospace",
-                      }}
-                    >
-                      <span style={{ opacity: 0.6, fontSize: 12 }}>EMAIL</span>
-                      support@rankkw.com
-                    </a>
-                    <a
-                      href="https://rankkw.com/contact"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 12,
-                        color: C.orange,
-                        textDecoration: 'none',
-                        fontSize: 14,
-                        fontFamily: "'General Sans', monospace",
-                      }}
-                    >
-                      <span style={{ opacity: 0.6, fontSize: 12 }}>WEB</span>
-                      rankkw.com/contact
-                    </a>
+                    {contactRows.map((row) => (
+                      <div key={row.label} style={{ display: 'flex', alignItems: 'baseline', gap: 12, fontSize: 14, fontFamily: "'General Sans', monospace", lineHeight: 1.6 }}>
+                        <span style={{ opacity: 0.55, fontSize: 11, color: '#fff', flexShrink: 0, minWidth: 132 }}>{row.label}</span>
+                        {row.href ? (
+                          <a href={row.href} style={{ color: C.orange, textDecoration: 'none' }}>{row.value}</a>
+                        ) : (
+                          <span style={{ color: '#EDEBE4' }}>{row.value}</span>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
