@@ -227,6 +227,41 @@ function InfoDot({ title }: { title: string }) {
   )
 }
 
+// Track/untrack the current keyword for change alerts (bell notifications).
+function TrackKeywordButton({ keyword, country }: { keyword: string; country: string }) {
+  const [tracked, setTracked] = useState(false)
+  const [id, setId] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    let alive = true
+    fetch('/api/alerts').then(r => r.json()).then((j: { success?: boolean; data?: { items: { id: string; keyword: string; country: string }[] } }) => {
+      if (!alive || !j?.success) return
+      const hit = j.data!.items.find(a => a.keyword.trim().toLowerCase() === keyword.trim().toLowerCase() && a.country === country.toUpperCase())
+      setTracked(!!hit); setId(hit?.id ?? null)
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [keyword, country])
+  const toggle = async () => {
+    if (busy) return
+    setBusy(true)
+    try {
+      if (tracked && id) { await fetch(`/api/alerts/${id}`, { method: 'DELETE' }); setTracked(false); setId(null) }
+      else {
+        const r = await fetch('/api/alerts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keyword, country }) })
+        const j = await r.json(); if (j?.success) { setTracked(true); setId(j.data.id) }
+      }
+    } finally { setBusy(false) }
+  }
+  return (
+    <button onClick={toggle} disabled={busy} title={tracked ? 'Stop watching this keyword' : 'Get a notification when this keyword changes'}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 40, padding: '0 15px', borderRadius: 100, cursor: busy ? 'default' : 'pointer', fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit',
+        border: `1px solid ${tracked ? C.orange : C.ash}`, background: tracked ? C.orangeFaint : C.paper, color: tracked ? C.orange : C.ink, transition: 'all 0.12s' }}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill={tracked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      {tracked ? 'Tracking' : 'Track'}
+    </button>
+  )
+}
+
 function KeywordStatsPanel({ s, geoName }: { s: KeywordStats; geoName: string }) {
   // Authentic data only, grouped by its real source so the origin of every number is
   // explicit: GOOGLE = search demand from the Google Keyword Planner API; ETSY = Etsy's
@@ -516,6 +551,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
             onMouseLeave={e => { e.currentTarget.style.borderColor = C.ash; e.currentTarget.style.color = C.ink }}>
             See Best Sellers →
           </button>
+          <TrackKeywordButton keyword={kw.query} country={country} />
         </div>
       )}
 

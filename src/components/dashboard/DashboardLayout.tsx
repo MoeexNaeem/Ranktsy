@@ -13,6 +13,7 @@ import { NavButton } from '@/components/ui/NavButton'
 import { DashboardLoader } from './DashboardLoader'
 import { DashboardTour } from './DashboardTour'
 import { RealtimeProvider, NotificationBell, ChatWidget } from './Realtime'
+import { OnboardingChecklist } from './OnboardingChecklist'
 
 const KeywordsTab      = dynamic(() => import('./tabs/KeywordsTab').then(m => ({ default: m.KeywordsTab })), { ssr: false })
 const ListingsTab      = dynamic(() => import('./tabs/ListingsTab').then(m => ({ default: m.ListingsTab })), { ssr: false })
@@ -47,8 +48,9 @@ const SalesMapTab          = dynamic(() => import('./tabs/SalesMapTab').then(m =
 const DeliveryStatusTab    = dynamic(() => import('./tabs/DeliveryStatusTab').then(m => ({ default: m.DeliveryStatusTab })), { ssr: false })
 const KeywordGapTab        = dynamic(() => import('./tabs/KeywordGapTab').then(m => ({ default: m.KeywordGapTab })), { ssr: false })
 const HotProductsTab       = dynamic(() => import('./tabs/HotProductsTab').then(m => ({ default: m.HotProductsTab })), { ssr: false })
+const AlertsTab            = dynamic(() => import('./tabs/AlertsTab').then(m => ({ default: m.AlertsTab })), { ssr: false })
 
-type TabId = 'overview' | 'myshop' | 'hotproducts' | 'keywords' | 'gap' | 'listings' | 'competitors' | 'compsales' | 'trends' | 'buzz' | 'monthly' | 'topsellers' | 'catreport' | 'bulk' | 'rank' | 'shop' | 'salesmap' | 'delivery' | 'tags' | 'aihelper' | 'listingpro' | 'ctags' | 'titlegen' | 'taggen' | 'descgen' | 'audit' | 'compare' | 'spell' | 'fees' | 'adsroi' | 'category' | 'calendar' | 'lists'
+type TabId = 'overview' | 'myshop' | 'hotproducts' | 'keywords' | 'gap' | 'listings' | 'competitors' | 'compsales' | 'trends' | 'buzz' | 'monthly' | 'topsellers' | 'catreport' | 'bulk' | 'rank' | 'shop' | 'salesmap' | 'delivery' | 'tags' | 'aihelper' | 'listingpro' | 'ctags' | 'titlegen' | 'taggen' | 'descgen' | 'audit' | 'compare' | 'spell' | 'fees' | 'adsroi' | 'category' | 'calendar' | 'lists' | 'alerts'
 
 const TABS: { id: TabId; label: string; description: string; group: string; accent: AccentName }[] = [
   { id: 'overview',    label: 'Overview',      group: 'Home',        accent: 'indigo',  description: 'Your Etsy SEO command center' },
@@ -66,6 +68,7 @@ const TABS: { id: TabId; label: string; description: string; group: string; acce
   { id: 'gap',         label: 'Keyword Gap',   group: 'Research',    accent: 'fuchsia', description: 'Find the hidden keywords you\'re missing' },
   { id: 'bulk',        label: 'Bulk Keywords', group: 'Research',    accent: 'purple',  description: 'Compare keywords in bulk' },
   { id: 'rank',        label: 'Rank Checker',  group: 'Research',    accent: 'red',     description: 'Find where your shop ranks' },
+  { id: 'alerts',      label: 'Alerts',        group: 'Research',    accent: 'amber',   description: 'Get notified when keywords change' },
   { id: 'shop',        label: 'Shop Analytics',group: 'Optimize',    accent: 'violet',  description: 'Analyze any Etsy shop' },
   // Own-shop tools - these read your Etsy receipts over OAuth, which is the only
   // place Etsy exposes buyer country and fulfilment state.
@@ -125,6 +128,7 @@ function TabContent({ active, onNavigate }: { active: TabId; onNavigate: (id: Ta
     category:    <CategoryToolTab />,
     calendar:    <CalendarTab />,
     lists:       <KeywordListsTab />,
+    alerts:      <AlertsTab />,
   }
   return (
     <Suspense fallback={<div className="shimmer" style={{ height: 300, borderRadius: 8, background: '#e8e7e2' }} />}>
@@ -378,6 +382,7 @@ export function DashboardLayout() {
           ['--accent-soft' as string]: withAlpha(activeHue, 0.12),
           ['--accent-ring' as string]: withAlpha(activeHue, 0.30),
         }}>
+          {activeTab === 'overview' && <OnboardingChecklist onNavigate={(t) => handleTab(t as TabId)} />}
           <TabContent active={activeTab} onNavigate={handleTab} />
         </div>
 

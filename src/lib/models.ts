@@ -442,6 +442,32 @@ const ChatMessageSchema = new Schema<IChatMessageDoc>({
 }, { timestamps: true })
 ChatMessageSchema.index({ userId: 1, createdAt: 1 })
 
+// ─── Keyword alerts ─────────────────────────────────────────────────────────────
+// A keyword a user is watching. We store the last-seen metrics as a baseline; a cron
+// re-checks periodically and raises a notification when they move enough.
+export interface ITrackedKeywordDoc extends Document {
+  userId: string
+  keyword: string
+  country: string
+  baseVolume?: number | null
+  baseCompetition?: number | null
+  baseDifficulty?: number | null
+  lastCheckedAt: Date
+  lastNotifiedAt?: Date | null
+  createdAt?: Date
+}
+const TrackedKeywordSchema = new Schema<ITrackedKeywordDoc>({
+  userId:          { type: String, required: true, index: true },
+  keyword:         { type: String, required: true, trim: true },
+  country:         { type: String, default: 'GLO' },
+  baseVolume:      { type: Number, default: null },
+  baseCompetition: { type: Number, default: null },
+  baseDifficulty:  { type: Number, default: null },
+  lastCheckedAt:   { type: Date, default: Date.now, index: true },
+  lastNotifiedAt:  { type: Date, default: null },
+}, { timestamps: true })
+TrackedKeywordSchema.index({ userId: 1, keyword: 1, country: 1 }, { unique: true })
+
 // Auto-expire old chats and notifications via MongoDB TTL indexes: a document is removed
 // ~30 days after it was created, so these collections never grow unbounded and a user with
 // no recent activity simply starts a fresh conversation. No cron needed (Mongo's TTL monitor
@@ -454,6 +480,7 @@ NotificationSchema.index({ createdAt: 1 }, { expireAfterSeconds: RETENTION_SECON
 export const ExtensionUsage = (models.ExtensionUsage as mongoose.Model<IExtensionUsageDoc>) ?? model<IExtensionUsageDoc>('ExtensionUsage', ExtensionUsageSchema)
 export const Notification   = (models.Notification as mongoose.Model<INotificationDoc>)   ?? model<INotificationDoc>('Notification', NotificationSchema)
 export const ChatMessage    = (models.ChatMessage as mongoose.Model<IChatMessageDoc>)     ?? model<IChatMessageDoc>('ChatMessage', ChatMessageSchema)
+export const TrackedKeyword = (models.TrackedKeyword as mongoose.Model<ITrackedKeywordDoc>) ?? model<ITrackedKeywordDoc>('TrackedKeyword', TrackedKeywordSchema)
 
 export const User          = models.User          ?? model<IUserDoc>('User', UserSchema)
 export const AutomationRun = (models.AutomationRun as mongoose.Model<IAutomationRun>) ?? model<IAutomationRun>('AutomationRun', AutomationRunSchema)

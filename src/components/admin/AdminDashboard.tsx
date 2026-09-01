@@ -9,6 +9,7 @@ import { AnimIcon, ICON } from '@/components/ui/AnimIcon'
 import { Kpi, Bars, Donut } from './AdminCharts'
 import { UserDetailPanel } from './UserDetailPanel'
 import { AdminMessages } from './AdminMessages'
+import { RealtimeProvider, NotificationBell } from '@/components/dashboard/Realtime'
 
 interface AUser {
   id: string; name: string; email: string; role: 'user' | 'admin'; plan: string
@@ -289,6 +290,7 @@ export function AdminDashboard() {
   }
 
   return (
+    <RealtimeProvider isAdmin>
     <main className="rpage" style={{ background: C.canvas, minHeight: '100vh', paddingTop: 92 }}>
       <div className="admin-shell" style={{ display: 'flex', maxWidth: 1440, margin: '0 auto', alignItems: 'flex-start' }}>
         {/* ─── Sidebar ─────────────────────────────────────────────────────── */}
@@ -304,7 +306,10 @@ export function AdminDashboard() {
 
         {/* ─── Content ─────────────────────────────────────────────────────── */}
         <div style={{ flex: 1, minWidth: 0, padding: '30px 34px 90px' }}>
-          <h1 style={{ fontSize: 'clamp(26px,3vw,38px)', fontWeight: 600, color: C.ink, letterSpacing: '-0.03em', marginBottom: 24, textTransform: 'capitalize' }}>{section}</h1>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 24 }}>
+            <h1 style={{ fontSize: 'clamp(26px,3vw,38px)', fontWeight: 600, color: C.ink, letterSpacing: '-0.03em', textTransform: 'capitalize', margin: 0 }}>{section}</h1>
+            <NotificationBell />
+          </div>
 
           {section === 'overview' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -630,5 +635,6 @@ export function AdminDashboard() {
         </div>
       )}
     </main>
+    </RealtimeProvider>
   )
 }

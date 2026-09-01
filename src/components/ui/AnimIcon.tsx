@@ -110,7 +110,7 @@ export const DASH_ICON: Record<string, string> = {
   keywords: ICON.search, gap: ICON.target, listings: ICON.display,
   competitors: ICON.account, compsales: ICON.coins, trends: ICON.trending,
   buzz: ICON.demand, monthly: ICON.barChart, topsellers: ICON.celebration,
-  catreport: ICON.barChart, bulk: ICON.magnifier, rank: ICON.target,
+  catreport: ICON.barChart, bulk: ICON.magnifier, rank: ICON.target, alerts: ICON.trending,
   shop: ICON.globe, salesmap: ICON.globe, delivery: ICON.gift,
   tags: ICON.build, titlegen: ICON.document, taggen: ICON.build,
   descgen: ICON.book, listingpro: ICON.display, aihelper: ICON.consult,

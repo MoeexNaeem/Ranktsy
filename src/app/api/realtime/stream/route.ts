@@ -11,8 +11,11 @@ export const dynamic = 'force-dynamic'
 // Server-Sent Events stream. The browser opens ONE EventSource here; we poll Mongo
 // every few seconds for new notifications and chat messages addressed to this viewer
 // and push them as events. Polling Mongo (not an in-process bus) is what makes it work
-// across every PM2 cluster worker with no extra infrastructure.
-const POLL_MS = 3000
+// across every PM2 cluster worker with no extra infrastructure. Poll interval is
+// env-tunable and defaults to a Flex-friendly 8s (each open dashboard runs one loop,
+// so this directly bounds the per-connection DB load); notifications/chat still feel
+// realtime enough. Lower NEXT_PUBLIC-free var RT_POLL_MS on a dedicated tier if wanted.
+const POLL_MS = Math.max(2000, Number(process.env.RT_POLL_MS) || 8000)
 const HEARTBEAT_MS = 25_000
 const MAX_LIFE_MS = 5 * 60_000 // client's EventSource auto-reconnects after we close
 
