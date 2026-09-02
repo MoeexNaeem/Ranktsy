@@ -7,6 +7,7 @@ import { setAuthCookiesOn } from '@/lib/auth/cookies'
 import { resolveRole } from '@/lib/auth/roles'
 import { isOAuthProvider, providerEnabled, exchangeCodeForProfile } from '@/lib/auth/oauth'
 import { isAllowedEmailDomain } from '@/lib/auth/schemas'
+import { applySignupReferral, REF_COOKIE } from '@/lib/affiliate'
 import { siteUrl } from '@/lib/seo/site'
 import type { AuthUser } from '@/types'
 
@@ -55,6 +56,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ prov
         isVerified: true,           // email is verified by the provider
         authProvider: provider,
       })
+      // Affiliate attribution for social signups (best-effort).
+      const refCode = req.cookies.get(REF_COOKIE)?.value
+      if (refCode) await applySignupReferral(user, refCode).catch(() => null)
     } else if (!user.authProvider) {
       // First social login on an existing email/password account - link them.
       user.authProvider = provider

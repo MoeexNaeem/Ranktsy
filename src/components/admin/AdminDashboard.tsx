@@ -9,6 +9,7 @@ import { AnimIcon, ICON } from '@/components/ui/AnimIcon'
 import { Kpi, Bars, Donut } from './AdminCharts'
 import { UserDetailPanel } from './UserDetailPanel'
 import { AdminMessages } from './AdminMessages'
+import { AdminAffiliates } from './AdminAffiliates'
 import { RealtimeProvider, NotificationBell } from '@/components/dashboard/Realtime'
 
 interface AUser {
@@ -42,6 +43,7 @@ const UGRID = '1.7fr 0.7fr 0.7fr 0.8fr 0.9fr 0.85fr 0.9fr'
 const D7GRID = '1.4fr 0.8fr 0.8fr 1fr 0.8fr 0.8fr 0.9fr'
 const USERS_PAGE_SIZE = 20
 const USAGE_PAGE_SIZE = 15
+const EXT_PAGE_SIZE = 15
 
 const PLAN_HUE: Record<string, string> = {
   free: '#6E6E64', starter: '#2563EB', basic: '#0EA5E9', pro: '#FB5E09', 'pro-1yr': '#B7791F',
@@ -100,12 +102,13 @@ const selectStyle: React.CSSProperties = {
   fontSize: 12.5, fontFamily: MONO, color: C.ink, outline: 'none', cursor: 'pointer', width: '100%', minWidth: 0,
 }
 
-type Section = 'overview' | 'users' | 'analytics' | 'extension' | 'messages' | 'content' | 'settings'
+type Section = 'overview' | 'users' | 'analytics' | 'extension' | 'affiliates' | 'messages' | 'content' | 'settings'
 const NAV: { id: Section; label: string; icon: string }[] = [
   { id: 'overview',  label: 'Overview',  icon: ICON.home },
   { id: 'users',     label: 'Users',     icon: ICON.account },
   { id: 'analytics', label: 'Analytics', icon: ICON.coins },
   { id: 'extension', label: 'Extension', icon: ICON.display },
+  { id: 'affiliates',label: 'Affiliates',icon: ICON.gift },
   { id: 'messages',  label: 'Messages',  icon: ICON.chat },
   { id: 'content',   label: 'Content',   icon: ICON.book },
   { id: 'settings',  label: 'Settings',  icon: ICON.settings },
@@ -129,6 +132,7 @@ export function AdminDashboard() {
   const [err, setErr] = useState('')
   const [usersPage, setUsersPage] = useState(1)
   const [usagePage, setUsagePage] = useState(1)
+  const [extPage, setExtPage] = useState(1)
   const [userQuery, setUserQuery] = useState('')
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
@@ -248,6 +252,12 @@ export function AdminDashboard() {
   const usagePageRows = useMemo(
     () => usagePerUser.slice((usagePage - 1) * USAGE_PAGE_SIZE, usagePage * USAGE_PAGE_SIZE),
     [usagePerUser, usagePage],
+  )
+  const extRows = useMemo(() => ext?.rows ?? [], [ext])
+  const extPageCount = Math.max(1, Math.ceil(extRows.length / EXT_PAGE_SIZE))
+  const extPageRows = useMemo(
+    () => extRows.slice((extPage - 1) * EXT_PAGE_SIZE, extPage * EXT_PAGE_SIZE),
+    [extRows, extPage],
   )
 
   // ─── Overview derived series ────────────────────────────────────────────────
@@ -541,7 +551,7 @@ export function AdminDashboard() {
                 <Kpi label="Total captures" value={ext?.rows.reduce((s, r) => s + r.hits, 0) ?? 0} accent={C.ink} delay={120} />
               </div>
               <div>
-                <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>newest activity first</span>}>Extension users</SectionTitle>
+                <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>{ext?.rows.length ? `${exact(ext.rows.length)} users · page ${extPage}/${extPageCount}` : 'newest activity first'}</span>}>Extension users</SectionTitle>
                 {!ext || ext.rows.length === 0 ? (
                   <EmptyState icon="🧩" title="No extension activity yet" sub="Usage appears here once a signed-in user browses Etsy with the Rankkw extension installed." />
                 ) : (
@@ -549,7 +559,7 @@ export function AdminDashboard() {
                     <div style={tableHead(EXTGRID)}>
                       {['User', 'Plan', 'Version', 'Captures', 'First seen', 'Last active'].map((h, i) => <span key={i} style={th}>{h}</span>)}
                     </div>
-                    {ext.rows.map((r, i) => (
+                    {extPageRows.map((r, i) => (
                       <div key={r.userId} style={{ ...tableRow(EXTGRID), background: i % 2 ? C.canvas : 'transparent' }}>
                         <div style={{ minWidth: 0 }}>
                           <button onClick={() => setDetailUserId(r.userId)} title="View full detail"
@@ -567,12 +577,15 @@ export function AdminDashboard() {
                     ))}
                   </div>
                 )}
+                {ext && ext.rows.length > 0 && <Pagination page={extPage} pageCount={extPageCount} onChange={setExtPage} />}
                 <p style={{ fontSize: 12.5, color: '#808080', marginTop: 12, lineHeight: 1.5 }}>
                   Detected from browser-extension requests and the extension-only capture endpoint. Version shows once the extension sends an <code style={{ fontFamily: MONO }}>X-Rankkw-Ext-Version</code> header. Captures count active minutes, not raw requests.
                 </p>
               </div>
             </div>
           )}
+
+          {section === 'affiliates' && <AdminAffiliates />}
 
           {section === 'messages' && <AdminMessages />}
 

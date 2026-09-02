@@ -8,6 +8,7 @@ import { registerSchema } from '@/lib/auth/schemas'
 import { resolveRole } from '@/lib/auth/roles'
 import { verifyRecaptcha } from '@/lib/recaptcha'
 import { rateLimit, clientIp, tooManyResponse } from '@/lib/auth/rateLimit'
+import { applySignupReferral, REF_COOKIE } from '@/lib/affiliate'
 import type { ApiResponse, AuthUser } from '@/types'
 
 export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<AuthUser>>> {
@@ -44,6 +45,12 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<A
     const hashed  = await hashPassword(password)
     const role    = resolveRole(email)
     const user    = await User.create({ name, email, password: hashed, role })
+
+    // Affiliate attribution: if the visitor arrived through a ?ref link, credit
+    // that affiliate (best-effort; never blocks signup).
+    const refCode = req.cookies.get(REF_COOKIE)?.value
+    if (refCode) await applySignupReferral(user, refCode).catch(() => null)
+
     const authUser: AuthUser = { id: user._id.toString(), name: user.name, email: user.email, role, plan: user.plan, isVerified: user.isVerified }
 
     const [at, rt] = await Promise.all([signAccessToken(authUser), signRefreshToken(authUser.id)])

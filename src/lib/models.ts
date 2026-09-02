@@ -50,6 +50,11 @@ export interface IUserDoc extends Document {
   creditsUsedToday?: number
   creditsResetAt?: Date
   creditsUsedTotal?: number
+  // Affiliate attribution - set once at signup if the visitor arrived through an
+  // affiliate's ?ref link. `referredBy` is the affiliate code; the id is kept too
+  // for integrity. Never changes after signup (first-touch at registration).
+  referredBy?: string | null
+  referredByAffiliateId?: string | null
 }
 
 const UserSchema = new Schema<IUserDoc>({
@@ -79,6 +84,8 @@ const UserSchema = new Schema<IUserDoc>({
   creditsUsedToday: { type: Number, default: 0 },
   creditsResetAt:   { type: Date, default: Date.now },
   creditsUsedTotal: { type: Number, default: 0 },
+  referredBy:            { type: String, default: null, index: true },
+  referredByAffiliateId: { type: String, default: null },
 }, { timestamps: true })
 
 // ─── OTP ──────────────────────────────────────────────────────────────────────
@@ -477,10 +484,84 @@ const RETENTION_SECONDS = (Number(process.env.CHAT_RETENTION_DAYS) > 0 ? Number(
 ChatMessageSchema.index({ createdAt: 1 }, { expireAfterSeconds: RETENTION_SECONDS })
 NotificationSchema.index({ createdAt: 1 }, { expireAfterSeconds: RETENTION_SECONDS })
 
+// ─── Affiliate program ────────────────────────────────────────────────────────
+// One Affiliate row per enrolled user (their referral code + payout details +
+// running counters). Each paid purchase by a referred user creates one
+// ReferralConversion holding the commission and its payout status. Money never
+// flows automatically: the business receives the full sale and settles the
+// commission out of it, so a conversion just tracks what is owed and whether the
+// admin has paid it.
+export interface IAffiliateDoc extends Document {
+  userId: string
+  code: string
+  commissionRate: number                 // 0.20 = 20%
+  status: 'active' | 'suspended'
+  payoutMethod?: 'bank' | 'jazzcash' | 'easypaisa' | null
+  payoutName?: string | null             // account holder name
+  payoutNumber?: string | null           // IBAN / account no. / wallet number
+  payoutBank?: string | null             // bank name (bank method only)
+  clicks: number
+  signups: number
+  conversions: number
+  earnedTotal: number                    // USD lifetime commission recorded
+  paidTotal: number                      // USD marked paid by an admin
+  createdAt?: Date
+}
+const AffiliateSchema = new Schema<IAffiliateDoc>({
+  userId:         { type: String, required: true, unique: true, index: true },
+  code:           { type: String, required: true, unique: true, index: true, lowercase: true, trim: true },
+  commissionRate: { type: Number, default: 0.20 },
+  status:         { type: String, enum: ['active', 'suspended'], default: 'active' },
+  payoutMethod:   { type: String, enum: ['bank', 'jazzcash', 'easypaisa', null], default: null },
+  payoutName:     { type: String, default: null },
+  payoutNumber:   { type: String, default: null },
+  payoutBank:     { type: String, default: null },
+  clicks:         { type: Number, default: 0 },
+  signups:        { type: Number, default: 0 },
+  conversions:    { type: Number, default: 0 },
+  earnedTotal:    { type: Number, default: 0 },
+  paidTotal:      { type: Number, default: 0 },
+}, { timestamps: true })
+
+export interface IReferralConversionDoc extends Document {
+  affiliateId: string
+  code: string
+  referredUserId: string
+  referredEmail: string
+  referredName?: string | null
+  subscriptionId?: string | null         // LS subscription id (one conversion per sub)
+  plan: string
+  grossUsd: number
+  commissionUsd: number
+  status: 'pending' | 'approved' | 'paid' | 'refunded'
+  approvedAt?: Date | null
+  paidAt?: Date | null
+  createdAt?: Date
+}
+const ReferralConversionSchema = new Schema<IReferralConversionDoc>({
+  affiliateId:    { type: String, required: true, index: true },
+  code:           { type: String, required: true, index: true },
+  referredUserId: { type: String, required: true, index: true },
+  referredEmail:  { type: String, required: true },
+  referredName:   { type: String, default: null },
+  subscriptionId: { type: String, default: null },
+  plan:           { type: String, required: true },
+  grossUsd:       { type: Number, required: true },
+  commissionUsd:  { type: Number, required: true },
+  status:         { type: String, enum: ['pending', 'approved', 'paid', 'refunded'], default: 'pending', index: true },
+  approvedAt:     { type: Date, default: null },
+  paidAt:         { type: Date, default: null },
+}, { timestamps: true })
+// One conversion per subscription (guards against duplicate webhook deliveries).
+// Partial so the many null subscriptionIds don't collide on the unique index.
+ReferralConversionSchema.index({ subscriptionId: 1 }, { unique: true, partialFilterExpression: { subscriptionId: { $type: 'string' } } })
+
 export const ExtensionUsage = (models.ExtensionUsage as mongoose.Model<IExtensionUsageDoc>) ?? model<IExtensionUsageDoc>('ExtensionUsage', ExtensionUsageSchema)
 export const Notification   = (models.Notification as mongoose.Model<INotificationDoc>)   ?? model<INotificationDoc>('Notification', NotificationSchema)
 export const ChatMessage    = (models.ChatMessage as mongoose.Model<IChatMessageDoc>)     ?? model<IChatMessageDoc>('ChatMessage', ChatMessageSchema)
 export const TrackedKeyword = (models.TrackedKeyword as mongoose.Model<ITrackedKeywordDoc>) ?? model<ITrackedKeywordDoc>('TrackedKeyword', TrackedKeywordSchema)
+export const Affiliate      = (models.Affiliate as mongoose.Model<IAffiliateDoc>)          ?? model<IAffiliateDoc>('Affiliate', AffiliateSchema)
+export const ReferralConversion = (models.ReferralConversion as mongoose.Model<IReferralConversionDoc>) ?? model<IReferralConversionDoc>('ReferralConversion', ReferralConversionSchema)
 
 export const User          = models.User          ?? model<IUserDoc>('User', UserSchema)
 export const AutomationRun = (models.AutomationRun as mongoose.Model<IAutomationRun>) ?? model<IAutomationRun>('AutomationRun', AutomationRunSchema)

@@ -49,8 +49,9 @@ const DeliveryStatusTab    = dynamic(() => import('./tabs/DeliveryStatusTab').th
 const KeywordGapTab        = dynamic(() => import('./tabs/KeywordGapTab').then(m => ({ default: m.KeywordGapTab })), { ssr: false })
 const HotProductsTab       = dynamic(() => import('./tabs/HotProductsTab').then(m => ({ default: m.HotProductsTab })), { ssr: false })
 const AlertsTab            = dynamic(() => import('./tabs/AlertsTab').then(m => ({ default: m.AlertsTab })), { ssr: false })
+const AffiliateTab         = dynamic(() => import('./tabs/AffiliateTab').then(m => ({ default: m.AffiliateTab })), { ssr: false })
 
-type TabId = 'overview' | 'myshop' | 'hotproducts' | 'keywords' | 'gap' | 'listings' | 'competitors' | 'compsales' | 'trends' | 'buzz' | 'monthly' | 'topsellers' | 'catreport' | 'bulk' | 'rank' | 'shop' | 'salesmap' | 'delivery' | 'tags' | 'aihelper' | 'listingpro' | 'ctags' | 'titlegen' | 'taggen' | 'descgen' | 'audit' | 'compare' | 'spell' | 'fees' | 'adsroi' | 'category' | 'calendar' | 'lists' | 'alerts'
+type TabId = 'overview' | 'myshop' | 'hotproducts' | 'keywords' | 'gap' | 'listings' | 'competitors' | 'compsales' | 'trends' | 'buzz' | 'monthly' | 'topsellers' | 'catreport' | 'bulk' | 'rank' | 'shop' | 'salesmap' | 'delivery' | 'tags' | 'aihelper' | 'listingpro' | 'ctags' | 'titlegen' | 'taggen' | 'descgen' | 'audit' | 'compare' | 'spell' | 'fees' | 'adsroi' | 'category' | 'calendar' | 'lists' | 'alerts' | 'affiliate'
 
 const TABS: { id: TabId; label: string; description: string; group: string; accent: AccentName }[] = [
   { id: 'overview',    label: 'Overview',      group: 'Home',        accent: 'indigo',  description: 'Your Etsy SEO command center' },
@@ -89,9 +90,10 @@ const TABS: { id: TabId; label: string; description: string; group: string; acce
   { id: 'category',    label: 'Category Finder',group: 'Tools',      accent: 'sky',     description: 'Browse Etsy categories' },
   { id: 'calendar',    label: 'Seasonal Calendar',group: 'Tools',   accent: 'purple',  description: 'Plan for selling events' },
   { id: 'lists',       label: 'Keyword Lists', group: 'Tools',       accent: 'slate',   description: 'Save & organize keywords' },
+  { id: 'affiliate',   label: 'Refer & Earn',  group: 'Earn',        accent: 'green',   description: 'Earn 20% for every referral' },
 ]
 
-const GROUPS = ['Home', 'Research', 'Shop Insights', 'Optimize', 'Tools']
+const GROUPS = ['Home', 'Research', 'Shop Insights', 'Optimize', 'Tools', 'Earn']
 
 function TabContent({ active, onNavigate }: { active: TabId; onNavigate: (id: TabId) => void }) {
   const map: Record<TabId, React.ReactNode> = {
@@ -129,6 +131,7 @@ function TabContent({ active, onNavigate }: { active: TabId; onNavigate: (id: Ta
     calendar:    <CalendarTab />,
     lists:       <KeywordListsTab />,
     alerts:      <AlertsTab />,
+    affiliate:   <AffiliateTab />,
   }
   return (
     <Suspense fallback={<div className="shimmer" style={{ height: 300, borderRadius: 8, background: '#e8e7e2' }} />}>
