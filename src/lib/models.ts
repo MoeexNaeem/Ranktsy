@@ -510,7 +510,7 @@ export interface IAffiliateDoc extends Document {
 const AffiliateSchema = new Schema<IAffiliateDoc>({
   userId:         { type: String, required: true, unique: true, index: true },
   code:           { type: String, required: true, unique: true, index: true, lowercase: true, trim: true },
-  commissionRate: { type: Number, default: 0.20 },
+  commissionRate: { type: Number, default: 0.30 },
   status:         { type: String, enum: ['active', 'suspended'], default: 'active' },
   payoutMethod:   { type: String, enum: ['bank', 'jazzcash', 'easypaisa', null], default: null },
   payoutName:     { type: String, default: null },
@@ -523,13 +523,19 @@ const AffiliateSchema = new Schema<IAffiliateDoc>({
   paidTotal:      { type: Number, default: 0 },
 }, { timestamps: true })
 
+// Recurring: a commission is recorded per successful PAYMENT (invoice), up to 12
+// per subscription (see RECURRING_MONTHS in lib/affiliate.ts). `invoiceId` is the
+// LS invoice id and is the dedupe key (unique) so a retried webhook can't double
+// pay. `subscriptionId` groups a customer's payments (for the 12-payment cap).
 export interface IReferralConversionDoc extends Document {
   affiliateId: string
   code: string
   referredUserId: string
   referredEmail: string
   referredName?: string | null
-  subscriptionId?: string | null         // LS subscription id (one conversion per sub)
+  subscriptionId?: string | null
+  invoiceId?: string | null              // LS invoice id - unique dedupe key
+  rateApplied?: number | null            // 0.30 or 0.50 at the time it was earned
   plan: string
   grossUsd: number
   commissionUsd: number
@@ -544,7 +550,9 @@ const ReferralConversionSchema = new Schema<IReferralConversionDoc>({
   referredUserId: { type: String, required: true, index: true },
   referredEmail:  { type: String, required: true },
   referredName:   { type: String, default: null },
-  subscriptionId: { type: String, default: null },
+  subscriptionId: { type: String, default: null, index: true },
+  invoiceId:      { type: String, default: null },
+  rateApplied:    { type: Number, default: null },
   plan:           { type: String, required: true },
   grossUsd:       { type: Number, required: true },
   commissionUsd:  { type: Number, required: true },
@@ -552,9 +560,10 @@ const ReferralConversionSchema = new Schema<IReferralConversionDoc>({
   approvedAt:     { type: Date, default: null },
   paidAt:         { type: Date, default: null },
 }, { timestamps: true })
-// One conversion per subscription (guards against duplicate webhook deliveries).
-// Partial so the many null subscriptionIds don't collide on the unique index.
-ReferralConversionSchema.index({ subscriptionId: 1 }, { unique: true, partialFilterExpression: { subscriptionId: { $type: 'string' } } })
+// One conversion per invoice (guards duplicate webhook deliveries). Partial so the
+// many null invoiceIds don't collide. lib/affiliate.ts syncs indexes on first use
+// so the older subscriptionId-unique index (if present) is dropped automatically.
+ReferralConversionSchema.index({ invoiceId: 1 }, { unique: true, partialFilterExpression: { invoiceId: { $type: 'string' } } })
 
 export const ExtensionUsage = (models.ExtensionUsage as mongoose.Model<IExtensionUsageDoc>) ?? model<IExtensionUsageDoc>('ExtensionUsage', ExtensionUsageSchema)
 export const Notification   = (models.Notification as mongoose.Model<INotificationDoc>)   ?? model<INotificationDoc>('Notification', NotificationSchema)

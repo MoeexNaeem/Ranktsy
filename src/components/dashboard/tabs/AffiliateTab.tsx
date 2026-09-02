@@ -26,6 +26,12 @@ interface AffiliateData {
   payoutName?: string | null
   payoutNumber?: string | null
   payoutBank?: string | null
+  payingReferrals?: number
+  tierThreshold?: number
+  bonusWindowEnd?: number
+  baseRate?: number
+  bonusRate?: number
+  recurringMonths?: number
   conversionList?: Conversion[]
 }
 
@@ -95,8 +101,11 @@ export function AffiliateTab() {
       <div style={{ maxWidth: 680 }}>
         <Card>
           <SectionTitle>Refer &amp; earn</SectionTitle>
-          <p style={{ fontSize: 14.5, color: C.graphite, lineHeight: 1.65, margin: '4px 0 20px' }}>
-            Share Rankkw with a link and earn 20% commission every time someone you send buys a paid plan. You get a unique link, live stats on clicks and signups, and you choose how you want to be paid (bank, JazzCash or Easypaisa).
+          <p style={{ fontSize: 14.5, color: C.graphite, lineHeight: 1.65, margin: '4px 0 14px' }}>
+            Share Rankkw with a link and earn <strong style={{ color: C.ink }}>30% recurring commission</strong> on every plan a person you refer buys, for up to 12 months. You get a unique link, live stats on clicks and signups, and you choose how you want to be paid (bank, JazzCash or Easypaisa).
+          </p>
+          <p style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.6, margin: '0 0 20px', padding: '10px 14px', background: C.canvas, border: `1px solid ${C.ash}`, borderRadius: 10 }}>
+            <strong style={{ color: C.orange }}>Bonus:</strong> once you reach 100 paying referrals, referrals 101 to 200 earn <strong style={{ color: C.ink }}>50%</strong>.
           </p>
           <button onClick={enroll} disabled={busy} style={{ background: busy ? C.ash : C.orange, color: '#fff', border: 'none', borderRadius: 100, padding: '13px 26px', fontSize: 15, fontWeight: 600, fontFamily: 'inherit', cursor: busy ? 'default' : 'pointer' }}>
             {busy ? 'Setting up…' : 'Join the affiliate program'}
@@ -107,7 +116,15 @@ export function AffiliateTab() {
   }
 
   const pending = Math.max(0, (data.earnedTotal ?? 0) - (data.paidTotal ?? 0))
-  const rate = Math.round((data.commissionRate ?? 0.2) * 100)
+  const rate = Math.round((data.commissionRate ?? 0.3) * 100)
+  const paying = data.payingReferrals ?? 0
+  const threshold = data.tierThreshold ?? 100
+  const windowEnd = data.bonusWindowEnd ?? 200
+  const bonusNote = paying < threshold
+    ? `${threshold - paying} more paying referral${threshold - paying === 1 ? '' : 's'} unlock a 50% bonus on referrals ${threshold + 1} to ${windowEnd}.`
+    : paying < windowEnd
+      ? `50% bonus active: you are on referral ${paying + 1} of the ${threshold + 1} to ${windowEnd} bonus window.`
+      : `Bonus window complete. New referrals earn ${Math.round((data.baseRate ?? 0.3) * 100)}%.`
   const convs = data.convList ?? []
   const field: React.CSSProperties = { border: `1px solid ${C.ash}`, borderRadius: 10, background: C.canvas, color: C.ink, fontSize: 14, fontFamily: 'inherit', padding: '11px 13px', outline: 'none', width: '100%' }
   const label: React.CSSProperties = { fontSize: 12.5, fontWeight: 600, color: C.graphite, marginBottom: 6, display: 'block' }
@@ -116,12 +133,13 @@ export function AffiliateTab() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 1080 }}>
       {/* Link + commission */}
       <Card>
-        <SectionTitle right={<span style={{ fontSize: 12, fontFamily: MONO, fontWeight: 600, color: C.orange, background: C.orangeFaint, padding: '4px 12px', borderRadius: 100 }}>{rate}% commission</span>}>Your referral link</SectionTitle>
+        <SectionTitle right={<span style={{ fontSize: 12, fontFamily: MONO, fontWeight: 600, color: C.orange, background: C.orangeFaint, padding: '4px 12px', borderRadius: 100 }}>{rate}% recurring</span>}>Your referral link</SectionTitle>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 2, flexWrap: 'wrap' }}>
           <code style={{ flex: 1, minWidth: 240, fontSize: 14, fontFamily: MONO, color: C.ink, background: C.canvas, border: `1px solid ${C.ash}`, borderRadius: 10, padding: '12px 15px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.link}</code>
           <button onClick={copy} style={{ background: C.ink, color: '#fff', border: 'none', borderRadius: 10, padding: '12px 22px', fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', flexShrink: 0 }}>{copied ? 'Copied' : 'Copy link'}</button>
         </div>
-        <p style={{ fontSize: 13, color: C.stone, marginTop: 11 }}>Share this anywhere. Anyone who signs up through it is tied to you for 60 days.</p>
+        <p style={{ fontSize: 13, color: C.stone, marginTop: 11 }}>Share this anywhere. Anyone who signs up through it is tied to you for 60 days, and you earn on their payments for up to 12 months.</p>
+        <p style={{ fontSize: 12.5, color: C.graphite, marginTop: 8, padding: '9px 13px', background: C.canvas, border: `1px solid ${C.ash}`, borderRadius: 9 }}>{bonusNote}</p>
       </Card>
 
       {/* Stats */}

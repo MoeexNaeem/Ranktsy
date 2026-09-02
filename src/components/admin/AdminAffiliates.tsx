@@ -84,7 +84,7 @@ export function AdminAffiliates() {
             <div>
               <h3 style={{ fontSize: 19, fontWeight: 600, color: C.ink, margin: 0, letterSpacing: '-0.02em' }}>{detail.ownerName}</h3>
               <p style={{ fontSize: 13.5, color: C.graphite, margin: '4px 0 0' }}>{detail.ownerEmail}</p>
-              <p style={{ fontSize: 12.5, fontFamily: MONO, color: C.stone, marginTop: 7 }}>code: {detail.code} · {Math.round(detail.commissionRate * 100)}% {detail.status === 'suspended' && <span style={{ color: C.danger }}>· suspended</span>}</p>
+              <p style={{ fontSize: 12.5, fontFamily: MONO, color: C.stone, marginTop: 7 }}>code: {detail.code} · {Math.round(detail.commissionRate * 100)}% recurring · {detail.conversions} paying referral{detail.conversions === 1 ? '' : 's'} {detail.status === 'suspended' && <span style={{ color: C.danger }}>· suspended</span>}</p>
             </div>
             <button onClick={() => patch(detail.id, { affiliateStatus: detail.status === 'active' ? 'suspended' : 'active' })} disabled={busy}
               style={{ alignSelf: 'flex-start', background: detail.status === 'active' ? C.dangerBg : '#E4F3E9', color: detail.status === 'active' ? C.danger : '#1F7A44', border: `1px solid ${detail.status === 'active' ? C.danger : '#1F7A44'}`, borderRadius: 8, padding: '8px 16px', fontSize: 12.5, fontWeight: 600, fontFamily: MONO, cursor: 'pointer' }}>

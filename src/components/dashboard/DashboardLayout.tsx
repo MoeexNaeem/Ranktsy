@@ -90,7 +90,7 @@ const TABS: { id: TabId; label: string; description: string; group: string; acce
   { id: 'category',    label: 'Category Finder',group: 'Tools',      accent: 'sky',     description: 'Browse Etsy categories' },
   { id: 'calendar',    label: 'Seasonal Calendar',group: 'Tools',   accent: 'purple',  description: 'Plan for selling events' },
   { id: 'lists',       label: 'Keyword Lists', group: 'Tools',       accent: 'slate',   description: 'Save & organize keywords' },
-  { id: 'affiliate',   label: 'Refer & Earn',  group: 'Earn',        accent: 'green',   description: 'Earn 20% for every referral' },
+  { id: 'affiliate',   label: 'Refer & Earn',  group: 'Earn',        accent: 'green',   description: 'Earn 30% recurring for every referral' },
 ]
 
 const GROUPS = ['Home', 'Research', 'Shop Insights', 'Optimize', 'Tools', 'Earn']

@@ -3,7 +3,7 @@ import { connectDB } from '@/lib/db'
 import { User } from '@/lib/models'
 import { verifyWebhookSignature } from '@/lib/lemonsqueezy'
 import { planForVariant, PLAN_SLUGS, type PlanSlug } from '@/lib/plans'
-import { recordConversion, refundConversion } from '@/lib/affiliate'
+import { recordCommission, refundCommission } from '@/lib/affiliate'
 
 // Lemon Squeezy webhook - the source of truth for a user's plan. Verifies the
 // signature, then applies subscription changes to the matching user.
@@ -65,13 +65,21 @@ export async function POST(req: NextRequest) {
 
     await user.save()
 
-    // Affiliate commission: a referred user's paid purchase creates one pending
-    // commission (idempotent per subscription). A refund voids it.
-    if (user.referredBy && ['subscription_created', 'subscription_payment_success'].includes(event)) {
-      await recordConversion(user, subId, plan ?? user.plan).catch(e => console.error('[LS webhook] conversion', e))
+    // Affiliate commission: each successful payment by a referred user earns a
+    // recurring commission (up to 12 per subscription). On an invoice event
+    // data.id is the INVOICE id (the dedupe key); attrs.subscription_id groups the
+    // payments. A refund voids that payment's commission.
+    if (event === 'subscription_payment_success' && user.referredBy) {
+      const amountUsd = typeof attrs.total_usd === 'number' ? attrs.total_usd / 100
+        : typeof attrs.total === 'number' ? attrs.total / 100 : null
+      await recordCommission(user, {
+        subscriptionId: attrs.subscription_id ? String(attrs.subscription_id) : subId,
+        invoiceId: subId,
+        plan: user.plan,
+        amountUsd,
+      }).catch(e => console.error('[LS webhook] commission', e))
     } else if (event === 'subscription_payment_refunded') {
-      const refundSubId = attrs.subscription_id ? String(attrs.subscription_id) : subId
-      await refundConversion(refundSubId).catch(() => null)
+      await refundCommission(subId).catch(() => null)
     }
 
     return NextResponse.json({ received: true })
