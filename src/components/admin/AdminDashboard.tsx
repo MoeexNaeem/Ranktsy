@@ -10,6 +10,7 @@ import { Kpi, Bars, Donut } from './AdminCharts'
 import { UserDetailPanel } from './UserDetailPanel'
 import { AdminMessages } from './AdminMessages'
 import { AdminAffiliates } from './AdminAffiliates'
+import { AdminSavedKeywords } from './AdminSavedKeywords'
 import { RealtimeProvider, NotificationBell } from '@/components/dashboard/Realtime'
 
 interface AUser {
@@ -102,11 +103,12 @@ const selectStyle: React.CSSProperties = {
   fontSize: 12.5, fontFamily: MONO, color: C.ink, outline: 'none', cursor: 'pointer', width: '100%', minWidth: 0,
 }
 
-type Section = 'overview' | 'users' | 'analytics' | 'extension' | 'affiliates' | 'messages' | 'content' | 'settings'
+type Section = 'overview' | 'users' | 'analytics' | 'keywords' | 'extension' | 'affiliates' | 'messages' | 'content' | 'settings'
 const NAV: { id: Section; label: string; icon: string }[] = [
   { id: 'overview',  label: 'Overview',  icon: ICON.home },
   { id: 'users',     label: 'Users',     icon: ICON.account },
   { id: 'analytics', label: 'Analytics', icon: ICON.coins },
+  { id: 'keywords',  label: 'Saved Keywords', icon: ICON.search },
   { id: 'extension', label: 'Extension', icon: ICON.display },
   { id: 'affiliates',label: 'Affiliates',icon: ICON.gift },
   { id: 'messages',  label: 'Messages',  icon: ICON.chat },
@@ -585,6 +587,7 @@ export function AdminDashboard() {
             </div>
           )}
 
+          {section === 'keywords' && <AdminSavedKeywords />}
           {section === 'affiliates' && <AdminAffiliates />}
 
           {section === 'messages' && <AdminMessages />}

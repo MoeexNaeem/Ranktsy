@@ -2,7 +2,7 @@ import mongoose, { Schema, model, models, type Document } from 'mongoose'
 import { SNAPSHOT_RETENTION_DAYS } from '@/utils'
 import { PLAN_SLUGS, type PlanSlug } from '@/lib/plans'
 import type {
-  IKeywordCache, IKeywordHistory, IOTP,
+  IKeywordCache, IKeywordHistory, ISavedKeyword, IOTP,
   IShopSnapshot, IListingSnapshot, ITrackedShop, ITrackedListing, IConnectedShop,
   ICollectiveKeywordData, IApiUsage, IBlog, IDeal, IPopupAd,
 } from '@/types'
@@ -158,6 +158,24 @@ const KeywordHistorySchema = new Schema<IKeywordHistory>({
 }, { timestamps: false })
 
 KeywordHistorySchema.index({ userId: 1, searchedAt: -1 })
+
+/**
+ * Every keyword users run through Keyword Search, kept for the admin "Saved
+ * Keywords" view. Collection is pinned to `savedkeywordsfromusers`. `day` is the
+ * Asia/Karachi calendar date so the admin's date filter lines up with their day.
+ */
+const SavedKeywordSchema = new Schema<ISavedKeyword>({
+  keyword:   { type: String, required: true, lowercase: true, trim: true },
+  geo:       { type: String, default: 'US' },
+  userId:    { type: String, default: null },
+  userEmail: { type: String, default: null },
+  day:       { type: String, required: true },   // YYYY-MM-DD (Asia/Karachi)
+  createdAt: { type: Date, default: Date.now },
+}, { timestamps: false, collection: 'savedkeywordsfromusers' })
+
+SavedKeywordSchema.index({ day: 1, createdAt: -1 })
+SavedKeywordSchema.index({ createdAt: -1 })
+SavedKeywordSchema.index({ keyword: 1, day: 1 })
 
 /**
  * Retention for snapshot history: ~13 months.
@@ -588,3 +606,4 @@ export const KeywordCache  = models.KeywordCache  ?? model<IKeywordCache>('Keywo
 export const CollectiveKeywordData = models.CollectiveKeywordData ?? model<ICollectiveKeywordData>('CollectiveKeywordData', CollectiveKeywordDataSchema)
 export const ApiUsage      = models.UserApiUsage  ?? model<IApiUsage>('UserApiUsage', ApiUsageSchema)
 export const KeywordHistory= models.KeywordHistory?? model<IKeywordHistory>('KeywordHistory', KeywordHistorySchema)
+export const SavedKeyword  = models.SavedKeyword  ?? model<ISavedKeyword>('SavedKeyword', SavedKeywordSchema)

@@ -619,6 +619,22 @@ export interface IKeywordHistory {
   userId?: string
 }
 
+/**
+ * Every keyword a user runs through Keyword Search, saved verbatim so admins can
+ * see real demand. `day` is the calendar date in Asia/Karachi (the team's local
+ * day) as YYYY-MM-DD, so the admin date filter matches what "5 September" means
+ * to them regardless of server timezone.
+ */
+export interface ISavedKeyword {
+  _id?: string
+  keyword: string
+  geo: string
+  userId?: string | null
+  userEmail?: string | null
+  day: string           // YYYY-MM-DD in Asia/Karachi
+  createdAt: Date
+}
+
 // ─── Collective Keyword Data (shared, read-only in Rankkw) ────────────────────
 // The permanent `collectivekeyworddatas` collection is WRITTEN by Ranktsy's Bulk
 // Keyword Search (full package: enriched related + reviews + images). Rankkw's

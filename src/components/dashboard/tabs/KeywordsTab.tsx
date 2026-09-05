@@ -16,6 +16,7 @@ import { KeywordIdeasPanel }   from '../keyword/KeywordIdeasPanel'
 import { TopListingsTable }    from '../keyword/TopListingsTable'
 import { Card, SearchBar, SectionTitle, ErrorBox, EmptyState, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
+import { KeywordGuide } from '@/components/dashboard/KeywordGuide'
 import { TableSkeleton, CardSkeleton, GridSkeleton, LoadingStages, Measuring, Shimmer } from '../skeletons'
 import { useFx } from '@/hooks/useFx'
 import { C, D, heatColor, formatNumber, formatPercent } from '@/utils'
@@ -514,8 +515,11 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <SearchBar value={input} onChange={setInput} onSubmit={search} placeholder="Search any Etsy keyword…"
-        control={<CountrySelect value={country} onChange={setCountry} />} />
+      <KeywordGuide />
+      <div data-tour="kw-search">
+        <SearchBar value={input} onChange={setInput} onSubmit={search} placeholder="Search any Etsy keyword…"
+          control={<CountrySelect value={country} onChange={setCountry} />} />
+      </div>
 
       {/* Keyword header + main cards - plain skeletons while data loads. */}
       {isLoading && !kw && (
@@ -557,7 +561,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
 
       {/* Overview - Keyword Statistics · Search Trends · Searchers by Country
           (the sample's three-panel row). Every figure is real or "-". */}
-      <div className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1.55fr 1fr', gap: 12, alignItems: 'start' }}>
+      <div data-tour="kw-stats" className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1.55fr 1fr', gap: 12, alignItems: 'start' }}>
         {kw ? <KeywordStatsPanel s={kw.stats} geoName={geoName} /> : <Card><Shimmer h={230} r={8} /></Card>}
 
         <Card>
@@ -591,7 +595,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
       </div>
 
       {/* Difficulty + the Google volume / competition / CPC detail. */}
-      <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 12, alignItems: 'start' }}>
+      <div data-tour="kw-kd" className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 12, alignItems: 'start' }}>
         <Card>
           <SectionTitle right={<span style={{ fontSize: 10, fontFamily: MONO, color: C.stone }}>KD</span>}>Keyword Difficulty</SectionTitle>
           {kw ? <DifficultyPanel s={kw.stats} /> : <Shimmer h={200} r={8} />}
@@ -630,6 +634,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
       {/* Best Keyword Opportunities - a big, readable bar graph right beneath the
           Google volume. Fed by related keywords, so it fills in once they land. */}
       {kw && (
+        <div data-tour="kw-opportunities">
         <Card>
           <SectionTitle right={relatedPending ? <Measuring /> : insights ? <span style={{ fontSize: 12, fontFamily: MONO, color: C.graphite }}>{insights.pts.length} keywords</span> : undefined}>Best Keyword Opportunities</SectionTitle>
           <p style={{ fontSize: 13, color: C.graphite, marginTop: -8, marginBottom: 12 }}>
@@ -641,6 +646,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
               ? <Shimmer h={340} r={8} />
               : <EmptyState icon="📊" title="Measuring opportunities…" sub="Ranked keywords appear once their difficulty is measured." />}
         </Card>
+        </div>
       )}
 
       {isError && <ErrorBox>Failed to load keyword data live. Please try again.</ErrorBox>}
@@ -658,7 +664,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
 
       {/* Sub-tabs */}
       {kw && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div data-tour="kw-subtabs" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="rsectitle" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <SubTabs active={sub} onChange={setSub} counts={counts} />
             <span style={{ fontSize: 10.5, fontFamily: MONO, color: C.inkFaint }}>

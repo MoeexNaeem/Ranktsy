@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
-import { KeywordHistory } from '@/lib/models'
+import { KeywordHistory, SavedKeyword } from '@/lib/models'
 import { getKeywordCore } from '@/lib/keywords'
 import { normalizeGeo } from '@/lib/google-ads'
 import { getCurrentUser } from '@/lib/auth/session'
@@ -58,8 +58,16 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
     if (peekApiCalls() > before) recordApiHit(); else recordCacheHit()
 
     // Search history is a side-effect of the request, not part of it.
+    // We record two things, both fire-and-forget so a write hiccup never fails the
+    // search: (1) KeywordHistory (per-user recent searches) and (2) SavedKeyword,
+    // the admin-facing store of every keyword users run, tagged with the local
+    // Asia/Karachi calendar day so the admin date filter matches the team's day.
+    const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi' }).format(new Date())
     getCurrentUser()
-      .then(user => connectDB().then(() => KeywordHistory.create({ keyword: query, userId: user?.id })))
+      .then(user => connectDB().then(() => Promise.all([
+        KeywordHistory.create({ keyword: query, userId: user?.id }),
+        SavedKeyword.create({ keyword: query, geo, userId: user?.id ?? null, userEmail: user?.email ?? null, day, createdAt: new Date() }),
+      ])))
       .catch(() => {})
 
     return NextResponse.json({ success: true, data, cached: !!data.cachedAt })
