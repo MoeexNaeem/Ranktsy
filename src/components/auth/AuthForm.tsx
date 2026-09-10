@@ -147,16 +147,20 @@ const ENDPOINTS: Record<FormType,string> = { login:'/api/auth/login', register:'
 
 type EmailStatus = 'idle' | 'invalid' | 'domain' | 'checking' | 'available' | 'taken'
 
-function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: FormType; email?: string; onNext?: (email: string) => void; providers?: { google?: boolean; microsoft?: boolean } }) {
+function AuthFormInner({ type, email: initEmail, onNext, providers, cohort }: { type: FormType; email?: string; onNext?: (email: string) => void; providers?: { google?: boolean; microsoft?: boolean }; cohort?: string }) {
   const router       = useRouter()
   const searchParams = useSearchParams()
   const redirect     = searchParams.get('redirect') ?? '/dashboard'
   const oauthMsg     = OAUTH_ERRORS[searchParams.get('error') ?? ''] ?? ''
   const showOAuth    = (type === 'login' || type === 'register') && Boolean(providers?.google || providers?.microsoft)
-  // SEBT NEXT education cohort: arriving via ?cohort=sebt rebrands the form and, on
-  // register, tags the signup so the API grants the Agency plan free for 7 days.
-  const isSebt       = searchParams.get('cohort') === 'sebt'
-  const sebtQuery    = isSebt ? '?cohort=sebt' : ''
+  // SEBT NEXT education cohort. Entered either via the clean path /register/sebtnext
+  // (passes cohort="sebt" as a prop) or the ?cohort=sebt query. Rebrands the form
+  // and, on register, tags the signup so the API grants the Enterprise plan (7 days).
+  const isSebt       = cohort === 'sebt' || searchParams.get('cohort') === 'sebt'
+  // Keep the SEBT context on the login/register cross-links, preferring the clean
+  // vanity paths so the pretty URL stays in the address bar.
+  const sebtRegisterHref = isSebt ? '/register/sebtnext' : '/register'
+  const sebtLoginHref    = isSebt ? '/login/sebtnext' : '/login'
 
   const [values,  setValues]  = useState<Record<string,string>>(initEmail ? { email: initEmail } : {})
   const [errors,  setErrors]  = useState<Record<string,string>>({})
@@ -380,8 +384,8 @@ function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: Fo
         )}
 
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:20 }}>
-          {type==='login'    && <><Link href={`/register${sebtQuery}`} style={S.link}>Create account</Link><Link href="/forgot-password" style={{ ...S.link, color:'#888', fontWeight:400 }}>Forgot password?</Link></>}
-          {type==='register' && <Link href={`/login${sebtQuery}`} style={S.link}>Already have an account? Log in</Link>}
+          {type==='login'    && <><Link href={sebtRegisterHref} style={S.link}>Create account</Link><Link href="/forgot-password" style={{ ...S.link, color:'#888', fontWeight:400 }}>Forgot password?</Link></>}
+          {type==='register' && <Link href={sebtLoginHref} style={S.link}>Already have an account? Log in</Link>}
           {type==='forgot'   && <Link href="/login" style={S.link}>← Back to login</Link>}
           {type==='reset'    && <Link href="/login" style={S.link}>← Back to login</Link>}
         </div>
@@ -390,7 +394,7 @@ function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: Fo
   )
 }
 
-export interface AuthFormProps { type: FormType; email?: string; onNext?: (email: string) => void; providers?: { google?: boolean; microsoft?: boolean } }
+export interface AuthFormProps { type: FormType; email?: string; onNext?: (email: string) => void; providers?: { google?: boolean; microsoft?: boolean }; cohort?: string }
 
 export function AuthForm(props: AuthFormProps) {
   return (
