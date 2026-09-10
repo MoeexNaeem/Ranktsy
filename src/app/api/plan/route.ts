@@ -26,7 +26,7 @@ export async function GET() {
   return NextResponse.json({
     success: true,
     plan,
-    label: sebtActive ? 'SEBT NEXT Agency Plan' : PLAN_LABELS[plan],
+    label: sebtActive ? 'SEBT NEXT Enterprise Plan' : PLAN_LABELS[plan],
     status: doc.subscriptionStatus ?? null,
     renewsAt: doc.planRenewsAt ?? null,
     sebtStudent,

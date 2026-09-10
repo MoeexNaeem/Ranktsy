@@ -11,6 +11,7 @@ import { UserDetailPanel } from './UserDetailPanel'
 import { AdminMessages } from './AdminMessages'
 import { AdminAffiliates } from './AdminAffiliates'
 import { AdminSavedKeywords } from './AdminSavedKeywords'
+import { AdminSebtStudents } from './AdminSebtStudents'
 import { RealtimeProvider, NotificationBell } from '@/components/dashboard/Realtime'
 
 interface AUser {
@@ -103,12 +104,13 @@ const selectStyle: React.CSSProperties = {
   fontSize: 12.5, fontFamily: MONO, color: C.ink, outline: 'none', cursor: 'pointer', width: '100%', minWidth: 0,
 }
 
-type Section = 'overview' | 'users' | 'analytics' | 'keywords' | 'extension' | 'affiliates' | 'messages' | 'content' | 'settings'
+type Section = 'overview' | 'users' | 'analytics' | 'keywords' | 'sebt' | 'extension' | 'affiliates' | 'messages' | 'content' | 'settings'
 const NAV: { id: Section; label: string; icon: string }[] = [
   { id: 'overview',  label: 'Overview',  icon: ICON.home },
   { id: 'users',     label: 'Users',     icon: ICON.account },
   { id: 'analytics', label: 'Analytics', icon: ICON.coins },
   { id: 'keywords',  label: 'Saved Keywords', icon: ICON.search },
+  { id: 'sebt',      label: 'SEBT Students', icon: ICON.consult },
   { id: 'extension', label: 'Extension', icon: ICON.display },
   { id: 'affiliates',label: 'Affiliates',icon: ICON.gift },
   { id: 'messages',  label: 'Messages',  icon: ICON.chat },
@@ -169,7 +171,6 @@ export function AdminDashboard() {
   useEffect(() => {
     let alive = true
     const poll = () => fetch('/api/admin/chat').then(r => r.json()).then(d => { if (alive && d?.success) setMsgUnread(d.data.totalUnread) }).catch(() => {})
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     poll()
     const t = setInterval(poll, 15000)
     return () => { alive = false; clearInterval(t) }
@@ -319,7 +320,7 @@ export function AdminDashboard() {
         {/* ─── Content ─────────────────────────────────────────────────────── */}
         <div style={{ flex: 1, minWidth: 0, padding: '30px 34px 90px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 24 }}>
-            <h1 style={{ fontSize: 'clamp(26px,3vw,38px)', fontWeight: 600, color: C.ink, letterSpacing: '-0.03em', textTransform: 'capitalize', margin: 0 }}>{section}</h1>
+            <h1 style={{ fontSize: 'clamp(26px,3vw,38px)', fontWeight: 600, color: C.ink, letterSpacing: '-0.03em', textTransform: 'capitalize', margin: 0 }}>{NAV.find(n => n.id === section)?.label ?? section}</h1>
             <NotificationBell />
           </div>
 
@@ -588,6 +589,7 @@ export function AdminDashboard() {
           )}
 
           {section === 'keywords' && <AdminSavedKeywords />}
+          {section === 'sebt' && <AdminSebtStudents />}
           {section === 'affiliates' && <AdminAffiliates />}
 
           {section === 'messages' && <AdminMessages />}

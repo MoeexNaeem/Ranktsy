@@ -284,7 +284,7 @@ function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: Fo
     : isSebt && type === 'login' ? 'SEBT Login'
     : TITLES[type]
   const subhead  = isSebt && (type === 'register' || type === 'login')
-    ? 'SEBT NEXT students get the Agency plan free for 7 days.'
+    ? 'SEBT NEXT students get the Enterprise plan free for 7 days.'
     : SUBTITLES[type]
 
   return (
