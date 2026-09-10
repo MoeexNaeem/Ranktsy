@@ -18,11 +18,17 @@ export async function GET() {
   if (!doc) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
 
   const plan = effectivePlan(doc)
+  // SEBT NEXT students see their trial named "SEBT NEXT Agency Plan" while the
+  // grant is live (plan still non-free); once it lapses to free they look like any
+  // free user. The identity flag itself stays on for the "SEBT Student" badge.
+  const sebtStudent = !!doc.sebtStudent
+  const sebtActive = sebtStudent && plan !== 'free'
   return NextResponse.json({
     success: true,
     plan,
-    label: PLAN_LABELS[plan],
+    label: sebtActive ? 'SEBT NEXT Agency Plan' : PLAN_LABELS[plan],
     status: doc.subscriptionStatus ?? null,
     renewsAt: doc.planRenewsAt ?? null,
+    sebtStudent,
   })
 }

@@ -153,6 +153,10 @@ function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: Fo
   const redirect     = searchParams.get('redirect') ?? '/dashboard'
   const oauthMsg     = OAUTH_ERRORS[searchParams.get('error') ?? ''] ?? ''
   const showOAuth    = (type === 'login' || type === 'register') && Boolean(providers?.google || providers?.microsoft)
+  // SEBT NEXT education cohort: arriving via ?cohort=sebt rebrands the form and, on
+  // register, tags the signup so the API grants the Agency plan free for 7 days.
+  const isSebt       = searchParams.get('cohort') === 'sebt'
+  const sebtQuery    = isSebt ? '?cohort=sebt' : ''
 
   const [values,  setValues]  = useState<Record<string,string>>(initEmail ? { email: initEmail } : {})
   const [errors,  setErrors]  = useState<Record<string,string>>({})
@@ -214,6 +218,7 @@ function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: Fo
     const body: Record<string,string> = { ...values }
     if (type === 'verify-otp' || type === 'reset') body.email = initEmail ?? ''
     if (type === 'verify-otp') body.type = 'reset'
+    if (type === 'register' && isSebt) body.cohort = 'sebt'
     if (needsCaptcha) body.captchaToken = captcha
     try {
       const res  = await fetch(ENDPOINTS[type], { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(body) })
@@ -234,7 +239,7 @@ function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: Fo
       if (needsCaptcha) { setCaptcha(''); setCaptchaKey(k => k + 1) }
     }
     finally  { setLoading(false) }
-  }, [values, type, initEmail, router, redirect, onNext, needsCaptcha, captcha])
+  }, [values, type, initEmail, router, redirect, onNext, needsCaptcha, captcha, isSebt])
 
   const S = {
     wrap:  { minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:C.canvas, padding:24, position:'relative', overflow:'hidden' } as const,
@@ -274,6 +279,14 @@ function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: Fo
 
   const btnDisabled = loading || (needsCaptcha && !captcha) || registerBlocked || resetBlocked
 
+  // SEBT-branded heading / subtitle for login + register (other flows unchanged).
+  const heading  = isSebt && type === 'register' ? 'SEBT Sign Up'
+    : isSebt && type === 'login' ? 'SEBT Login'
+    : TITLES[type]
+  const subhead  = isSebt && (type === 'register' || type === 'login')
+    ? 'SEBT NEXT students get the Agency plan free for 7 days.'
+    : SUBTITLES[type]
+
   return (
     <div style={S.wrap}>
       <AuthBackdrop />
@@ -288,11 +301,11 @@ function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: Fo
           </Link>
           <span style={{ display:'inline-flex', alignItems:'center', gap:7, fontSize:11, fontFamily:"'General Sans',monospace", fontWeight:500, textTransform:'uppercase', letterSpacing:'0.09em', color:'#6E6E64' }}>
             <span style={{ width:6, height:6, borderRadius:'50%', background:C.orange, display:'inline-block' }} />
-            Rankkw
+            {isSebt ? 'SEBT NEXT · Rankkw' : 'Rankkw'}
           </span>
         </div>
-        <h1 style={{ fontSize:32, fontWeight:500, color:C.ink, letterSpacing:'-0.03em', marginBottom:8, lineHeight:1.05 }}>{TITLES[type]}</h1>
-        <p style={{ fontSize:15, color:'#6E6E64', marginBottom:30, lineHeight:1.5, letterSpacing:'-0.1px' }}>{SUBTITLES[type]}</p>
+        <h1 style={{ fontSize:32, fontWeight:500, color:C.ink, letterSpacing:'-0.03em', marginBottom:8, lineHeight:1.05 }}>{heading}</h1>
+        <p style={{ fontSize:15, color:'#6E6E64', marginBottom:30, lineHeight:1.5, letterSpacing:'-0.1px' }}>{subhead}</p>
 
         {success  && <div style={{ background:C.orange, color:C.snow, borderRadius:10, padding:'12px 16px', fontSize:13.5, marginBottom:16 }}>✓ {success}</div>}
         {(errors._ || oauthMsg) && <div style={{ background:'#fff0f0', color:'#c00', borderRadius:10, padding:'12px 16px', fontSize:13.5, marginBottom:16 }}>⚠ {errors._ || oauthMsg}</div>}
@@ -367,8 +380,8 @@ function AuthFormInner({ type, email: initEmail, onNext, providers }: { type: Fo
         )}
 
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:20 }}>
-          {type==='login'    && <><Link href="/register" style={S.link}>Create account</Link><Link href="/forgot-password" style={{ ...S.link, color:'#888', fontWeight:400 }}>Forgot password?</Link></>}
-          {type==='register' && <Link href="/login" style={S.link}>Already have an account? Log in</Link>}
+          {type==='login'    && <><Link href={`/register${sebtQuery}`} style={S.link}>Create account</Link><Link href="/forgot-password" style={{ ...S.link, color:'#888', fontWeight:400 }}>Forgot password?</Link></>}
+          {type==='register' && <Link href={`/login${sebtQuery}`} style={S.link}>Already have an account? Log in</Link>}
           {type==='forgot'   && <Link href="/login" style={S.link}>← Back to login</Link>}
           {type==='reset'    && <Link href="/login" style={S.link}>← Back to login</Link>}
         </div>

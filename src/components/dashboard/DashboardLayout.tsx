@@ -152,9 +152,9 @@ export function DashboardLayout() {
   // Daily credit balance for the "other tools" - live-updated after each use.
   const credits = useCredits()
   // Current plan, read fresh from the DB (not the possibly-stale JWT).
-  const [planInfo, setPlanInfo] = useState<{ plan: string; label: string } | null>(null)
+  const [planInfo, setPlanInfo] = useState<{ plan: string; label: string; sebtStudent?: boolean } | null>(null)
   useEffect(() => {
-    fetch('/api/plan').then(r => (r.ok ? r.json() : null)).then(d => { if (d?.success) setPlanInfo({ plan: d.plan, label: d.label }) }).catch(() => {})
+    fetch('/api/plan').then(r => (r.ok ? r.json() : null)).then(d => { if (d?.success) setPlanInfo({ plan: d.plan, label: d.label, sebtStudent: !!d.sebtStudent }) }).catch(() => {})
   }, [])
   const handleTab = useCallback((id: TabId) => { setActiveTab(id); setNavOpen(false) }, [])
 
@@ -290,8 +290,8 @@ export function DashboardLayout() {
               </span>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <p style={{ fontSize: 14, fontWeight: 500, color: C.ink, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name ?? 'User'}</p>
-                <span style={{ fontSize: 10.5, background: C.orange, color: '#fff', padding: '2px 8px', borderRadius: 999, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  {user.plan ?? 'free'}
+                <span style={{ fontSize: 10.5, background: planInfo?.sebtStudent ? '#4F46E5' : C.orange, color: '#fff', padding: '2px 8px', borderRadius: 999, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {planInfo?.sebtStudent ? 'SEBT Student' : (user.plan ?? 'free')}
                 </span>
                 {user.role === 'admin' && (
                   <span style={{ fontSize: 10.5, background: 'rgba(61,62,59,0.1)', color: C.ink, padding: '2px 8px', borderRadius: 999, fontWeight: 600, textTransform: 'uppercase', marginLeft: 5 }}>admin</span>
@@ -359,7 +359,7 @@ export function DashboardLayout() {
             {planInfo && (
               <span className="rdash-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11.5, background: C.paper, color: C.ink, padding: '6px 13px', borderRadius: 999, fontFamily: "'General Sans',monospace", border: `1px solid ${C.ash}`, fontWeight: 600, whiteSpace: 'nowrap' }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: planInfo.plan === 'free' ? C.stone : C.orange }} />
-                {planInfo.label} plan
+                {/plan$/i.test(planInfo.label) ? planInfo.label : `${planInfo.label} plan`}
               </span>
             )}
             {planInfo && !['business', 'agency', 'enterprise', 'custom'].includes(planInfo.plan) && (

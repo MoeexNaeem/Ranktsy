@@ -27,6 +27,10 @@ export interface IUserDoc extends Document {
   // purchase. On/after this date the user auto-reverts to 'free'. Null for
   // real paid subscriptions (those expire via the webhook + planRenewsAt).
   compExpiresAt?: Date | null
+  // SEBT NEXT education cohort: set when a student signs up via the SEBT link
+  // (?cohort=sebt). Grants the Agency plan free for 7 days (via compExpiresAt)
+  // and drives the "SEBT Student" / "SEBT NEXT Agency Plan" labels in the UI.
+  sebtStudent?: boolean
   // Admin-set: blocks dashboard access with an explanatory screen. Checked
   // fresh from the DB on dashboard load (never baked into the JWT) so it
   // takes effect immediately, not after the access token expires.
@@ -71,6 +75,7 @@ const UserSchema = new Schema<IUserDoc>({
   subscriptionStatus:{ type: String },
   planRenewsAt:      { type: Date },
   compExpiresAt:     { type: Date, default: null },
+  sebtStudent:       { type: Boolean, default: false },
   restricted:        { type: Boolean, default: false },
   etsyShopId:       { type: String },
   etsyAccessToken:  { type: String, select: false },

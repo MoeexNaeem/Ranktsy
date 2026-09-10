@@ -44,7 +44,16 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<A
 
     const hashed  = await hashPassword(password)
     const role    = resolveRole(email)
-    const user    = await User.create({ name, email, password: hashed, role })
+
+    // SEBT NEXT education cohort: signups via the SEBT link (?cohort=sebt) get the
+    // Agency plan free for 7 days. We reuse the comp-plan clock (compExpiresAt), so
+    // the plan auto-reverts to free after 7 days with no webhook (see plan-lifecycle).
+    const isSebt = body?.cohort === 'sebt'
+    const sebtGrant = isSebt
+      ? { plan: 'agency' as const, compExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), sebtStudent: true }
+      : {}
+
+    const user    = await User.create({ name, email, password: hashed, role, ...sebtGrant })
 
     // Affiliate attribution: if the visitor arrived through a ?ref link, credit
     // that affiliate (best-effort; never blocks signup).
