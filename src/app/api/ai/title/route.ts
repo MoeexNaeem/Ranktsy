@@ -9,7 +9,7 @@ import type { ApiResponse, AiTitleResult } from '@/types'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
-export const GET = withApiGuard(getHandler, { limit: 20, windowMs: 60_000 })
+export const GET = withApiGuard(getHandler, { limit: 20, windowMs: 60_000, tool: 'titlegen' })
 
 /** AI Title generator - 10 Etsy titles, grounded in real Google + Etsy data. */
 async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<AiTitleResult>>> {

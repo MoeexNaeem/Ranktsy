@@ -11,11 +11,13 @@ import { triggerUpgrade } from './upgrade'
 export interface CreditState { credits: number; limit: number; usedToday: number; plan: string }
 
 /** Broadcast a fresh credit balance to any mounted useCredits() listeners. */
-function broadcast(state: CreditState | undefined | null) {
+export function broadcastCredits(state: CreditState | undefined | null) {
   if (state && typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent<CreditState>('rk-credits', { detail: state }))
   }
 }
+// Backwards-compatible local alias.
+const broadcast = broadcastCredits
 
 /**
  * Charge one use of `tool`. Returns true when the action may proceed, false when

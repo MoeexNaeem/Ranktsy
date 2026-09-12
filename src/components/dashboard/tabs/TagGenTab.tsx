@@ -3,7 +3,6 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Card, SectionTitle, SearchBar, EmptyState, GenNote, GenSkeleton, MONO } from '../kit'
 import { C, D } from '@/utils'
-import { chargeCredits } from '@/lib/credits-client'
 import { genFetch, busyRetry, busyRetryDelay, useWaitPhase } from '@/lib/ai/busy'
 import type { AiTagResult } from '@/types'
 
@@ -47,10 +46,11 @@ export function TagGenTab() {
   })
   const phase = useWaitPhase(isFetching)
 
-  const run = async () => {
+  const run = () => {
     const q = input.trim()
     if (q.length < 2) return
-    if (!(await chargeCredits('taggen'))) return
+    // Credits charged server-side, only on a successful generation (see
+    // withApiGuard tool:'taggen') - a failed attempt never costs credits.
     savedInput = input; savedSubmitted = q
     setSubmitted(q)
   }

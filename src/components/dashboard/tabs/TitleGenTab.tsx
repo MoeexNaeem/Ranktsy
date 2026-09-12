@@ -3,7 +3,6 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Card, SectionTitle, SearchBar, EmptyState, GenNote, GenSkeleton, MONO } from '../kit'
 import { C, D } from '@/utils'
-import { chargeCredits } from '@/lib/credits-client'
 import { genFetch, busyRetry, busyRetryDelay, useWaitPhase } from '@/lib/ai/busy'
 import type { AiTitleResult, AiTitleItem } from '@/types'
 
@@ -78,10 +77,11 @@ export function TitleGenTab() {
   })
   const phase = useWaitPhase(isFetching)
 
-  const run = async () => {
+  const run = () => {
     const q = input.trim()
     if (q.length < 2) return
-    if (!(await chargeCredits('titlegen'))) return
+    // Credits are charged server-side, only when the generation succeeds (see
+    // withApiGuard tool:'titlegen'), so a failed attempt never costs credits.
     savedInput = input; savedSubmitted = q
     setSubmitted(q)
   }

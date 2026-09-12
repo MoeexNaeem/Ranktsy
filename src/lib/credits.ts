@@ -64,6 +64,14 @@ export interface CreditState {
 }
 
 export interface ConsumeResult extends CreditState { allowed: boolean }
+export interface AffordResult extends CreditState { ok: boolean }
+
+/** Can the user afford `cost` right now? A read-only peek - it never charges. */
+export async function canAfford(userId: string, cost = CREDIT_COST): Promise<AffordResult | null> {
+  const s = await getCreditState(userId)
+  if (!s) return null
+  return { credits: s.credits, limit: s.limit, usedToday: s.usedToday, plan: s.plan, ok: s.credits >= cost }
+}
 
 /** Current credit balance for a user (with a lazy UTC-day reset applied to the read). */
 export async function getCreditState(userId: string): Promise<(CreditState & { usedTotal: number }) | null> {

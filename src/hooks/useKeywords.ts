@@ -51,7 +51,11 @@ export function useKeywordSearch(query: string, geo = 'US') {
     enabled:     query.trim().length >= 2, // don't fetch on empty input
     staleTime:   1000 * 60 * 30,           // 30 min - keyword data is stable
     gcTime:      1000 * 60 * 60,           // 1 hour in React Query cache
-    placeholderData: (prev) => prev,       // keep previous data while fetching
+    // NOTE: intentionally NO placeholderData. Keeping the previous keyword's data
+    // while a new one loads made the stats swap silently (numbers changed with no
+    // loading cue). Without it, a brand-new keyword falls back to the skeletons
+    // (which mirror the layout, so nothing jumps), and the user clearly sees the
+    // tool measuring. A cached keyword still returns instantly from React Query.
     retry: dontRetry4xx,
   })
 }

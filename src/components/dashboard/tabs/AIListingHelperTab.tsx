@@ -4,7 +4,8 @@ import { useMutation } from '@tanstack/react-query'
 import axios from 'axios'
 import { Card, SectionTitle, GenNote, GenSkeleton, MONO, primaryBtn } from '../kit'
 import { C } from '@/utils'
-import { chargeCredits } from '@/lib/credits-client'
+import { broadcastCredits } from '@/lib/credits-client'
+import { triggerUpgrade } from '@/lib/upgrade'
 import { busyRetry, busyRetryDelay, useWaitPhase } from '@/lib/ai/busy'
 
 interface Result {
@@ -40,17 +41,29 @@ export function AIListingHelperTab() {
 
   const gen = useMutation({
     mutationFn: async () => {
-      const { data } = await axios.post('/api/ai/listing', { seed, details })
-      if (!data.success) throw new Error(data.error ?? 'Generation failed')
-      return data.data as Result
+      try {
+        const { data } = await axios.post('/api/ai/listing', { seed, details })
+        if (!data.success) throw new Error(data.error ?? 'Generation failed')
+        if (data.state) broadcastCredits(data.state)   // charged server-side on success
+        return data.data as Result
+      } catch (e) {
+        // Out of daily credits: refresh the pill and open the upgrade modal. Credits
+        // are charged server-side only on success, so a failure costs nothing.
+        if (axios.isAxiosError(e) && e.response?.status === 402 && e.response.data?.code === 'credit_limit') {
+          const dd = e.response.data
+          broadcastCredits(dd.state)
+          triggerUpgrade({ title: 'You’re out of credits', message: dd.error || 'You’ve used all of today’s credits. Upgrade for a higher daily allowance.', plan: dd.plan })
+        }
+        throw e
+      }
     },
     retry: busyRetry,
     retryDelay: busyRetryDelay,
   })
 
-  const run = useCallback(async () => {
+  const run = useCallback(() => {
     if (seed.trim().length < 2) return
-    if (!(await chargeCredits('aihelper'))) return
+    // Credits charged server-side, only on success (see withApiGuard tool:'aihelper').
     gen.mutate()
   }, [seed, gen])
   const r = gen.data

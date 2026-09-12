@@ -14,6 +14,8 @@
  * No server imports - safe to use inside client components.
  */
 import { useEffect, useState } from 'react'
+import { broadcastCredits } from '@/lib/credits-client'
+import { triggerUpgrade } from '@/lib/upgrade'
 
 /** An error thrown by a generation fetch, carrying the HTTP status + optional code. */
 export class GenError extends Error {
@@ -36,8 +38,17 @@ export async function genFetch<T>(input: RequestInfo | URL, init?: RequestInit):
   const r = await fetch(input, init)
   const d = await r.json().catch(() => null)
   if (!r.ok || !d?.success) {
+    // Out of daily credits: refresh the balance pill and open the upgrade modal.
+    // (Credits are charged server-side only on success, so a plain failure below
+    // never cost anything to refund.)
+    if (r.status === 402 && d?.code === 'credit_limit') {
+      broadcastCredits(d.state)
+      triggerUpgrade({ title: 'You’re out of credits', message: d.error || 'You’ve used all of today’s credits. Upgrade for a higher daily allowance.', plan: d.plan })
+    }
     throw new GenError(d?.error || 'Generation failed.', { status: r.status, code: d?.code })
   }
+  // A successful generation was just charged server-side; sync the new balance.
+  if (d.state) broadcastCredits(d.state)
   return d.data as T
 }
 

@@ -128,7 +128,7 @@ async function aiResult(seed: string, details: string, ctx: { tags: string[]; sa
   }
 }
 
-export const POST = withApiGuard(postHandler, { limit: 20, windowMs: 60_000 })
+export const POST = withApiGuard(postHandler, { limit: 20, windowMs: 60_000, tool: 'aihelper' })
 
 async function postHandler(req: NextRequest) {
   const body = await req.json().catch(() => ({}))

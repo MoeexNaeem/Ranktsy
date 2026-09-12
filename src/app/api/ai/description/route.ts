@@ -9,7 +9,7 @@ import type { ApiResponse, AiDescResult } from '@/types'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
-export const POST = withApiGuard(postHandler, { limit: 20, windowMs: 60_000 })
+export const POST = withApiGuard(postHandler, { limit: 20, windowMs: 60_000, tool: 'descgen' })
 
 // Three deliberately different angles so the user gets real variety to choose from,
 // not three near-identical rewrites. Generated in parallel (latency ≈ one call).

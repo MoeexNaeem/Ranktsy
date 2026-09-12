@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query'
 import { Card, SectionTitle, EmptyState, GenNote, GenSkeleton, TagPill, primaryBtn, MONO } from '../kit'
 import { MiniMarkdown } from '../MiniMarkdown'
 import { C, D } from '@/utils'
-import { chargeCredits } from '@/lib/credits-client'
 import { genFetch, busyRetry, busyRetryDelay, useWaitPhase } from '@/lib/ai/busy'
 import type { AiDescResult } from '@/types'
 
@@ -57,9 +56,10 @@ export function DescriptionGenTab() {
   })
   const phase = useWaitPhase(isFetching)
 
-  const run = async () => {
+  const run = () => {
     if (q.trim().length < 2) return
-    if (!(await chargeCredits('descgen'))) return
+    // Credits charged server-side, only on a successful generation (see
+    // withApiGuard tool:'descgen') - a failed attempt never costs credits.
     const params: DescParams = { q: q.trim(), productName, productType, audience, features }
     Object.assign(saved, params, { submitted: params })
     setSubmitted(params)

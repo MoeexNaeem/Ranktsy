@@ -14,6 +14,8 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { runWithUsageContext } from '@/lib/usage'
 import { recordExtensionUsage } from '@/lib/extension'
 import { rateLimit, clientIp, tooManyResponse } from '@/lib/auth/rateLimit'
+import { canAfford, consumeCredits, isCreditTool, CREDIT_COST } from '@/lib/credits'
+import { PLAN_LABELS } from '@/lib/plans'
 
 type Handler<C> = (req: NextRequest, ctx: C) => Promise<Response> | Response
 
@@ -22,11 +24,20 @@ interface GuardOpts {
   limit?: number
   /** Window length in ms (default 60s). */
   windowMs?: number
+  /**
+   * When set to a credit-metered tool id, the guard charges CREDIT_COST for the
+   * call - but ONLY after the handler returns a successful response. A failed
+   * generation (AI busy, bad output, error) costs the user nothing, and there is
+   * no separate refund endpoint to abuse. Out-of-credits returns 402 credit_limit
+   * BEFORE the handler runs, so no expensive AI work happens for a broke user.
+   */
+  tool?: string
 }
 
 export function withApiGuard<C = unknown>(handler: Handler<C>, opts: GuardOpts = {}): Handler<C> {
   const limit = opts.limit ?? 30
   const windowMs = opts.windowMs ?? 60_000
+  const metered = !!opts.tool && isCreditTool(opts.tool)
 
   return async (req: NextRequest, ctx: C) => {
     const user = await getCurrentUser().catch(() => null)
@@ -44,6 +55,30 @@ export function withApiGuard<C = unknown>(handler: Handler<C>, opts: GuardOpts =
     const ipRl = rateLimit(`api:${bucket}:ip:${clientIp(req)}`, limit * 3, windowMs)
     if (!ipRl.allowed) return tooManyResponse(ipRl.retryAfterSec)
 
-    return runWithUsageContext({ userId: user.id, userEmail: user.email }, () => handler(req, ctx))
+    // Credit gate BEFORE the handler: don't run expensive AI work for a broke user.
+    if (metered) {
+      const afford = await canAfford(user.id, CREDIT_COST)
+      if (afford && !afford.ok) {
+        return NextResponse.json({
+          success: false, code: 'credit_limit', plan: afford.plan,
+          error: `You've used all ${afford.limit} of today's credits on the ${PLAN_LABELS[afford.plan]} plan. Upgrade for a higher daily allowance, or come back tomorrow.`,
+          state: { credits: afford.credits, limit: afford.limit, usedToday: afford.usedToday, plan: afford.plan },
+        }, { status: 402 })
+      }
+    }
+
+    const res = await runWithUsageContext({ userId: user.id, userEmail: user.email }, () => handler(req, ctx))
+
+    // Charge ONLY on a delivered success, then hand the fresh balance back so the
+    // credit pill updates. A failed generation falls through uncharged.
+    if (metered && res.ok) {
+      const body = await res.clone().json().catch(() => null)
+      if (body?.success) {
+        const c = await consumeCredits(user.id, CREDIT_COST)
+        const state = c ? { credits: c.credits, limit: c.limit, usedToday: c.usedToday, plan: c.plan } : undefined
+        return NextResponse.json({ ...body, state }, { status: res.status })
+      }
+    }
+    return res
   }
 }
