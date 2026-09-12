@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server'
 import { getTrendingListings } from '@/lib/etsy'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 
-export const revalidate = 1800
+// Run only at request time, never prerendered at build. Next 16 otherwise tries to
+// execute this param-less GET during the build to cache it, which fires live Etsy
+// calls and times out (build fails). The in-memory memCache below already gives the
+// 30-min caching at runtime, so we don't need Next's ISR revalidate here.
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
   const key    = cacheKey('trending', 'featured')
