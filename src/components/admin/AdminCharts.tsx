@@ -61,13 +61,13 @@ export function Bars({ data, height = 150, accent = C.orange, valueFormat = (n) 
   useEffect(() => { const t = setTimeout(() => setGrown(true), 60); return () => clearTimeout(t) }, [])
   const max = Math.max(1, ...data.map(d => d.value))
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height, paddingTop: 8 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 'clamp(6px, 2.2%, 20px)', height, paddingTop: 8 }}>
       {data.map((d, i) => {
         const h = grown ? Math.max(2, (d.value / max) * (height - 24)) : 2
         return (
-          <div key={i} title={`${d.label}: ${valueFormat(d.value)}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 0 }}>
-            <span style={{ fontSize: 10, fontFamily: MONO, color: C.graphite, opacity: grown ? 1 : 0, transition: 'opacity 0.5s' }}>{d.value > 0 ? valueFormat(d.value) : ''}</span>
-            <div style={{ width: '100%', maxWidth: 34, height: h, background: `linear-gradient(180deg, ${accent}, ${accent}bb)`, borderRadius: '6px 6px 3px 3px', transition: `height 0.7s cubic-bezier(.2,.7,.2,1) ${i * 30}ms` }} />
+          <div key={i} title={`${d.label}: ${valueFormat(d.value)}`} style={{ flex: '1 1 0', maxWidth: 64, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <span style={{ fontSize: 10, fontFamily: MONO, color: C.graphite, opacity: grown ? 1 : 0, transition: 'opacity 0.5s', whiteSpace: 'nowrap' }}>{d.value > 0 ? valueFormat(d.value) : ''}</span>
+            <div style={{ width: '100%', height: h, background: `linear-gradient(180deg, ${accent}, ${accent}bb)`, borderRadius: '7px 7px 3px 3px', transition: `height 0.7s cubic-bezier(.2,.7,.2,1) ${i * 30}ms` }} />
             <span style={{ fontSize: 9.5, fontFamily: MONO, color: '#9a9a92', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{d.label}</span>
           </div>
         )

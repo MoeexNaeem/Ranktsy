@@ -31,6 +31,11 @@ export function rateLimit(key: string, limit: number, windowMs: number): RateRes
 
 /** Best-effort client IP from proxy headers (Vercel/most hosts set x-forwarded-for). */
 export function clientIp(req: NextRequest): string {
+  // Behind Cloudflare, CF-Connecting-IP is the TRUE visitor IP and cannot be spoofed
+  // once the origin firewall only accepts Cloudflare IPs - so rate limits and abuse
+  // caps key on the real user, not on Cloudflare's edge or a forged XFF header.
+  const cf = req.headers.get('cf-connecting-ip')
+  if (cf) return cf.trim()
   const xff = req.headers.get('x-forwarded-for')
   if (xff) return xff.split(',')[0]!.trim()
   return req.headers.get('x-real-ip')?.trim() || 'unknown'

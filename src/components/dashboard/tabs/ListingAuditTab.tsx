@@ -169,11 +169,21 @@ export function ListingAuditTab() {
   const [id, setId] = useState<number | null>(null)
   const [badInput, setBadInput] = useState(false)
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ['listing-audit', id],
     queryFn: async () => {
-      const [lRes, vRes, bRes] = await Promise.all([
-        axios.get(`/api/etsy/listing?id=${id}`),
+      // The listing fetch is the one that must succeed. Surface Etsy's REAL reason
+      // (404 vs busy vs other) instead of a single generic "not found" - an active
+      // listing can still 404 if it is expired, sold out, a draft, private, or the
+      // URL/ID is wrong, and the user needs to know which so they can fix it.
+      const lRes = await axios.get(`/api/etsy/listing?id=${id}`).catch((e) => {
+        const status = axios.isAxiosError(e) ? e.response?.status : undefined
+        const serverMsg = axios.isAxiosError(e) ? (e.response?.data as { error?: string })?.error : undefined
+        if (status === 404) throw new Error('Etsy could not find this listing. It may be expired or sold out (needs renewing), a draft or private listing, or the URL/ID is wrong. Open the listing on Etsy and copy the URL straight from your browser, then try again.')
+        if (status === 429) throw new Error('Etsy is busy right now. Please wait a few seconds and try again.')
+        throw new Error(serverMsg || 'Could not reach Etsy to load this listing. Please try again in a moment.')
+      })
+      const [vRes, bRes] = await Promise.all([
         axios.get(`/api/etsy/variations?id=${id}`).catch(() => ({ data: { data: { hasVariations: false, variations: [] } } })),
         // Benchmarking is a bonus signal - a failure here must not sink the audit.
         axios.get(`/api/etsy/benchmark?id=${id}`).catch(() => ({ data: { data: undefined } })),
@@ -210,7 +220,7 @@ export function ListingAuditTab() {
       {badInput && <ErrorBox>Couldn&apos;t find a listing ID. Paste a full Etsy listing URL or the numeric ID.</ErrorBox>}
 
       {isLoading && <Loading label="Auditing listing…" />}
-      {isError && <ErrorBox>Listing not found or inactive. Check the URL/ID and try again.</ErrorBox>}
+      {isError && <ErrorBox>{(error as Error)?.message || 'Listing not found or inactive. Check the URL/ID and try again.'}</ErrorBox>}
 
       {audit && listing && !isLoading && (
         <>

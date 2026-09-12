@@ -503,7 +503,7 @@ TrackedKeywordSchema.index({ userId: 1, keyword: 1, country: 1 }, { unique: true
 // no recent activity simply starts a fresh conversation. No cron needed (Mongo's TTL monitor
 // sweeps every ~60s). Retention is env-tunable; db.ts leaves autoIndex on, so the index is
 // created automatically on the next connection.
-const RETENTION_SECONDS = (Number(process.env.CHAT_RETENTION_DAYS) > 0 ? Number(process.env.CHAT_RETENTION_DAYS) : 30) * 86400
+export const RETENTION_SECONDS = (Number(process.env.CHAT_RETENTION_DAYS) > 0 ? Number(process.env.CHAT_RETENTION_DAYS) : 30) * 86400
 ChatMessageSchema.index({ createdAt: 1 }, { expireAfterSeconds: RETENTION_SECONDS })
 NotificationSchema.index({ createdAt: 1 }, { expireAfterSeconds: RETENTION_SECONDS })
 

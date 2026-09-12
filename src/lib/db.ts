@@ -87,5 +87,26 @@ export async function connectDB(): Promise<typeof mongoose> {
     throw err
   }
 
+  void reconcileTtlIndexes(cached.conn)
   return cached.conn
+}
+
+// Changing a schema's TTL `expireAfterSeconds` does NOT update an already-created
+// Mongo index - so if the chat/notification TTL was ever built with a shorter value
+// (e.g. an old CHAT_RETENTION_DAYS), messages keep expiring early forever. This runs
+// ONCE per process and uses collMod to force the live index back to RETENTION_SECONDS
+// (30 days), which corrects the retention without dropping the index. Best-effort.
+let ttlReconciled = false
+async function reconcileTtlIndexes(conn: typeof mongoose): Promise<void> {
+  if (ttlReconciled) return
+  ttlReconciled = true
+  const wanted = Number(process.env.CHAT_RETENTION_DAYS) > 0 ? Number(process.env.CHAT_RETENTION_DAYS) : 30
+  const seconds = wanted * 86400
+  const db = conn.connection.db
+  if (!db) return
+  for (const coll of ['chatmessages', 'notifications']) {
+    try {
+      await db.command({ collMod: coll, index: { keyPattern: { createdAt: 1 }, expireAfterSeconds: seconds } })
+    } catch { /* index/collection not present yet, or command unsupported - ignore */ }
+  }
 }

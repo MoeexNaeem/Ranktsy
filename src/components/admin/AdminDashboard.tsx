@@ -144,28 +144,45 @@ export function AdminDashboard() {
   const [promoBusy, setPromoBusy] = useState(false)
   const [promoMsg, setPromoMsg] = useState('')
 
-  const load = useCallback(() => {
-    fetch('/api/admin/users').then(async r => {
-      if (r.status === 401) { window.location.href = '/login?redirect=/admin'; return }
-      if (r.status === 403) { setState('forbidden'); return }
-      const d = await r.json().catch(() => null)
-      if (r.ok && d?.success) { setUsers(d.data.users); setStats(d.data.stats); setPromoOn(!!d.data.freeToProPromo); setState('ok') }
-      else setState('error')
-    }).catch(() => setState('error'))
-    fetch('/api/admin/usage').then(async r => {
-      const d = await r.json().catch(() => null)
-      if (r.ok && d?.success) setUsage(d.data)
-    }).catch(() => {})
-    fetch('/api/admin/snapshots-stats').then(async r => {
-      const d = await r.json().catch(() => null)
-      if (r.ok && d?.success) setTrack(d.data)
-    }).catch(() => {})
-    fetch('/api/admin/extension').then(async r => {
-      const d = await r.json().catch(() => null)
-      if (r.ok && d?.success) setExt(d.data)
-    }).catch(() => {})
+  const [refreshing, setRefreshing] = useState(false)
+  const [live, setLive] = useState(false)          // auto-refresh toggle
+  const [lastSync, setLastSync] = useState<Date | null>(null)
+
+  const load = useCallback(async () => {
+    await Promise.all([
+      fetch('/api/admin/users').then(async r => {
+        if (r.status === 401) { window.location.href = '/login?redirect=/admin'; return }
+        if (r.status === 403) { setState('forbidden'); return }
+        const d = await r.json().catch(() => null)
+        if (r.ok && d?.success) { setUsers(d.data.users); setStats(d.data.stats); setPromoOn(!!d.data.freeToProPromo); setState('ok') }
+        else setState('error')
+      }).catch(() => setState('error')),
+      fetch('/api/admin/usage').then(async r => {
+        const d = await r.json().catch(() => null)
+        if (r.ok && d?.success) setUsage(d.data)
+      }).catch(() => {}),
+      fetch('/api/admin/snapshots-stats').then(async r => {
+        const d = await r.json().catch(() => null)
+        if (r.ok && d?.success) setTrack(d.data)
+      }).catch(() => {}),
+      fetch('/api/admin/extension').then(async r => {
+        const d = await r.json().catch(() => null)
+        if (r.ok && d?.success) setExt(d.data)
+      }).catch(() => {}),
+    ])
+    setLastSync(new Date())
   }, [])
-  useEffect(load, [load])
+  // load() only setState's after awaiting fetches (never synchronously in the effect).
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void load() }, [load])
+
+  // Manual refresh (spins the icon) and an optional 30s live auto-refresh.
+  const refresh = useCallback(async () => { setRefreshing(true); await load(); setRefreshing(false) }, [load])
+  useEffect(() => {
+    if (!live) return
+    const t = setInterval(() => { void load() }, 30000)
+    return () => clearInterval(t)
+  }, [live, load])
 
   // Keep the Messages nav badge current: poll the unread support-message count.
   useEffect(() => {
@@ -307,7 +324,7 @@ export function AdminDashboard() {
     <main className="rpage" style={{ background: C.canvas, minHeight: '100vh', paddingTop: 92 }}>
       <div className="admin-shell" style={{ display: 'flex', maxWidth: 1440, margin: '0 auto', alignItems: 'flex-start' }}>
         {/* ─── Sidebar ─────────────────────────────────────────────────────── */}
-        <aside className="admin-sidebar" style={{ width: 236, flexShrink: 0, position: 'sticky', top: 92, alignSelf: 'flex-start', padding: '28px 16px', height: 'calc(100vh - 92px)', borderRight: `1px solid ${C.ash}`, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <aside className="admin-sidebar" style={{ width: 236, flexShrink: 0, position: 'sticky', top: 92, alignSelf: 'flex-start', padding: '28px 16px', height: 'calc(100vh - 92px)', overflowY: 'auto', borderRight: `1px solid ${C.ash}`, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px 18px', fontSize: 11.5, fontFamily: MONO, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#6E6E64' }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.orange }} /> Admin
           </div>
@@ -321,7 +338,21 @@ export function AdminDashboard() {
         <div style={{ flex: 1, minWidth: 0, padding: '30px 34px 90px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 24 }}>
             <h1 style={{ fontSize: 'clamp(26px,3vw,38px)', fontWeight: 600, color: C.ink, letterSpacing: '-0.03em', textTransform: 'capitalize', margin: 0 }}>{NAV.find(n => n.id === section)?.label ?? section}</h1>
-            <NotificationBell />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {lastSync && <span style={{ fontSize: 11, fontFamily: MONO, color: '#9a9a92', whiteSpace: 'nowrap' }}>updated {lastSync.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>}
+              <button onClick={refresh} disabled={refreshing} title="Refresh data" aria-label="Refresh data"
+                style={{ display: 'grid', placeItems: 'center', width: 38, height: 38, borderRadius: 12, border: `1px solid ${C.ash}`, background: C.paper, color: C.ink, cursor: refreshing ? 'default' : 'pointer' }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: refreshing ? 'rk-spin 0.8s linear infinite' : 'none' }}>
+                  <path d="M21 12a9 9 0 1 1-2.64-6.36" /><path d="M21 3v6h-6" />
+                </svg>
+              </button>
+              <button onClick={() => setLive(v => !v)} title="Auto-refresh every 30 seconds"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 14px', borderRadius: 100, fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: `1px solid ${live ? '#1F7A44' : C.ash}`, background: live ? '#E4F3E9' : C.paper, color: live ? '#1F7A44' : C.graphite }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: live ? '#1F7A44' : C.stone, boxShadow: live ? '0 0 0 3px rgba(31,122,68,0.18)' : 'none' }} />
+                {live ? 'Live' : 'Live off'}
+              </button>
+              <NotificationBell />
+            </div>
           </div>
 
           {section === 'overview' && (

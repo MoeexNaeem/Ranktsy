@@ -88,5 +88,9 @@ export function serializeChat(m: any) {
     sender: m.sender as 'user' | 'admin',
     body: m.body,
     createdAt: m.createdAt ?? null,
+    // Read receipts: for an admin message, readByUser tells us whether the user has
+    // opened the thread and seen it (the user GET marks admin msgs readByUser=true).
+    readByUser: !!m.readByUser,
+    readByAdmin: !!m.readByAdmin,
   }
 }

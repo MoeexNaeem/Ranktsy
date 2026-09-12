@@ -35,6 +35,11 @@ a { color: inherit; }
    the visible scrollbar, so users see the control at the TOP of the data. */
 .rtable-hidescroll { scrollbar-width: none; -ms-overflow-style: none; }
 .rtable-hidescroll::-webkit-scrollbar { height: 0; }
+
+/* Admin sidebar scrolls when the nav is taller than the viewport (so the bottom
+   "Dashboard" link is always reachable), but hides its scrollbar for a clean look. */
+.admin-sidebar { scrollbar-width: none; -ms-overflow-style: none; }
+.admin-sidebar::-webkit-scrollbar { width: 0; height: 0; }
 .rtable-topscroll { scrollbar-width: thin; scrollbar-color: #FB5E09 #e9e6de; }
 .rtable-topscroll::-webkit-scrollbar        { height: 12px; }
 .rtable-topscroll::-webkit-scrollbar-track  { background: #efece5; border-radius: 9999px; margin: 0 6px; }

@@ -9,6 +9,7 @@ import { resolveRole } from '@/lib/auth/roles'
 import { verifyRecaptcha } from '@/lib/recaptcha'
 import { rateLimit, clientIp, tooManyResponse } from '@/lib/auth/rateLimit'
 import { applySignupReferral, REF_COOKIE } from '@/lib/affiliate'
+import { sebtBatchOpen } from '@/lib/sebt'
 import type { ApiResponse, AuthUser } from '@/types'
 
 export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<AuthUser>>> {
@@ -48,7 +49,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<A
     // SEBT NEXT education cohort: signups via the SEBT link (?cohort=sebt) get the
     // Enterprise plan free for 7 days. We reuse the comp-plan clock (compExpiresAt),
     // so the plan auto-reverts to free after 7 days with no webhook (see plan-lifecycle).
-    const isSebt = body?.cohort === 'sebt'
+    // Only honored while the batch window is open - after it closes the grant stops
+    // (defence in depth; the SEBT pages already show a "Batch 1 has ended" screen).
+    const isSebt = body?.cohort === 'sebt' && sebtBatchOpen()
     const sebtGrant = isSebt
       ? { plan: 'enterprise' as const, compExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), sebtStudent: true }
       : {}
