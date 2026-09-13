@@ -651,7 +651,7 @@ export function Footer() {
         {/* Bottom bar */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, paddingTop: 26 }}>
           <p style={{ fontSize: 12.5, color: dim, margin: 0 }}>© 2026 Rankkw. All rights reserved.</p>
-          <div style={{ display: "flex", gap: 22 }}>
+          <div style={{ display: "flex", gap: 22, flexWrap: "wrap" }}>
             {[["Privacy", "/privacy"], ["Terms", "/terms"], ["Service Policy", "/service-policy"], ["Refund Policy", "/refund-policy"], ["Methodology", "/methodology"], ["Contact", "/contact"]].map(([l, h]) => (
               <a key={l} href={h} style={{ fontSize: 12.5, color: dim, textDecoration: "none" }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}

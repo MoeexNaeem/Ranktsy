@@ -2,7 +2,7 @@ import mongoose, { Schema, model, models, type Document } from 'mongoose'
 import { SNAPSHOT_RETENTION_DAYS } from '@/utils'
 import { PLAN_SLUGS, type PlanSlug } from '@/lib/plans'
 import type {
-  IKeywordCache, IKeywordHistory, ISavedKeyword, IOTP,
+  IKeywordCache, IKeywordHistory, ISavedKeyword, IPayment, IOTP,
   IShopSnapshot, IListingSnapshot, ITrackedShop, ITrackedListing, IConnectedShop,
   ICollectiveKeywordData, IApiUsage, IBlog, IDeal, IPopupAd,
 } from '@/types'
@@ -181,6 +181,29 @@ const SavedKeywordSchema = new Schema<ISavedKeyword>({
 SavedKeywordSchema.index({ day: 1, createdAt: -1 })
 SavedKeywordSchema.index({ createdAt: -1 })
 SavedKeywordSchema.index({ keyword: 1, day: 1 })
+
+/**
+ * A successful (or refunded) subscription payment, written by the Lemon Squeezy
+ * webhook, so the admin "Earnings" tab can show real monthly revenue and who
+ * bought/renewed. Deduped by unique invoiceId (webhooks retry).
+ */
+const PaymentSchema = new Schema<IPayment>({
+  userId:        { type: String, default: null },
+  userEmail:     { type: String, default: null },
+  plan:          { type: String, required: true },
+  amountUsd:     { type: Number, required: true },
+  currency:      { type: String, default: 'USD' },
+  subscriptionId:{ type: String, default: null },
+  invoiceId:     { type: String, required: true, unique: true },
+  billingReason: { type: String, default: '' },
+  status:        { type: String, enum: ['paid', 'refunded'], default: 'paid' },
+  paidAt:        { type: Date, required: true },
+  month:         { type: String, required: true },   // YYYY-MM (Asia/Karachi)
+  createdAt:     { type: Date, default: Date.now },
+}, { timestamps: false })
+PaymentSchema.index({ month: 1, paidAt: -1 })
+PaymentSchema.index({ paidAt: -1 })
+PaymentSchema.index({ userId: 1, paidAt: -1 })
 
 /**
  * Retention for snapshot history: ~13 months.
@@ -612,3 +635,4 @@ export const CollectiveKeywordData = models.CollectiveKeywordData ?? model<IColl
 export const ApiUsage      = models.UserApiUsage  ?? model<IApiUsage>('UserApiUsage', ApiUsageSchema)
 export const KeywordHistory= models.KeywordHistory?? model<IKeywordHistory>('KeywordHistory', KeywordHistorySchema)
 export const SavedKeyword  = models.SavedKeyword  ?? model<ISavedKeyword>('SavedKeyword', SavedKeywordSchema)
+export const Payment       = models.Payment       ?? model<IPayment>('Payment', PaymentSchema)

@@ -12,6 +12,7 @@ import { AdminMessages } from './AdminMessages'
 import { AdminAffiliates } from './AdminAffiliates'
 import { AdminSavedKeywords } from './AdminSavedKeywords'
 import { AdminSebtStudents } from './AdminSebtStudents'
+import { AdminEarnings } from './AdminEarnings'
 import { RealtimeProvider, NotificationBell } from '@/components/dashboard/Realtime'
 
 interface AUser {
@@ -104,11 +105,12 @@ const selectStyle: React.CSSProperties = {
   fontSize: 12.5, fontFamily: MONO, color: C.ink, outline: 'none', cursor: 'pointer', width: '100%', minWidth: 0,
 }
 
-type Section = 'overview' | 'users' | 'analytics' | 'keywords' | 'sebt' | 'extension' | 'affiliates' | 'messages' | 'content' | 'settings'
+type Section = 'overview' | 'users' | 'analytics' | 'earnings' | 'keywords' | 'sebt' | 'extension' | 'affiliates' | 'messages' | 'content' | 'settings'
 const NAV: { id: Section; label: string; icon: string }[] = [
   { id: 'overview',  label: 'Overview',  icon: ICON.home },
   { id: 'users',     label: 'Users',     icon: ICON.account },
   { id: 'analytics', label: 'Analytics', icon: ICON.coins },
+  { id: 'earnings',  label: 'Earnings',  icon: ICON.addCard },
   { id: 'keywords',  label: 'Saved Keywords', icon: ICON.search },
   { id: 'sebt',      label: 'SEBT Students', icon: ICON.consult },
   { id: 'extension', label: 'Extension', icon: ICON.display },
@@ -619,6 +621,7 @@ export function AdminDashboard() {
             </div>
           )}
 
+          {section === 'earnings' && <AdminEarnings />}
           {section === 'keywords' && <AdminSavedKeywords />}
           {section === 'sebt' && <AdminSebtStudents />}
           {section === 'affiliates' && <AdminAffiliates />}

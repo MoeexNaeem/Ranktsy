@@ -265,7 +265,7 @@ export function Navbar() {
                   onMouseLeave={e => (e.currentTarget.style.borderColor = C.ash)}>
                   Log out
                 </button>
-                <NavButton href="/dashboard" style={S.start} spinnerColor="#fff"
+                <NavButton href="/dashboard" style={S.start} spinnerColor="#fff" className="rnav-cta-primary"
                   onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
                   onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
                   Dashboard →
@@ -278,7 +278,7 @@ export function Navbar() {
                   onMouseLeave={e => (e.currentTarget.style.borderColor = C.ash)}>
                   Log in
                 </Link>
-                <Link href="/register" style={S.start}
+                <Link href="/register" style={S.start} className="rnav-cta-primary"
                   onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
                   onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
                   Start free →

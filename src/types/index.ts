@@ -620,6 +620,28 @@ export interface IKeywordHistory {
 }
 
 /**
+ * One successful subscription payment (from the Lemon Squeezy webhook), so the
+ * admin can see real monthly revenue and who bought/renewed. `month` is YYYY-MM in
+ * Asia/Karachi for grouping. `billingReason` distinguishes the first payment from
+ * a renewal. Deduped by `invoiceId` (webhooks retry).
+ */
+export interface IPayment {
+  _id?: string
+  userId?: string | null
+  userEmail?: string | null
+  plan: string
+  amountUsd: number            // dollars (total_usd / 100)
+  currency?: string | null
+  subscriptionId?: string | null
+  invoiceId: string            // unique dedupe key
+  billingReason?: string       // 'initial' | 'renewal' | other
+  status: 'paid' | 'refunded'
+  paidAt: Date
+  month: string                // YYYY-MM (Asia/Karachi)
+  createdAt?: Date
+}
+
+/**
  * Every keyword a user runs through Keyword Search, saved verbatim so admins can
  * see real demand. `day` is the calendar date in Asia/Karachi (the team's local
  * day) as YYYY-MM-DD, so the admin date filter matches what "5 September" means

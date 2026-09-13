@@ -266,6 +266,10 @@ svg  { max-width: 100%; }
   main.rpage { padding-top: 118px !important; padding-left: 18px !important; padding-right: 18px !important; }
 
   .rhide-sm  { display: none !important; }
+  /* On phones the primary nav CTA (Start free / Dashboard) is dropped too, leaving
+     just the logo + burger, so the nav no longer overflows the viewport width. The
+     CTA still lives in the mobile drawer. Kept visible on tablet (641px+). */
+  .rnav-cta-primary { display: none !important; }
   .rstack-sm { flex-direction: column !important; align-items: flex-start !important; }
   .rstack-sm > * { max-width: 100%; }
   .rfull-sm  { width: 100% !important; max-width: 100% !important; margin-left: 0 !important; }

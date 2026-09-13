@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
-import { User } from '@/lib/models'
+import { User, Payment } from '@/lib/models'
 import { verifyWebhookSignature } from '@/lib/lemonsqueezy'
 import { planForVariant, PLAN_SLUGS, type PlanSlug } from '@/lib/plans'
 import { recordCommission, refundCommission } from '@/lib/affiliate'
@@ -64,6 +64,28 @@ export async function POST(req: NextRequest) {
     }
 
     await user.save()
+
+    // Record the payment for the admin Earnings tab (real monthly revenue + who
+    // bought/renewed). Deduped by invoiceId; a refund flips the row to 'refunded'.
+    if (event === 'subscription_payment_success' && subId) {
+      const amountUsd = typeof attrs.total_usd === 'number' ? attrs.total_usd / 100
+        : typeof attrs.total === 'number' ? attrs.total / 100 : 0
+      const paidAt = attrs.created_at ? new Date(attrs.created_at) : new Date()
+      const month = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi', year: 'numeric', month: '2-digit' }).format(paidAt) // YYYY-MM
+      await Payment.findOneAndUpdate(
+        { invoiceId: subId },
+        {
+          $set: { userId: user._id.toString(), userEmail: user.email, plan: user.plan, amountUsd,
+            currency: attrs.currency ? String(attrs.currency) : 'USD',
+            subscriptionId: attrs.subscription_id ? String(attrs.subscription_id) : subId,
+            billingReason: attrs.billing_reason ? String(attrs.billing_reason) : '', status: 'paid', paidAt, month },
+          $setOnInsert: { invoiceId: subId, createdAt: new Date() },
+        },
+        { upsert: true },
+      ).catch(e => console.error('[LS webhook] payment record', e))
+    } else if (event === 'subscription_payment_refunded' && subId) {
+      await Payment.updateOne({ invoiceId: subId }, { $set: { status: 'refunded' } }).catch(() => null)
+    }
 
     // Affiliate commission: each successful payment by a referred user earns a
     // recurring commission (up to 12 per subscription). On an invoice event
