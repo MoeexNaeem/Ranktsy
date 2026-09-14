@@ -12,8 +12,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  ReactFlow, Background, Controls, MiniMap, Handle, Position, MarkerType,
-  type Node, type Edge, type NodeProps,
+  ReactFlow, Background, BackgroundVariant, Controls, MiniMap, Handle, Position, MarkerType,
+  type Node, type Edge, type NodeProps, type DefaultEdgeOptions,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { FLOW_NODES, FLOW_EDGES, SYSTEM_LABEL, type FlowNodeDef, type FlowSystem, type FlowNodeKind } from '@/lib/codeflow/graph'
@@ -31,11 +31,13 @@ function nodeState(def: FlowNodeDef, health: HealthMap | null): NodeState {
   return health[def.system]?.status ?? 'code'
 }
 
+// Colours tuned for readability on the dark canvas: a saturated border/accent, a
+// deep-but-legible fill, near-white text.
 const COLOR: Record<NodeState, { line: string; fill: string; text: string; glow: string }> = {
-  ok:   { line: '#22c55e', fill: '#12351f', text: '#dcfce7', glow: 'rgba(34,197,94,0.45)' },
-  down: { line: '#ef4444', fill: '#3a1414', text: '#fee2e2', glow: 'rgba(239,68,68,0.55)' },
-  off:  { line: '#d99a2b', fill: '#33280f', text: '#fde9c8', glow: 'rgba(217,154,43,0.35)' },
-  code: { line: '#5b6b86', fill: '#1b2233', text: '#dbe4f3', glow: 'rgba(91,107,134,0.0)' },
+  ok:   { line: '#34d27b', fill: '#132a1f', text: '#eafff2', glow: 'rgba(52,210,123,0.40)' },
+  down: { line: '#ff5a4d', fill: '#2e1513', text: '#ffe9e6', glow: 'rgba(255,90,77,0.55)' },
+  off:  { line: '#e6a53a', fill: '#2b2110', text: '#fff2da', glow: 'rgba(230,165,58,0.35)' },
+  code: { line: '#9fb4d8', fill: '#1a2233', text: '#eaf1ff', glow: 'rgba(159,180,216,0.0)' },
 }
 
 interface NodeData extends Record<string, unknown> {
@@ -43,38 +45,40 @@ interface NodeData extends Record<string, unknown> {
 }
 
 // One custom node renderer for every shape - shape from `kind`, colour from `state`.
+// A single target handle (top) + single source handle (bottom) so every edge
+// resolves unambiguously and the connecting lines always render.
 function FlowNode({ data }: NodeProps<Node<NodeData>>) {
   const c = COLOR[data.state]
   const isDiamond = data.kind === 'decision'
   const isPill = data.kind === 'start' || data.kind === 'terminal'
+  const isExternal = data.kind === 'external'
   const base: React.CSSProperties = {
     display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
-    fontSize: 11.5, fontWeight: 600, lineHeight: 1.25, padding: isDiamond ? 0 : '10px 14px',
-    color: c.text, background: c.fill, border: `1.5px solid ${c.line}`,
-    boxShadow: data.state === 'down' ? `0 0 0 1px ${c.line}, 0 0 16px ${c.glow}`
-             : data.state === 'ok'   ? `0 0 12px ${c.glow}` : 'none',
-    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+    fontSize: 13, fontWeight: 600, lineHeight: 1.3, letterSpacing: 0.1,
+    color: c.text, background: c.fill, border: `2px solid ${c.line}`,
+    boxShadow: data.state === 'down' ? `0 0 0 1px ${c.line}, 0 0 22px ${c.glow}`
+             : data.state === 'ok'   ? `0 0 16px ${c.glow}` : '0 2px 8px rgba(0,0,0,0.35)',
+    fontFamily: 'system-ui, -apple-system, Segoe UI, sans-serif',
   }
   const shape: React.CSSProperties = isDiamond
-    ? { ...base, width: 150, height: 92, clipPath: 'polygon(50% 0, 100% 50%, 50% 100%, 0 50%)', padding: '0 22px' }
+    ? { ...base, width: 176, height: 108, clipPath: 'polygon(50% 0, 100% 50%, 50% 100%, 0 50%)', padding: '0 26px', fontSize: 12 }
     : isPill
-      ? { ...base, borderRadius: 999, minWidth: 120 }
-      : { ...base, borderRadius: data.kind === 'external' ? 20 : 8, minWidth: 150,
-          ...(data.kind === 'external' ? { borderStyle: 'dashed' } : null) }
+      ? { ...base, borderRadius: 999, padding: '12px 22px', minWidth: 150 }
+      : { ...base, borderRadius: 12, padding: '13px 18px', minWidth: 176, maxWidth: 230,
+          ...(isExternal ? { borderStyle: 'dashed' } : null) }
 
   return (
     <div title={data.detail ? `${data.label} - ${data.detail}` : data.label} style={{ position: 'relative' }}>
       <Handle type="target" position={Position.Top} style={handleStyle} />
-      <Handle type="target" position={Position.Left} id="l" style={handleStyle} />
       <div style={shape}>{data.label}</div>
       <Handle type="source" position={Position.Bottom} style={handleStyle} />
-      <Handle type="source" position={Position.Right} id="r" style={handleStyle} />
     </div>
   )
 }
-const handleStyle: React.CSSProperties = { width: 6, height: 6, background: '#64748b', border: 'none', opacity: 0.5 }
+const handleStyle: React.CSSProperties = { width: 7, height: 7, background: '#5b6b86', border: '1px solid #0b1020' }
 
 const nodeTypes = { flow: FlowNode }
+const defaultEdgeOptions: DefaultEdgeOptions = { type: 'smoothstep' }
 
 const DOT: Record<Status, string> = { ok: '#22c55e', down: '#ef4444', off: '#d99a2b' }
 
@@ -110,20 +114,23 @@ export function CodeFlow() {
       const targetDef = byId.get(e.target)
       const sys = e.system ?? targetDef?.system
       const st: NodeState = sys && health ? (health[sys]?.status ?? 'code') : 'code'
-      const col = st === 'down' ? COLOR.down.line : st === 'off' ? COLOR.off.line : st === 'ok' ? COLOR.ok.line : '#64748b'
+      const col = st === 'down' ? COLOR.down.line : st === 'off' ? COLOR.off.line : st === 'ok' ? COLOR.ok.line : COLOR.code.line
       const broken = st === 'down'
       return {
         id: e.id, source: e.source, target: e.target, label: e.label,
-        type: 'smoothstep', animated: st === 'ok' || broken,
-        style: { stroke: col, strokeWidth: broken ? 2.4 : 1.6, opacity: st === 'off' ? 0.7 : 1 },
-        labelStyle: { fill: '#9aa6bd', fontSize: 10, fontFamily: 'ui-monospace, monospace' },
-        labelBgStyle: { fill: '#0f1115' },
-        markerEnd: { type: MarkerType.ArrowClosed, color: col, width: 16, height: 16 },
+        // Always animated: the moving dashes show flow direction and make the
+        // connections easy to trace. Colour still carries health.
+        type: 'smoothstep', animated: true,
+        style: { stroke: col, strokeWidth: broken ? 3 : 2, opacity: st === 'off' ? 0.85 : 1 },
+        labelStyle: { fill: '#cdd7ea', fontSize: 11, fontWeight: 600, fontFamily: 'system-ui, sans-serif' },
+        labelBgStyle: { fill: '#0b1020', fillOpacity: 0.9 },
+        labelBgPadding: [6, 3] as [number, number], labelBgBorderRadius: 4,
+        markerEnd: { type: MarkerType.ArrowClosed, color: col, width: 20, height: 20 },
       }
     })
   }, [health])
 
-  // Systems legend, required first, then optional; broken bubbles to the top.
+  // Systems legend, broken first, then required, then the rest.
   const legend = useMemo(() => {
     if (!health) return []
     return (Object.keys(SYSTEM_LABEL) as FlowSystem[])
@@ -138,8 +145,8 @@ export function CodeFlow() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 18, color: '#3D3E3B' }}>Code Flow</h2>
-          <p style={{ margin: '4px 0 0', fontSize: 12.5, color: '#6E6E64' }}>
-            Live map of the app. Green flows are working, amber is an optional service that is off, red is a broken required system.
+          <p style={{ margin: '4px 0 0', fontSize: 12.5, color: '#6E6E64', maxWidth: 640 }}>
+            Live map of the app. Green flows are working, amber is an optional service that is off, red is a broken required system. Scroll to zoom, drag to pan.
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -156,23 +163,25 @@ export function CodeFlow() {
 
       {err && <div style={{ fontSize: 12.5, color: '#CF463A' }}>{err}</div>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 220px', gap: 12, alignItems: 'start' }}>
-        <div style={{ height: '74vh', minHeight: 480, borderRadius: 14, overflow: 'hidden', border: '1px solid #D2D2C8', background: '#0f1115' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 230px', gap: 12, alignItems: 'stretch' }}>
+        <div style={{ height: '82vh', minHeight: 560, borderRadius: 16, overflow: 'hidden',
+          border: '1px solid #2a3446', background: 'radial-gradient(1200px 600px at 30% 0%, #17203260, transparent), #0e1422' }}>
           <ReactFlow
-            nodes={nodes} edges={edges} nodeTypes={nodeTypes}
-            fitView fitViewOptions={{ padding: 0.15 }}
-            minZoom={0.2} maxZoom={1.75}
+            nodes={nodes} edges={edges} nodeTypes={nodeTypes} defaultEdgeOptions={defaultEdgeOptions}
+            fitView fitViewOptions={{ padding: 0.16 }}
+            minZoom={0.25} maxZoom={2.2}
             proOptions={{ hideAttribution: true }}
             nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}
           >
-            <Background color="#232a3a" gap={22} />
+            <Background variant={BackgroundVariant.Dots} color="#2b3750" gap={26} size={1.4} />
             <Controls showInteractive={false} />
-            <MiniMap pannable zoomable maskColor="rgba(0,0,0,0.55)"
-              nodeColor={(n) => COLOR[(n.data as NodeData).state].line} style={{ background: '#0b0d12' }} />
+            <MiniMap pannable zoomable maskColor="rgba(0,0,0,0.6)"
+              nodeColor={(n) => COLOR[(n.data as NodeData).state].line}
+              nodeStrokeWidth={2} style={{ background: '#0b1020', border: '1px solid #2a3446' }} />
           </ReactFlow>
         </div>
 
-        <aside style={{ border: '1px solid #D2D2C8', borderRadius: 14, padding: 14, background: '#F5F5EB' }}>
+        <aside style={{ border: '1px solid #D2D2C8', borderRadius: 14, padding: 14, background: '#F5F5EB', alignSelf: 'start' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#3D3E3B', marginBottom: 10 }}>Systems</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             {legend.length === 0 && <span style={{ fontSize: 12, color: '#919183' }}>Loading...</span>}

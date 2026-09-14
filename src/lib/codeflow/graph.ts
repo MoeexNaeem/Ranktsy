@@ -55,8 +55,9 @@ export interface FlowEdgeDef {
   system?: FlowSystem
 }
 
-const X = { auth: 40, keyword: 380, ai: 720, payments: 1060, infra: 1400 } as const
-const Y = (row: number) => 20 + row * 110
+const X = { auth: 60, keyword: 460, ai: 860, payments: 1260, infra: 1660 } as const
+const Y = (row: number) => 20 + row * 122
+const OFFSET = 280   // horizontal nudge for a node that runs parallel to its lane
 
 export const FLOW_NODES: FlowNodeDef[] = [
   // ── Auth lane ──────────────────────────────────────────────────────────────
@@ -70,7 +71,7 @@ export const FLOW_NODES: FlowNodeDef[] = [
   { id: 'login',     label: 'POST /api/auth/login',            kind: 'process',  lane: 'auth', position: { x: X.auth, y: Y(7) } },
   { id: 'jwt',       label: 'Issue JWT (HttpOnly cookie)',     kind: 'process',  lane: 'auth', system: 'auth', position: { x: X.auth, y: Y(8) } },
   { id: 'dashboard', label: 'Dashboard loads',                 kind: 'process',  lane: 'auth', position: { x: X.auth, y: Y(9) } },
-  { id: 'botBlocked',label: 'Blocked (bot)',                   kind: 'terminal', lane: 'auth', position: { x: X.auth - 220, y: Y(3) } },
+  { id: 'botBlocked',label: 'Blocked (bot)',                   kind: 'terminal', lane: 'auth', position: { x: X.auth - OFFSET, y: Y(3) } },
 
   // ── Keyword search lane ──────────────────────────────────────────────────────
   { id: 'kwUI',      label: 'Keyword Search',                  kind: 'start',    lane: 'keyword', position: { x: X.keyword, y: Y(0) } },
@@ -81,7 +82,7 @@ export const FLOW_NODES: FlowNodeDef[] = [
   { id: 'kwCache',   label: 'Cached?',                         kind: 'decision', lane: 'keyword', position: { x: X.keyword, y: Y(5) }, detail: 'memCache -> collective store -> Mongo KeywordCache.' },
   { id: 'kwDb',      label: 'KeywordCache (Mongo)',            kind: 'process',  lane: 'keyword', system: 'mongo', position: { x: X.keyword, y: Y(6) } },
   { id: 'kwEtsy',    label: 'Etsy key pool + rate gate',       kind: 'external', lane: 'keyword', system: 'etsy', position: { x: X.keyword, y: Y(7) } },
-  { id: 'kwGoogle',  label: 'Google Ads volume',               kind: 'external', lane: 'keyword', system: 'google', position: { x: X.keyword + 220, y: Y(7) } },
+  { id: 'kwGoogle',  label: 'Google Ads volume',               kind: 'external', lane: 'keyword', system: 'google', position: { x: X.keyword + OFFSET, y: Y(7) } },
   { id: 'kwEnrich',  label: 'Related + near matches',          kind: 'process',  lane: 'keyword', system: 'etsy', position: { x: X.keyword, y: Y(8) } },
   { id: 'kwResult',  label: 'Results rendered',                kind: 'terminal', lane: 'keyword', position: { x: X.keyword, y: Y(9) } },
 
@@ -90,7 +91,7 @@ export const FLOW_NODES: FlowNodeDef[] = [
   { id: 'aiApi',     label: 'POST /api/ai/*',                  kind: 'process',  lane: 'ai', position: { x: X.ai, y: Y(1) } },
   { id: 'aiCredits', label: 'withApiGuard credits',           kind: 'process',  lane: 'ai', system: 'mongo', position: { x: X.ai, y: Y(2) } },
   { id: 'aiGemini',  label: 'Gemini key pool',                 kind: 'external', lane: 'ai', system: 'gemini', position: { x: X.ai, y: Y(3) } },
-  { id: 'aiImage',   label: 'OpenAI hero image',               kind: 'external', lane: 'ai', system: 'openai', position: { x: X.ai + 220, y: Y(3) }, detail: 'Etsy Listing Pro only.' },
+  { id: 'aiImage',   label: 'OpenAI hero image',               kind: 'external', lane: 'ai', system: 'openai', position: { x: X.ai + OFFSET, y: Y(3) }, detail: 'Etsy Listing Pro only.' },
   { id: 'aiCharge',  label: 'Charge credits on success',       kind: 'process',  lane: 'ai', system: 'mongo', position: { x: X.ai, y: Y(4) } },
   { id: 'aiResult',  label: 'Generation returned',             kind: 'terminal', lane: 'ai', position: { x: X.ai, y: Y(5) } },
 
