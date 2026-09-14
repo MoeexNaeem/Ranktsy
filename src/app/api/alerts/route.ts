@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   const doc = await TrackedKeyword.findOneAndUpdate(
     { userId: auth.id, keyword, country },
     { $set: { baseVolume: m.volume, baseCompetition: m.competition, baseDifficulty: m.difficulty, lastCheckedAt: new Date() } },
-    { upsert: true, new: true },
+    { upsert: true, returnDocument: 'after' },
   ).lean<{ _id: unknown }>()
 
   return NextResponse.json({ success: true, data: { id: String(doc._id), keyword, country, ...m } })

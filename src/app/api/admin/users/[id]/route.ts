@@ -110,7 +110,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
-  const u = await User.findByIdAndUpdate(id, update, { new: true }).lean()
+  const u = await User.findByIdAndUpdate(id, update, { returnDocument: 'after' }).lean()
   if (!u) return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
   return NextResponse.json({ success: true, data: { id, ...update } })
 }

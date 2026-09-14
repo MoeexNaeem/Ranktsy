@@ -67,7 +67,7 @@ export async function PATCH(req: NextRequest) {
   const affiliate = await Affiliate.findOneAndUpdate(
     { userId: auth.id },
     { $set: { payoutMethod: method, payoutName: name, payoutNumber: number, payoutBank: method === 'bank' ? bank : null } },
-    { new: true },
+    { returnDocument: 'after' },
   )
   if (!affiliate) return NextResponse.json({ success: false, error: 'Enroll first.' }, { status: 400 })
   return NextResponse.json({ success: true, data: { enrolled: true, payoutMin: PAYOUT_MIN_USD, ...serializeAffiliate(affiliate), conversionList: await ownConversions(String(affiliate._id)) } })

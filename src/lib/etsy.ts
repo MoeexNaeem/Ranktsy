@@ -81,6 +81,9 @@ function buildKeyPool(): EtsyKey[] {
 const KEY_POOL: EtsyKey[] = buildKeyPool()
 if (KEY_POOL.length > 1) console.log(`[Etsy] key pool: ${KEY_POOL.length} keys (public throughput ~${KEY_POOL.length}× one key).`)
 
+/** How many Etsy public-call keys are configured. 0 = misconfigured (all Etsy tools down). */
+export function etsyKeyPoolSize(): number { return KEY_POOL.length }
+
 // ─── Core fetcher ─────────────────────────────────────────────────────────────
 
 // Etsy allows roughly 10 requests/second PER KEY. A single keyword search fans
@@ -107,7 +110,7 @@ function rateGate(k: EtsyKey): Promise<void> {
 // steady load evenly instead of always hammering key #1 and only spilling over).
 let keyCursor = 0
 
-async function etsyFetch<T = unknown>(path: string, params?: Record<string, string | number>): Promise<T> {
+async function etsyFetch<T = unknown>(path: string, params?: Record<string, string | number>, opts?: { noStore?: boolean }): Promise<T> {
   const url = new URL(`${ETSY_BASE}${path}`)
   if (params) {
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)))
@@ -132,8 +135,12 @@ async function etsyFetch<T = unknown>(path: string, params?: Record<string, stri
         'x-api-key': key ? key.header : ETSY_KEY_HEADER,
         'Accept':    'application/json',
       },
-      // Next.js fetch cache - revalidate every 30 minutes
-      next: { revalidate: 1800 },
+      // Next.js fetch cache - revalidate every 30 minutes. Some responses (the
+      // /listings/batch image payload) exceed Next's 2MB Data Cache per-entry cap
+      // and log "items over 2MB can not be cached" on every call while never
+      // actually caching. Those pass noStore so Next doesn't try - reuse is
+      // handled by our own memCache/cachedFlight + Mongo caches at the route level.
+      ...(opts?.noStore ? { cache: 'no-store' as const } : { next: { revalidate: 1800 } }),
     })
 
     if (res.ok) return res.json() as Promise<T>
@@ -232,7 +239,7 @@ async function attachImages(listings: EtsyListing[]): Promise<EtsyListing[]> {
     const data = await etsyFetch<{ results: Record<string, any>[] }>('/listings/batch', {
       listing_ids: ids.slice(0, 100).join(','),
       includes:    'Images,Shop',
-    })
+    }, { noStore: true })   // >2MB payload can't fit Next's Data Cache; route-level caches cover reuse
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const byId = new Map<number, any>()
     for (const r of data.results ?? []) byId.set(Number(r.listing_id), r)

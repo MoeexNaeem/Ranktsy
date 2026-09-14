@@ -186,7 +186,7 @@ async function computeKeywordCore(query: string, geo: string, key: string): Prom
     .then(() => KeywordCache.findOneAndUpdate(
       { keyword: query, geo },
       { keyword: query, geo, data, expiresAt },
-      { upsert: true, new: true },
+      { upsert: true, returnDocument: 'after' },
     ))
     .catch(e => console.error('[Keywords] DB write:', e))
 

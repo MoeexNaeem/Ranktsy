@@ -50,7 +50,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   await connectDB()
-  const u = await User.findByIdAndUpdate(auth.id, { name }, { new: true }).lean()
+  const u = await User.findByIdAndUpdate(auth.id, { name }, { returnDocument: 'after' }).lean()
   if (!u) return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
 
   // Re-issue tokens so the session (and header badge) reflect the new name immediately.

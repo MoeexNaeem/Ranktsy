@@ -13,6 +13,7 @@ import { AdminAffiliates } from './AdminAffiliates'
 import { AdminSavedKeywords } from './AdminSavedKeywords'
 import { AdminSebtStudents } from './AdminSebtStudents'
 import { AdminEarnings } from './AdminEarnings'
+import { CodeFlow } from './CodeFlow'
 import { RealtimeProvider, NotificationBell } from '@/components/dashboard/Realtime'
 
 interface AUser {
@@ -105,7 +106,7 @@ const selectStyle: React.CSSProperties = {
   fontSize: 12.5, fontFamily: MONO, color: C.ink, outline: 'none', cursor: 'pointer', width: '100%', minWidth: 0,
 }
 
-type Section = 'overview' | 'users' | 'analytics' | 'earnings' | 'keywords' | 'sebt' | 'extension' | 'affiliates' | 'messages' | 'content' | 'settings'
+type Section = 'overview' | 'users' | 'analytics' | 'earnings' | 'keywords' | 'sebt' | 'extension' | 'affiliates' | 'messages' | 'codeflow' | 'content' | 'settings'
 const NAV: { id: Section; label: string; icon: string }[] = [
   { id: 'overview',  label: 'Overview',  icon: ICON.home },
   { id: 'users',     label: 'Users',     icon: ICON.account },
@@ -116,6 +117,7 @@ const NAV: { id: Section; label: string; icon: string }[] = [
   { id: 'extension', label: 'Extension', icon: ICON.display },
   { id: 'affiliates',label: 'Affiliates',icon: ICON.gift },
   { id: 'messages',  label: 'Messages',  icon: ICON.chat },
+  { id: 'codeflow',  label: 'Code Flow', icon: ICON.build },
   { id: 'content',   label: 'Content',   icon: ICON.book },
   { id: 'settings',  label: 'Settings',  icon: ICON.settings },
 ]
@@ -627,6 +629,8 @@ export function AdminDashboard() {
           {section === 'affiliates' && <AdminAffiliates />}
 
           {section === 'messages' && <AdminMessages />}
+
+          {section === 'codeflow' && <CodeFlow />}
 
           {section === 'content' && (
             <div className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
