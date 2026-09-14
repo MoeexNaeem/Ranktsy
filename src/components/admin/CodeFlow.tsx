@@ -1,29 +1,33 @@
 'use client'
 
 /**
- * Code Flow - an animated, live-health map of how the app works end to end.
+ * Code Flow - a live, animated map of how the app works end to end.
  *
- * The diagram is data-driven: it renders whatever is in lib/codeflow/graph.ts, so
- * adding a step later is a data edit, not a UI change. Every node/edge is coloured
- * from /api/admin/health-flow: green = working, red = a REQUIRED system is down,
- * amber = an OPTIONAL system is not configured. Healthy connections animate; a red
- * (broken) connection animates red so it's impossible to miss.
+ * IMPORTANT: this uses reactflow v11 (NOT @xyflow/react v12). v12's node
+ * measurement is unreliable in this Next/React stack, which leaves edges
+ * unrendered (the "no connecting lines" bug). v11 measures via a ResizeObserver
+ * and draws edges reliably - the same choice the automation editor made. See
+ * AutomateEditor.tsx.
+ *
+ * The diagram is data-driven from lib/codeflow/graph.ts - add a node + edge there
+ * to extend it. Every node/edge is coloured live from /api/admin/health-flow:
+ * green = working, amber = optional service off, red = broken required system.
+ * Connections are animated so flow direction is visible.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  ReactFlow, Background, BackgroundVariant, Controls, MiniMap, Handle, Position, MarkerType,
-  type Node, type Edge, type NodeProps, type DefaultEdgeOptions,
-} from '@xyflow/react'
-import '@xyflow/react/dist/style.css'
+  ReactFlow, ReactFlowProvider, Background, BackgroundVariant, Controls, MiniMap,
+  Handle, Position, MarkerType, useStoreApi,
+  type Node, type Edge, type NodeProps,
+} from 'reactflow'
+import 'reactflow/dist/style.css'
 import { FLOW_NODES, FLOW_EDGES, SYSTEM_LABEL, type FlowNodeDef, type FlowSystem, type FlowNodeKind } from '@/lib/codeflow/graph'
 
 type Status = 'ok' | 'down' | 'off'
 interface SystemHealth { status: Status; required: boolean; detail: string }
 type HealthMap = Record<FlowSystem, SystemHealth>
 
-// Health of a node = health of its system. Nodes with no system are pure code:
-// they're "ok" as long as the app is deployed (they can't fail on their own).
 type NodeState = 'ok' | 'down' | 'off' | 'code'
 function nodeState(def: FlowNodeDef, health: HealthMap | null): NodeState {
   if (!def.system) return 'code'
@@ -31,58 +35,58 @@ function nodeState(def: FlowNodeDef, health: HealthMap | null): NodeState {
   return health[def.system]?.status ?? 'code'
 }
 
-// Colours tuned for readability on the dark canvas: a saturated border/accent, a
-// deep-but-legible fill, near-white text.
-const COLOR: Record<NodeState, { line: string; fill: string; text: string; glow: string }> = {
-  ok:   { line: '#34d27b', fill: '#132a1f', text: '#eafff2', glow: 'rgba(52,210,123,0.40)' },
-  down: { line: '#ff5a4d', fill: '#2e1513', text: '#ffe9e6', glow: 'rgba(255,90,77,0.55)' },
-  off:  { line: '#e6a53a', fill: '#2b2110', text: '#fff2da', glow: 'rgba(230,165,58,0.35)' },
-  code: { line: '#9fb4d8', fill: '#1a2233', text: '#eaf1ff', glow: 'rgba(159,180,216,0.0)' },
+// Light theme - readable dark text on white cards, health carried by a coloured
+// border + a status dot + the connecting line into the node.
+const COLOR: Record<NodeState, { line: string; dot: string; tint: string }> = {
+  ok:   { line: '#16a34a', dot: '#22c55e', tint: '#f0fdf4' },
+  down: { line: '#dc2626', dot: '#ef4444', tint: '#fef2f2' },
+  off:  { line: '#d97706', dot: '#f59e0b', tint: '#fffbeb' },
+  code: { line: '#64748b', dot: '#94a3b8', tint: '#ffffff' },
 }
+const EDGE_COLOR: Record<NodeState, string> = { ok: '#16a34a', down: '#dc2626', off: '#e0a52c', code: '#64748b' }
 
-interface NodeData extends Record<string, unknown> {
-  label: string; kind: FlowNodeKind; state: NodeState; detail?: string; system?: FlowSystem
-}
+interface NodeData { label: string; kind: FlowNodeKind; state: NodeState; detail?: string }
 
-// One custom node renderer for every shape - shape from `kind`, colour from `state`.
-// A single target handle (top) + single source handle (bottom) so every edge
-// resolves unambiguously and the connecting lines always render.
-function FlowNode({ data }: NodeProps<Node<NodeData>>) {
+// One custom node - shape from `kind`, colour from `state`. A single target (top)
+// + single source (bottom) handle so every edge resolves and the line draws.
+function FlowNode({ data }: NodeProps<NodeData>) {
   const c = COLOR[data.state]
   const isDiamond = data.kind === 'decision'
   const isPill = data.kind === 'start' || data.kind === 'terminal'
   const isExternal = data.kind === 'external'
   const base: React.CSSProperties = {
     display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
-    fontSize: 13, fontWeight: 600, lineHeight: 1.3, letterSpacing: 0.1,
-    color: c.text, background: c.fill, border: `2px solid ${c.line}`,
-    boxShadow: data.state === 'down' ? `0 0 0 1px ${c.line}, 0 0 22px ${c.glow}`
-             : data.state === 'ok'   ? `0 0 16px ${c.glow}` : '0 2px 8px rgba(0,0,0,0.35)',
-    fontFamily: 'system-ui, -apple-system, Segoe UI, sans-serif',
+    fontSize: 13, fontWeight: 600, lineHeight: 1.3, color: '#1f2430', background: data.state === 'code' ? '#ffffff' : c.tint,
+    border: `2px solid ${c.line}`, boxShadow: '0 4px 14px rgba(30,30,40,0.08)',
+    fontFamily: 'system-ui, -apple-system, Segoe UI, sans-serif', position: 'relative',
   }
   const shape: React.CSSProperties = isDiamond
-    ? { ...base, width: 176, height: 108, clipPath: 'polygon(50% 0, 100% 50%, 50% 100%, 0 50%)', padding: '0 26px', fontSize: 12 }
+    ? { ...base, width: 168, height: 100, clipPath: 'polygon(50% 0, 100% 50%, 50% 100%, 0 50%)', padding: '0 24px', fontSize: 12 }
     : isPill
-      ? { ...base, borderRadius: 999, padding: '12px 22px', minWidth: 150 }
-      : { ...base, borderRadius: 12, padding: '13px 18px', minWidth: 176, maxWidth: 230,
-          ...(isExternal ? { borderStyle: 'dashed' } : null) }
+      ? { ...base, borderRadius: 999, padding: '12px 22px', minWidth: 148 }
+      : { ...base, borderRadius: 12, padding: '13px 18px', minWidth: 172, maxWidth: 228, ...(isExternal ? { borderStyle: 'dashed' } : null) }
 
   return (
     <div title={data.detail ? `${data.label} - ${data.detail}` : data.label} style={{ position: 'relative' }}>
-      <Handle type="target" position={Position.Top} style={handleStyle} />
-      <div style={shape}>{data.label}</div>
-      <Handle type="source" position={Position.Bottom} style={handleStyle} />
+      <Handle type="target" position={Position.Top} style={handleStyle(c.line)} />
+      <div style={shape}>
+        {/* status dot - visible on the light card even when the border colour is subtle */}
+        {!isDiamond && <span style={{ position: 'absolute', top: 7, right: 8, width: 8, height: 8, borderRadius: 999, background: c.dot,
+          boxShadow: data.state === 'down' ? `0 0 6px ${c.dot}` : 'none' }} />}
+        {data.label}
+      </div>
+      <Handle type="source" position={Position.Bottom} style={handleStyle(c.line)} />
     </div>
   )
 }
-const handleStyle: React.CSSProperties = { width: 7, height: 7, background: '#5b6b86', border: '1px solid #0b1020' }
+const handleStyle = (col: string): React.CSSProperties => ({ width: 9, height: 9, background: '#fff', border: `2px solid ${col}` })
 
 const nodeTypes = { flow: FlowNode }
-const defaultEdgeOptions: DefaultEdgeOptions = { type: 'smoothstep' }
 
 const DOT: Record<Status, string> = { ok: '#22c55e', down: '#ef4444', off: '#d99a2b' }
 
-export function CodeFlow() {
+function CodeFlowInner() {
+  const storeApi = useStoreApi()
   const [health, setHealth] = useState<HealthMap | null>(null)
   const [checkedAt, setCheckedAt] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -102,10 +106,8 @@ export function CodeFlow() {
   useEffect(() => { void load() }, [load])
 
   const nodes = useMemo<Node<NodeData>[]>(() => FLOW_NODES.map(n => ({
-    id: n.id,
-    type: 'flow',
-    position: n.position,
-    data: { label: n.label, kind: n.kind, state: nodeState(n, health), detail: n.detail, system: n.system },
+    id: n.id, type: 'flow', position: n.position, draggable: false,
+    data: { label: n.label, kind: n.kind, state: nodeState(n, health), detail: n.detail },
   })), [health])
 
   const edges = useMemo<Edge[]>(() => {
@@ -114,30 +116,48 @@ export function CodeFlow() {
       const targetDef = byId.get(e.target)
       const sys = e.system ?? targetDef?.system
       const st: NodeState = sys && health ? (health[sys]?.status ?? 'code') : 'code'
-      const col = st === 'down' ? COLOR.down.line : st === 'off' ? COLOR.off.line : st === 'ok' ? COLOR.ok.line : COLOR.code.line
+      const col = EDGE_COLOR[st]
       const broken = st === 'down'
       return {
         id: e.id, source: e.source, target: e.target, label: e.label,
-        // Always animated: the moving dashes show flow direction and make the
-        // connections easy to trace. Colour still carries health.
         type: 'smoothstep', animated: true,
-        style: { stroke: col, strokeWidth: broken ? 3 : 2, opacity: st === 'off' ? 0.85 : 1 },
-        labelStyle: { fill: '#cdd7ea', fontSize: 11, fontWeight: 600, fontFamily: 'system-ui, sans-serif' },
-        labelBgStyle: { fill: '#0b1020', fillOpacity: 0.9 },
-        labelBgPadding: [6, 3] as [number, number], labelBgBorderRadius: 4,
+        style: { stroke: col, strokeWidth: broken ? 3 : 2.4 },
+        labelStyle: { fill: '#4b5563', fontSize: 11, fontWeight: 700 },
+        labelBgStyle: { fill: '#ffffff', fillOpacity: 0.95 },
+        labelBgPadding: [6, 3] as [number, number], labelBgBorderRadius: 5,
         markerEnd: { type: MarkerType.ArrowClosed, color: col, width: 20, height: 20 },
       }
     })
   }, [health])
 
-  // Systems legend, broken first, then required, then the rest.
+  // Measurement safety net (see AutomateEditor): nudge v11's own measurement for
+  // any node without dimensions so edges always have handle positions to draw to.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let tries = 0
+    const tick = () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const st = storeApi.getState() as any
+      const internals = st.nodeInternals as Map<string, { width?: number }>
+      const updates: { id: string; nodeElement: HTMLElement; forceUpdate: boolean }[] = []
+      document.querySelectorAll<HTMLElement>('.react-flow__node').forEach(el => {
+        const id = el.getAttribute('data-id')
+        if (!id || internals.get(id)?.width) return
+        if (el.offsetWidth) updates.push({ id, nodeElement: el, forceUpdate: true })
+      })
+      if (updates.length) st.updateNodeDimensions(updates)
+      if (++tries < 8) timer = setTimeout(tick, 100)
+    }
+    timer = setTimeout(tick, 30)
+    return () => { if (timer) clearTimeout(timer) }
+  }, [nodes.length, storeApi])
+
   const legend = useMemo(() => {
     if (!health) return []
     return (Object.keys(SYSTEM_LABEL) as FlowSystem[])
       .map(sys => ({ sys, ...health[sys] }))
       .sort((a, b) => (a.status === 'down' ? -1 : 0) - (b.status === 'down' ? -1 : 0) || Number(b.required) - Number(a.required))
   }, [health])
-
   const downCount = legend.filter(l => l.status === 'down').length
 
   return (
@@ -146,14 +166,12 @@ export function CodeFlow() {
         <div>
           <h2 style={{ margin: 0, fontSize: 18, color: '#3D3E3B' }}>Code Flow</h2>
           <p style={{ margin: '4px 0 0', fontSize: 12.5, color: '#6E6E64', maxWidth: 640 }}>
-            Live map of the app. Green flows are working, amber is an optional service that is off, red is a broken required system. Scroll to zoom, drag to pan.
+            Live map of the app. Green flows are working, amber is an optional service that is off, red is a broken required system. Scroll to zoom, drag the background to pan.
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {downCount > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: '#CF463A' }}>{downCount} system{downCount === 1 ? '' : 's'} down</span>}
-          <span style={{ fontSize: 11, color: '#919183', fontFamily: 'ui-monospace, monospace' }}>
-            {checkedAt ? `checked ${new Date(checkedAt).toLocaleTimeString()}` : ''}
-          </span>
+          <span style={{ fontSize: 11, color: '#919183', fontFamily: 'ui-monospace, monospace' }}>{checkedAt ? `checked ${new Date(checkedAt).toLocaleTimeString()}` : ''}</span>
           <button onClick={() => void load()} disabled={loading}
             style={{ background: '#3D3E3B', color: '#fff', border: 'none', borderRadius: 100, padding: '7px 14px', fontSize: 12.5, cursor: 'pointer', opacity: loading ? 0.6 : 1 }}>
             {loading ? 'Checking...' : 'Re-check'}
@@ -164,20 +182,19 @@ export function CodeFlow() {
       {err && <div style={{ fontSize: 12.5, color: '#CF463A' }}>{err}</div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 230px', gap: 12, alignItems: 'stretch' }}>
-        <div style={{ height: '82vh', minHeight: 560, borderRadius: 16, overflow: 'hidden',
-          border: '1px solid #2a3446', background: 'radial-gradient(1200px 600px at 30% 0%, #17203260, transparent), #0e1422' }}>
+        <div style={{ height: '82vh', minHeight: 560, borderRadius: 16, overflow: 'hidden', border: '1px solid #D2D2C8', background: '#f6f6ef' }}>
           <ReactFlow
-            nodes={nodes} edges={edges} nodeTypes={nodeTypes} defaultEdgeOptions={defaultEdgeOptions}
-            fitView fitViewOptions={{ padding: 0.16 }}
-            minZoom={0.25} maxZoom={2.2}
+            nodes={nodes} edges={edges} nodeTypes={nodeTypes}
+            fitView fitViewOptions={{ padding: 0.14, maxZoom: 1 }}
+            minZoom={0.3} maxZoom={2.2}
             proOptions={{ hideAttribution: true }}
             nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}
-          >
-            <Background variant={BackgroundVariant.Dots} color="#2b3750" gap={26} size={1.4} />
+            panOnDrag zoomOnScroll>
+            <Background variant={BackgroundVariant.Dots} color="#cfcfc4" gap={24} size={1.3} />
             <Controls showInteractive={false} />
-            <MiniMap pannable zoomable maskColor="rgba(0,0,0,0.6)"
-              nodeColor={(n) => COLOR[(n.data as NodeData).state].line}
-              nodeStrokeWidth={2} style={{ background: '#0b1020', border: '1px solid #2a3446' }} />
+            <MiniMap pannable zoomable maskColor="rgba(0,0,0,0.08)"
+              nodeColor={(n) => COLOR[(n.data as NodeData).state].line} nodeStrokeWidth={2}
+              style={{ background: '#ffffff', border: '1px solid #D2D2C8' }} />
           </ReactFlow>
         </div>
 
@@ -187,12 +204,9 @@ export function CodeFlow() {
             {legend.length === 0 && <span style={{ fontSize: 12, color: '#919183' }}>Loading...</span>}
             {legend.map(l => (
               <div key={l.sys} title={l.detail} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 9, height: 9, borderRadius: 999, background: DOT[l.status], flexShrink: 0,
-                  boxShadow: l.status === 'down' ? `0 0 6px ${DOT.down}` : 'none' }} />
+                <span style={{ width: 9, height: 9, borderRadius: 999, background: DOT[l.status], flexShrink: 0, boxShadow: l.status === 'down' ? `0 0 6px ${DOT.down}` : 'none' }} />
                 <span style={{ fontSize: 12, color: '#3D3E3B', flex: 1 }}>{SYSTEM_LABEL[l.sys]}</span>
-                <span style={{ fontSize: 10, color: '#919183', fontFamily: 'ui-monospace, monospace' }}>
-                  {l.status === 'ok' ? 'ok' : l.status === 'down' ? 'DOWN' : 'off'}
-                </span>
+                <span style={{ fontSize: 10, color: '#919183', fontFamily: 'ui-monospace, monospace' }}>{l.status === 'ok' ? 'ok' : l.status === 'down' ? 'DOWN' : 'off'}</span>
               </div>
             ))}
           </div>
@@ -208,4 +222,8 @@ export function CodeFlow() {
       </div>
     </div>
   )
+}
+
+export function CodeFlow() {
+  return <ReactFlowProvider><CodeFlowInner /></ReactFlowProvider>
 }
