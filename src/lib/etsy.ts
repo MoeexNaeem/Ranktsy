@@ -26,37 +26,86 @@ const ETSY_BASE          = 'https://openapi.etsy.com/v3/application'
 // This app requires the shared secret to be appended to the keystring in the
 // x-api-key header (format: "<keystring>:<shared_secret>"). Using the keystring
 // alone returns: 403 "Shared secret is required in x-api-key header."
-const ETSY_KEY_HEADER = ETSY_SHARED_SECRET
-  ? `${ETSY_API_KEY}:${ETSY_SHARED_SECRET}`
-  : ETSY_API_KEY
+function keyHeader(keystring: string, secret?: string): string {
+  const k = (keystring ?? '').trim()
+  const s = (secret ?? '').trim()
+  return s ? `${k}:${s}` : k
+}
+
+// PRIMARY key. This is ALSO the OAuth client id (see lib/etsy-oauth.ts), so every
+// owner-scoped (Authorization: Bearer) call MUST use this exact key - Etsy checks
+// that x-api-key matches the app that issued the user's token. It therefore never
+// rotates. Public read calls use the whole KEY_POOL below instead.
+const ETSY_KEY_HEADER = keyHeader(ETSY_API_KEY, ETSY_SHARED_SECRET)
 
 if (!ETSY_API_KEY && process.env.NODE_ENV === 'production') {
   console.warn('[Etsy] ETSY_API_KEY is not set - API calls will fail.')
 }
 
+// ─── Key pool (public calls only) ─────────────────────────────────────────────
+// Etsy's default quota is ~10 requests/second AND ~10,000 requests/DAY, PER app
+// key. One key cannot serve thousands of users: the daily cap drains early in the
+// day and every call after that comes back 429 - which reaches users as "keyword
+// search is slow / shows no results" and the analytics tools "taking too long and
+// never loading". Each ADDITIONAL Etsy app key (register a separate Etsy app,
+// ideally under a separate Etsy account) multiplies BOTH ceilings, and we fail
+// over to the next key the moment one is throttled or exhausted.
+//
+// Configure extra keys with ETSY_API_KEYS: comma-separated, each entry
+// "keystring:sharedsecret" (or just "keystring" if that app has no shared secret):
+//   ETSY_API_KEYS="keyB:secretB,keyC:secretC"
+// The primary ETSY_API_KEY is always first. Blanks and duplicates are dropped.
+interface EtsyKey { header: string; lastCallAt: number; gate: Promise<void> }
+
+function buildKeyPool(): EtsyKey[] {
+  const seen = new Set<string>()
+  const headers: string[] = []
+  const add = (h: string) => { const t = h.trim(); if (t && !seen.has(t)) { seen.add(t); headers.push(t) } }
+  // 1) Primary key (also the OAuth client).
+  if (ETSY_API_KEY) add(ETSY_KEY_HEADER)
+  // 2) Named second key. Some deployments add a single extra key as its own pair
+  //    (ETSY_API_KEY_Two / ETSY_SHARED_SECRET_Two) rather than in the list below.
+  if (process.env.ETSY_API_KEY_Two?.trim()) {
+    add(keyHeader(process.env.ETSY_API_KEY_Two, process.env.ETSY_SHARED_SECRET_Two))
+  }
+  // 3) Any number of further keys, comma-separated, each "keystring:sharedsecret".
+  for (const entry of (process.env.ETSY_API_KEYS?.split(',') ?? [])) {
+    const idx = entry.indexOf(':')
+    const ks  = idx === -1 ? entry : entry.slice(0, idx)
+    const sec = idx === -1 ? ''    : entry.slice(idx + 1)
+    if (ks.trim()) add(keyHeader(ks, sec))
+  }
+  return headers.map(header => ({ header, lastCallAt: 0, gate: Promise.resolve() }))
+}
+
+const KEY_POOL: EtsyKey[] = buildKeyPool()
+if (KEY_POOL.length > 1) console.log(`[Etsy] key pool: ${KEY_POOL.length} keys (public throughput ~${KEY_POOL.length}× one key).`)
+
 // ─── Core fetcher ─────────────────────────────────────────────────────────────
 
-// Etsy allows roughly 10 requests/second. A single keyword search fans out into
-// dozens of calls (the search, image batches, per-keyword competition probes,
-// near-match variants), which sails past that ceiling and comes back 429. Every
-// public call funnels through this gate so the whole app shares one budget.
-const RATE_LIMIT_PER_SEC = 8   // headroom under Etsy's ~10/sec
-const MIN_GAP_MS = 1000 / RATE_LIMIT_PER_SEC
-
-let lastCallAt = 0
-let gateChain: Promise<void> = Promise.resolve()
+// Etsy allows roughly 10 requests/second PER KEY. A single keyword search fans
+// out into dozens of calls (the search, image batches, per-keyword competition
+// probes, near-match variants), which sails past that ceiling and comes back 429.
+// So each key has its OWN gate: N keys give N independent budgets, and a burst is
+// spread across all of them instead of queueing behind one.
+const RATE_LIMIT_PER_SEC = Number(process.env.ETSY_RATE_PER_SEC ?? 8)   // per key; headroom under Etsy's ~10/sec
+const MIN_GAP_MS = 1000 / Math.max(1, RATE_LIMIT_PER_SEC)
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
-/** Serialise callers just long enough to keep MIN_GAP_MS between departures. */
-function rateGate(): Promise<void> {
-  gateChain = gateChain.then(async () => {
-    const wait = lastCallAt + MIN_GAP_MS - Date.now()
+/** Serialise callers on ONE key just long enough to keep MIN_GAP_MS between its departures. */
+function rateGate(k: EtsyKey): Promise<void> {
+  k.gate = k.gate.then(async () => {
+    const wait = k.lastCallAt + MIN_GAP_MS - Date.now()
     if (wait > 0) await sleep(wait)
-    lastCallAt = Date.now()
+    k.lastCallAt = Date.now()
   })
-  return gateChain
+  return k.gate
 }
+
+// Round-robin start point so successive searches begin on different keys (spreads
+// steady load evenly instead of always hammering key #1 and only spilling over).
+let keyCursor = 0
 
 async function etsyFetch<T = unknown>(path: string, params?: Record<string, string | number>): Promise<T> {
   const url = new URL(`${ETSY_BASE}${path}`)
@@ -64,17 +113,23 @@ async function etsyFetch<T = unknown>(path: string, params?: Record<string, stri
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)))
   }
 
-  // Retry 429/5xx with backoff. Without this, a burst silently degrades whole
-  // columns to fallback values that look like real data.
-  const MAX_ATTEMPTS = 4
+  const pool = KEY_POOL
+  const n = pool.length
+  // Enough attempts to visit every key at least once, plus a couple of passes for
+  // a transient blip. Single key → 4 (unchanged from before the pool existed).
+  const MAX_ATTEMPTS = n > 1 ? Math.max(4, n + 2) : 4
+  const start = n ? keyCursor++ : 0
   let lastErr: Error | null = null
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    await rateGate()
+    const key = n ? pool[(start + attempt) % n] : null
+    // No key at all (misconfig): fall back to the primary header so the error is
+    // Etsy's real 401/403, not a silent hang.
+    await (key ? rateGate(key) : Promise.resolve())
     recordEtsyCall()   // attribute every Etsy HTTP request (incl. retries) to the caller
     const res = await fetch(url.toString(), {
       headers: {
-        'x-api-key': ETSY_KEY_HEADER,
+        'x-api-key': key ? key.header : ETSY_KEY_HEADER,
         'Accept':    'application/json',
       },
       // Next.js fetch cache - revalidate every 30 minutes
@@ -89,8 +144,16 @@ async function etsyFetch<T = unknown>(path: string, params?: Record<string, stri
     const retryable = res.status === 429 || res.status >= 500
     if (!retryable || attempt === MAX_ATTEMPTS - 1) throw lastErr
 
+    // With multiple keys, a 429 means THIS key is throttled/exhausted - the next
+    // iteration already targets the next key, so move on immediately (its own gate
+    // still applies). Only once we've cycled through every key this pass do we back
+    // off before trying again.
+    const cycledAllKeys = n > 1 && attempt >= n - 1
+    if (n > 1 && !cycledAllKeys && res.status === 429) continue
+
     const retryAfter = Number(res.headers.get('retry-after')) * 1000
-    await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 400 * 2 ** attempt)
+    const backoff = Math.min(400 * 2 ** Math.max(0, attempt - Math.max(0, n - 1)), 4000)
+    await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : backoff)
   }
 
   throw lastErr ?? new Error('Etsy API error')

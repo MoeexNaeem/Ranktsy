@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { searchEtsyListingsPaged, type SearchOpts } from '@/lib/etsy'
 import { guardSearch } from '@/lib/searchGate'
+import { cachedFlight, cacheKey, CACHE_TTL } from '@/lib/cache'
 
 // Etsy caps offset-based paging; keep it within a sane range.
 const MAX_OFFSET = 12000
@@ -25,7 +26,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const { listings, count } = await searchEtsyListingsPaged(q, limit, offset, opts)
+    // Cache + coalesce: Competitors, Listings, Category Report and Tag Optimizer
+    // all hit this route, so the same popular query from many users must not each
+    // fire live Etsy calls. Keyed on every param that changes the result.
+    const key = cacheKey('etsysearch', 'v1', q, String(limit), String(offset),
+      opts.sortOn ?? 'score', String(opts.minPrice ?? ''), String(opts.maxPrice ?? ''), String(opts.taxonomyId ?? ''))
+    const { listings, count } = await cachedFlight(key, CACHE_TTL.TRENDING, () => searchEtsyListingsPaged(q, limit, offset, opts))
     return NextResponse.json({
       success: true,
       data: listings,

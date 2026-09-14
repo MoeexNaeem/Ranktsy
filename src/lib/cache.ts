@@ -3,6 +3,8 @@
  * In production, replace with @upstash/redis for distributed caching.
  */
 
+import { singleFlight } from '@/lib/concurrency'
+
 interface CacheEntry<T> {
   data: T
   expiresAt: number
@@ -69,4 +71,27 @@ export const CACHE_TTL = {
 
 export function cacheKey(...parts: string[]): string {
   return parts.join(':').toLowerCase().replace(/\s+/g, '_')
+}
+
+// ─── Cache + coalesce in one call ─────────────────────────────────────────────
+// The single most valuable pattern for the raw Etsy passthrough routes (search,
+// shop, reviews, sections, listing). Without it, N users viewing the SAME
+// trending shop or niche each fire their own live Etsy calls - burning the daily
+// key quota and making those tools slow. With it:
+//   1. a fresh in-memory hit returns instantly (0 Etsy calls),
+//   2. concurrent misses for the same key collapse onto ONE upstream fetch
+//      (singleFlight), so a thundering herd costs one call, not N,
+//   3. the result is cached for `ttlSeconds` (kept under Etsy's 6h/24h limits).
+// Errors are never cached: `fn` only reaches `memCache.set` after it resolves,
+// and singleFlight drops the in-flight entry when it rejects.
+export async function cachedFlight<T>(key: string, ttlSeconds: number, fn: () => Promise<T>): Promise<T> {
+  const hit = memCache.get<T>(key)
+  if (hit != null) return hit
+  return singleFlight(key, async () => {
+    const again = memCache.get<T>(key)   // a coalesced caller may have just filled it
+    if (again != null) return again
+    const data = await fn()
+    if (data != null) memCache.set(key, data, ttlSeconds)   // don't cache null (e.g. not-found)
+    return data
+  })
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
+import { cachedFlight, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { searchEtsyListingsPaged, getListingById } from '@/lib/etsy'
 import { guardSearch } from '@/lib/searchGate'
 import type { ApiResponse, KeywordGap, GapTag, GapWord, EtsyListing } from '@/types'
@@ -54,11 +54,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
     // Cache the keyword scan (expensive) separately from the per-listing overlay
     // (cheap), so trying different listings against one keyword is fast.
     const scanKey = cacheKey('gap', 'v1', 'scan', query)
-    let scan = memCache.get<{ listings: EtsyListing[]; count: number }>(scanKey)
-    if (!scan) {
-      scan = await searchEtsyListingsPaged(query, 100, 0, { skipImages: true })
-      memCache.set(scanKey, scan, CACHE_TTL.KEYWORD)
-    }
+    const scan = await cachedFlight(scanKey, CACHE_TTL.KEYWORD, () => searchEtsyListingsPaged(query, 100, 0, { skipImages: true }))
 
     const yourTags = new Set((target?.tags ?? []).map(t => t.toLowerCase().trim()))
     const yourWords = new Set(target ? tokens(target.title) : [])

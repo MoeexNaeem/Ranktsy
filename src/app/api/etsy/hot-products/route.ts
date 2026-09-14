@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
+import { cachedFlight, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { searchEtsyListingsPaged } from '@/lib/etsy'
 import { guardSearch } from '@/lib/searchGate'
 import type { SearchOpts as EtsySearchOpts } from '@/lib/etsy'
@@ -71,17 +71,18 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ho
   // Cache the raw Etsy scan (expensive) separately from the cheap re-sort/filter,
   // so changing sort or a client-side filter is instant.
   const scanKey = cacheKey('hot', 'v2', q, String(taxonomyId ?? ''), String(minPrice ?? ''), String(maxPrice ?? ''), sort, String(page))
-  let scan = memCache.get<{ listings: EtsyListing[]; count: number }>(scanKey)
   try {
-    if (!scan) {
+    // Cache + coalesce the raw Etsy scan (expensive) separately from the cheap
+    // re-sort/filter, so changing sort or a client-side filter is instant and a
+    // cold popular niche costs one scan across all concurrent viewers, not N.
+    const scan = await cachedFlight(scanKey, CACHE_TTL.TRENDING, () => {
       const opts: EtsySearchOpts = { ...fetchSort(sort), minPrice, maxPrice, taxonomyId }
-      scan = await searchEtsyListingsPaged(q, 100, (page - 1) * 100, opts)
-      memCache.set(scanKey, scan, CACHE_TTL.TRENDING)
-    }
+      return searchEtsyListingsPaged(q, 100, (page - 1) * 100, opts)
+    })
 
     const cutoff = releaseDays ? Date.now() - Number(releaseDays) * 86_400_000 : null
 
-    let products: HotProduct[] = scan.listings
+    const products: HotProduct[] = scan.listings
       .filter(l => (l.num_favorers ?? 0) >= minFavorites)
       .filter(l => !cutoff || (l.created_timestamp && l.created_timestamp * 1000 >= cutoff))
       .map(l => {
