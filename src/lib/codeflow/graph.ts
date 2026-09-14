@@ -56,7 +56,7 @@ export interface FlowEdgeDef {
 }
 
 const X = { auth: 60, keyword: 460, ai: 860, payments: 1260, infra: 1660 } as const
-const Y = (row: number) => 20 + row * 122
+const Y = (row: number) => 20 + row * 100
 const OFFSET = 280   // horizontal nudge for a node that runs parallel to its lane
 
 export const FLOW_NODES: FlowNodeDef[] = [

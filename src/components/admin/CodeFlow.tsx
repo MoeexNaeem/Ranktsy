@@ -182,10 +182,12 @@ function CodeFlowInner() {
       {err && <div style={{ fontSize: 12.5, color: '#CF463A' }}>{err}</div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 230px', gap: 12, alignItems: 'stretch' }}>
-        <div style={{ height: '82vh', minHeight: 560, borderRadius: 16, overflow: 'hidden', border: '1px solid #D2D2C8', background: '#f6f6ef' }}>
+        <div style={{ height: '86vh', minHeight: 600, borderRadius: 16, overflow: 'hidden', border: '1px solid #D2D2C8', background: '#f6f6ef' }}>
           <ReactFlow
             nodes={nodes} edges={edges} nodeTypes={nodeTypes}
-            fitView fitViewOptions={{ padding: 0.14, maxZoom: 1 }}
+            // minZoom floor keeps nodes readable instead of shrinking to cram the
+            // whole graph in; anything off-screen is reachable by pan + the minimap.
+            fitView fitViewOptions={{ padding: 0.08, minZoom: 0.72, maxZoom: 1.4 }}
             minZoom={0.3} maxZoom={2.2}
             proOptions={{ hideAttribution: true }}
             nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}
