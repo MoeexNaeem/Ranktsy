@@ -20,6 +20,16 @@ export async function GET(req: NextRequest) {
   const state = randomState()
   const redirectUri = getRedirectUri(req.url)
 
+  // Etsy rejects the authorize request with "The requested redirect URL is not
+  // permitted" unless THIS exact string is registered in the Etsy app's OAuth
+  // Redirect URIs. Log it so it can be copied verbatim into the Etsy console, and
+  // warn loudly on the classic prod misconfig (a localhost/http origin leaking
+  // through because SITE_URL / NEXT_PUBLIC_APP_URL / ETSY_REDIRECT_URI is unset).
+  console.log('[Etsy OAuth] redirect_uri =', redirectUri)
+  if (process.env.NODE_ENV === 'production' && /^https?:\/\/localhost|^http:\/\//i.test(redirectUri)) {
+    console.warn(`[Etsy OAuth] redirect_uri looks wrong for production ("${redirectUri}"). Set ETSY_REDIRECT_URI (or SITE_URL) to your real https origin, e.g. https://rankkw.com/api/etsy/oauth/callback, and register that exact URL in the Etsy app.`)
+  }
+
   const authorizeUrl = buildAuthorizeUrl({ redirectUri, state, challenge })
   const res = NextResponse.redirect(authorizeUrl)
   res.cookies.set('etsy_oauth_state', state, cookieOpts)
