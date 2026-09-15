@@ -10,6 +10,7 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
 import { C } from '@/utils'
 import { MONO } from './kit'
+import { pushToast } from '@/components/ui/toast'
 
 interface Notif { id: string; type: string; title: string; body: string | null; link: string | null; createdAt: string | null; read: boolean }
 interface ChatMsg { id: string; userId: string; sender: 'user' | 'admin'; body: string; createdAt: string | null }
@@ -50,6 +51,8 @@ export function RealtimeProvider({ isAdmin, children }: { isAdmin: boolean; chil
   // accounts whose JWT role may still read 'user'); the prop is just the initial guess.
   const [effAdmin, setEffAdmin] = useState(isAdmin)
   const adminRef = useRef(isAdmin)
+  // Ids we've already shown a toast for, so a reconnect/replay never double-toasts.
+  const toastedRef = useRef<Set<string>>(new Set())
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -97,12 +100,23 @@ export function RealtimeProvider({ isAdmin, children }: { isAdmin: boolean; chil
       })
       es.addEventListener('notification', e => {
         const n = JSON.parse((e as MessageEvent).data)
+        // Pop a clickable toast for a genuinely new notification (admin broadcast,
+        // alert, etc.). Clicking follows its link; the bell still lists it.
+        if (!toastedRef.current.has(n.id)) {
+          toastedRef.current.add(n.id)
+          pushToast({ title: n.title, body: n.body, link: n.link, kind: n.type === 'success' ? 'success' : 'info' })
+        }
         setNotifications(list => list.some(x => x.id === n.id) ? list : [{ ...n, read: false }, ...list].slice(0, 50))
       })
       es.addEventListener('notif-count', e => setNotifUnread(JSON.parse((e as MessageEvent).data).unread))
       es.addEventListener('chat', e => {
         if (adminRef.current) return
         const m = JSON.parse((e as MessageEvent).data)
+        // An admin reply arriving live → toast it; clicking opens the chat widget.
+        if (m.sender === 'admin' && !toastedRef.current.has(`chat:${m.id}`)) {
+          toastedRef.current.add(`chat:${m.id}`)
+          pushToast({ title: 'New reply from support', body: m.body, kind: 'info', onClick: () => window.dispatchEvent(new Event('rk-open-chat')) })
+        }
         setChatMessages(list => list.some(x => x.id === m.id) ? list : [...list, m])
       })
       es.addEventListener('chat-count', e => { if (!adminRef.current) setChatUnread(JSON.parse((e as MessageEvent).data).unread) })
@@ -181,6 +195,12 @@ export function ChatWidget() {
 
   useEffect(() => { if (open) loadChat() }, [open, loadChat])
   useEffect(() => { if (open && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, [chatMessages, open])
+  // Clicking a "new reply" toast opens this widget.
+  useEffect(() => {
+    const openChat = () => setOpen(true)
+    window.addEventListener('rk-open-chat', openChat)
+    return () => window.removeEventListener('rk-open-chat', openChat)
+  }, [])
 
   if (isAdmin) return null
 

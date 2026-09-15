@@ -137,8 +137,25 @@ export const tdMono: React.CSSProperties = { fontSize: 14.5, fontFamily: MONO, f
 export const tdTitle: React.CSSProperties = { fontSize: 15, fontWeight: 500, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 
 // ─── Feedback blocks ────────────────────────────────────────────────────────
-export function ErrorBox({ children }: { children: React.ReactNode }) {
-  return <div style={{ background: C.dangerBg, border: `1px solid ${C.danger}`, borderRadius: 12, padding: '15px 18px', color: C.danger, fontSize: 14.5 }}>⚠ {children}</div>
+// A calm, professional error card: soft tinted panel, a circular warning glyph,
+// a bold heading and the detail below - not a flat red strip. `title` overrides
+// the default heading when a caller wants a specific one.
+export function ErrorBox({ children, title }: { children: React.ReactNode; title?: string }) {
+  return (
+    <div role="alert" style={{
+      display: 'flex', gap: 13, alignItems: 'flex-start',
+      background: C.dangerBg, border: `1px solid ${C.danger}33`, borderLeft: `4px solid ${C.danger}`,
+      borderRadius: 14, padding: '16px 18px',
+    }}>
+      <span style={{ flexShrink: 0, width: 26, height: 26, borderRadius: '50%', background: `${C.danger}1f`, color: C.danger, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+      </span>
+      <div style={{ minWidth: 0 }}>
+        <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: C.ink }}>{title ?? 'Something went wrong'}</p>
+        <div style={{ marginTop: 3, fontSize: 13.5, color: C.graphite, lineHeight: 1.55 }}>{children}</div>
+      </div>
+    </div>
+  )
 }
 // Generic loading SKELETON (a KPI row + a content block), so any tool clearly
 // shows "content is loading" rather than a lone spinner. An optional label reads
