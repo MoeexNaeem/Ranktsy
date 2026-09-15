@@ -7,9 +7,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { C } from '@/utils'
 import { MONO, SectionTitle, cardStyle, EmptyState } from '@/components/dashboard/kit'
+import { errorToast } from '@/components/ui/toast'
+import { ChatAttachmentView } from '@/components/ui/ChatAttachmentView'
+import { validateUpload, CHAT_ACCEPT } from '@/lib/chat-upload-constants'
 
 interface Thread { userId: string; name: string; email: string; lastBody: string; lastSender: 'user' | 'admin'; lastAt: string | null; count: number; unread: number }
-interface Msg { id: string; userId: string; sender: 'user' | 'admin'; body: string; createdAt: string | null; readByUser?: boolean }
+interface Msg {
+  id: string; userId: string; sender: 'user' | 'admin'; body: string; createdAt: string | null; readByUser?: boolean
+  attachmentUrl?: string | null; attachmentName?: string | null; attachmentKind?: 'image' | 'file' | null; attachmentSize?: number | null
+}
 
 const rel = (d: string | null) => {
   if (!d) return ''
@@ -45,6 +51,7 @@ export function AdminMessages() {
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
   const [search, setSearch] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Broadcast composer
@@ -83,6 +90,22 @@ export function AdminMessages() {
       if (j?.success) { setMessages(m => [...m, j.data.message]); loadThreads() }
     } finally { setSending(false) }
   }, [reply, sel, sending, loadThreads])
+
+  const onPickFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !sel) return
+    const check = validateUpload(file.type, file.size)
+    if (!check.ok) { errorToast('Can’t attach that file', check.error); return }
+    setSending(true)
+    try {
+      const fd = new FormData(); fd.append('file', file)
+      const r = await fetch(`/api/admin/chat/${sel}/upload`, { method: 'POST', body: fd })
+      const j = await r.json().catch(() => null)
+      if (r.ok && j?.success) { setMessages(m => [...m, j.data.message]); loadThreads() }
+      else errorToast('Upload failed', j?.error || 'Please try again.')
+    } finally { setSending(false) }
+  }, [sel, loadThreads])
 
   const deleteThread = useCallback(async () => {
     if (!sel) return
@@ -224,7 +247,12 @@ export function AdminMessages() {
               <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '18px 18px', display: 'flex', flexDirection: 'column', gap: 12, background: C.snow }}>
                 {messages.map((m, i) => (
                   <div key={m.id} style={{ alignSelf: m.sender === 'admin' ? 'flex-end' : 'flex-start', maxWidth: '76%' }}>
-                    <div style={{ padding: '10px 14px', borderRadius: m.sender === 'admin' ? '16px 16px 5px 16px' : '16px 16px 16px 5px', fontSize: 13.5, lineHeight: 1.5, background: m.sender === 'admin' ? C.orange : C.canvas, color: m.sender === 'admin' ? '#fff' : C.ink, border: m.sender === 'admin' ? 'none' : `1px solid ${C.hair}`, whiteSpace: 'pre-wrap', wordBreak: 'break-word', boxShadow: m.sender === 'admin' ? '0 2px 6px rgba(251,94,9,0.22)' : '0 1px 2px rgba(61,62,59,0.05)' }}>{m.body}</div>
+                    <div style={{ padding: m.attachmentKind === 'image' ? 5 : '10px 14px', borderRadius: m.sender === 'admin' ? '16px 16px 5px 16px' : '16px 16px 16px 5px', fontSize: 13.5, lineHeight: 1.5, background: m.sender === 'admin' ? C.orange : C.canvas, color: m.sender === 'admin' ? '#fff' : C.ink, border: m.sender === 'admin' ? 'none' : `1px solid ${C.hair}`, whiteSpace: 'pre-wrap', wordBreak: 'break-word', boxShadow: m.sender === 'admin' ? '0 2px 6px rgba(251,94,9,0.22)' : '0 1px 2px rgba(61,62,59,0.05)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {m.attachmentUrl && m.attachmentKind && (
+                        <ChatAttachmentView url={m.attachmentUrl} name={m.attachmentName || 'file'} kind={m.attachmentKind} size={m.attachmentSize} />
+                      )}
+                      {m.body && <span style={{ padding: m.attachmentKind === 'image' ? '2px 8px 4px' : 0 }}>{m.body}</span>}
+                    </div>
                     <p title={exactTime(m.createdAt)} style={{ fontSize: 10.5, color: C.stone, fontFamily: MONO, marginTop: 3, textAlign: m.sender === 'admin' ? 'right' : 'left', cursor: 'default' }}>
                       {rel(m.createdAt)}
                       {m.sender === 'admin' && i === lastAdminIdx && (
@@ -235,6 +263,11 @@ export function AdminMessages() {
                 ))}
               </div>
               <div style={{ padding: '12px 16px', borderTop: `1px solid ${C.hair}`, display: 'flex', gap: 9, alignItems: 'flex-end', background: C.paper }}>
+                <input ref={fileRef} type="file" accept={CHAT_ACCEPT} onChange={onPickFile} style={{ display: 'none' }} />
+                <button onClick={() => fileRef.current?.click()} disabled={sending} title="Attach an image or document" aria-label="Attach a file"
+                  style={{ display: 'grid', placeItems: 'center', width: 42, height: 42, background: C.snow, color: C.graphite, border: `1px solid ${C.hair}`, borderRadius: '50%', cursor: sending ? 'default' : 'pointer', flexShrink: 0 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                </button>
                 <textarea value={reply} onChange={e => setReply(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply() } }}
                   placeholder="Write a reply…  (Enter to send, Shift+Enter for a new line)" rows={1} maxLength={4000}
                   style={{ flex: 1, resize: 'none', border: `1px solid ${C.hair}`, borderRadius: 22, background: C.snow, color: C.ink, fontSize: 13.5, fontFamily: 'inherit', padding: '11px 16px', outline: 'none', maxHeight: 120, lineHeight: 1.4 }} />

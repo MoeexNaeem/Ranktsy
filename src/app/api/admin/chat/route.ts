@@ -19,6 +19,7 @@ export async function GET() {
     { $group: {
       _id: '$userId',
       lastBody: { $first: '$body' },
+      lastAttachmentName: { $first: '$attachmentName' },
       lastSender: { $first: '$sender' },
       lastAt: { $first: '$createdAt' },
       count: { $sum: 1 },
@@ -38,7 +39,7 @@ export async function GET() {
       userId: String(t._id),
       name: u?.name ?? '(deleted user)',
       email: u?.email ?? '-',
-      lastBody: t.lastBody as string,
+      lastBody: (t.lastBody as string) || (t.lastAttachmentName ? `📎 ${t.lastAttachmentName}` : ''),
       lastSender: t.lastSender as 'user' | 'admin',
       lastAt: t.lastAt ?? null,
       count: t.count as number,

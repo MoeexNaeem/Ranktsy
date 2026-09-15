@@ -10,10 +10,16 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
 import { C } from '@/utils'
 import { MONO } from './kit'
-import { pushToast } from '@/components/ui/toast'
+import { pushToast, errorToast } from '@/components/ui/toast'
+import { validateUpload, CHAT_ACCEPT } from '@/lib/chat-upload-constants'
+import { ChatAttachmentView } from '@/components/ui/ChatAttachmentView'
 
 interface Notif { id: string; type: string; title: string; body: string | null; link: string | null; createdAt: string | null; read: boolean }
-interface ChatMsg { id: string; userId: string; sender: 'user' | 'admin'; body: string; createdAt: string | null }
+interface ChatMsg {
+  id: string; userId: string; sender: 'user' | 'admin'; body: string; createdAt: string | null
+  attachmentUrl?: string | null; attachmentName?: string | null; attachmentType?: string | null
+  attachmentSize?: number | null; attachmentKind?: 'image' | 'file' | null
+}
 
 interface RealtimeCtx {
   isAdmin: boolean
@@ -25,6 +31,7 @@ interface RealtimeCtx {
   chatMessages: ChatMsg[]
   loadChat: () => void
   sendChat: (body: string) => Promise<void>
+  uploadChat: (file: File) => Promise<{ ok: boolean; error?: string }>
 }
 const Ctx = createContext<RealtimeCtx | null>(null)
 export const useRealtime = () => {
@@ -81,6 +88,14 @@ export function RealtimeProvider({ isAdmin, children }: { isAdmin: boolean; chil
     if (j?.success) setChatMessages(m => [...m, j.data.message])
   }, [])
 
+  const uploadChat = useCallback(async (file: File): Promise<{ ok: boolean; error?: string }> => {
+    const fd = new FormData(); fd.append('file', file)
+    const r = await fetch('/api/chat/upload', { method: 'POST', body: fd })
+    const j = await r.json().catch(() => null)
+    if (r.ok && j?.success) { setChatMessages(m => [...m, j.data.message]); return { ok: true } }
+    return { ok: false, error: j?.error || 'Upload failed. Please try again.' }
+  }, [])
+
   // loadNotifications setStates only after its fetch resolves (async), so this is not a
   // synchronous setState-in-effect despite the lint heuristic.
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -115,7 +130,8 @@ export function RealtimeProvider({ isAdmin, children }: { isAdmin: boolean; chil
         // An admin reply arriving live → toast it; clicking opens the chat widget.
         if (m.sender === 'admin' && !toastedRef.current.has(`chat:${m.id}`)) {
           toastedRef.current.add(`chat:${m.id}`)
-          pushToast({ title: 'New reply from support', body: m.body, kind: 'info', onClick: () => window.dispatchEvent(new Event('rk-open-chat')) })
+          const preview = m.body || (m.attachmentName ? `📎 ${m.attachmentName}` : 'Sent an attachment')
+          pushToast({ title: 'New reply from support', body: preview, kind: 'info', onClick: () => window.dispatchEvent(new Event('rk-open-chat')) })
         }
         setChatMessages(list => list.some(x => x.id === m.id) ? list : [...list, m])
       })
@@ -127,7 +143,7 @@ export function RealtimeProvider({ isAdmin, children }: { isAdmin: boolean; chil
   }, [isAdmin])
 
   return (
-    <Ctx.Provider value={{ isAdmin: effAdmin, notifUnread, notifications, loadNotifications, markAllRead, chatUnread, chatMessages, loadChat, sendChat }}>
+    <Ctx.Provider value={{ isAdmin: effAdmin, notifUnread, notifications, loadNotifications, markAllRead, chatUnread, chatMessages, loadChat, sendChat, uploadChat }}>
       {children}
     </Ctx.Provider>
   )
@@ -187,11 +203,26 @@ export function NotificationBell() {
 
 // ─── Support chat widget (floating, users only) ─────────────────────────────────
 export function ChatWidget() {
-  const { isAdmin, chatUnread, chatMessages, loadChat, sendChat } = useRealtime()
+  const { isAdmin, chatUnread, chatMessages, loadChat, sendChat, uploadChat } = useRealtime()
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''   // allow re-picking the same file
+    if (!file) return
+    // Validate BEFORE uploading; the error only appears now, as a toast, if the file is bad.
+    const check = validateUpload(file.type, file.size)
+    if (!check.ok) { errorToast('Can’t attach that file', check.error); return }
+    setSending(true)
+    try {
+      const res = await uploadChat(file)
+      if (!res.ok) errorToast('Upload failed', res.error)
+    } finally { setSending(false) }
+  }
 
   useEffect(() => { if (open) loadChat() }, [open, loadChat])
   useEffect(() => { if (open && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, [chatMessages, open])
@@ -226,12 +257,22 @@ export function ChatWidget() {
             {chatMessages.length === 0 && <p style={{ fontSize: 13, color: C.graphite, textAlign: 'center', margin: 'auto 0' }}>Send us a message and we will get back to you here.</p>}
             {chatMessages.map(m => (
               <div key={m.id} style={{ alignSelf: m.sender === 'user' ? 'flex-end' : 'flex-start', maxWidth: '82%' }}>
-                <div style={{ padding: '9px 13px', borderRadius: 13, fontSize: 13.5, lineHeight: 1.5, background: m.sender === 'user' ? C.orange : C.canvas, color: m.sender === 'user' ? '#fff' : C.ink, border: m.sender === 'user' ? 'none' : `1px solid ${C.ash}`, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{m.body}</div>
+                <div style={{ padding: m.attachmentKind === 'image' ? 5 : '9px 13px', borderRadius: 13, fontSize: 13.5, lineHeight: 1.5, background: m.sender === 'user' ? C.orange : C.canvas, color: m.sender === 'user' ? '#fff' : C.ink, border: m.sender === 'user' ? 'none' : `1px solid ${C.ash}`, whiteSpace: 'pre-wrap', wordBreak: 'break-word', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {m.attachmentUrl && m.attachmentKind && (
+                    <ChatAttachmentView url={m.attachmentUrl} name={m.attachmentName || 'file'} kind={m.attachmentKind} size={m.attachmentSize} />
+                  )}
+                  {m.body && <span style={{ padding: m.attachmentKind === 'image' ? '2px 8px 4px' : 0 }}>{m.body}</span>}
+                </div>
                 <p style={{ fontSize: 10.5, color: C.stone, fontFamily: MONO, marginTop: 3, textAlign: m.sender === 'user' ? 'right' : 'left' }}>{relTime(m.createdAt)}</p>
               </div>
             ))}
           </div>
           <div style={{ padding: '12px 14px', borderTop: `1px solid ${C.ash}`, display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+            <input ref={fileRef} type="file" accept={CHAT_ACCEPT} onChange={onPickFile} style={{ display: 'none' }} />
+            <button onClick={() => fileRef.current?.click()} disabled={sending} aria-label="Attach a file" title="Attach an image or document"
+              style={{ background: C.canvas, border: `1px solid ${C.ash}`, borderRadius: 10, width: 40, height: 40, cursor: sending ? 'default' : 'pointer', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: C.graphite }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </button>
             <textarea value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
               placeholder="Write a message…" rows={1} maxLength={4000}
               style={{ flex: 1, resize: 'none', border: `1px solid ${C.ash}`, borderRadius: 10, background: C.canvas, color: C.ink, fontSize: 13.5, fontFamily: 'inherit', padding: '9px 12px', outline: 'none', maxHeight: 100 }} />

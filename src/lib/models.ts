@@ -482,6 +482,13 @@ export interface IChatMessageDoc extends Document {
   userId: string
   sender: 'user' | 'admin'
   body: string
+  // Optional file attachment (image or document). The bytes live in a separate
+  // ChatAttachment doc (kept small so chat docs stay light); this just references it.
+  attachmentId?: string | null
+  attachmentName?: string | null
+  attachmentType?: string | null
+  attachmentSize?: number | null
+  attachmentKind?: 'image' | 'file' | null
   readByUser: boolean
   readByAdmin: boolean
   createdAt?: Date
@@ -489,11 +496,37 @@ export interface IChatMessageDoc extends Document {
 const ChatMessageSchema = new Schema<IChatMessageDoc>({
   userId:      { type: String, required: true, index: true },
   sender:      { type: String, enum: ['user', 'admin'], required: true },
-  body:        { type: String, required: true, maxlength: 4000 },
+  // Not required: a message may be an attachment with no text. Routes enforce that
+  // at least one of body/attachment is present.
+  body:        { type: String, default: '', maxlength: 4000 },
+  attachmentId:   { type: String, default: null },
+  attachmentName: { type: String, default: null },
+  attachmentType: { type: String, default: null },
+  attachmentSize: { type: Number, default: null },
+  attachmentKind: { type: String, enum: ['image', 'file', null], default: null },
   readByUser:  { type: Boolean, default: false },
   readByAdmin: { type: Boolean, default: false },
 }, { timestamps: true })
 ChatMessageSchema.index({ userId: 1, createdAt: 1 })
+
+// Attachment bytes for a chat message, stored base64 in their own collection so
+// the chat message docs stay small. Served only through the auth-gated
+// /api/chat/attachment/[id] route (never a public URL). Same 30-day TTL as chat.
+export interface IChatAttachmentDoc extends Document {
+  userId: string
+  name: string
+  contentType: string
+  size: number
+  data: string   // base64 (no data: prefix)
+  createdAt?: Date
+}
+const ChatAttachmentSchema = new Schema<IChatAttachmentDoc>({
+  userId:      { type: String, required: true, index: true },
+  name:        { type: String, required: true },
+  contentType: { type: String, required: true },
+  size:        { type: Number, required: true },
+  data:        { type: String, required: true },
+}, { timestamps: true })
 
 // ─── Keyword alerts ─────────────────────────────────────────────────────────────
 // A keyword a user is watching. We store the last-seen metrics as a baseline; a cron
@@ -529,6 +562,7 @@ TrackedKeywordSchema.index({ userId: 1, keyword: 1, country: 1 }, { unique: true
 export const RETENTION_SECONDS = (Number(process.env.CHAT_RETENTION_DAYS) > 0 ? Number(process.env.CHAT_RETENTION_DAYS) : 30) * 86400
 ChatMessageSchema.index({ createdAt: 1 }, { expireAfterSeconds: RETENTION_SECONDS })
 NotificationSchema.index({ createdAt: 1 }, { expireAfterSeconds: RETENTION_SECONDS })
+ChatAttachmentSchema.index({ createdAt: 1 }, { expireAfterSeconds: RETENTION_SECONDS })
 
 // ─── Affiliate program ────────────────────────────────────────────────────────
 // One Affiliate row per enrolled user (their referral code + payout details +
@@ -614,6 +648,7 @@ ReferralConversionSchema.index({ invoiceId: 1 }, { unique: true, partialFilterEx
 export const ExtensionUsage = (models.ExtensionUsage as mongoose.Model<IExtensionUsageDoc>) ?? model<IExtensionUsageDoc>('ExtensionUsage', ExtensionUsageSchema)
 export const Notification   = (models.Notification as mongoose.Model<INotificationDoc>)   ?? model<INotificationDoc>('Notification', NotificationSchema)
 export const ChatMessage    = (models.ChatMessage as mongoose.Model<IChatMessageDoc>)     ?? model<IChatMessageDoc>('ChatMessage', ChatMessageSchema)
+export const ChatAttachment = (models.ChatAttachment as mongoose.Model<IChatAttachmentDoc>) ?? model<IChatAttachmentDoc>('ChatAttachment', ChatAttachmentSchema)
 export const TrackedKeyword = (models.TrackedKeyword as mongoose.Model<ITrackedKeywordDoc>) ?? model<ITrackedKeywordDoc>('TrackedKeyword', TrackedKeywordSchema)
 export const Affiliate      = (models.Affiliate as mongoose.Model<IAffiliateDoc>)          ?? model<IAffiliateDoc>('Affiliate', AffiliateSchema)
 export const ReferralConversion = (models.ReferralConversion as mongoose.Model<IReferralConversionDoc>) ?? model<IReferralConversionDoc>('ReferralConversion', ReferralConversionSchema)

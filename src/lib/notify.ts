@@ -86,7 +86,15 @@ export function serializeChat(m: any) {
     id: String(m._id),
     userId: m.userId,
     sender: m.sender as 'user' | 'admin',
-    body: m.body,
+    body: m.body ?? '',
+    // Attachment (image/file), if any. `attachmentUrl` is the auth-gated route that
+    // streams the bytes - never a public URL.
+    attachmentId: m.attachmentId ?? null,
+    attachmentUrl: m.attachmentId ? `/api/chat/attachment/${m.attachmentId}` : null,
+    attachmentName: m.attachmentName ?? null,
+    attachmentType: m.attachmentType ?? null,
+    attachmentSize: m.attachmentSize ?? null,
+    attachmentKind: (m.attachmentKind ?? null) as 'image' | 'file' | null,
     createdAt: m.createdAt ?? null,
     // Read receipts: for an admin message, readByUser tells us whether the user has
     // opened the thread and seen it (the user GET marks admin msgs readByUser=true).
