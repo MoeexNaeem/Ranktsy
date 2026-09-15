@@ -73,6 +73,12 @@ export interface KeywordData {
    * sine wave whose shape was a function of the row's index in the array.
    */
   listingsByMonth: number[]
+  /**
+   * Measured daily-gain sparkline (last ~30 days) for this keyword's ranking
+   * listings, from our snapshot history - views/favorites/sales per day. Absent
+   * until tracking has accrued for those listings. Real data only.
+   */
+  trend?: { views: number[]; favorites: number[]; sales: number[] }
 }
 
 export interface KeywordStats {

@@ -10,7 +10,7 @@
  *   GET /v3/application/shops/{shop_id}  → shop info
  *   GET /v3/application/shops/{shop_id}/listings/active → shop listings
  */
-import { recordShopSnapshots, recordListingSnapshots, recordShopSnapshot } from '@/lib/snapshots'
+import { recordShopSnapshots, recordListingSnapshots, recordShopSnapshot, getKeywordTrendsBatch } from '@/lib/snapshots'
 import { recordEtsyCall } from '@/lib/usage'
 import type {
   EtsyListing, EtsyShop, KeywordData,
@@ -843,12 +843,12 @@ export async function keywordCount(keyword: string): Promise<number | null> {
  * favourites instead of the parent query's numbers scaled by a made-up factor.
  */
 async function keywordFacts(keyword: string): Promise<{
-  count: number; avgViews: number; avgFavorites: number; favPerView: number; byMonth: number[]
+  count: number; avgViews: number; avgFavorites: number; favPerView: number; byMonth: number[]; listingIds: number[]
 } | null> {
   try {
     const { listings, count } = await searchEtsyListingsPaged(keyword, 20, 0, { skipImages: true })
     if (!listings.length) {
-      return { count, avgViews: 0, avgFavorites: 0, favPerView: 0, byMonth: [] }
+      return { count, avgViews: 0, avgFavorites: 0, favPerView: 0, byMonth: [], listingIds: [] }
     }
     const v = listings.reduce((s, l) => s + (l.views ?? 0), 0)
     const f = listings.reduce((s, l) => s + (l.num_favorers ?? 0), 0)
@@ -858,6 +858,7 @@ async function keywordFacts(keyword: string): Promise<{
       avgFavorites: Math.round(f / listings.length),
       favPerView: parseFloat((f / Math.max(v, 1) * 100).toFixed(1)),
       byMonth: listingsByMonth(listings),
+      listingIds: listings.map(l => l.listing_id).filter(Boolean),
     }
   } catch (e) {
     console.error(`[Etsy] facts probe "${keyword}" failed:`, e)
@@ -892,10 +893,19 @@ export { difficultyScore }
 export async function enrichRelatedCompetition(related: KeywordData[]): Promise<KeywordData[]> {
   if (!related.length) return related
   const facts = await pooled(related, 4, r => keywordFacts(r.keyword))
+
+  // Measured per-keyword trend sparklines (eHunt-style) for the table - computed
+  // in ONE snapshot query from the listing ids the searches above already
+  // returned, so there are zero extra Etsy calls. Empty until tracking accrues.
+  const kwIds = new Map<string, number[]>()
+  related.forEach((r, i) => { const ids = facts[i]?.listingIds; if (ids?.length) kwIds.set(r.keyword, ids) })
+  const trends = kwIds.size ? await getKeywordTrendsBatch(kwIds).catch(() => new Map()) : new Map()
+
   return related.map((r, i) => {
     const f = facts[i]
-    if (!f) return r                       // probe failed → stays unknown
-    if (f.count <= 0) return { ...r, competition: 0, competitionLevel: null, difficulty: null }
+    const trend = trends.get(r.keyword)
+    if (!f) return trend ? { ...r, trend } : r   // probe failed → stays unknown
+    if (f.count <= 0) return { ...r, competition: 0, competitionLevel: null, difficulty: null, trend }
     return {
       ...r,
       competition:      f.count,
@@ -905,6 +915,7 @@ export async function enrichRelatedCompetition(related: KeywordData[]): Promise<
       avgFavorites:     f.avgFavorites,
       favPerView:       f.favPerView,
       listingsByMonth:  f.byMonth.length ? f.byMonth : r.listingsByMonth,
+      trend,
     }
   })
 }

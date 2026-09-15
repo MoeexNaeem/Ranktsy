@@ -516,3 +516,63 @@ export async function getKeywordMarketHistory(listingIds: number[], daysBack = 9
     return empty
   }
 }
+
+// ─── Batch keyword trends (for eHunt-style per-row sparklines in tables) ───────
+export interface KeywordTrend { views: number[]; favorites: number[]; sales: number[] }
+
+/**
+ * Compact daily-gain trend (last `days`) for MANY keywords at once, from ONE
+ * snapshot query over the union of their ranking listing ids. Used to draw a
+ * sparkline per row in the related-keywords table without any extra Etsy calls
+ * (the caller already searched each keyword). Arrays are length `days`, oldest→newest.
+ */
+export async function getKeywordTrendsBatch(keywordToIds: Map<string, number[]>, days = 30): Promise<Map<string, KeywordTrend>> {
+  const out = new Map<string, KeywordTrend>()
+  const allIds = [...new Set([...keywordToIds.values()].flat().filter(Boolean))]
+  if (!allIds.length) return out
+  try {
+    await connectDB()
+    const since = daysAgoKey(days + 1)
+    const rows = await ListingSnapshot.find({ listingId: { $in: allIds }, day: { $gte: since } })
+      .sort({ listingId: 1, day: 1 })
+      .select('listingId day views favorers reviewCount')
+      .lean<{ listingId: number; day: string; views: number | null; favorers: number | null; reviewCount: number | null }[]>()
+    if (!rows.length) return out
+
+    const rate = reviewRate()
+    const byListing = new Map<number, { day: string; views: number | null; favorers: number | null; reviewCount: number | null }[]>()
+    for (const r of rows) { const a = byListing.get(r.listingId) ?? []; a.push(r); byListing.set(r.listingId, a) }
+
+    // Per-listing map of day → gains.
+    const perListing = new Map<number, Map<string, { v: number; f: number; s: number }>>()
+    for (const [lid, series] of byListing) {
+      series.sort((a, b) => a.day.localeCompare(b.day))
+      const m = new Map<string, { v: number; f: number; s: number }>()
+      for (let i = 1; i < series.length; i++) {
+        const p = series[i - 1], c = series[i]
+        const rg = gainOf(p.reviewCount, c.reviewCount)
+        const cur = m.get(c.day) ?? { v: 0, f: 0, s: 0 }
+        cur.v += gainOf(p.views, c.views); cur.f += gainOf(p.favorers, c.favorers); cur.s += Math.round(rg / rate)
+        m.set(c.day, cur)
+      }
+      perListing.set(lid, m)
+    }
+
+    const axis: string[] = []
+    for (let i = days - 1; i >= 0; i--) axis.push(daysAgoKey(i))
+
+    for (const [kw, ids] of keywordToIds) {
+      const views = new Array(days).fill(0), favorites = new Array(days).fill(0), sales = new Array(days).fill(0)
+      let any = false
+      for (const id of ids) {
+        const m = perListing.get(id); if (!m) continue
+        axis.forEach((day, idx) => { const g = m.get(day); if (g) { views[idx] += g.v; favorites[idx] += g.f; sales[idx] += g.s; any = true } })
+      }
+      if (any) out.set(kw, { views, favorites, sales })
+    }
+    return out
+  } catch (e) {
+    console.error('[Snapshots] keyword trends batch failed:', e)
+    return out
+  }
+}
