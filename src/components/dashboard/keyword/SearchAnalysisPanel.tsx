@@ -1,6 +1,6 @@
 'use client'
 import { memo, useMemo } from 'react'
-import { BarChart } from '@/components/charts/BarChart'
+import { HistogramBars, type BarDatum } from '@/components/charts/pro'
 import { TagCloud } from '@/components/charts/TagCloud'
 import { Card, SectionTitle, EmptyState, MONO } from '../kit'
 import { Shimmer } from '../skeletons'
@@ -28,38 +28,28 @@ export const SearchAnalysisPanel = memo(function SearchAnalysisPanel({
 }: { analysis?: SearchAnalysis; onSelectTag?: (tag: string) => void }) {
   const cur = sym(analysis?.currency)
 
-  const priceChart = useMemo(() => {
+  const priceChart = useMemo<BarDatum[] | null>(() => {
     if (!analysis?.priceBuckets.length) return null
     const max = Math.max(...analysis.priceBuckets.map(b => b.count))
-    return {
-      labels: analysis.priceBuckets.map(b => b.label),
-      values: analysis.priceBuckets.map(b => b.count),
-      // Modal bucket in orange; everything else in a calm blue so the peak pops.
-      colors: analysis.priceBuckets.map(b =>
-        b.label === analysis.medianBucket ? C.orange : b.count === max ? '#2E6DB4' : 'rgba(46,109,180,0.42)'),
-    }
+    // Modal bucket in orange; everything else in a calm blue so the peak pops.
+    return analysis.priceBuckets.map(b => ({
+      label: b.label, value: b.count,
+      color: b.label === analysis.medianBucket ? C.orange : b.count === max ? '#2E6DB4' : 'rgba(46,109,180,0.42)',
+    }))
   }, [analysis])
 
-  const procChart = useMemo(() => {
+  const procChart = useMemo<BarDatum[] | null>(() => {
     if (!analysis?.processing.length) return null
     const order = [...analysis.processing.slice(0, 8)].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }))
-    return {
-      labels: order.map(p => p.label),
-      values: order.map(p => p.count),
-      colors: order.map((_, i) => D.series[i % D.series.length] as string),
-    }
+    return order.map((p, i) => ({ label: p.label, value: p.count, color: D.series[i % D.series.length] as string }))
   }, [analysis])
 
-  const ageChart = useMemo(() => {
+  const ageChart = useMemo<BarDatum[] | null>(() => {
     if (!analysis?.ages.length) return null
     // Newer → older reads green → red: a page full of 2-year-old listings is a
     // harder room to walk into than one full of last month's.
     const ramp = [D.good, D.fair, D.mid, D.warm, D.hard, D.hard]
-    return {
-      labels: analysis.ages.map(a => a.label),
-      values: analysis.ages.map(a => a.count),
-      colors: analysis.ages.map((_, i) => ramp[Math.min(i, ramp.length - 1)]),
-    }
+    return analysis.ages.map((a, i) => ({ label: a.label, value: a.count, color: ramp[Math.min(i, ramp.length - 1)] }))
   }, [analysis])
 
   if (!analysis || !analysis.listingsAnalyzed) {
@@ -145,7 +135,7 @@ export const SearchAnalysisPanel = memo(function SearchAnalysisPanel({
             </span>
           }>Price Range</SectionTitle>
           {priceChart
-            ? <BarChart labels={priceChart.labels} values={priceChart.values} colors={priceChart.colors} height={280} />
+            ? <HistogramBars data={priceChart} height={280} unit=" listings" />
             : <EmptyState icon="💲" title="No price data" />}
           <p style={{ fontSize: 11.5, color: C.stone, marginTop: 8, lineHeight: 1.55 }}>
             How many of the sampled listings sit at each price. The <strong style={{ color: C.orange }}>orange</strong> bar is the median.
@@ -162,7 +152,7 @@ export const SearchAnalysisPanel = memo(function SearchAnalysisPanel({
             </span>
           ) : undefined}>Listing Age</SectionTitle>
           {ageChart
-            ? <BarChart labels={ageChart.labels} values={ageChart.values} colors={ageChart.colors} height={280} />
+            ? <HistogramBars data={ageChart} height={280} unit=" listings" />
             : <EmptyState icon="📅" title="No listing dates" />}
           <p style={{ fontSize: 11.5, color: C.stone, marginTop: 8, lineHeight: 1.55 }}>
             How long the listings ranking for this keyword have been live. A page dominated by
@@ -179,7 +169,7 @@ export const SearchAnalysisPanel = memo(function SearchAnalysisPanel({
           <SectionTitle right={a.avgProcessing ? (
             <span style={{ fontSize: 12, fontFamily: MONO, color: C.graphite, background: C.bone, padding: '4px 11px', borderRadius: 100 }}>{a.avgProcessing}</span>
           ) : undefined}>Processing Times</SectionTitle>
-          <BarChart labels={procChart.labels} values={procChart.values} colors={procChart.colors} height={240} />
+          <HistogramBars data={procChart} height={240} unit=" listings" />
           <p style={{ fontSize: 11.5, color: C.stone, marginTop: 8 }}>
             The dispatch window sellers advertise. Beating the common window is a cheap competitive edge.
           </p>

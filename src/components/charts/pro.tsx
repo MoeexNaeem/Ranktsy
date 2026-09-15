@@ -119,7 +119,7 @@ export const LineTrend = memo(function LineTrend({
 })
 
 // ─── Histogram / distribution bars ────────────────────────────────────────────
-export interface BarDatum { label: string; value: number; highlight?: boolean }
+export interface BarDatum { label: string; value: number; highlight?: boolean; color?: string }
 export const HistogramBars = memo(function HistogramBars({
   data, color = C.orange, highlightColor = C.ink, height = 200, unit,
 }: { data: BarDatum[]; color?: string; highlightColor?: string; height?: number; unit?: string }) {
@@ -131,7 +131,7 @@ export const HistogramBars = memo(function HistogramBars({
         <YAxis tick={{ fontSize: 11, fill: AXIS }} tickLine={false} axisLine={false} width={38} tickFormatter={(v) => formatNumber(Number(v))} allowDecimals={false} />
         <Tooltip content={tip(unit)} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
         <Bar dataKey="value" name="Listings" radius={[4, 4, 0, 0]} isAnimationActive={false}>
-          {data.map((d, i) => <Cell key={i} fill={d.highlight ? highlightColor : color} />)}
+          {data.map((d, i) => <Cell key={i} fill={d.color ?? (d.highlight ? highlightColor : color)} />)}
         </Bar>
       </BarChart>
     </ResponsiveContainer>
