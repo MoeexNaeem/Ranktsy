@@ -16,7 +16,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
   const q = new URL(req.url).searchParams.get('q')?.trim().toLowerCase()
   if (!q || q.length < 2) return NextResponse.json({ success: false, error: 'Query must be at least 2 characters' }, { status: 400 })
   try {
-    const data = await cachedFlight(cacheKey('kwmarket', 'v1', q), CACHE_TTL.SHOP, async () => {
+    const data = await cachedFlight(cacheKey('kwmarket', 'v2', q), CACHE_TTL.SHOP, async () => {
       const { listings } = await searchEtsyListingsPaged(q, 100, 0, { skipImages: true })
       return getKeywordMarketHistory(listings.map(l => l.listing_id).filter(Boolean))
     })

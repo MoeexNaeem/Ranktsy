@@ -11,18 +11,19 @@ import axios from 'axios'
 import { Card, SectionTitle, MONO } from '../kit'
 import { Sparkline, type SparkPoint } from '@/components/charts/pro'
 import { C, formatNumber } from '@/utils'
-import type { KeywordMarketHistory, KeywordMonth } from '@/lib/snapshots'
+import type { KeywordMarketHistory } from '@/lib/snapshots'
 
-const METRICS: { key: keyof Omit<KeywordMonth, 'month'>; label: string; color: string }[] = [
+type MetricKey = 'views' | 'favorites' | 'sales' | 'reviews'
+const METRICS: { key: MetricKey; label: string; color: string }[] = [
   { key: 'views',     label: 'Views',     color: '#2E6DB4' },
   { key: 'favorites', label: 'Favorites', color: '#DB2777' },
   { key: 'sales',     label: 'Sales',     color: '#16A34A' },
   { key: 'reviews',   label: 'Reviews',   color: '#C08A12' },
 ]
 
-const fmtMonth = (m: string) => {
-  const [y, mo] = m.split('-')
-  return new Date(Date.UTC(Number(y), Number(mo) - 1, 1)).toLocaleDateString('en-US', { month: 'short' })
+const fmtDay = (d: string) => {
+  const [y, m, day] = d.split('-')
+  return new Date(Date.UTC(Number(y), Number(m) - 1, Number(day))).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 export function MarketActivityPanel({ query }: { query: string }) {
@@ -35,8 +36,9 @@ export function MarketActivityPanel({ query }: { query: string }) {
   })
 
   const badge = data
-    ? `measured from ${formatNumber(data.measuredListings)} of ${formatNumber(data.sampledListings)} tracked listings`
+    ? `measured from ${formatNumber(data.measuredListings)} of ${formatNumber(data.sampledListings)} ranked listings · ${formatNumber(data.trackedDays)} active day${data.trackedDays === 1 ? '' : 's'} tracked`
     : ''
+  const spark = (k: MetricKey): SparkPoint[] => (data?.daily ?? []).slice(-30).map(d => ({ label: fmtDay(d.day), value: d[k] }))
 
   return (
     <Card>
@@ -63,9 +65,8 @@ export function MarketActivityPanel({ query }: { query: string }) {
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }} className="rgrid-4">
             {METRICS.map(m => {
-              const spark: SparkPoint[] = data.months.map(x => ({ label: fmtMonth(x.month), value: x[m.key] }))
               const total = data.totals[m.key]
-              const month = data.thisMonth[m.key]
+              const l30 = data.last30[m.key]
               return (
                 <div key={m.key} style={{ border: `1px solid ${C.hair}`, borderRadius: 12, padding: '12px 13px', background: C.paper, display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -73,14 +74,14 @@ export function MarketActivityPanel({ query }: { query: string }) {
                     <span style={{ fontSize: 11.5, fontWeight: 600, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{m.label}</span>
                   </div>
                   <div style={{ fontSize: 22, fontWeight: 700, color: C.ink, lineHeight: 1.1 }}>{formatNumber(total)}</div>
-                  <div style={{ fontSize: 11.5, color: C.stone, fontFamily: MONO }}>+{formatNumber(month)} this month{m.key === 'sales' ? ' (est.)' : ''}</div>
-                  <div style={{ marginTop: 4 }}><Sparkline data={spark} color={m.color} height={38} /></div>
+                  <div style={{ fontSize: 11.5, color: C.stone, fontFamily: MONO }}>+{formatNumber(l30)} last 30 days{m.key === 'sales' ? ' (est.)' : ''}</div>
+                  <div style={{ marginTop: 4 }}><Sparkline data={spark(m.key)} color={m.color} height={40} showDots /></div>
                 </div>
               )
             })}
           </div>
           <p style={{ fontSize: 11, color: C.stone, marginTop: 10, lineHeight: 1.5 }}>
-            {badge}{data.fromMonth ? ` · since ${data.fromMonth}` : ''}. Totals are the summed monthly gains over the window; sales are estimated from real review growth.
+            {badge}{data.fromDay ? ` · since ${data.fromDay}` : ''}. Sparklines show daily gains; totals are the summed gains over the tracked window; sales are estimated from real review growth. Depth grows as tracking accrues.
           </p>
         </>
       )}
