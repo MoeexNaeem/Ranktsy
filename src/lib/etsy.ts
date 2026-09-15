@@ -61,14 +61,26 @@ function buildKeyPool(): EtsyKey[] {
   const seen = new Set<string>()
   const headers: string[] = []
   const add = (h: string) => { const t = h.trim(); if (t && !seen.has(t)) { seen.add(t); headers.push(t) } }
-  // 1) Primary key (also the OAuth client).
-  if (ETSY_API_KEY) add(ETSY_KEY_HEADER)
-  // 2) Named second key. Some deployments add a single extra key as its own pair
-  //    (ETSY_API_KEY_Two / ETSY_SHARED_SECRET_Two) rather than in the list below.
-  if (process.env.ETSY_API_KEY_Two?.trim()) {
-    add(keyHeader(process.env.ETSY_API_KEY_Two, process.env.ETSY_SHARED_SECRET_Two))
+
+  // Auto-discover ANY number of numbered keys: ETSY_API_KEY (primary) plus
+  // ETSY_API_KEY_<suffix> (e.g. _Two, _Three, _2, _3), each paired with its
+  // matching ETSY_SHARED_SECRET / ETSY_SHARED_SECRET_<suffix>. Adding a 4th, 5th…
+  // key is then pure config, no code change. The primary (no suffix) is always
+  // first (it is also the OAuth client id). ETSY_API_KEYS is handled separately.
+  const numbered = Object.keys(process.env)
+    .map(name => {
+      const m = /^ETSY_API_KEY(?:_(.+))?$/.exec(name)
+      return m && name !== 'ETSY_API_KEYS' ? { name, suffix: m[1] ?? '' } : null
+    })
+    .filter((x): x is { name: string; suffix: string } => !!x && !!process.env[x.name]?.trim())
+    .sort((a, b) => (a.suffix === '' ? -1 : b.suffix === '' ? 1 : a.suffix.localeCompare(b.suffix, undefined, { numeric: true })))
+
+  for (const { name, suffix } of numbered) {
+    const secret = process.env[suffix ? `ETSY_SHARED_SECRET_${suffix}` : 'ETSY_SHARED_SECRET'] ?? ''
+    add(keyHeader(process.env[name] ?? '', secret))
   }
-  // 3) Any number of further keys, comma-separated, each "keystring:sharedsecret".
+
+  // Plus an optional comma-separated list, each "keystring:sharedsecret".
   for (const entry of (process.env.ETSY_API_KEYS?.split(',') ?? [])) {
     const idx = entry.indexOf(':')
     const ks  = idx === -1 ? entry : entry.slice(0, idx)
