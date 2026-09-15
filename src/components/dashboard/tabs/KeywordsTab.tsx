@@ -14,6 +14,7 @@ import { NearMatchesTable }    from '../keyword/NearMatchesTable'
 import { MarketplacesPanel }   from '../keyword/MarketplacesPanel'
 import { KeywordIdeasPanel }   from '../keyword/KeywordIdeasPanel'
 import { TopListingsTable }    from '../keyword/TopListingsTable'
+import { MarketActivityPanel } from '../keyword/MarketActivityPanel'
 import { Card, SearchBar, SectionTitle, ErrorBox, EmptyState, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import { KeywordGuide } from '@/components/dashboard/KeywordGuide'
@@ -593,6 +594,9 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
               : <EmptyState icon="🌍" title="No country data" sub="No country breakdown for this keyword yet." />}
         </Card>
       </div>
+
+      {/* Measured monthly market activity from our own snapshot tracking (eHunt-style). */}
+      {kw && <MarketActivityPanel query={kw.query} />}
 
       {/* Difficulty + the Google volume / competition / CPC detail. */}
       <div data-tour="kw-kd" className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 12, alignItems: 'start' }}>

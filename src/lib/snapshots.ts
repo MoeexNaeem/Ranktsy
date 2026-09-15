@@ -408,3 +408,93 @@ export async function getListingVelocity(listingId: number, days = 90): Promise<
     return null
   }
 }
+
+// ─── Keyword market history (eHunt-style measured monthly activity) ────────────
+export interface KeywordMonth { month: string; views: number; favorites: number; sales: number; reviews: number }
+export interface KeywordMarketHistory {
+  months: KeywordMonth[]           // continuous, oldest→newest, gaps filled with 0
+  totals: KeywordMonth             // summed monthly GAINS over the window
+  thisMonth: KeywordMonth
+  sampledListings: number          // ranking listings we looked up
+  measuredListings: number         // how many had >=2 monthly points (a real delta)
+  fromMonth: string | null         // first month with any measured activity
+}
+
+const zeroMonth = (): KeywordMonth => ({ month: '', views: 0, favorites: 0, sales: 0, reviews: 0 })
+const monthGain = (a: number | null, b: number | null) => (a != null && b != null ? Math.max(0, b - a) : 0)
+
+/**
+ * Measured monthly market activity for a keyword, from OUR snapshot history.
+ *
+ * Given the listing ids that rank for a keyword, aggregate the month-over-month
+ * GAIN in views / favorites / reviews across them (sales = review gain ÷ review
+ * rate, same basis as getListingVelocity). This is the eHunt-style
+ * "Views/Favorites/Sales/Reviews per month" - real and measured, never search
+ * volume (which we cannot observe). Coverage grows as snapshots accrue;
+ * `measuredListings` says how many listings actually contributed a delta.
+ */
+export async function getKeywordMarketHistory(listingIds: number[], monthsBack = 12): Promise<KeywordMarketHistory> {
+  const empty: KeywordMarketHistory = { months: [], totals: zeroMonth(), thisMonth: zeroMonth(), sampledListings: 0, measuredListings: 0, fromMonth: null }
+  const ids = [...new Set(listingIds.filter(Boolean))].slice(0, 200)
+  if (!ids.length) return empty
+  try {
+    await connectDB()
+    const since = new Date(); since.setUTCDate(1); since.setUTCMonth(since.getUTCMonth() - monthsBack)
+
+    // Last cumulative value per listing per calendar month (uses the {listingId,capturedAt} index).
+    const rows = await ListingSnapshot.aggregate<{ _id: { l: number; m: string }; views: number | null; favorers: number | null; reviewCount: number | null }>([
+      { $match: { listingId: { $in: ids }, capturedAt: { $gte: since } } },
+      { $sort: { day: 1 } },
+      { $group: {
+        _id: { l: '$listingId', m: { $substr: ['$day', 0, 7] } },
+        views: { $last: '$views' }, favorers: { $last: '$favorers' }, reviewCount: { $last: '$reviewCount' },
+      } },
+    ])
+    if (!rows.length) return { ...empty, sampledListings: ids.length }
+
+    const byListing = new Map<number, { m: string; views: number | null; favorers: number | null; reviewCount: number | null }[]>()
+    for (const r of rows) {
+      const arr = byListing.get(r._id.l) ?? []
+      arr.push({ m: r._id.m, views: r.views, favorers: r.favorers, reviewCount: r.reviewCount })
+      byListing.set(r._id.l, arr)
+    }
+
+    const rate = reviewRate()
+    const agg = new Map<string, KeywordMonth>()
+    const bump = (m: string, k: 'views' | 'favorites' | 'sales' | 'reviews', v: number) => {
+      const cur = agg.get(m) ?? { month: m, views: 0, favorites: 0, sales: 0, reviews: 0 }
+      cur[k] += v; agg.set(m, cur)
+    }
+    let measured = 0
+    for (const series of byListing.values()) {
+      series.sort((a, b) => a.m.localeCompare(b.m))
+      let contributed = false
+      for (let i = 1; i < series.length; i++) {
+        const prev = series[i - 1], cur = series[i]
+        const vG = monthGain(prev.views, cur.views)
+        const fG = monthGain(prev.favorers, cur.favorers)
+        const rG = monthGain(prev.reviewCount, cur.reviewCount)
+        if (vG || fG || rG) contributed = true
+        bump(cur.m, 'views', vG); bump(cur.m, 'favorites', fG); bump(cur.m, 'reviews', rG)
+        if (rG) bump(cur.m, 'sales', Math.round(rG / rate))
+      }
+      if (contributed) measured++
+    }
+
+    // Continuous month series across the window (fill gaps with 0).
+    const now = new Date()
+    const months: KeywordMonth[] = []
+    for (let i = monthsBack - 1; i >= 0; i--) {
+      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1))
+      const m = d.toISOString().slice(0, 7)
+      months.push(agg.get(m) ?? { month: m, views: 0, favorites: 0, sales: 0, reviews: 0 })
+    }
+    const totals = months.reduce<KeywordMonth>((t, x) => ({ month: '', views: t.views + x.views, favorites: t.favorites + x.favorites, sales: t.sales + x.sales, reviews: t.reviews + x.reviews }), zeroMonth())
+    const thisMonth = agg.get(now.toISOString().slice(0, 7)) ?? zeroMonth()
+    const first = months.find(x => x.views || x.favorites || x.sales || x.reviews)
+    return { months, totals, thisMonth, sampledListings: ids.length, measuredListings: measured, fromMonth: first?.month ?? null }
+  } catch (e) {
+    console.error('[Snapshots] keyword market history failed:', e)
+    return empty
+  }
+}
