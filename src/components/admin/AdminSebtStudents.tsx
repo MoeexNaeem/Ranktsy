@@ -13,27 +13,29 @@ interface StudentRow {
   id: string; name: string; email: string; plan: string
   joinedAt: string | null; expiresAt: string | null; daysLeft: number; active: boolean
 }
-interface Payload { total: number; active: number; expired: number; students: StudentRow[] }
+interface Payload { total: number; active: number; expired: number; students: StudentRow[]; page: number; limit: number; pageCount: number }
 
 const fmtDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'
 const GRID = '1.3fr 2fr 0.9fr 1fr 1fr 0.8fr'
+const PAGE_SIZE = 50
 
 export function AdminSebtStudents() {
   const [data, setData]   = useState<Payload | null>(null)
   const [state, setState] = useState<'loading' | 'ok' | 'error'>('loading')
   const [exporting, setExporting] = useState(false)
+  const [page, setPage] = useState(1)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (p: number) => {
     setState('loading')
     try {
-      const r = await fetch('/api/admin/sebt-students')
+      const r = await fetch(`/api/admin/sebt-students?page=${p}&limit=${PAGE_SIZE}`)
       const j = await r.json()
       if (r.ok && j?.success) { setData(j.data); setState('ok') }
       else setState('error')
     } catch { setState('error') }
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load(page) }, [load, page])
 
   const exportCsv = useCallback(async () => {
     setExporting(true)
@@ -70,7 +72,7 @@ export function AdminSebtStudents() {
       </div>
 
       <div>
-        <SectionTitle right={<span style={{ fontSize: 12, fontFamily: MONO, color: '#808080' }}>{students.length} student{students.length === 1 ? '' : 's'}</span>}>
+        <SectionTitle right={<span style={{ fontSize: 12, fontFamily: MONO, color: '#808080' }}>{(data?.total ?? 0).toLocaleString()} student{(data?.total ?? 0) === 1 ? '' : 's'}</span>}>
           SEBT students
         </SectionTitle>
 
@@ -101,7 +103,21 @@ export function AdminSebtStudents() {
             ))}
           </div>
         )}
+
+        {state === 'ok' && (data?.pageCount ?? 1) > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 16 }}>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} style={pgBtn(page <= 1)}>← Prev</button>
+            <span style={{ fontSize: 12.5, fontFamily: MONO, color: C.graphite }}>Page {data?.page ?? page} of {(data?.pageCount ?? 1).toLocaleString()}</span>
+            <button onClick={() => setPage(p => Math.min((data?.pageCount ?? 1), p + 1))} disabled={page >= (data?.pageCount ?? 1)} style={pgBtn(page >= (data?.pageCount ?? 1))}>Next →</button>
+          </div>
+        )}
       </div>
     </div>
   )
 }
+
+const pgBtn = (disabled: boolean): React.CSSProperties => ({
+  height: 34, padding: '0 16px', borderRadius: 100, border: `1px solid ${C.ash}`,
+  background: C.paper, color: C.ink, fontSize: 13, fontWeight: 500, fontFamily: 'inherit',
+  cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
+})

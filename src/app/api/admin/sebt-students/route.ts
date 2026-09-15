@@ -47,14 +47,28 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { searchParams } = new URL(req.url)
   const format = searchParams.get('format')
+  const isCsv = format === 'csv'
+  // Server-side pagination for the table (CSV export still returns everyone).
+  const page = Math.max(1, Number(searchParams.get('page')) || 1)
+  const limit = Math.min(200, Math.max(1, Number(searchParams.get('limit')) || 50))
 
   try {
     // Revert any expired comp grants first, so the trial status shown is truthful.
     await sweepComps().catch(() => null)
     await connectDB()
-
-    const docs = await User.find({ sebtStudent: true }).sort({ createdAt: -1 }).lean()
     const now = Date.now()
+
+    // Headline counts, computed with cheap countDocuments (no full-collection load).
+    // A SEBT trial is "active" while its comp grant hasn't expired.
+    const [total, activeCount] = await Promise.all([
+      User.countDocuments({ sebtStudent: true }),
+      User.countDocuments({ sebtStudent: true, compExpiresAt: { $gt: new Date(now) } }),
+    ])
+
+    // Only load the rows we actually return: the whole list for CSV, one page for UI.
+    const q = User.find({ sebtStudent: true }).sort({ createdAt: -1 })
+    if (!isCsv) q.skip((page - 1) * limit).limit(limit)
+    const docs = await q.lean()
 
     const students: StudentRow[] = docs.map(u => {
       const plan = effectivePlan(u)
@@ -72,7 +86,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       }
     })
 
-    if (format === 'csv') {
+    if (isCsv) {
       return new NextResponse(toCsv(students), {
         headers: {
           'Content-Type': 'text/csv; charset=utf-8',
@@ -82,10 +96,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       })
     }
 
-    const active = students.filter(s => s.active).length
     return NextResponse.json({
       success: true,
-      data: { total: students.length, active, expired: students.length - active, students },
+      data: {
+        total, active: activeCount, expired: total - activeCount,
+        students, page, limit, pageCount: Math.max(1, Math.ceil(total / limit)),
+      },
     })
   } catch (e) {
     console.error('[Admin] sebt-students:', e)

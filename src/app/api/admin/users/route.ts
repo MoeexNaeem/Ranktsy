@@ -24,7 +24,13 @@ export async function GET() {
   // always reflects the true current plan.
   await sweepComps().catch(() => null)
   const [users, activity, shopCounts, promoOn] = await Promise.all([
-    User.find().sort({ createdAt: -1 }).lean(),
+    // Only the fields the table + stats actually use - skips heavy per-user fields
+    // (password hash, OAuth tokens, saved lists, etc.) so the payload and Mongo read
+    // are a fraction of the full documents. This is the main admin-open speedup.
+    User.find()
+      .select('name email role plan subscriptionStatus planRenewsAt compExpiresAt isVerified restricted lsSubscriptionId createdAt listingImageCount creditsResetAt creditsUsedToday creditsUsedTotal')
+      .sort({ createdAt: -1 })
+      .lean(),
     KeywordHistory.aggregate([
       { $group: { _id: '$userId', count: { $sum: 1 }, last: { $max: '$searchedAt' } } },
     ]),
