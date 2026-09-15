@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   // cards and canonicals silently break.
   metadataBase: new URL(siteUrl()),
   title: {
-    default:  'Rankkw - Etsy Keyword Research & Analytics',
+    default:  'Rankkw - Etsy SEO - Keyword Research & Analytics',
     template: '%s',   // child pages set full titles themselves
   },
   description: 'Data-driven keyword research, competition analysis, and trend tracking for Etsy sellers - measured from the official Etsy & Google APIs, never estimated.',
@@ -18,11 +18,11 @@ export const metadata: Metadata = {
   applicationName: 'Rankkw',
   alternates:  { canonical: '/' },
   openGraph: {
-    title: 'Rankkw - Etsy Keyword Research & Analytics',
+    title: 'Rankkw - Etsy SEO - Keyword Research & Analytics',
     description: 'Real Etsy keyword data - search volume, competition and trends from the official APIs.',
     url: siteUrl(), siteName: 'Rankkw', type: 'website',
   },
-  twitter: { card: 'summary_large_image', title: 'Rankkw - Etsy Keyword Research', description: 'Real Etsy keyword data, not estimates.' },
+  twitter: { card: 'summary_large_image', title: 'Rankkw - Etsy SEO - Keyword Research', description: 'Real Etsy keyword data, not estimates.' },
   robots: { index: true, follow: true },
   // Trustpilot one-time domain-verification tag. Renders:
   // <meta name="trustpilot-one-time-domain-verification-id" content="…">
