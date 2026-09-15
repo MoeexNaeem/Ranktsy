@@ -84,6 +84,24 @@ if (KEY_POOL.length > 1) console.log(`[Etsy] key pool: ${KEY_POOL.length} keys (
 /** How many Etsy public-call keys are configured. 0 = misconfigured (all Etsy tools down). */
 export function etsyKeyPoolSize(): number { return KEY_POOL.length }
 
+/**
+ * Live-test EACH key in the pool with one cheap call (no rotation), so an admin
+ * can see exactly which key is broken - a single bad/misconfigured key silently
+ * fails ~half of all Etsy requests. Returns per-key ok/status. Spends one Etsy
+ * call per key, so this is only for the admin health check, never the hot path.
+ */
+export async function probeEtsyKeys(): Promise<{ index: number; ok: boolean; status: number | null }[]> {
+  const url = `${ETSY_BASE}/listings/active?limit=1`
+  return Promise.all(KEY_POOL.map(async (k, i) => {
+    try {
+      const res = await fetch(url, { headers: { 'x-api-key': k.header, Accept: 'application/json' }, cache: 'no-store' })
+      return { index: i + 1, ok: res.ok, status: res.status }
+    } catch {
+      return { index: i + 1, ok: false, status: null }
+    }
+  }))
+}
+
 // ─── Core fetcher ─────────────────────────────────────────────────────────────
 
 // Etsy allows roughly 10 requests/second PER KEY. A single keyword search fans
@@ -148,14 +166,32 @@ async function etsyFetch<T = unknown>(path: string, params?: Record<string, stri
     const text = await res.text().catch(() => res.statusText)
     lastErr = new Error(`Etsy API error ${res.status}: ${text}`)
 
-    const retryable = res.status === 429 || res.status >= 500
+    // 401/403 = this KEY is bad (invalid keystring, wrong/missing shared secret,
+    // or the app lacks commercial access). With a pool, one bad key must NOT break
+    // the ~half of requests that round-robin onto it: skip to the next key. Log
+    // which key failed so a misconfigured second key is easy to spot in pm2 logs.
+    const authBad = res.status === 401 || res.status === 403
+    const serverBusy = res.status === 429 || res.status >= 500
+    const cycledAllKeys = n <= 1 || attempt >= n - 1
+    if (authBad && n > 1) {
+      console.warn(`[Etsy] key #${(start + attempt) % n + 1}/${n} returned ${res.status} - check that key's keystring + shared secret + commercial access. ${text.slice(0, 120)}`)
+    }
+
+    // Not retryable (a real 400/404, or a single-key auth failure), or out of
+    // attempts → surface the error.
+    const retryable = serverBusy || (authBad && n > 1)
     if (!retryable || attempt === MAX_ATTEMPTS - 1) throw lastErr
 
-    // With multiple keys, a 429 means THIS key is throttled/exhausted - the next
-    // iteration already targets the next key, so move on immediately (its own gate
-    // still applies). Only once we've cycled through every key this pass do we back
-    // off before trying again.
-    const cycledAllKeys = n > 1 && attempt >= n - 1
+    // A bad key with a pool: move to the next key immediately. Once every key has
+    // been tried and it STILL auth-fails, it isn't a single bad key (all keys bad,
+    // or a genuinely forbidden resource) - stop rather than loop.
+    if (authBad) {
+      if (cycledAllKeys) throw lastErr
+      continue
+    }
+
+    // 429/5xx: the next iteration already targets the next key, so move on
+    // immediately; only once we've cycled through every key do we back off.
     if (n > 1 && !cycledAllKeys && res.status === 429) continue
 
     const retryAfter = Number(res.headers.get('retry-after')) * 1000

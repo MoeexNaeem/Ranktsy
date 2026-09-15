@@ -3,7 +3,7 @@ import mongoose from 'mongoose'
 import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin } from '@/lib/auth/roles'
 import { connectDB } from '@/lib/db'
-import { etsyKeyPoolSize } from '@/lib/etsy'
+import { etsyKeyPoolSize, probeEtsyKeys } from '@/lib/etsy'
 import { isGeminiConfigured } from '@/lib/gemini'
 import { isGoogleAdsConfigured } from '@/lib/google-ads'
 import { isRecaptchaConfigured } from '@/lib/recaptcha'
@@ -50,15 +50,27 @@ export async function GET(): Promise<NextResponse<ApiResponse<{ systems: Record<
 
   const mongo = await pingMongo()
 
+  // Live-probe each Etsy key so a bad/misconfigured one is caught (a single bad
+  // key silently fails ~half of all Etsy requests). All keys good = ok; some bad
+  // = down (it IS breaking requests); none configured = down.
   const etsyKeys = etsyKeyPoolSize()
+  const probes = etsyKeys > 0 ? await probeEtsyKeys().catch(() => []) : []
+  const goodKeys = probes.filter(p => p.ok).length
+  const badKeys = probes.filter(p => !p.ok)
+  const etsyHealth: SystemHealth =
+    etsyKeys === 0 ? { status: 'down', required: true, detail: 'no Etsy key configured' }
+    : probes.length === 0 ? { status: 'ok', required: true, detail: `${etsyKeys} key${etsyKeys === 1 ? '' : 's'} (probe skipped)` }
+    : goodKeys === 0 ? { status: 'down', required: true, detail: `all ${etsyKeys} keys failing (${badKeys.map(b => `#${b.index}:${b.status ?? 'err'}`).join(', ')})` }
+    : badKeys.length > 0 ? { status: 'down', required: true, detail: `key ${badKeys.map(b => `#${b.index} (${b.status ?? 'err'})`).join(', ')} failing - fix or remove it; ${goodKeys}/${etsyKeys} ok` }
+    : { status: 'ok', required: true, detail: `${goodKeys}/${etsyKeys} keys ok` }
+
   const lsOk = env('LS_API_KEY') && env('LS_WEBHOOK_SECRET')
 
   const systems: Record<FlowSystem, SystemHealth> = {
     mongo,
     auth:  { status: env('JWT_SECRET') && env('JWT_REFRESH_SECRET') ? 'ok' : 'down', required: true,
              detail: env('JWT_SECRET') && env('JWT_REFRESH_SECRET') ? 'secrets set' : 'JWT secrets missing' },
-    etsy:  { status: etsyKeys > 0 ? 'ok' : 'down', required: true,
-             detail: etsyKeys > 0 ? `${etsyKeys} key${etsyKeys === 1 ? '' : 's'} in pool` : 'no Etsy key configured' },
+    etsy:  etsyHealth,
     gemini:       { status: isGeminiConfigured()   ? 'ok' : 'off', required: false, detail: isGeminiConfigured()   ? 'configured' : 'no key - AI tools dormant' },
     google:       { status: isGoogleAdsConfigured()? 'ok' : 'off', required: false, detail: isGoogleAdsConfigured()? 'configured' : 'no key - search volume blank' },
     openai:       { status: env('OPENAI_API_KEY')  ? 'ok' : 'off', required: false, detail: env('OPENAI_API_KEY')  ? 'configured' : 'no key - Listing Pro image off' },
