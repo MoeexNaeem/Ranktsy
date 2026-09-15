@@ -562,7 +562,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
 
       {/* Overview - Keyword Statistics · Search Trends · Searchers by Country
           (the sample's three-panel row). Every figure is real or "-". */}
-      <div data-tour="kw-stats" className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1.55fr 1fr', gap: 12, alignItems: 'start' }}>
+      <div data-tour="kw-stats" className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1.55fr 1fr', gap: 12, alignItems: 'stretch' }}>
         {kw ? <KeywordStatsPanel s={kw.stats} geoName={geoName} /> : <Card><Shimmer h={230} r={8} /></Card>}
 
         <Card>
@@ -599,7 +599,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
       {kw && <MarketActivityPanel query={kw.query} />}
 
       {/* Difficulty + the Google volume / competition / CPC detail. */}
-      <div data-tour="kw-kd" className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 12, alignItems: 'start' }}>
+      <div data-tour="kw-kd" className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 12, alignItems: 'stretch' }}>
         <Card>
           <SectionTitle right={<span style={{ fontSize: 10, fontFamily: MONO, color: C.stone }}>KD</span>}>Keyword Difficulty</SectionTitle>
           {kw ? <DifficultyPanel s={kw.stats} /> : <Shimmer h={200} r={8} />}
@@ -666,6 +666,55 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
         />
       )}
 
+      {/* Related-keyword overview: Competition Mix + Difficulty Spread, shown above
+          the tabs (right before the keyword table). */}
+      {kw && insights && (
+        <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'stretch' }}>
+          <Card>
+            <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: C.stone }}>Etsy</span>}>Competition Mix</SectionTitle>
+            <p style={{ fontSize: 12, color: C.graphite, marginTop: -8, marginBottom: 8 }}>How many rivals compete for each related keyword.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+              <div style={{ width: 150, flexShrink: 0 }}><MixDonut segments={insights.compMix} /></div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 9 }}>
+                {insights.compMix.map(s => (
+                  <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ width: 11, height: 11, borderRadius: 3, background: s.color, flexShrink: 0 }} />
+                    <span style={{ flex: 1, fontSize: 13.5, color: C.ink }}>{s.label} competition</span>
+                    <span style={{ fontSize: 14.5, fontWeight: 600, fontFamily: MONO, color: s.color }}>{s.value}</span>
+                  </div>
+                ))}
+                {insights.unknown > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 9, borderTop: `1px solid ${C.hair}` }}>
+                    <span style={{ width: 11, height: 11, borderRadius: 3, background: C.lightGray, flexShrink: 0 }} />
+                    <span style={{ flex: 1, fontSize: 13.5, color: C.graphite }}
+                      title={relatedPending ? 'Still measuring these against Etsy' : "Etsy didn't return a listing count for these keywords"}>
+                      {relatedPending ? 'Measuring…' : 'Unknown'}
+                    </span>
+                    <span style={{ fontSize: 14.5, fontWeight: 600, fontFamily: MONO, color: C.graphite }}>{insights.unknown}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+          <Card>
+            <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: C.stone }}>KD</span>}>Difficulty Spread</SectionTitle>
+            <p style={{ fontSize: 12, color: C.graphite, marginTop: -8, marginBottom: 8 }}>How hard these keywords are to rank for (KD estimate).</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+              <div style={{ width: 150, flexShrink: 0 }}><MixDonut segments={insights.kdMix} /></div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 9 }}>
+                {insights.kdMix.map(s => (
+                  <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ width: 11, height: 11, borderRadius: 3, background: s.color, flexShrink: 0 }} />
+                    <span style={{ flex: 1, fontSize: 13.5, color: C.ink }}>{s.label}{s.label === 'Easy' ? ' (KD < 34)' : s.label === 'Hard' ? ' (KD 67+)' : ' (34–66)'}</span>
+                    <span style={{ fontSize: 14.5, fontWeight: 600, fontFamily: MONO, color: s.color }}>{s.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* Sub-tabs */}
       {kw && (
         <div data-tour="kw-subtabs" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -678,55 +727,6 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
 
           {sub === 'ideas' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {insights && (
-                  /* Two compact related-keyword breakdowns side by side. The
-                     ranked opportunities graph now lives up beneath Google volume. */
-                  <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'start' }}>
-                    <Card>
-                      <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: C.stone }}>Etsy</span>}>Competition Mix</SectionTitle>
-                      <p style={{ fontSize: 12, color: C.graphite, marginTop: -8, marginBottom: 8 }}>How many rivals compete for each related keyword.</p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-                        <div style={{ width: 150, flexShrink: 0 }}><MixDonut segments={insights.compMix} /></div>
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 9 }}>
-                          {insights.compMix.map(s => (
-                            <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                              <span style={{ width: 11, height: 11, borderRadius: 3, background: s.color, flexShrink: 0 }} />
-                              <span style={{ flex: 1, fontSize: 13.5, color: C.ink }}>{s.label} competition</span>
-                              <span style={{ fontSize: 14.5, fontWeight: 600, fontFamily: MONO, color: s.color }}>{s.value}</span>
-                            </div>
-                          ))}
-                          {insights.unknown > 0 && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 9, borderTop: `1px solid ${C.hair}` }}>
-                              <span style={{ width: 11, height: 11, borderRadius: 3, background: C.lightGray, flexShrink: 0 }} />
-                              <span style={{ flex: 1, fontSize: 13.5, color: C.graphite }}
-                                title={relatedPending ? 'Still measuring these against Etsy' : "Etsy didn't return a listing count for these keywords"}>
-                                {relatedPending ? 'Measuring…' : 'Unknown'}
-                              </span>
-                              <span style={{ fontSize: 14.5, fontWeight: 600, fontFamily: MONO, color: C.graphite }}>{insights.unknown}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                    <Card>
-                      <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: C.stone }}>KD</span>}>Difficulty Spread</SectionTitle>
-                      <p style={{ fontSize: 12, color: C.graphite, marginTop: -8, marginBottom: 8 }}>How hard these keywords are to rank for (KD estimate).</p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-                        <div style={{ width: 150, flexShrink: 0 }}><MixDonut segments={insights.kdMix} /></div>
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 9 }}>
-                          {insights.kdMix.map(s => (
-                            <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                              <span style={{ width: 11, height: 11, borderRadius: 3, background: s.color, flexShrink: 0 }} />
-                              <span style={{ flex: 1, fontSize: 13.5, color: C.ink }}>{s.label}{s.label === 'Easy' ? ' (KD < 34)' : s.label === 'Hard' ? ' (KD 67+)' : ' (34–66)'}</span>
-                              <span style={{ fontSize: 14.5, fontWeight: 600, fontFamily: MONO, color: s.color }}>{s.value}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </Card>
-                  </div>
-              )}
-
               {/* Keywords appear as soon as the core lands; the competition
                   column resolves when the per-keyword probes return. */}
               {relatedRows.length

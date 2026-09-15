@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
 import { KeywordHistory, SavedKeyword } from '@/lib/models'
 import { getKeywordCore } from '@/lib/keywords'
+import { recordObservedListings } from '@/lib/snapshots'
 import { normalizeGeo } from '@/lib/google-ads'
 import { getCurrentUser } from '@/lib/auth/session'
 import { guardSearch } from '@/lib/searchGate'
@@ -51,6 +52,25 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
   try {
     const before = peekApiCalls()
     const data = await getKeywordCore(query, geo)
+
+    // Seed tracking: every search enrolls this keyword's ranking listings into the
+    // snapshot set, so they start accruing history TODAY (not only when someone
+    // happens to browse them). Fire-and-forget - never blocks or fails the search.
+    // This is what makes Market Activity fill in faster the more the tool is used.
+    if (data.listings?.length) {
+      void recordObservedListings(data.listings
+        .filter(l => l.listing_id && l.shop_id)
+        .map(l => ({
+          listingId: l.listing_id,
+          shopId: l.shop_id as number,
+          title: l.title,
+          tags: l.tags,
+          price: l.price?.amount ? l.price.amount / (l.price.divisor || 100) : null,
+          currency: l.price?.currency_code,
+          views: l.views,
+          favorers: l.num_favorers,
+        }))).catch(() => {})
+    }
 
     // Usage analytics: one search, and whether it was served from cache/DB (no API
     // calls) or required a live fetch.

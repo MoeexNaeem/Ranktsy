@@ -35,9 +35,6 @@ export function MarketActivityPanel({ query }: { query: string }) {
     retry: false,
   })
 
-  const badge = data
-    ? `measured from ${formatNumber(data.measuredListings)} of ${formatNumber(data.sampledListings)} ranked listings · ${formatNumber(data.trackedDays)} active day${data.trackedDays === 1 ? '' : 's'} tracked`
-    : ''
   const spark = (k: MetricKey): SparkPoint[] => (data?.daily ?? []).slice(-30).map(d => ({ label: fmtDay(d.day), value: d[k] }))
 
   return (
@@ -80,9 +77,6 @@ export function MarketActivityPanel({ query }: { query: string }) {
               )
             })}
           </div>
-          <p style={{ fontSize: 11, color: C.stone, marginTop: 10, lineHeight: 1.5 }}>
-            {badge}{data.fromDay ? ` · since ${data.fromDay}` : ''}. Sparklines show daily gains; totals are the summed gains over the tracked window; sales are estimated from real review growth. Depth grows as tracking accrues.
-          </p>
         </>
       )}
     </Card>
