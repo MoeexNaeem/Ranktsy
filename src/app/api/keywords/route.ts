@@ -3,6 +3,7 @@ import { connectDB } from '@/lib/db'
 import { KeywordHistory, SavedKeyword } from '@/lib/models'
 import { getKeywordCore } from '@/lib/keywords'
 import { recordObservedListings } from '@/lib/snapshots'
+import { getListingReviewStats } from '@/lib/etsy'
 import { normalizeGeo } from '@/lib/google-ads'
 import { getCurrentUser } from '@/lib/auth/session'
 import { guardSearch } from '@/lib/searchGate'
@@ -74,8 +75,27 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
 
     // Usage analytics: one search, and whether it was served from cache/DB (no API
     // calls) or required a live fetch.
+    const wasLive = peekApiCalls() > before
     recordSearch()
-    if (peekApiCalls() > before) recordApiHit(); else recordCacheHit()
+    if (wasLive) recordApiHit(); else recordCacheHit()
+
+    // Seed REVIEW counts for the top listings on a fresh (uncached) search. Etsy's
+    // search endpoint omits review counts, so without this Sales and Reviews in
+    // Market Activity stay 0 forever. Fire-and-forget, top 10 only, live searches
+    // only, so the extra Etsy-call cost stays bounded; reviewCount merges into
+    // today's snapshot (upsert on listingId+day) and its day-over-day growth then
+    // drives real sales/reviews.
+    if (wasLive && data.listings?.length) {
+      const top = data.listings.filter(l => l.listing_id && l.shop_id).slice(0, 10)
+      void (async () => {
+        const rows = await Promise.all(top.map(async l => {
+          const rs = await getListingReviewStats(l.listing_id).catch(() => null)
+          return rs?.count != null ? { listingId: l.listing_id, shopId: l.shop_id as number, reviewCount: rs.count } : null
+        }))
+        const valid = rows.filter((r): r is { listingId: number; shopId: number; reviewCount: number } => !!r)
+        if (valid.length) await recordObservedListings(valid)
+      })().catch(() => {})
+    }
 
     // Search history is a side-effect of the request, not part of it.
     // We record two things, both fire-and-forget so a write hiccup never fails the

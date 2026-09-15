@@ -51,8 +51,8 @@ function tip(unit?: string) {
 // ─── Sparkline (eHunt-style mini monthly trend) ───────────────────────────────
 export interface SparkPoint { label: string; value: number }
 export const Sparkline = memo(function Sparkline({
-  data, color = C.orange, height = 40, showDots = false,
-}: { data: SparkPoint[]; color?: string; height?: number; showDots?: boolean }) {
+  data, color = C.orange, height = 40, showDots = false, name = '',
+}: { data: SparkPoint[]; color?: string; height?: number; showDots?: boolean; name?: string }) {
   const id = useId().replace(/:/g, '')
   if (!data?.length) return <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10.5, color: C.stone }}>no data yet</div>
 
@@ -66,7 +66,7 @@ export const Sparkline = memo(function Sparkline({
           </linearGradient>
         </defs>
         <Tooltip content={tip()} cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: '3 3' }} />
-        <Area type="monotone" dataKey="value" name="" stroke={color} strokeWidth={2} fill={`url(#${id})`}
+        <Area type="monotone" dataKey="value" name={name} stroke={color} strokeWidth={2} fill={`url(#${id})`}
           dot={showDots ? { r: 2, fill: color, strokeWidth: 0 } : false} activeDot={{ r: 3.5, fill: color, stroke: '#fff', strokeWidth: 1.5 }} isAnimationActive={false} />
       </AreaChart>
     </ResponsiveContainer>

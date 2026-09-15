@@ -72,7 +72,7 @@ export function MarketActivityPanel({ query }: { query: string }) {
                   </div>
                   <div style={{ fontSize: 22, fontWeight: 700, color: C.ink, lineHeight: 1.1 }}>{formatNumber(total)}</div>
                   <div style={{ fontSize: 11.5, color: C.stone, fontFamily: MONO }}>+{formatNumber(l30)} last 30 days{m.key === 'sales' ? ' (est.)' : ''}</div>
-                  <div style={{ marginTop: 4 }}><Sparkline data={spark(m.key)} color={m.color} height={40} showDots /></div>
+                  <div style={{ marginTop: 4 }}><Sparkline data={spark(m.key)} color={m.color} height={40} showDots name={m.label} /></div>
                 </div>
               )
             })}

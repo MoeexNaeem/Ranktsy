@@ -60,7 +60,7 @@ export const TrendChart = memo(function TrendChart({ data, activePlatforms }: Pr
   if (!rows.length || !series.length) return null
 
   return (
-    <ResponsiveContainer width="100%" height={224}>
+    <ResponsiveContainer width="100%" height="100%" minHeight={224}>
       <AreaChart data={rows} margin={{ top: 10, right: 12, bottom: 2, left: 0 }}>
         <defs>
           {series.map(s => (

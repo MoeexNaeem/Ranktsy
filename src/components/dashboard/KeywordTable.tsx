@@ -2,6 +2,13 @@
 import { memo, useCallback, useMemo, useState } from 'react'
 import { MiniTrend } from '@/components/charts/MiniTrend'
 import { Sparkline } from '@/components/charts/pro'
+
+// A points-back offset (0 = today) → "Sep 12" label for sparkline tooltips.
+function trendDayLabel(offsetBack: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() - offsetBack)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
 import { Star, Check, Popover, PopItem, Toggle, ExportBtn, toCsv, downloadCsv, slugify, HeatPill, ctrlBtn } from './controls'
 import { useFavorites } from '@/hooks/useFavorites'
 import { C, D, compColor, formatNumber } from '@/utils'
@@ -116,7 +123,8 @@ const KeywordRow = memo(function KeywordRow({
       case 'trend':    return (
         <div key={c.id} style={{ width: '100%', maxWidth: 140 }} title={`${row.keyword} - measured views/day over the last 30 days`}>
           {row.trend?.views?.some(v => v > 0)
-            ? <Sparkline data={row.trend.views.map((v, i) => ({ label: `-${row.trend!.views.length - 1 - i}d`, value: v }))} color="#2E6DB4" height={30} />
+            ? <Sparkline name="Views" color="#2E6DB4" height={30}
+                data={row.trend.views.map((v, i) => ({ label: trendDayLabel(row.trend!.views.length - 1 - i), value: v }))} />
             : <span style={{ ...tdMono, color: C.stone, fontSize: 11 }}>{measuring ? '' : 'no data yet'}</span>}
         </div>
       )

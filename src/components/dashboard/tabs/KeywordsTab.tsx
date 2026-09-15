@@ -404,7 +404,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
   const seed = useAppStore.getState().activeKeyword || 'silver necklace'
   const [input, setInput] = useState(seed)
   const [query, setQuery] = useState(seed)
-  const [country, setCountry] = useState('US')
+  const [country, setCountry] = useState('GLO')
   const [plats, setPlats] = useState<TrendPlatform[]>(['etsy', 'google'])
   const [sub, setSub]     = useState<Sub>('ideas')
 
@@ -565,11 +565,12 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
       <div data-tour="kw-stats" className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1.55fr 1fr', gap: 12, alignItems: 'stretch' }}>
         {kw ? <KeywordStatsPanel s={kw.stats} geoName={geoName} /> : <Card><Shimmer h={230} r={8} /></Card>}
 
-        <Card>
+        <Card style={{ display: 'flex', flexDirection: 'column' }}>
           <SectionTitle right={tr?.trends?.length ? <PlatformToggle active={plats} onChange={setPlats} /> : undefined}>
             Search Trends (12 months)
           </SectionTitle>
-          {!tr ? <Shimmer h={224} r={8} />
+          <div style={{ flex: 1, minHeight: 240, display: 'flex', flexDirection: 'column' }}>
+          {!tr ? <Shimmer h={240} r={8} />
             : tr.trends?.length ? <TrendChart data={tr.trends} activePlatforms={plats} />
             : (
               /* Etsy publishes no search volume over time. The chart here used to
@@ -584,6 +585,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
                 </p>
               </div>
             )}
+          </div>
         </Card>
 
         <Card>
