@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/session'
-import { recordObservedListings, type ObservedListing } from '@/lib/snapshots'
+import { recordObservedListings, recordShopSnapshots, type ObservedListing, type ShopSnapshotInput } from '@/lib/snapshots'
 import { recordExtensionUsage } from '@/lib/extension'
 import type { ApiResponse } from '@/types'
 
 export const runtime = 'nodejs'
 
 const MAX_ITEMS = 120
+const MAX_SHOPS = 40
 
 /**
  * Crowd-sourced snapshot capture. The rankkw extension POSTs the listings a user
@@ -22,14 +23,36 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
   // This endpoint is only ever called by the extension, so record usage for the user.
   void recordExtensionUsage(req, user.id, true)
 
-  const body = (await req.json().catch(() => ({}))) as { items?: unknown }
+  const body = (await req.json().catch(() => ({}))) as { items?: unknown; shops?: unknown }
   const items = Array.isArray(body.items) ? body.items : []
-  if (!items.length) return NextResponse.json({ success: false, error: 'No items supplied' }, { status: 400 })
+  const shopsIn = Array.isArray(body.shops) ? body.shops : []
+  if (!items.length && !shopsIn.length) return NextResponse.json({ success: false, error: 'Nothing to record' }, { status: 400 })
 
   const numOrNull = (v: unknown): number | null => {
     const n = Number(v)
     return Number.isFinite(n) ? n : null
   }
+
+  // Shop-level rows (from listing pages' seller card + shop pages) feed ShopSnapshot,
+  // which powers Competitor Sales velocity. Fire-and-forget, deduped per shop per day.
+  const shops: ShopSnapshotInput[] = []
+  for (const raw of shopsIn.slice(0, MAX_SHOPS)) {
+    const r = raw as Record<string, unknown>
+    const shopId = Number(r.shopId)
+    if (!Number.isFinite(shopId) || shopId <= 0) continue
+    shops.push({
+      shopId,
+      shopName: typeof r.shopName === 'string' ? r.shopName.slice(0, 120) : '',
+      sales: numOrNull(r.sales),
+      favorers: numOrNull(r.favorers),
+      reviewCount: numOrNull(r.reviewCount),
+      reviewAverage: numOrNull(r.reviewAverage),
+      activeListings: numOrNull(r.activeListings),
+    })
+  }
+  if (shops.length) recordShopSnapshots(shops)
+
+  if (!items.length) return NextResponse.json({ success: true, data: { captured: 0 } })
 
   const clean: ObservedListing[] = []
   for (const raw of items.slice(0, MAX_ITEMS)) {
