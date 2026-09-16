@@ -11,15 +11,15 @@ import { MONO, SectionTitle, StatCard, EmptyState, cardStyle, tableCard, tableHe
 import { Bars } from './AdminCharts'
 
 interface MonthRow { month: string; total: number; count: number }
-interface BuyerRow { userId: string; email: string; plan: string; total: number; payments: number; renewed: boolean; firstPaidAt: string | null; lastPaidAt: string | null; estMonthly: number; joinedAt: string | null; recorded: boolean }
-interface Payload { totalEarned: number; thisMonth: number; estMonthlyRevenue: number; payingCustomers: number; renewals: number; months: MonthRow[]; buyers: BuyerRow[] }
+interface BuyerRow { userId: string; email: string; plan: string; amount: number; payments: number; renewed: boolean; firstPaidAt: string | null; lastPaidAt: string | null; joinedAt: string | null; recorded: boolean }
+interface Payload { totalEarned: number; recordedTotal: number; thisMonth: number; payingCustomers: number; renewals: number; months: MonthRow[]; buyers: BuyerRow[] }
 
 const usd = (n: number) => `$${(n ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const usd0 = (n: number) => `$${Math.round(n ?? 0).toLocaleString('en-US')}`
 const monthLabel = (m: string) => { const [y, mo] = m.split('-').map(Number); return new Date(y, mo - 1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }) }
 const fmtDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'
 const PLAN_LABEL: Record<string, string> = { free: 'Free', starter: 'Starter', basic: 'Basic', pro: 'Pro', 'pro-1yr': 'Pro 1-Year', business: 'Business', agency: 'Agency', enterprise: 'Enterprise', custom: 'Custom' }
-const GRID = '2.2fr 1fr 1fr 0.8fr 0.9fr 1.1fr'
+const GRID = '2.4fr 1.2fr 1fr 1fr 1.1fr'
 
 export function AdminEarnings() {
   const [data, setData]   = useState<Payload | null>(null)
@@ -57,9 +57,9 @@ export function AdminEarnings() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 14 }}>
-        <StatCard label="Monthly revenue (est.)" value={usd0(data?.estMonthlyRevenue ?? 0)} accent="#1F7A44" />
+        <StatCard label="Total earned" value={usd(data?.totalEarned ?? 0)} accent="#1F7A44" />
         <StatCard label="Paying customers" value={(data?.payingCustomers ?? 0).toLocaleString()} accent="#2563EB" />
-        <StatCard label="Recorded total" value={usd0(data?.totalEarned ?? 0)} accent={C.orange} />
+        <StatCard label="Confirmed via webhook" value={usd(data?.recordedTotal ?? 0)} accent={C.orange} />
         <StatCard label="Renewed" value={(data?.renewals ?? 0).toLocaleString()} accent="#7C3AED" />
       </div>
 
@@ -90,14 +90,13 @@ export function AdminEarnings() {
             {buyers.length > 0 && (
               <div className="rtable" style={tableCard}>
                 <div style={tableHead(GRID)}>
-                  {['Customer', 'Plan', 'Monthly (est.)', 'Recorded', 'Status', 'Joined'].map((h, i) => <span key={i} style={th}>{h}</span>)}
+                  {['Customer', 'Plan', 'Amount', 'Status', 'Joined'].map((h, i) => <span key={i} style={th}>{h}</span>)}
                 </div>
                 {buyers.map((b, i) => (
                   <div key={b.userId || b.email || i} style={{ ...tableRow(GRID), background: i % 2 ? C.canvas : 'transparent' }}>
                     <span style={{ fontSize: 12.5, color: C.ink, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={b.email}>{b.email || '-'}</span>
                     <span style={{ fontSize: 12.5, color: '#555' }}>{PLAN_LABEL[b.plan] ?? b.plan}</span>
-                    <span style={{ fontSize: 13, fontFamily: MONO, color: '#1F7A44', fontWeight: 600 }}>{usd(b.estMonthly)}</span>
-                    <span style={{ fontSize: 12.5, fontFamily: MONO, color: b.recorded ? '#1F7A44' : C.stone }}>{b.recorded ? usd(b.total) : '—'}</span>
+                    <span style={{ fontSize: 13, fontFamily: MONO, color: '#1F7A44', fontWeight: 600 }}>{usd(b.amount)}</span>
                     <span>
                       <span style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', padding: '2px 8px', borderRadius: 999, background: b.renewed ? '#E4F3E9' : b.recorded ? '#E8EEFB' : '#F0EFEA', color: b.renewed ? '#1F7A44' : b.recorded ? '#2563EB' : '#7A7A72' }}>
                         {b.renewed ? 'Renewed' : b.recorded ? 'One-time' : 'Active'}

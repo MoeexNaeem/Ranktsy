@@ -8,19 +8,21 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 // Monthly-equivalent list price per plan (USD), for estimating recurring revenue
-// from customers who bought BEFORE the payment webhook recorded amounts. pro-1yr is
-// a yearly plan, shown as its per-month equivalent. Keep in sync with plans-data.ts.
-const PLAN_MONTHLY_USD: Record<string, number> = {
-  free: 0, starter: 0.99, basic: 2.99, pro: 6.99, 'pro-1yr': 99.99 / 12,
+// Full plan price (USD) - the actual amount a purchase of that plan is worth, used
+// to value customers who bought BEFORE the payment webhook recorded exact amounts
+// (pro-1yr is the full $99.99 yearly charge, not a monthly slice). Keep in sync with
+// plans-data.ts. When a real payment IS recorded, we use the recorded amount instead.
+const PLAN_PRICE_USD: Record<string, number> = {
+  free: 0, starter: 0.99, basic: 2.99, pro: 6.99, 'pro-1yr': 99.99,
   business: 19.99, agency: 39.99, enterprise: 49.99, custom: 49.99,
 }
 const round2 = (n: number) => Math.round(n * 100) / 100
 
 interface MonthRow { month: string; total: number; count: number }
 interface BuyerRow {
-  userId: string; email: string; plan: string; total: number; payments: number
+  userId: string; email: string; plan: string; amount: number; payments: number
   renewed: boolean; firstPaidAt: string | null; lastPaidAt: string | null
-  estMonthly: number; joinedAt: string | null; recorded: boolean
+  joinedAt: string | null; recorded: boolean
 }
 
 const csvCell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
@@ -85,48 +87,55 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .select('email plan createdAt')
       .lean<{ _id: unknown; email: string; plan: string; createdAt: Date | null }[]>()
 
+    // Each customer's exact amount: the real recorded payment total when we have it,
+    // otherwise the full price of the plan they hold (one purchase).
+    const amountFor = (plan: string, recordedTotal: number, hasRecord: boolean) =>
+      hasRecord && recordedTotal > 0 ? round2(recordedTotal) : round2(PLAN_PRICE_USD[plan] ?? 0)
+
     const byId = new Map<string, BuyerRow>()
     for (const u of payingUsers) {
       const id = String(u._id)
       const paid = paidByUser.get(id)
       byId.set(id, {
         userId: id, email: u.email ?? paid?.email ?? '', plan: u.plan ?? paid?.plan ?? '',
-        total: paid?.total ?? 0, payments: paid?.payments ?? 0, renewed: paid?.renewed ?? false,
+        amount: amountFor(u.plan, paid?.total ?? 0, !!paid), payments: paid?.payments ?? 0, renewed: paid?.renewed ?? false,
         firstPaidAt: paid?.firstPaidAt ? new Date(paid.firstPaidAt).toISOString() : null,
         lastPaidAt: paid?.lastPaidAt ? new Date(paid.lastPaidAt).toISOString() : null,
-        estMonthly: round2(PLAN_MONTHLY_USD[u.plan] ?? 0),
         joinedAt: u.createdAt ? new Date(u.createdAt).toISOString() : null,
         recorded: !!paid,
       })
     }
     // Anyone with recorded payments who isn't in the paying-users set (e.g. deleted
-    // or reverted to free) still counts toward recorded revenue.
+    // or reverted to free) still counts toward the total.
     for (const [id, paid] of paidByUser) {
       if (byId.has(id)) continue
       byId.set(id, {
-        userId: id, email: paid.email ?? '', plan: paid.plan ?? '', total: paid.total, payments: paid.payments,
+        userId: id, email: paid.email ?? '', plan: paid.plan ?? '',
+        amount: amountFor(paid.plan ?? '', paid.total, true), payments: paid.payments,
         renewed: paid.renewed, firstPaidAt: paid.firstPaidAt ? new Date(paid.firstPaidAt).toISOString() : null,
         lastPaidAt: paid.lastPaidAt ? new Date(paid.lastPaidAt).toISOString() : null,
-        estMonthly: round2(PLAN_MONTHLY_USD[paid.plan ?? ''] ?? 0), joinedAt: null, recorded: true,
+        joinedAt: null, recorded: true,
       })
     }
-    const buyers: BuyerRow[] = [...byId.values()].sort((a, b) => (b.total - a.total) || (b.estMonthly - a.estMonthly))
+    const buyers: BuyerRow[] = [...byId.values()].sort((a, b) => b.amount - a.amount)
 
-    const totalEarned = round2(months.reduce((n, m) => n + m.total, 0))
+    // Total earned = the sum of every customer's exact amount (real recorded amounts
+    // where known, full plan price otherwise). Grows as new purchases come in.
+    const totalEarned = round2(buyers.reduce((n, b) => n + b.amount, 0))
+    const recordedTotal = round2(months.reduce((n, m) => n + m.total, 0))
     const thisMonthKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi', year: 'numeric', month: '2-digit' }).format(new Date())
     const thisMonth = months.find(m => m.month === thisMonthKey)?.total ?? 0
-    const estMonthlyRevenue = round2(buyers.reduce((n, b) => n + b.estMonthly, 0))
     const renewals = buyers.filter(b => b.renewed).length
 
     if (format === 'csv') {
-      const head = ['Email', 'Plan', 'Est. Monthly (USD)', 'Recorded Paid (USD)', 'Payments', 'Renewed', 'Joined', 'Last Payment']
-      const rows = buyers.map(b => [b.email, b.plan, b.estMonthly.toFixed(2), b.total.toFixed(2), b.payments, b.renewed ? 'Yes' : 'No',
+      const head = ['Email', 'Plan', 'Amount (USD)', 'Recorded?', 'Payments', 'Renewed', 'Joined', 'Last Payment']
+      const rows = buyers.map(b => [b.email, b.plan, b.amount.toFixed(2), b.recorded ? 'Yes' : 'No', b.payments, b.renewed ? 'Yes' : 'No',
         b.joinedAt ? b.joinedAt.slice(0, 10) : '', b.lastPaidAt ? b.lastPaidAt.slice(0, 10) : ''].map(csvCell).join(','))
       const csv = [head.map(csvCell).join(','), ...rows].join('\n')
       return new NextResponse(csv, { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="earnings-buyers.csv"', 'Cache-Control': 'no-store' } })
     }
 
-    return NextResponse.json({ success: true, data: { totalEarned, thisMonth, estMonthlyRevenue, payingCustomers: buyers.length, renewals, months, buyers } })
+    return NextResponse.json({ success: true, data: { totalEarned, recordedTotal, thisMonth, payingCustomers: buyers.length, renewals, months, buyers } })
   } catch (e) {
     console.error('[Admin] earnings:', e)
     return NextResponse.json({ success: false, error: 'Could not load earnings.' }, { status: 500 })
