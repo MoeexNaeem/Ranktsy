@@ -66,12 +66,29 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     ]),
     User.aggregate([{ $group: { _id: '$plan', count: { $sum: 1 } } }]),
     q ? User.countDocuments(filter) : null,
-    User.find(filter)
-      .select('name email role plan subscriptionStatus planRenewsAt compExpiresAt isVerified restricted lsSubscriptionId createdAt listingImageCount creditsResetAt creditsUsedToday creditsUsedTotal')
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean(),
+    // Paying customers FIRST (real Lemon Squeezy sub on a non-free plan), then by
+    // plan tier, then newest - matching the old client sort but now applied
+    // globally across ALL users so page 1 shows the payers, not just page order.
+    User.aggregate([
+      { $match: filter },
+      { $addFields: {
+        _paid: { $cond: [{ $and: [{ $ne: [{ $ifNull: ['$lsSubscriptionId', null] }, null] }, { $ne: ['$plan', 'free'] }] }, 1, 0] },
+        _planRank: { $switch: { branches: [
+          { case: { $eq: ['$plan', 'custom'] }, then: 9 },
+          { case: { $eq: ['$plan', 'enterprise'] }, then: 8 },
+          { case: { $eq: ['$plan', 'agency'] }, then: 7 },
+          { case: { $eq: ['$plan', 'business'] }, then: 6 },
+          { case: { $eq: ['$plan', 'pro-1yr'] }, then: 5 },
+          { case: { $eq: ['$plan', 'pro'] }, then: 4 },
+          { case: { $eq: ['$plan', 'basic'] }, then: 3 },
+          { case: { $eq: ['$plan', 'starter'] }, then: 2 },
+        ], default: 1 } },
+      } },
+      { $sort: { _paid: -1, _planRank: -1, createdAt: -1 } },
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+      { $project: { name: 1, email: 1, role: 1, plan: 1, subscriptionStatus: 1, planRenewsAt: 1, compExpiresAt: 1, isVerified: 1, restricted: 1, lsSubscriptionId: 1, createdAt: 1, listingImageCount: 1, creditsResetAt: 1, creditsUsedToday: 1, creditsUsedTotal: 1 } },
+    ]),
     isFreeToProPromoOn(),
   ])
 
