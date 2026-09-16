@@ -11,8 +11,8 @@ import { MONO, SectionTitle, StatCard, EmptyState, cardStyle, tableCard, tableHe
 import { Bars } from './AdminCharts'
 
 interface MonthRow { month: string; total: number; count: number }
-interface BuyerRow { userId: string; email: string; plan: string; total: number; payments: number; renewed: boolean; firstPaidAt: string | null; lastPaidAt: string | null }
-interface Payload { totalEarned: number; thisMonth: number; payingCustomers: number; renewals: number; months: MonthRow[]; buyers: BuyerRow[] }
+interface BuyerRow { userId: string; email: string; plan: string; total: number; payments: number; renewed: boolean; firstPaidAt: string | null; lastPaidAt: string | null; estMonthly: number; joinedAt: string | null; recorded: boolean }
+interface Payload { totalEarned: number; thisMonth: number; estMonthlyRevenue: number; payingCustomers: number; renewals: number; months: MonthRow[]; buyers: BuyerRow[] }
 
 const usd = (n: number) => `$${(n ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const usd0 = (n: number) => `$${Math.round(n ?? 0).toLocaleString('en-US')}`
@@ -57,9 +57,9 @@ export function AdminEarnings() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 14 }}>
-        <StatCard label="Total earned" value={usd0(data?.totalEarned ?? 0)} accent="#1F7A44" />
-        <StatCard label="This month" value={usd0(data?.thisMonth ?? 0)} accent={C.orange} />
+        <StatCard label="Monthly revenue (est.)" value={usd0(data?.estMonthlyRevenue ?? 0)} accent="#1F7A44" />
         <StatCard label="Paying customers" value={(data?.payingCustomers ?? 0).toLocaleString()} accent="#2563EB" />
+        <StatCard label="Recorded total" value={usd0(data?.totalEarned ?? 0)} accent={C.orange} />
         <StatCard label="Renewed" value={(data?.renewals ?? 0).toLocaleString()} accent="#7C3AED" />
       </div>
 
@@ -67,7 +67,7 @@ export function AdminEarnings() {
       {state === 'error' && <EmptyState icon="⚠️" title="Could not load earnings" sub="Please try again." />}
 
       {state === 'ok' && (data?.payingCustomers ?? 0) === 0 ? (
-        <EmptyState icon="💳" title="No paid payments yet" sub="Revenue appears here as soon as the first Lemon Squeezy payment comes in. Past payments before this feature are not shown." />
+        <EmptyState icon="💳" title="No paying customers yet" sub="They appear here as soon as someone buys a plan." />
       ) : state === 'ok' && (
         <>
           {/* Monthly revenue */}
@@ -90,20 +90,20 @@ export function AdminEarnings() {
             {buyers.length > 0 && (
               <div className="rtable" style={tableCard}>
                 <div style={tableHead(GRID)}>
-                  {['Customer', 'Plan', 'Total paid', 'Payments', 'Renewed', 'Last payment'].map((h, i) => <span key={i} style={th}>{h}</span>)}
+                  {['Customer', 'Plan', 'Monthly (est.)', 'Recorded', 'Status', 'Joined'].map((h, i) => <span key={i} style={th}>{h}</span>)}
                 </div>
                 {buyers.map((b, i) => (
                   <div key={b.userId || b.email || i} style={{ ...tableRow(GRID), background: i % 2 ? C.canvas : 'transparent' }}>
                     <span style={{ fontSize: 12.5, color: C.ink, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={b.email}>{b.email || '-'}</span>
                     <span style={{ fontSize: 12.5, color: '#555' }}>{PLAN_LABEL[b.plan] ?? b.plan}</span>
-                    <span style={{ fontSize: 13, fontFamily: MONO, color: '#1F7A44', fontWeight: 600 }}>{usd(b.total)}</span>
-                    <span style={{ fontSize: 12.5, fontFamily: MONO, color: '#666' }}>{b.payments}</span>
+                    <span style={{ fontSize: 13, fontFamily: MONO, color: '#1F7A44', fontWeight: 600 }}>{usd(b.estMonthly)}</span>
+                    <span style={{ fontSize: 12.5, fontFamily: MONO, color: b.recorded ? '#1F7A44' : C.stone }}>{b.recorded ? usd(b.total) : '—'}</span>
                     <span>
-                      <span style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', padding: '2px 8px', borderRadius: 999, background: b.renewed ? '#E4F3E9' : '#F0EFEA', color: b.renewed ? '#1F7A44' : '#7A7A72' }}>
-                        {b.renewed ? 'Renewed' : 'One-time'}
+                      <span style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', padding: '2px 8px', borderRadius: 999, background: b.renewed ? '#E4F3E9' : b.recorded ? '#E8EEFB' : '#F0EFEA', color: b.renewed ? '#1F7A44' : b.recorded ? '#2563EB' : '#7A7A72' }}>
+                        {b.renewed ? 'Renewed' : b.recorded ? 'One-time' : 'Active'}
                       </span>
                     </span>
-                    <span style={{ fontSize: 12.5, fontFamily: MONO, color: '#808080' }}>{fmtDate(b.lastPaidAt)}</span>
+                    <span style={{ fontSize: 12.5, fontFamily: MONO, color: '#808080' }}>{fmtDate(b.joinedAt)}</span>
                   </div>
                 ))}
               </div>
