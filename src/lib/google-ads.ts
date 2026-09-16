@@ -117,7 +117,7 @@ export function googleStatusOf(meta: GoogleMetricsMeta): GoogleDataStatus {
   return 'ok'
 }
 
-class GoogleAdsError extends Error {
+export class GoogleAdsError extends Error {
   constructor(message: string, readonly kind: 'quota' | 'rate' | 'auth' | 'http', readonly retryAt: number | null = null) {
     super(message)
   }
@@ -186,9 +186,7 @@ async function getAccessToken(): Promise<string> {
   })
 }
 
-// ─── One paced, quota-aware Google Ads request ────────────────────────────────
-// Requests go out one at a time per process with a small gap, so bursts (many
-// users, 7-country Global lookups) don't trip the per-second account limit.
+// ─── Quota-aware Google Ads requests ──────────────────────────────────────────
 let pacer: Promise<unknown> = Promise.resolve()
 const MIN_GAP_MS = 250
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
@@ -204,53 +202,122 @@ function parseRetrySeconds(body: string): { scope: string | null; seconds: numbe
   } catch { return { scope: null, seconds: null } }
 }
 
-async function adsRequest<T>(path: string, body: unknown): Promise<T> {
+// Plain-language next steps for Google Ads errors people actually hit.
+const ADS_ERROR_HINTS: { test: RegExp; hint: string }[] = [
+  { test: /Conversion tracking is not enabled/i, hint: 'Maximize conversions, Target CPA and Target ROAS need conversion tracking in this Google Ads account. Set up conversion tracking first, or choose Manual CPC.' },
+  { test: /not yet enabled or has been deactivated/i, hint: 'Finish setting up this Google Ads account (or pick another account), then try again.' },
+  { test: /billing/i, hint: 'Add billing details in Google Ads before ads can run.' },
+  { test: /policy/i, hint: 'Edit the ad text so it follows Google Ads policies.' },
+]
+
+/** Turn a Google Ads API error body into a sentence a person can act on. */
+export function googleAdsErrorMessage(text: string): string {
+  try {
+    const j = JSON.parse(text)
+    type AdsErr = { message?: string; errorCode?: Record<string, string>; location?: { fieldPathElements?: { fieldName?: string }[] } }
+    let errs: AdsErr[] = j?.error?.details?.[0]?.errors
+    if (Array.isArray(errs) && errs.length) {
+      // In an atomic mutate, one real failure makes every operation that referenced the
+      // failed resource report "Resource was not found". Show only the root cause.
+      const root = errs.filter(e => !/Resource was not found/i.test(e.message ?? ''))
+      if (root.length) errs = root
+      const seen = new Set<string>()
+      const parts: string[] = []
+      for (const e of errs.slice(0, 3)) {
+        const msg = String(e.message ?? '').trim()
+        if (!msg || seen.has(msg)) continue
+        seen.add(msg)
+        const hint = ADS_ERROR_HINTS.find(h => h.test.test(msg))?.hint
+        // Generic messages ("The field's value is invalid") are useless without the field.
+        const field = (e.location?.fieldPathElements ?? []).map(f => f.fieldName).filter(Boolean).pop()
+        const withField = field && !/Conversion tracking|not yet enabled/i.test(msg) ? `${msg} (${field.replace(/_/g, ' ')})` : msg
+        parts.push(hint ? `${withField} ${hint}` : withField)
+      }
+      return parts.join(' ')
+    }
+    if (j?.error?.message) return String(j.error.message)
+  } catch { /* not JSON */ }
+  return text.slice(0, 300) || 'Google Ads request failed'
+}
+
+export interface AdsCallOptions {
+  /** OAuth access token for whoever owns the account being called. */
+  token: string
+  /** Path after the version, e.g. "customers/1234567890/googleAds:search". */
+  path: string
+  method?: 'GET' | 'POST'
+  body?: unknown
+  /** Manager (MCC) id when the customer is reached through a manager. */
+  loginCustomerId?: string | null
+}
+
+/**
+ * One quota-aware Google Ads API call. Every call made by the app (the shared
+ * Keyword Planner lookups AND users' own connected accounts) goes through here, so
+ * they all respect the same developer-token lockout: when Google says the daily
+ * operation cap is hit, nothing else is sent until its retry time.
+ */
+export async function adsApiCall<T>(o: AdsCallOptions): Promise<T> {
   const until = await quotaBlockedUntil()
   if (until) throw new GoogleAdsError('Google Ads daily quota exhausted', 'quota', until)
 
-  const run = async (): Promise<T> => {
-    const token = await getAccessToken()
-    const customerId = digits(process.env.GOOGLE_ADS_CUSTOMER_ID)
-    const headers: Record<string, string> = {
-      'Authorization':   `Bearer ${token}`,
-      'developer-token': process.env.GOOGLE_ADS_DEVELOPER_TOKEN!,
-      'Content-Type':    'application/json',
-    }
-    const loginId = digits(process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID)
-    if (loginId) headers['login-customer-id'] = loginId
-
-    for (let attempt = 0; attempt < 2; attempt++) {
-      if (blockedUntil > Date.now()) throw new GoogleAdsError('Google Ads daily quota exhausted', 'quota', blockedUntil)
-      recordGoogleCall()
-      const res = await fetch(`https://googleads.googleapis.com/${V}/customers/${customerId}${path}`, {
-        method: 'POST', headers, body: JSON.stringify(body), cache: 'no-store',
-      })
-      if (res.ok) return await res.json() as T
-
-      const text = await res.text().catch(() => '')
-      if (res.status === 429) {
-        const { scope, seconds } = parseRetrySeconds(text)
-        // Daily operation cap (or any long wait): lock app-wide, never retry.
-        if (scope === 'DEVELOPER' || (seconds != null && seconds > 60)) {
-          const lockUntil = Date.now() + (seconds ?? 3600) * 1000
-          setQuotaBlock(lockUntil)
-          throw new GoogleAdsError('Google Ads daily quota exhausted', 'quota', lockUntil)
-        }
-        // Short per-second limit: wait what Google asks (capped), retry once.
-        if (attempt === 0) { await sleep(Math.min(8, seconds ?? 2) * 1000 + 200); continue }
-        throw new GoogleAdsError(`Google Ads rate limited: ${text.slice(0, 200)}`, 'rate')
-      }
-      if (res.status >= 500 && attempt === 0) { await sleep(800); continue }
-      if (res.status === 404) {
-        throw new GoogleAdsError(
-          `Google Ads API ${V} returned 404 - that version has almost certainly been sunset. ` +
-          `Set GOOGLE_ADS_API_VERSION to a current one (see https://developers.google.com/google-ads/api/docs/sunset-dates). Body: ${text.slice(0, 200)}`, 'http')
-      }
-      throw new GoogleAdsError(`Google Ads API ${res.status}: ${text.slice(0, 500)}`, res.status === 401 || res.status === 403 ? 'auth' : 'http')
-    }
-    throw new GoogleAdsError('Google Ads request failed', 'http')
+  const headers: Record<string, string> = {
+    'Authorization':   `Bearer ${o.token}`,
+    'developer-token': process.env.GOOGLE_ADS_DEVELOPER_TOKEN!,
+    'Content-Type':    'application/json',
   }
+  const loginId = digits(o.loginCustomerId ?? '')
+  if (loginId) headers['login-customer-id'] = loginId
 
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (blockedUntil > Date.now()) throw new GoogleAdsError('Google Ads daily quota exhausted', 'quota', blockedUntil)
+    recordGoogleCall()
+    const res = await fetch(`https://googleads.googleapis.com/${V}/${o.path}`, {
+      method: o.method ?? 'POST', headers,
+      ...(o.method === 'GET' ? {} : { body: JSON.stringify(o.body ?? {}) }),
+      cache: 'no-store',
+    })
+    if (res.ok) {
+      const t = await res.text()
+      return (t ? JSON.parse(t) : {}) as T
+    }
+
+    const text = await res.text().catch(() => '')
+    if (res.status === 429) {
+      const { scope, seconds } = parseRetrySeconds(text)
+      // Daily operation cap (or any long wait): lock app-wide, never retry.
+      if (scope === 'DEVELOPER' || (seconds != null && seconds > 60)) {
+        const lockUntil = Date.now() + (seconds ?? 3600) * 1000
+        setQuotaBlock(lockUntil)
+        throw new GoogleAdsError('Google Ads daily quota exhausted', 'quota', lockUntil)
+      }
+      // Short per-second limit: wait what Google asks (capped), retry once.
+      if (attempt === 0) { await sleep(Math.min(8, seconds ?? 2) * 1000 + 200); continue }
+      throw new GoogleAdsError(`Google Ads is rate limiting requests. Try again in a moment.`, 'rate')
+    }
+    if (res.status >= 500 && attempt === 0) { await sleep(800); continue }
+    if (res.status === 404 && !text.includes('"errors"')) {
+      throw new GoogleAdsError(
+        `Google Ads API ${V} returned 404 - that version has almost certainly been sunset. ` +
+        `Set GOOGLE_ADS_API_VERSION to a current one (see https://developers.google.com/google-ads/api/docs/sunset-dates). Body: ${text.slice(0, 200)}`, 'http')
+    }
+    throw new GoogleAdsError(googleAdsErrorMessage(text), res.status === 401 || res.status === 403 ? 'auth' : 'http')
+  }
+  throw new GoogleAdsError('Google Ads request failed', 'http')
+}
+
+// Shared Keyword Planner calls run on the app's own account, serialized per process
+// with a small gap so bursts (many users, 7-country Global lookups) don't trip the
+// per-second account limit.
+async function adsRequest<T>(path: string, body: unknown): Promise<T> {
+  const until = await quotaBlockedUntil()
+  if (until) throw new GoogleAdsError('Google Ads daily quota exhausted', 'quota', until)
+  const run = async (): Promise<T> => adsApiCall<T>({
+    token: await getAccessToken(),
+    path: `customers/${digits(process.env.GOOGLE_ADS_CUSTOMER_ID)}${path}`,
+    body,
+    loginCustomerId: process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID,
+  })
   const p = pacer.then(async () => { try { return await run() } finally { await sleep(MIN_GAP_MS) } })
   pacer = p.catch(() => {})
   return p

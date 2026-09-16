@@ -41,6 +41,11 @@ class InMemoryCache {
     this.store.delete(key)
   }
 
+  /** Drop every entry whose key starts with `prefix` (e.g. one user's reports after an edit). */
+  deletePrefix(prefix: string): void {
+    for (const k of [...this.store.keys()]) if (k.startsWith(prefix)) this.store.delete(k)
+  }
+
   clear(): void {
     this.store.clear()
   }

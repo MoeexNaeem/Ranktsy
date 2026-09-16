@@ -60,6 +60,7 @@ const sections = [
       { label: 'Your content', text: 'You retain ownership of content or data that you lawfully upload or connect to the Service. You grant us a limited, non-exclusive right to process that content only as reasonably necessary to provide, secure, support, and improve the Service.' },
       { label: 'Third-party data', text: 'Marketplace information, trademarks, and third-party data remain the property of their respective owners. RankKW uses third-party services and APIs, including Etsy-related data sources, to provide analytics and research features.' },
       { label: 'Etsy trademarks', text: '“Etsy” and related marks are trademarks of Etsy, Inc. RankKW is an independent application and is not endorsed, sponsored, or certified by Etsy, Inc. Users who connect or analyze Etsy data remain responsible for complying with Etsy’s own policies and applicable API terms.' },
+      { label: 'Google Ads', text: 'If you connect a Google Ads account, you authorize RankKW to create, edit, pause, enable and remove campaigns, ads, keywords, callouts and conversion actions only when you instruct it to, and to read that account’s reports. You remain responsible for your ads, budgets, spend and compliance with Google Ads policies and terms. Google Ads is a trademark of Google LLC; RankKW is not endorsed by Google. You can disconnect at any time.' },
     ],
   },
   {

@@ -29,6 +29,10 @@ const sections = [
         label: 'Integration & Application Data',
         text: 'If you connect an Etsy shop to our platform via standard OAuth authorization, we access only the specific read-only permissions you explicitly grant (such as shop listing details or search visibility metrics). We do not collect or store your private login credentials.',
       },
+      {
+        label: 'Google Account Data',
+        text: 'If you sign in with Google, we receive your name and email address to create your account. If you choose to connect Google Ads, we receive the Google Ads access you approve on Google’s consent screen (see “Google Ads Integration and Google User Data” below).',
+      },
     ],
   },
   {
@@ -112,19 +116,55 @@ const sections = [
   },
   {
     number: '07',
+    title: 'Google Ads Integration and Google User Data',
+    content: 'Connecting Google Ads is optional. If you click “Connect Google Ads” and approve access on Google’s consent screen, Rankkw requests the Google Ads scope (https://www.googleapis.com/auth/adwords) plus your email address, and handles that data as follows:',
+    bullets: [
+      {
+        label: 'What We Access',
+        text: 'The Google Ads accounts your Google login can manage, and within the account you select: campaigns, budgets, bidding strategies, targeting, ad groups, keywords, negative keywords, ads, callouts, conversion actions, and performance reports (such as clicks, impressions, cost, conversions and search terms).',
+      },
+      {
+        label: 'How We Use It',
+        text: 'Only to provide the Google Ads features you use inside Rankkw: showing your reports, and creating, editing, pausing, enabling or removing campaigns, ads, keywords, callouts and conversion actions when you explicitly click to do so. Rankkw never changes your Google Ads account on its own, and new campaigns are created paused.',
+      },
+      {
+        label: 'Storage',
+        text: 'We store the Google OAuth refresh token (encrypted with AES-256-GCM), your Google email address, and the list of Google Ads account names and IDs you can access, so the connection keeps working. Report data is fetched live from Google and cached only briefly (minutes) to reduce repeated requests; it is not kept as a permanent copy.',
+      },
+      {
+        label: 'Sharing',
+        text: 'We do not sell Google user data, share it with third parties, or use it for advertising, profiling, or to train AI or machine learning models. Google Ads data is shown only to you, in your own Rankkw account.',
+      },
+      {
+        label: 'Human Access',
+        text: 'Rankkw staff do not read your Google Ads data, except with your explicit permission for support, when required for security purposes (such as investigating abuse), or to comply with applicable law.',
+      },
+      {
+        label: 'Disconnecting and Deletion',
+        text: 'You can click “Disconnect” in the Google Ads tab at any time. We then revoke the access token at Google and delete the stored token and account list. You can also remove Rankkw’s access from your Google Account permissions page (myaccount.google.com/permissions). Deleting your Rankkw account deletes this data as well.',
+      },
+      {
+        label: 'Limited Use',
+        text: 'Rankkw’s use and transfer of information received from Google APIs to any other app will adhere to the Google API Services User Data Policy (https://developers.google.com/terms/api-services-user-data-policy), including the Limited Use requirements.',
+      },
+    ],
+    footer: 'Keyword search volume shown in Rankkw’s research tools comes from Rankkw’s own Google Ads Keyword Planner access and does not use data from your connected Google Ads account.',
+  },
+  {
+    number: '08',
     title: 'Third-Party Trademarks and Disclaimers',
     content: 'Rankkw is an independent analytics tool.',
     disclaimer: true,
     bullets: [],
   },
   {
-    number: '08',
+    number: '09',
     title: 'Changes to This Policy',
     content: `We reserve the right to update this Privacy Policy at any time. We will notify users of any significant changes by updating the "Effective Date" at the top of this page or via direct notification within the app dashboard.`,
     bullets: [],
   },
   {
-    number: '09',
+    number: '10',
     title: 'Contact Us',
     content: 'If you have any questions or concerns about this Privacy Policy, please reach out to us at:',
     contact: true,
@@ -186,7 +226,7 @@ export default function PrivacyPage() {
                 letterSpacing: '0.02em',
               }}
             >
-              Effective Date: June 3, 2026
+              Effective Date: September 17, 2026
             </p>
           </div>
         </div>

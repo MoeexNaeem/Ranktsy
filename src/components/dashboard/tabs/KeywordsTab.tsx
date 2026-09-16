@@ -1,6 +1,7 @@
 'use client'
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useKeywordSearch, useRelatedKeywords, useNearMatches, useKeywordListings, useTrends, useKeywordIdeas } from '@/hooks/useKeywords'
+import { useGoogleAdsEnabled, startGoogleAdsCampaign } from '@/hooks/useGoogleAds'
 import { useAppStore }     from '@/store/app'
 import { useFavorites }    from '@/hooks/useFavorites'
 import { KeywordTable }    from '../KeywordTable'
@@ -453,6 +454,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
   // replaced in place once probed - so the table shows keywords immediately and
   // the competition column resolves a few seconds later.
   const relatedRows = related.data ?? kw?.related ?? []
+  const adsEnabled = useGoogleAdsEnabled()
   const relatedPending = related.isPending || related.isFetching
 
   const run = useCallback((q: string) => {
@@ -577,6 +579,17 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
             onMouseLeave={e => { e.currentTarget.style.borderColor = C.ash; e.currentTarget.style.color = C.ink }}>
             See Best Sellers →
           </button>
+          {adsEnabled && (
+            <button
+              onClick={() => startGoogleAdsCampaign(
+                [kw.query, ...[...relatedRows].filter(r => (r.googleSearches ?? 0) > 0).sort((a, b) => (b.googleSearches ?? 0) - (a.googleSearches ?? 0)).slice(0, 9).map(r => r.keyword)],
+                kw.query.replace(/\b\w/g, c => c.toUpperCase()),
+              )}
+              title="Create a Google Search campaign from this keyword and its top related keywords"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 40, padding: '0 17px', borderRadius: 100, border: '1px solid #1A73E8', background: '#E8F0FE', color: '#1A73E8', fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
+              Advertise on Google
+            </button>
+          )}
           <TrackKeywordButton keyword={kw.query} country={country} />
         </div>
       )}

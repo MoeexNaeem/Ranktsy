@@ -18,6 +18,7 @@ const PUBLIC_API = [
   '/api/auth/',            // login, register, otp, password reset, oauth, me, logout
   '/api/etsy/oauth/',      // Etsy connect + callback (handles its own login redirect)
   '/api/google/oauth/',    // Google Ads connect + callback
+  '/api/google-ads/connect', // user "Connect Google Ads" + callback (handle their own login redirect)
   '/api/lemonsqueezy/webhook', // signed server-to-server webhook (no user cookie)
   '/api/cron/',            // CRON_SECRET-gated jobs
   '/api/geo',              // used by the public marketing site

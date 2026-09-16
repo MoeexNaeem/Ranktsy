@@ -43,6 +43,7 @@ const CategoryReportTab    = dynamic(() => import('./tabs/CategoryReportTab').th
 const AIListingHelperTab   = dynamic(() => import('./tabs/AIListingHelperTab').then(m => ({ default: m.AIListingHelperTab })), { ssr: false })
 const EtsyListingProTab    = dynamic(() => import('./tabs/EtsyListingProTab').then(m => ({ default: m.EtsyListingProTab })), { ssr: false })
 const MyShopTab            = dynamic(() => import('./tabs/MyShopTab').then(m => ({ default: m.MyShopTab })), { ssr: false })
+const GoogleAdsTab         = dynamic(() => import('./tabs/GoogleAdsTab').then(m => ({ default: m.GoogleAdsTab })), { ssr: false })
 const CompetitorSalesTab   = dynamic(() => import('./tabs/CompetitorSalesTab').then(m => ({ default: m.CompetitorSalesTab })), { ssr: false })
 const SalesMapTab          = dynamic(() => import('./tabs/SalesMapTab').then(m => ({ default: m.SalesMapTab })), { ssr: false })
 const DeliveryStatusTab    = dynamic(() => import('./tabs/DeliveryStatusTab').then(m => ({ default: m.DeliveryStatusTab })), { ssr: false })
@@ -51,7 +52,7 @@ const HotProductsTab       = dynamic(() => import('./tabs/HotProductsTab').then(
 const AlertsTab            = dynamic(() => import('./tabs/AlertsTab').then(m => ({ default: m.AlertsTab })), { ssr: false })
 const AffiliateTab         = dynamic(() => import('./tabs/AffiliateTab').then(m => ({ default: m.AffiliateTab })), { ssr: false })
 
-type TabId = 'overview' | 'myshop' | 'hotproducts' | 'keywords' | 'gap' | 'listings' | 'competitors' | 'compsales' | 'trends' | 'buzz' | 'monthly' | 'topsellers' | 'catreport' | 'bulk' | 'rank' | 'shop' | 'salesmap' | 'delivery' | 'tags' | 'aihelper' | 'listingpro' | 'ctags' | 'titlegen' | 'taggen' | 'descgen' | 'audit' | 'compare' | 'spell' | 'fees' | 'adsroi' | 'category' | 'calendar' | 'lists' | 'alerts' | 'affiliate'
+type TabId = 'overview' | 'myshop' | 'hotproducts' | 'keywords' | 'gap' | 'listings' | 'competitors' | 'compsales' | 'trends' | 'buzz' | 'monthly' | 'topsellers' | 'catreport' | 'bulk' | 'rank' | 'shop' | 'salesmap' | 'delivery' | 'tags' | 'aihelper' | 'listingpro' | 'ctags' | 'titlegen' | 'taggen' | 'descgen' | 'audit' | 'compare' | 'spell' | 'fees' | 'adsroi' | 'category' | 'calendar' | 'lists' | 'alerts' | 'affiliate' | 'googleads'
 
 const TABS: { id: TabId; label: string; description: string; group: string; accent: AccentName }[] = [
   { id: 'overview',    label: 'Overview',      group: 'Home',        accent: 'indigo',  description: 'Your Etsy SEO command center' },
@@ -90,10 +91,13 @@ const TABS: { id: TabId; label: string; description: string; group: string; acce
   { id: 'category',    label: 'Category Finder',group: 'Tools',      accent: 'sky',     description: 'Browse Etsy categories' },
   { id: 'calendar',    label: 'Seasonal Calendar',group: 'Tools',   accent: 'purple',  description: 'Plan for selling events' },
   { id: 'lists',       label: 'Keyword Lists', group: 'Tools',       accent: 'slate',   description: 'Save & organize keywords' },
+  // Your own Google Ads account (connect + Search campaigns). Hidden in the nav
+  // unless /api/google-ads/connection says it's enabled for this user.
+  { id: 'googleads',   label: 'Google Ads',    group: 'Advertising', accent: 'blue',    description: 'Run & manage your Google Search ads' },
   { id: 'affiliate',   label: 'Refer & Earn',  group: 'Earn',        accent: 'green',   description: 'Earn 30% recurring for every referral' },
 ]
 
-const GROUPS = ['Home', 'Research', 'Shop Insights', 'Optimize', 'Tools', 'Earn']
+const GROUPS = ['Home', 'Research', 'Shop Insights', 'Optimize', 'Tools', 'Advertising', 'Earn']
 
 function TabContent({ active, onNavigate }: { active: TabId; onNavigate: (id: TabId) => void }) {
   const map: Record<TabId, React.ReactNode> = {
@@ -132,6 +136,7 @@ function TabContent({ active, onNavigate }: { active: TabId; onNavigate: (id: Ta
     lists:       <KeywordListsTab />,
     alerts:      <AlertsTab />,
     affiliate:   <AffiliateTab />,
+    googleads:   <GoogleAdsTab />,
   }
   return (
     <Suspense fallback={<div className="shimmer" style={{ height: 300, borderRadius: 8, background: '#e8e7e2' }} />}>
@@ -157,6 +162,21 @@ export function DashboardLayout() {
     fetch('/api/plan').then(r => (r.ok ? r.json() : null)).then(d => { if (d?.success) setPlanInfo({ plan: d.plan, label: d.label, sebtStudent: !!d.sebtStudent }) }).catch(() => {})
   }, [])
   const handleTab = useCallback((id: TabId) => { setActiveTab(id); setNavOpen(false) }, [])
+  // Google Ads management is gated (admins/beta until Google verifies the adwords scope).
+  const [adsEnabled, setAdsEnabled] = useState(false)
+  useEffect(() => {
+    fetch('/api/google-ads/connection').then(r => (r.ok ? r.json() : null)).then(d => setAdsEnabled(!!d?.data?.enabled)).catch(() => {})
+  }, [])
+  const tabVisible = useCallback((id: TabId) => id !== 'googleads' || adsEnabled, [adsEnabled])
+  // Any tool can open another tab (e.g. Keyword Search → Google Ads campaign wizard).
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail
+      if (TABS.some(t => t.id === id)) { handleTab(id as TabId); window.scrollTo({ top: 0 }) }
+    }
+    window.addEventListener('rk-open-tab', onOpen)
+    return () => window.removeEventListener('rk-open-tab', onOpen)
+  }, [handleTab])
 
   // Deep links: the Etsy OAuth redirect (…/dashboard?etsy=connected) lands on My
   // Shop; the marketing nav opens a specific tool via …/dashboard?tab=<id>. Either
@@ -237,7 +257,7 @@ export function DashboardLayout() {
           </div>
           {GROUPS.map(group => {
             const fq = navFilter.trim().toLowerCase()
-            const groupTabs = TABS.filter(t => t.group === group && (!fq || t.label.toLowerCase().includes(fq) || t.description.toLowerCase().includes(fq)))
+            const groupTabs = TABS.filter(t => t.group === group && tabVisible(t.id) && (!fq || t.label.toLowerCase().includes(fq) || t.description.toLowerCase().includes(fq)))
             if (!groupTabs.length) return null
             return (
             <div key={group} style={{ marginBottom: 12 }}>

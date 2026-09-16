@@ -15,6 +15,7 @@ import { C, D, compColor, formatNumber } from '@/utils'
 import { MONO, tableCard, tableHead, th, tableRow, tdMono, tdTitle } from './kit'
 import type { KeywordData } from '@/types'
 import { copyWithToast, toast } from '@/components/ui/toast'
+import { useGoogleAdsEnabled, startGoogleAdsCampaign } from '@/hooks/useGoogleAds'
 
 type SortKey = keyof Pick<KeywordData, 'avgViews' | 'avgFavorites' | 'favPerView' | 'competition' | 'difficulty' | 'tagOccurrences' | 'charCount' | 'wordCount' | 'googleSearches' | 'googleCompetitionIndex' | 'googleCpcHigh'>
 
@@ -193,6 +194,7 @@ export const KeywordTable = memo(function KeywordTable({
   const [longTail, setLongTail] = useState(false)   // 3+ word phrases only
   const [hidden, setHidden]   = useState<Set<string>>(new Set(DEFAULT_HIDDEN))
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const adsEnabled = useGoogleAdsEnabled()
 
   const { isFavorite, toggle, addMany } = useFavorites()
 
@@ -330,6 +332,10 @@ export const KeywordTable = memo(function KeywordTable({
             {selected.size} keyword{selected.size === 1 ? '' : 's'} selected
           </span>
           <button onClick={saveSelected} style={{ ...ctrlBtn, height: 34, borderColor: C.orange, color: C.orange }}>★ Save to Favorites</button>
+          {adsEnabled && (
+            <button onClick={() => startGoogleAdsCampaign([...selected])} title="Create a Google Search campaign with these keywords"
+              style={{ ...ctrlBtn, height: 34, borderColor: '#1A73E8', color: '#1A73E8' }}>Add to Google Ads campaign</button>
+          )}
           <button onClick={() => copyWithToast([...selected].join(', '), 'Keywords')} style={{ ...ctrlBtn, height: 34 }}>Copy</button>
           <button onClick={() => setSelected(new Set())} style={{ ...ctrlBtn, height: 34, border: 'none', background: 'transparent', color: C.graphite }}>Clear</button>
         </div>

@@ -331,6 +331,47 @@ const GoogleAdsCacheSchema = new Schema<IGoogleAdsCacheDoc>({
 })
 GoogleAdsCacheSchema.index({ fetchedAt: 1 }, { expireAfterSeconds: 180 * 86400 })
 
+// ─── Google Ads connection (a user's OWN Google Ads account, via OAuth) ────────
+// One row per Rankkw user. The refresh token is AES-GCM encrypted (lib/crypto).
+// `accounts` is the list of client accounts the Google login can reach (directly or
+// through a manager); `selectedCustomerId` is the one the campaign tools act on.
+export interface IGoogleAdsAccountRef {
+  customerId: string              // 10 digits, no dashes
+  name: string
+  currency: string | null
+  timeZone: string | null
+  testAccount: boolean
+  loginCustomerId: string | null  // manager id to send as login-customer-id, or null if direct
+}
+export interface IGoogleAdsConnectionDoc extends Document {
+  userId: string
+  googleEmail: string | null
+  refreshToken: string            // encrypted
+  accounts: IGoogleAdsAccountRef[]
+  selectedCustomerId: string | null
+  needsReconnect: boolean
+  lastError: string | null
+  createdAt?: Date
+  updatedAt?: Date
+}
+const GoogleAdsAccountRefSchema = new Schema<IGoogleAdsAccountRef>({
+  customerId:      { type: String, required: true },
+  name:            { type: String, default: '' },
+  currency:        { type: String, default: null },
+  timeZone:        { type: String, default: null },
+  testAccount:     { type: Boolean, default: false },
+  loginCustomerId: { type: String, default: null },
+}, { _id: false })
+const GoogleAdsConnectionSchema = new Schema<IGoogleAdsConnectionDoc>({
+  userId:             { type: String, required: true, unique: true },
+  googleEmail:        { type: String, default: null },
+  refreshToken:       { type: String, required: true, select: false },
+  accounts:           { type: [GoogleAdsAccountRefSchema], default: [] },
+  selectedCustomerId: { type: String, default: null },
+  needsReconnect:     { type: Boolean, default: false },
+  lastError:          { type: String, default: null },
+}, { timestamps: true })
+
 // ─── Blog ──────────────────────────────────────────────────────────────────────
 const BlogSchema = new Schema<IBlog>({
   title:          { type: String, required: true, trim: true, maxlength: 200 },
@@ -679,6 +720,7 @@ export const AutomationRun = (models.AutomationRun as mongoose.Model<IAutomation
 export const Blog          = (models.Blog as mongoose.Model<IBlog>) ?? model<IBlog>('Blog', BlogSchema)
 export const Deal          = (models.Deal as mongoose.Model<IDeal>) ?? model<IDeal>('Deal', DealSchema)
 export const PopupAd       = (models.PopupAd as mongoose.Model<IPopupAd>) ?? model<IPopupAd>('PopupAd', PopupAdSchema)
+export const GoogleAdsConnection = (models.GoogleAdsConnection as mongoose.Model<IGoogleAdsConnectionDoc>) ?? model<IGoogleAdsConnectionDoc>('GoogleAdsConnection', GoogleAdsConnectionSchema)
 export const GoogleAdsCache = (models.GoogleAdsCache as mongoose.Model<IGoogleAdsCacheDoc>) ?? model<IGoogleAdsCacheDoc>('GoogleAdsCache', GoogleAdsCacheSchema)
 export const AppSetting     = (models.AppSetting as mongoose.Model<IAppSetting>) ?? model<IAppSetting>('AppSetting', AppSettingSchema)
 export const ShopSnapshot    = models.ShopSnapshot    ?? model<IShopSnapshot>('ShopSnapshot', ShopSnapshotSchema)
