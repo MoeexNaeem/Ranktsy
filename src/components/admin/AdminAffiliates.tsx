@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { C } from '@/utils'
 import { MONO, SectionTitle, StatCard, EmptyState, cardStyle, tableCard, tableHead, th, tableRow, tdMono, Pagination } from '@/components/dashboard/kit'
+import { toast } from '@/components/ui/toast'
 
 interface Row {
   id: string; code: string; link: string; ownerName: string; ownerEmail: string
@@ -59,7 +60,12 @@ export function AdminAffiliates() {
 
   const patch = async (id: string, body: Record<string, unknown>) => {
     setBusy(true)
-    try { await fetch(`/api/admin/affiliates/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }) }
+    try {
+      const r = await fetch(`/api/admin/affiliates/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const j = await r.json().catch(() => null)
+      if (r.ok && j?.success !== false) toast.success('Affiliate updated')
+      else toast.error('Update failed', j?.error || 'Please try again.')
+    } catch { toast.error('Update failed', 'Network error. Please try again.') }
     finally { setBusy(false); await openDetail(id); await loadList() }
   }
 

@@ -7,13 +7,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { C } from '@/utils'
 import { MONO, SectionTitle, cardStyle, EmptyState } from '@/components/dashboard/kit'
-import { errorToast } from '@/components/ui/toast'
+import { errorToast, toast } from '@/components/ui/toast'
 import { ChatAttachmentView } from '@/components/ui/ChatAttachmentView'
 import { validateUpload, CHAT_ACCEPT } from '@/lib/chat-upload-constants'
 
 interface Thread { userId: string; name: string; email: string; lastBody: string; lastSender: 'user' | 'admin'; lastAt: string | null; count: number; unread: number }
 interface Msg {
-  id: string; userId: string; sender: 'user' | 'admin'; body: string; createdAt: string | null; readByUser?: boolean
+  id: string; userId: string; sender: 'user' | 'admin'; body: string; createdAt: string | null; editedAt?: string | null; readByUser?: boolean
   attachmentUrl?: string | null; attachmentName?: string | null; attachmentKind?: 'image' | 'file' | null; attachmentSize?: number | null
 }
 
@@ -51,6 +51,11 @@ export function AdminMessages() {
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
   const [search, setSearch] = useState('')
+  // Edit/delete of the admin's own messages.
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editText, setEditText] = useState('')
+  const [hoverId, setHoverId] = useState<string | null>(null)
+  const [busyMsgId, setBusyMsgId] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -60,7 +65,6 @@ export function AdminMessages() {
   const [bLink, setBLink] = useState('')
   const [bTarget, setBTarget] = useState('')
   const [bBusy, setBBusy] = useState(false)
-  const [bMsg, setBMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   const loadThreads = useCallback(async () => {
     try {
@@ -88,8 +92,50 @@ export function AdminMessages() {
       const r = await fetch(`/api/admin/chat/${sel}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: b }) })
       const j = await r.json()
       if (j?.success) { setMessages(m => [...m, j.data.message]); loadThreads() }
-    } finally { setSending(false) }
+      else { setReply(b); errorToast('Reply not sent', j?.error || 'Please try again.') }
+    } catch { setReply(b); errorToast('Reply not sent', 'Network error. Please try again.') }
+    finally { setSending(false) }
   }, [reply, sel, sending, loadThreads])
+
+  const startEdit = useCallback((m: Msg) => { setEditingId(m.id); setEditText(m.body) }, [])
+  const cancelEdit = useCallback(() => { setEditingId(null); setEditText('') }, [])
+
+  const saveEdit = useCallback(async () => {
+    if (!sel || !editingId) return
+    const id = editingId
+    const text = editText.trim()
+    const orig = messages.find(m => m.id === id)
+    if (orig && text === orig.body) { cancelEdit(); return }
+    if (!text && !orig?.attachmentUrl) { errorToast('Message is empty', 'Delete the message instead.'); return }
+    setBusyMsgId(id)
+    try {
+      const r = await fetch(`/api/admin/chat/${sel}/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: text }) })
+      const j = await r.json().catch(() => null)
+      if (r.ok && j?.success) {
+        setMessages(ms => ms.map(m => (m.id === id ? { ...m, ...j.data.message } : m)))
+        cancelEdit(); loadThreads()
+        toast.success('Message updated')
+      } else errorToast('Could not edit message', j?.error || 'Please try again.')
+    } catch { errorToast('Could not edit message', 'Network error. Please try again.') }
+    finally { setBusyMsgId(null) }
+  }, [sel, editingId, editText, messages, cancelEdit, loadThreads])
+
+  const deleteMessage = useCallback(async (id: string) => {
+    if (!sel) return
+    if (!window.confirm('Delete this message? The user will no longer see it.')) return
+    setBusyMsgId(id)
+    try {
+      const r = await fetch(`/api/admin/chat/${sel}/${id}`, { method: 'DELETE' })
+      const j = await r.json().catch(() => null)
+      if (r.ok && j?.success) {
+        setMessages(ms => ms.filter(m => m.id !== id))
+        if (editingId === id) cancelEdit()
+        loadThreads()
+        toast.success('Message deleted')
+      } else errorToast('Could not delete message', j?.error || 'Please try again.')
+    } catch { errorToast('Could not delete message', 'Network error. Please try again.') }
+    finally { setBusyMsgId(null) }
+  }, [sel, editingId, cancelEdit, loadThreads])
 
   const onPickFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -102,7 +148,7 @@ export function AdminMessages() {
       const fd = new FormData(); fd.append('file', file)
       const r = await fetch(`/api/admin/chat/${sel}/upload`, { method: 'POST', body: fd })
       const j = await r.json().catch(() => null)
-      if (r.ok && j?.success) { setMessages(m => [...m, j.data.message]); loadThreads() }
+      if (r.ok && j?.success) { setMessages(m => [...m, j.data.message]); loadThreads(); toast.success('File sent', file.name) }
       else errorToast('Upload failed', j?.error || 'Please try again.')
     } finally { setSending(false) }
   }, [sel, loadThreads])
@@ -112,15 +158,17 @@ export function AdminMessages() {
     if (!window.confirm('Delete this entire conversation? This cannot be undone.')) return
     const id = sel
     try {
-      await fetch(`/api/admin/chat/${id}`, { method: 'DELETE' })
+      const r = await fetch(`/api/admin/chat/${id}`, { method: 'DELETE' })
+      if (!r.ok) throw new Error()
       setThreads(ts => ts.filter(t => t.userId !== id))
       setSel(null); setMessages([])
-    } catch { /* ignore */ }
+      toast.success('Conversation deleted')
+    } catch { errorToast('Could not delete conversation', 'Please try again.') }
   }, [sel])
 
   const sendBroadcast = useCallback(async () => {
     if (!bTitle.trim() || bBusy) return
-    setBBusy(true); setBMsg(null)
+    setBBusy(true)
     const audience = bTarget.trim() ? 'user' : 'all'
     try {
       const r = await fetch('/api/admin/notifications', {
@@ -128,9 +176,9 @@ export function AdminMessages() {
         body: JSON.stringify({ title: bTitle.trim(), body: bBody.trim(), link: bLink.trim() || undefined, audience, email: bTarget.trim() || undefined }),
       })
       const j = await r.json()
-      if (r.ok && j?.success) { setBMsg({ ok: true, text: audience === 'all' ? 'Sent to everyone.' : `Sent to ${bTarget.trim()}.` }); setBTitle(''); setBBody(''); setBLink(''); setBTarget('') }
-      else setBMsg({ ok: false, text: j?.error || 'Could not send.' })
-    } catch { setBMsg({ ok: false, text: 'Network error.' }) }
+      if (r.ok && j?.success) { toast.success('Notification sent', audience === 'all' ? 'Sent to everyone.' : `Sent to ${bTarget.trim()}.`); setBTitle(''); setBBody(''); setBLink(''); setBTarget('') }
+      else errorToast('Notification not sent', j?.error || 'Could not send.')
+    } catch { errorToast('Notification not sent', 'Network error. Please try again.') }
     finally { setBBusy(false) }
   }, [bTitle, bBody, bLink, bTarget, bBusy])
 
@@ -166,6 +214,7 @@ export function AdminMessages() {
   let lastAdminIdx = -1
   for (let i = messages.length - 1; i >= 0; i--) { if (messages[i].sender === 'admin') { lastAdminIdx = i; break } }
 
+  const msgActionBtn: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 4, background: C.paper, color: C.graphite, border: `1px solid ${C.hair}`, borderRadius: 7, padding: '2px 8px', fontSize: 11, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }
   const field: React.CSSProperties = { width: '100%', boxSizing: 'border-box', border: `1px solid ${C.ash}`, borderRadius: 9, background: C.canvas, color: C.ink, fontSize: 13.5, fontFamily: 'inherit', padding: '9px 12px', outline: 'none' }
 
   return (
@@ -184,7 +233,6 @@ export function AdminMessages() {
             <button onClick={sendBroadcast} disabled={bBusy || !bTitle.trim()} style={{ background: bBusy || !bTitle.trim() ? C.ash : C.orange, color: '#fff', border: 'none', borderRadius: 9, padding: '9px 18px', fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: bBusy || !bTitle.trim() ? 'default' : 'pointer' }}>
               {bBusy ? 'Sending…' : bTarget.trim() ? 'Send to user' : 'Broadcast to all'}
             </button>
-            {bMsg && <span style={{ fontSize: 12.5, color: bMsg.ok ? C.orange : C.danger }}>{bMsg.text}</span>}
           </div>
         </div>
       </div>
@@ -245,22 +293,55 @@ export function AdminMessages() {
                 </button>
               </div>
               <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '18px 18px', display: 'flex', flexDirection: 'column', gap: 12, background: C.snow }}>
-                {messages.map((m, i) => (
-                  <div key={m.id} style={{ alignSelf: m.sender === 'admin' ? 'flex-end' : 'flex-start', maxWidth: '76%' }}>
+                {messages.map((m, i) => {
+                  const mine = m.sender === 'admin'
+                  const editing = mine && editingId === m.id
+                  const busy = busyMsgId === m.id
+                  return (
+                  <div key={m.id} onMouseEnter={() => setHoverId(m.id)} onMouseLeave={() => setHoverId(h => (h === m.id ? null : h))}
+                    style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '76%', minWidth: editing ? '60%' : undefined, opacity: busy ? 0.55 : 1 }}>
+                    {editing ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, background: C.paper, border: `2px solid ${C.orange}`, borderRadius: 14, padding: 9 }}>
+                        <textarea value={editText} onChange={e => setEditText(e.target.value)} autoFocus rows={3} maxLength={4000}
+                          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit() } else if (e.key === 'Escape') cancelEdit() }}
+                          style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', border: 'none', outline: 'none', background: 'transparent', color: C.ink, fontSize: 13.5, fontFamily: 'inherit', lineHeight: 1.5 }} />
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 7 }}>
+                          <button onClick={cancelEdit} disabled={busy} style={{ background: C.snow, color: C.graphite, border: `1px solid ${C.hair}`, borderRadius: 8, padding: '5px 12px', fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>Cancel</button>
+                          <button onClick={saveEdit} disabled={busy} style={{ background: C.orange, color: '#fff', border: 'none', borderRadius: 8, padding: '5px 14px', fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit', cursor: busy ? 'default' : 'pointer' }}>{busy ? 'Saving…' : 'Save'}</button>
+                        </div>
+                      </div>
+                    ) : (<>
                     <div style={{ padding: m.attachmentKind === 'image' ? 5 : '10px 14px', borderRadius: m.sender === 'admin' ? '16px 16px 5px 16px' : '16px 16px 16px 5px', fontSize: 13.5, lineHeight: 1.5, background: m.sender === 'admin' ? C.orange : C.canvas, color: m.sender === 'admin' ? '#fff' : C.ink, border: m.sender === 'admin' ? 'none' : `1px solid ${C.hair}`, whiteSpace: 'pre-wrap', wordBreak: 'break-word', boxShadow: m.sender === 'admin' ? '0 2px 6px rgba(251,94,9,0.22)' : '0 1px 2px rgba(61,62,59,0.05)', display: 'flex', flexDirection: 'column', gap: 6 }}>
                       {m.attachmentUrl && m.attachmentKind && (
                         <ChatAttachmentView url={m.attachmentUrl} name={m.attachmentName || 'file'} kind={m.attachmentKind} size={m.attachmentSize} />
                       )}
                       {m.body && <span style={{ padding: m.attachmentKind === 'image' ? '2px 8px 4px' : 0 }}>{m.body}</span>}
                     </div>
-                    <p title={exactTime(m.createdAt)} style={{ fontSize: 10.5, color: C.stone, fontFamily: MONO, marginTop: 3, textAlign: m.sender === 'admin' ? 'right' : 'left', cursor: 'default' }}>
+                    </>)}
+                    <p title={exactTime(m.createdAt)} style={{ fontSize: 10.5, color: C.stone, fontFamily: MONO, marginTop: 3, textAlign: m.sender === 'admin' ? 'right' : 'left', cursor: 'default', display: 'flex', alignItems: 'center', gap: 6, justifyContent: mine ? 'flex-end' : 'flex-start', minHeight: 20 }}>
+                      {mine && !editing && (hoverId === m.id || busy) && (
+                        <span style={{ display: 'inline-flex', gap: 4, marginRight: 'auto' }}>
+                          {(m.body || !m.attachmentUrl) && (
+                            <button onClick={() => startEdit(m)} disabled={busy} title="Edit message" aria-label="Edit message" style={msgActionBtn}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                              Edit
+                            </button>
+                          )}
+                          <button onClick={() => deleteMessage(m.id)} disabled={busy} title="Delete message" aria-label="Delete message" style={{ ...msgActionBtn, color: C.danger }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            Delete
+                          </button>
+                        </span>
+                      )}
+                      {m.editedAt && <span title={`Edited ${exactTime(m.editedAt)}`}>edited ·</span>}
                       {rel(m.createdAt)}
                       {m.sender === 'admin' && i === lastAdminIdx && (
                         <span style={{ marginLeft: 6, color: m.readByUser ? '#1F7A44' : C.stone, fontWeight: 600 }}>{m.readByUser ? '✓✓ Seen' : '✓ Sent'}</span>
                       )}
                     </p>
                   </div>
-                ))}
+                  )
+                })}
               </div>
               <div style={{ padding: '12px 16px', borderTop: `1px solid ${C.hair}`, display: 'flex', gap: 9, alignItems: 'flex-end', background: C.paper }}>
                 <input ref={fileRef} type="file" accept={CHAT_ACCEPT} onChange={onPickFile} style={{ display: 'none' }} />

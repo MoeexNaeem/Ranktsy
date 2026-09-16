@@ -10,6 +10,7 @@ import { AiInsights } from '../AiInsights'
 import { C, D, flag, formatNumber } from '@/utils'
 import { chargeCredits } from '@/lib/credits-client'
 import type { ApiResponse, EtsyShop, AiFact } from '@/types'
+import { toast } from '@/components/ui/toast'
 
 interface Tracked { shopId: number; shopName: string }
 
@@ -68,14 +69,16 @@ export function CompetitorSalesTab() {
       if (!data.success) throw new Error(data.error ?? 'Could not track shop')
       return data.data!
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tracked-shops'] }),
+    onSuccess: (_d, shopName) => { qc.invalidateQueries({ queryKey: ['tracked-shops'] }); toast.success('Shop tracked', `We’ll snapshot ${shopName} daily.`) },
+    meta: { errorTitle: 'Could not track shop' },
   })
 
   const untrack = useMutation({
     mutationFn: async (shopId: number) => {
       await axios.delete(`/api/etsy/tracked?shopId=${shopId}`)
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tracked-shops'] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['tracked-shops'] }); toast.success('Shop untracked') },
+    meta: { errorTitle: 'Could not untrack shop' },
   })
 
   const go = useCallback(async () => {

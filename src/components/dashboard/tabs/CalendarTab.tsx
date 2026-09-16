@@ -2,6 +2,7 @@
 import { useMemo } from 'react'
 import { C } from '@/utils'
 import { Card, SectionTitle, MONO } from '../kit'
+import { copyWithToast } from '@/components/ui/toast'
 
 // ─── Moving-feast maths ───────────────────────────────────────────────────────
 // These dates were previously hardcoded to a fixed month/day, which is wrong for
@@ -142,7 +143,7 @@ export function CalendarTab() {
                 </p>
                 <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
                   {e.themes.map(t => (
-                    <button key={t} onClick={() => navigator.clipboard?.writeText(t)} title="Click to copy"
+                    <button key={t} onClick={() => copyWithToast(t, 'Tag')} title="Click to copy"
                       style={{ fontSize: 11.5, fontFamily: MONO, color: C.orange, background: C.orangeFaint, border: `1px solid rgba(251,94,9,0.2)`, padding: '4px 11px', borderRadius: 100, cursor: 'pointer' }}>
                       {t}
                     </button>

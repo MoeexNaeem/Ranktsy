@@ -14,6 +14,7 @@ import { useFavorites } from '@/hooks/useFavorites'
 import { C, D, compColor, formatNumber } from '@/utils'
 import { MONO, tableCard, tableHead, th, tableRow, tdMono, tdTitle } from './kit'
 import type { KeywordData } from '@/types'
+import { copyWithToast, toast } from '@/components/ui/toast'
 
 type SortKey = keyof Pick<KeywordData, 'avgViews' | 'avgFavorites' | 'favPerView' | 'competition' | 'difficulty' | 'tagOccurrences' | 'charCount' | 'wordCount' | 'googleSearches' | 'googleCompetitionIndex' | 'googleCpcHigh'>
 
@@ -125,7 +126,7 @@ const KeywordRow = memo(function KeywordRow({
           {row.trend?.views?.some(v => v > 0)
             ? <Sparkline name="Views" color="#2E6DB4" height={30}
                 data={row.trend.views.map((v, i) => ({ label: trendDayLabel(row.trend!.views.length - 1 - i), value: v }))} />
-            : <span style={{ ...tdMono, color: C.stone, fontSize: 11 }}>{measuring ? '' : 'no data yet'}</span>}
+            : <span title="Daily views are measured from our own day-to-day snapshots, so this line appears once these listings have been seen on two different days." style={{ ...tdMono, color: C.stone, fontSize: 11, cursor: 'help' }}>{measuring ? '' : 'tracking daily'}</span>}
         </div>
       )
       case 'bymonth':  return <MiniTrend key={c.id} data={row.listingsByMonth} title={`${row.keyword} - listings created per calendar month (Jan→Dec)`} />
@@ -266,6 +267,7 @@ export const KeywordTable = memo(function KeywordTable({
 
   const saveSelected = useCallback(() => {
     addMany([...selected])
+    toast.success('Saved to Favorites', `${selected.size} keyword${selected.size === 1 ? '' : 's'} added.`)
     setSelected(new Set())
   }, [selected, addMany])
 
@@ -328,7 +330,7 @@ export const KeywordTable = memo(function KeywordTable({
             {selected.size} keyword{selected.size === 1 ? '' : 's'} selected
           </span>
           <button onClick={saveSelected} style={{ ...ctrlBtn, height: 34, borderColor: C.orange, color: C.orange }}>★ Save to Favorites</button>
-          <button onClick={() => navigator.clipboard?.writeText([...selected].join(', '))} style={{ ...ctrlBtn, height: 34 }}>Copy</button>
+          <button onClick={() => copyWithToast([...selected].join(', '), 'Keywords')} style={{ ...ctrlBtn, height: 34 }}>Copy</button>
           <button onClick={() => setSelected(new Set())} style={{ ...ctrlBtn, height: 34, border: 'none', background: 'transparent', color: C.graphite }}>Clear</button>
         </div>
       )}

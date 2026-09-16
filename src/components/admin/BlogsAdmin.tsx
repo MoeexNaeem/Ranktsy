@@ -7,6 +7,7 @@ import { C } from '@/utils'
 import { Card, SectionTitle, primaryBtn, MONO, tableCard, tableHead, th, tableRow, EmptyState } from '@/components/dashboard/kit'
 import { Markdown } from '@/components/blog/Markdown'
 import { slugifyTitle } from '@/lib/blog'
+import { toast } from '@/components/ui/toast'
 
 interface PostRow { _id: string; title: string; slug: string; status: 'draft' | 'published'; category?: string; tags?: string[]; readingMinutes?: number; updatedAt?: string }
 
@@ -133,14 +134,15 @@ export function BlogsAdmin() {
       if (id) await axios.put(`/api/admin/blogs/${id}`, payload)
       else await axios.post('/api/admin/blogs', payload)
       await load(); setView('list'); resetForm()
-    } catch (e) { setErr(axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Save failed') }
+      toast.success(nextStatus === 'published' ? 'Post published' : 'Post saved', title)
+    } catch (e) { const m = axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Save failed'; setErr(m); toast.error('Save failed', m) }
     finally { setSaving(false) }
   }
 
   const del = async (pid: string) => {
     if (!window.confirm('Delete this post permanently?')) return
-    try { await axios.delete(`/api/admin/blogs/${pid}`); await load() }
-    catch (e) { setErr(axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Delete failed') }
+    try { await axios.delete(`/api/admin/blogs/${pid}`); await load(); toast.success('Post deleted') }
+    catch (e) { const m = axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Delete failed'; setErr(m); toast.error('Delete failed', m) }
   }
 
   // ─── List view ─────────────────────────────────────────────────────────────

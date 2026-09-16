@@ -10,6 +10,7 @@ import { triggerUpgrade } from '@/lib/upgrade'
 import { busyRetry, busyRetryDelay, useWaitPhase, isTerminal } from '@/lib/ai/busy'
 import type { ApiResponse } from '@/types'
 import type { ListingPro } from '@/app/api/ai/listing-pro/route'
+import { copyWithToast } from '@/components/ui/toast'
 
 // Survives a page refresh - the tab otherwise loses the whole generated
 // listing + images because they only ever lived in React state.
@@ -28,7 +29,7 @@ const IMAGE_TYPES: { type: ImageType; name: string; desc: string }[] = [
 function CopyBtn({ text, label = 'Copy' }: { text: string; label?: string }) {
   const [done, setDone] = useState(false)
   return (
-    <button onClick={() => { navigator.clipboard?.writeText(text); setDone(true); setTimeout(() => setDone(false), 1200) }}
+    <button onClick={() => { copyWithToast(text, 'Text'); setDone(true); setTimeout(() => setDone(false), 1200) }}
       style={{ fontSize: 12, fontFamily: MONO, color: done ? D.good : C.orange, background: 'transparent', border: `1px solid ${done ? D.good : C.orange}`, padding: '4px 12px', borderRadius: 100, cursor: 'pointer', flexShrink: 0 }}>
       {done ? '✓ Copied' : label}
     </button>
@@ -201,7 +202,7 @@ export function EtsyListingProTab() {
             <Field label={`Tags (${listing.tags.length}/13)`} hint={<CopyBtn text={listing.tags.join(', ')} label="Copy all 13" />}>
               <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
                 {listing.tags.map(t => (
-                  <button key={t} onClick={() => navigator.clipboard?.writeText(t)} title="Click to copy"
+                  <button key={t} onClick={() => copyWithToast(t, 'Tag')} title="Click to copy"
                     style={{ fontSize: 14, fontFamily: MONO, color: C.orange, background: C.orangeFaint, border: `1px solid rgba(251,94,9,0.22)`, padding: '7px 14px', borderRadius: 100, cursor: 'pointer' }}>{t}</button>
                 ))}
               </div>

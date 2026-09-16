@@ -8,6 +8,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { C } from '@/utils'
 import { Card, SectionTitle, StatCard, EmptyState, MONO, tableCard, tableHead, th, tableRow, tdMono } from '../kit'
+import { copyWithToast, toast } from '@/components/ui/toast'
 
 interface Conversion { id: string; plan: string; commissionUsd: number; status: string; date: string | null }
 interface AffiliateData {
@@ -75,12 +76,18 @@ export function AffiliateTab() {
 
   const enroll = async () => {
     setBusy(true)
-    try { const r = await fetch('/api/affiliate', { method: 'POST' }); apply(await r.json()) }
+    try {
+      const r = await fetch('/api/affiliate', { method: 'POST' })
+      const j = await r.json()
+      apply(j)
+      if (r.ok && j?.success !== false) toast.success('You’re in!', 'Your referral link is ready to share.')
+      else toast.error('Could not join', j?.error || 'Please try again.')
+    } catch { toast.error('Could not join', 'Network error. Please try again.') }
     finally { setBusy(false) }
   }
   const copy = () => {
     if (!data?.link) return
-    navigator.clipboard?.writeText(data.link).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1600) }).catch(() => {})
+    copyWithToast(data.link, 'Referral link'); setCopied(true); setTimeout(() => setCopied(false), 1600)
   }
   const savePayout = async () => {
     if (busy) return
@@ -88,9 +95,9 @@ export function AffiliateTab() {
     try {
       const r = await fetch('/api/affiliate', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payoutMethod: method, payoutName: name, payoutNumber: number, payoutBank: bank }) })
       const j = await r.json()
-      if (r.ok && j?.success) { apply(j); setSaved(true); setTimeout(() => setSaved(false), 2200) }
-      else setNote(j?.error || 'Could not save.')
-    } catch { setNote('Network error.') } finally { setBusy(false) }
+      if (r.ok && j?.success) { apply(j); setSaved(true); setTimeout(() => setSaved(false), 2200); toast.success('Payout details saved') }
+      else { setNote(j?.error || 'Could not save.'); toast.error('Payout details not saved', j?.error || 'Please try again.') }
+    } catch { setNote('Network error.'); toast.error('Payout details not saved', 'Network error. Please try again.') } finally { setBusy(false) }
   }
 
   if (!data) return <Card><div className="shimmer" style={{ height: 180, borderRadius: 8, background: '#e8e7e2' }} /></Card>

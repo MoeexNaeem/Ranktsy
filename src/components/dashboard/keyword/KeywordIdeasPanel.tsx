@@ -38,7 +38,7 @@ function CompPill({ band, index }: { band: string; index: number | null }) {
 }
 
 export const KeywordIdeasPanel = memo(function KeywordIdeasPanel({
-  seed, ideas, currency, loading, configured, onSelect,
+  seed, ideas, currency, loading, configured, onSelect, unavailableNote,
 }: {
   seed: string
   ideas: KeywordIdea[]
@@ -46,6 +46,8 @@ export const KeywordIdeasPanel = memo(function KeywordIdeasPanel({
   loading: boolean
   /** Google Ads connected? When false we show a connect prompt instead of "no results". */
   configured: boolean
+  /** Set when Google couldn't answer (daily quota / error), so the empty state says why. */
+  unavailableNote?: string | null
   onSelect: (kw: string) => void
 }) {
   const { isFavorite, toggle } = useFavorites()
@@ -98,6 +100,8 @@ export const KeywordIdeasPanel = memo(function KeywordIdeasPanel({
       ) : !configured ? (
         <EmptyState icon="🔌" title="Keyword ideas appear when search data is available"
           sub="Real keyword suggestions - with volume, competition and CPC - appear here when search data is available." />
+      ) : !ideas.length && unavailableNote ? (
+        <EmptyState icon="⏳" title="Keyword ideas paused" sub={unavailableNote} />
       ) : !ideas.length ? (
         <EmptyState icon="💡" title="No keyword ideas returned" sub={`Google had no suggestions for “${seed}”. Try a broader seed keyword.`} />
       ) : (

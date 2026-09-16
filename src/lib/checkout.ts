@@ -1,4 +1,4 @@
-import toast from 'react-hot-toast'
+import { toast } from '@/components/ui/toast'
 
 export type CheckoutResult = 'redirecting' | 'needs_login' | 'error'
 
@@ -20,10 +20,10 @@ export async function startCheckout(slug: string): Promise<CheckoutResult> {
       window.location.href = j.url
       return 'redirecting'
     }
-    toast.error(j?.error || 'Could not start checkout. Please try again.')
+    toast.error('Checkout unavailable', j?.error || 'Could not start checkout. Please try again.')
     return 'error'
   } catch {
-    toast.error('Could not start checkout. Please try again.')
+    toast.error('Checkout unavailable', 'Could not start checkout. Please try again.')
     return 'error'
   }
 }

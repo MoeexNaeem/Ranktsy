@@ -7,6 +7,7 @@ import { ExportBtn, toCsv, downloadCsv, slugify } from '../controls'
 import { C, D, formatNumber } from '@/utils'
 import { chargeCredits } from '@/lib/credits-client'
 import type { ApiResponse, KeywordGap, GapTag } from '@/types'
+import { copyWithToast } from '@/components/ui/toast'
 
 function AdoptionBar({ pct, color }: { pct: number; color: string }) {
   return (
@@ -108,7 +109,7 @@ export function KeywordGapTab() {
               {data.topMissingTags.length ? (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {data.topMissingTags.map(t => (
-                    <button key={t.tag} onClick={() => navigator.clipboard?.writeText(t.tag)} title={`${t.usedPct}% of the top “${data.query}” listings use “${t.tag}” - click to copy`}
+                    <button key={t.tag} onClick={() => copyWithToast(t.tag, 'Tag')} title={`${t.usedPct}% of the top “${data.query}” listings use “${t.tag}” - click to copy`}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontFamily: MONO, color: C.orange, background: C.orangeFaint, border: `1px solid ${C.orange}`, padding: '6px 13px', borderRadius: 100, cursor: 'pointer' }}>
                       {t.tag}
                       <span style={{ fontSize: 11, color: C.graphite }} title={`${t.usedPct}% adoption`}>{t.usedPct}%</span>

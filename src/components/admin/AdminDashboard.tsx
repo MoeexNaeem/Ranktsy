@@ -15,6 +15,7 @@ import { AdminSebtStudents } from './AdminSebtStudents'
 import { AdminEarnings } from './AdminEarnings'
 import { CodeFlow } from './CodeFlow'
 import { RealtimeProvider, NotificationBell } from '@/components/dashboard/Realtime'
+import { copyWithToast, toast } from '@/components/ui/toast'
 
 interface AUser {
   id: string; name: string; email: string; role: 'user' | 'admin'; plan: string
@@ -223,7 +224,8 @@ export function AdminDashboard() {
     if (r.ok && d?.success) {
       setUsers(us => us.map(u => u.id === id ? { ...u, ...patch } : u))
       if ('plan' in patch) loadUsers(usersPage, debouncedQuery)
-    }
+      toast.success('User updated', 'plan' in patch ? `Plan set to ${patch.plan}.` : 'restricted' in patch ? (patch.restricted ? 'Account restricted.' : 'Restriction removed.') : undefined)
+    } else toast.error('Update failed', d?.error || 'Please try again.')
     setBusy(null)
   }, [loadUsers, usersPage, debouncedQuery])
 
@@ -234,11 +236,11 @@ export function AdminDashboard() {
       const d = await r.json().catch(() => null)
       if (r.ok && d?.success) {
         setPromoOn(d.data.enabled)
-        if (body.enabled === false) setPromoMsg('Promo turned off.')
-        else setPromoMsg(`${d.data.affected} free user${d.data.affected === 1 ? '' : 's'} converted to Pro.`)
+        if (body.enabled === false) { setPromoMsg('Promo turned off.'); toast.info('Promo turned off') }
+        else { setPromoMsg(`${d.data.affected} free user${d.data.affected === 1 ? '' : 's'} converted to Pro.`); toast.success('Promo applied', `${d.data.affected} free user${d.data.affected === 1 ? '' : 's'} converted to Pro.`) }
         loadUsers(usersPage, debouncedQuery)
-      } else setPromoMsg(d?.error || 'Failed.')
-    } catch { setPromoMsg('Failed.') }
+      } else { setPromoMsg(d?.error || 'Failed.'); toast.error('Promo failed', d?.error || 'Please try again.') }
+    } catch { setPromoMsg('Failed.'); toast.error('Promo failed', 'Network error. Please try again.') }
     setPromoBusy(false)
     setTimeout(() => setPromoMsg(''), 6000)
   }, [loadUsers, usersPage, debouncedQuery])
@@ -247,8 +249,8 @@ export function AdminDashboard() {
     setBusy(u.id); setErr('')
     const r = await fetch(`/api/admin/users/${u.id}`, { method: 'DELETE' })
     const d = await r.json().catch(() => null)
-    if (r.ok && d?.success) await loadUsers(usersPage, debouncedQuery)   // refresh page + stats
-    else setErr(d?.error || 'Delete failed')
+    if (r.ok && d?.success) { await loadUsers(usersPage, debouncedQuery); toast.success('User deleted', u.email) }   // refresh page + stats
+    else { setErr(d?.error || 'Delete failed'); toast.error('Delete failed', d?.error || 'Please try again.') }
     setBusy(null)
   }, [loadUsers, usersPage, debouncedQuery])
 
@@ -275,9 +277,8 @@ export function AdminDashboard() {
   const paidCount = stats?.paying ?? 0
   const newThisWeek = stats?.newThisWeek ?? 0
   const copyId = useCallback((id: string) => {
-    navigator.clipboard?.writeText(id).then(() => {
-      setCopiedId(id); setTimeout(() => setCopiedId(c => (c === id ? null : c)), 1400)
-    }).catch(() => {})
+    copyWithToast(id, 'User ID')
+    setCopiedId(id); setTimeout(() => setCopiedId(c => (c === id ? null : c)), 1400)
   }, [])
   const usagePerUser = useMemo(() => usage?.today.perUser ?? [], [usage])
   const usagePageCount = Math.max(1, Math.ceil(usagePerUser.length / USAGE_PAGE_SIZE))

@@ -7,6 +7,7 @@ import { C } from '@/utils'
 import { Card, SectionTitle, primaryBtn, MONO, tableCard, tableHead, th, tableRow, EmptyState } from '@/components/dashboard/kit'
 import { Markdown } from '@/components/blog/Markdown'
 import { slugifyTitle } from '@/lib/blog'
+import { toast } from '@/components/ui/toast'
 
 interface DealRow { _id: string; title: string; slug: string; status: 'draft' | 'published'; badge?: string; ctaLabel?: string; ctaPlan?: string; ctaUrl?: string; updatedAt?: string }
 
@@ -104,14 +105,15 @@ export function DealsAdmin() {
       if (id) await axios.put(`/api/admin/deals/${id}`, payload)
       else await axios.post('/api/admin/deals', payload)
       await load(); setView('list'); resetForm()
-    } catch (e) { setErr(axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Save failed') }
+      toast.success(nextStatus === 'published' ? 'Deal published' : 'Deal saved', title)
+    } catch (e) { const m = axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Save failed'; setErr(m); toast.error('Save failed', m) }
     finally { setSaving(false) }
   }
 
   const del = async (did: string) => {
     if (!window.confirm('Delete this deal permanently?')) return
-    try { await axios.delete(`/api/admin/deals/${did}`); await load() }
-    catch (e) { setErr(axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Delete failed') }
+    try { await axios.delete(`/api/admin/deals/${did}`); await load(); toast.success('Deal deleted') }
+    catch (e) { const m = axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Delete failed'; setErr(m); toast.error('Delete failed', m) }
   }
 
   // ─── List view ─────────────────────────────────────────────────────────────

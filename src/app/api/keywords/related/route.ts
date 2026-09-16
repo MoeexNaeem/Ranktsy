@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { memCache, CACHE_TTL } from '@/lib/cache'
 import { getKeywordCore, relatedKey } from '@/lib/keywords'
 import { enrichRelatedCompetition } from '@/lib/etsy'
-import { googleKeywordMetrics, isGoogleAdsConfigured, normalizeGeo } from '@/lib/google-ads'
+import { googleKeywordMetrics, isGoogleAdsConfigured, normalizeGeo, type GoogleMetricsMeta, type GoogleMetric } from '@/lib/google-ads'
 import { withUsage } from '@/lib/track'
 import type { ApiResponse, KeywordData } from '@/types'
 
@@ -35,31 +35,40 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
     // If the core came from the shared Collective store, its related keywords are
     // already enriched (competition/KD/Google) - return them as-is, no re-probe,
     // no API calls.
+    const gmeta: GoogleMetricsMeta = {}
+    const withGoogle = (metrics: Map<string, GoogleMetric>, rows: KeywordData[]) => rows.map(r => {
+      const g = metrics.get(r.keyword.toLowerCase())
+      return g ? {
+        ...r,
+        googleSearches:         g.searches ?? null,
+        googleCompetition:      g.competition as KeywordData['googleCompetition'],
+        googleCompetitionIndex: g.competitionIndex,
+        googleCpcLow:           g.cpcLow,
+        googleCpcHigh:          g.cpcHigh,
+      } : r
+    })
+
     if (core.related.some(r => r.competition != null)) {
-      memCache.set(key, core.related, CACHE_TTL.KEYWORD)
-      return NextResponse.json({ success: true, data: core.related, cached: true })
+      let rows = core.related
+      // Shared packages saved while Google was failing lack volume - backfill it
+      // (from the stored Google cache when possible) instead of "no data yet" forever.
+      if (isGoogleAdsConfigured() && rows.every(r => r.googleSearches == null)) {
+        rows = withGoogle(await googleKeywordMetrics(rows.map(r => r.keyword), geo, gmeta), rows)
+      }
+      memCache.set(key, rows, gmeta.failed ? 90 : CACHE_TTL.KEYWORD)
+      return NextResponse.json({ success: true, data: rows, cached: true })
     }
 
     let related = await enrichRelatedCompetition(core.related)
 
     if (isGoogleAdsConfigured()) {
-      const metrics = await googleKeywordMetrics(related.map(r => r.keyword), geo)
-      if (metrics.size) {
-        related = related.map(r => {
-          const g = metrics.get(r.keyword.toLowerCase())
-          return g ? {
-            ...r,
-            googleSearches:         g.searches ?? null,
-            googleCompetition:      g.competition as KeywordData['googleCompetition'],
-            googleCompetitionIndex: g.competitionIndex,
-            googleCpcLow:           g.cpcLow,
-            googleCpcHigh:          g.cpcHigh,
-          } : r
-        })
-      }
+      const metrics = await googleKeywordMetrics(related.map(r => r.keyword), geo, gmeta)
+      if (metrics.size) related = withGoogle(metrics, related)
     }
 
-    memCache.set(key, related, CACHE_TTL.KEYWORD)
+    // Etsy competition is expensive to re-measure, so keep it; but a Google failure
+    // must not pin "no data" for hours - expire soon so the volume fills in.
+    memCache.set(key, related, gmeta.failed ? 90 : CACHE_TTL.KEYWORD)
     return NextResponse.json({ success: true, data: related, cached: false })
   } catch (e) {
     console.error('[Keywords/related] failed:', e)

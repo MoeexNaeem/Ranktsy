@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { C } from '@/utils'
 import { Card, SectionTitle, EmptyState, primaryBtn, MONO } from '../kit'
 import { loadLists, saveLists, type KList } from '@/lib/keyword-lists'
+import { copyWithToast } from '@/components/ui/toast'
 
 const inputStyle: React.CSSProperties = {
   flex: 1, background: C.canvas, border: `1px solid ${C.hair}`, borderRadius: 100,
@@ -90,7 +91,7 @@ export function KeywordListsTab() {
         {active ? (
           <>
             <SectionTitle right={active.keywords.length > 0 ? (
-              <button onClick={() => navigator.clipboard?.writeText(active.keywords.join(', '))}
+              <button onClick={() => copyWithToast(active.keywords.join(', '), 'Keywords')}
                 style={{ fontSize: 12, fontFamily: MONO, color: C.orange, background: 'transparent', border: `1px solid ${C.orange}`, padding: '4px 12px', borderRadius: 100, cursor: 'pointer' }}>Copy all</button>
             ) : undefined}>
               {active.name} · {active.keywords.length} keyword{active.keywords.length === 1 ? '' : 's'}

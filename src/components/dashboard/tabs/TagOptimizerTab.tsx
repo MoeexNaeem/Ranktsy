@@ -8,6 +8,7 @@ import { chargeCredits } from '@/lib/credits-client'
 import { Card, SearchBar, SectionTitle, EmptyState, tableCard, tableHead, th, tableRow, tdMono, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import type { EtsyListing, AiFact } from '@/types'
+import { copyWithToast } from '@/components/ui/toast'
 
 const GRID = '2fr 0.6fr 0.9fr 0.8fr 2fr'
 
@@ -89,7 +90,7 @@ export function TagOptimizerTab() {
             <SectionTitle><Icon name="sparkle" size={15} color={C.orange} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 7 }} />Recommended tags (click to copy)</SectionTitle>
             <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
               {tagAnalysis.slice(0, 13).map(t => (
-                <button key={t.tag} onClick={() => navigator.clipboard?.writeText(t.tag)} title="Click to copy"
+                <button key={t.tag} onClick={() => copyWithToast(t.tag, 'Tag')} title="Click to copy"
                   style={{ fontSize: 12, fontFamily: MONO, color: C.orange, background: C.orangeFaint, border: `1px solid rgba(251,94,9,0.22)`, padding: '5px 12px', borderRadius: 999, cursor: 'pointer', transition: 'all 0.15s' }}
                   onMouseEnter={e => { e.currentTarget.style.background = C.orange; e.currentTarget.style.color = '#fff' }}
                   onMouseLeave={e => { e.currentTarget.style.background = C.orangeFaint; e.currentTarget.style.color = C.orange }}>

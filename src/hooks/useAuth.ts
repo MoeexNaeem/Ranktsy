@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import type { AuthUser, ApiResponse } from '@/types'
+import { toast } from '@/components/ui/toast'
 
 const api = axios.create({ baseURL: '/api' })
 
@@ -15,6 +16,7 @@ export function useAuth() {
     },
     staleTime: 1000 * 60 * 5,
     retry: false,
+    meta: { silent: true },   // logged-out visitors are normal, never an error toast
   })
 }
 
@@ -25,8 +27,10 @@ export function useLogout() {
     mutationFn: () => api.post('/auth/logout'),
     onSuccess: () => {
       qc.clear()
+      toast.success('Logged out', 'See you again soon.')
       router.push('/login')
     },
+    meta: { errorTitle: 'Logout failed' },
   })
 }
 

@@ -5,7 +5,7 @@ import { isAdmin } from '@/lib/auth/roles'
 import { connectDB } from '@/lib/db'
 import { etsyKeyPoolSize, probeEtsyKeys } from '@/lib/etsy'
 import { isGeminiConfigured, geminiKeyPoolSize } from '@/lib/gemini'
-import { isGoogleAdsConfigured } from '@/lib/google-ads'
+import { isGoogleAdsConfigured, googleAdsStatus } from '@/lib/google-ads'
 import { isRecaptchaConfigured } from '@/lib/recaptcha'
 import type { FlowSystem } from '@/lib/codeflow/graph'
 import type { ApiResponse } from '@/types'
@@ -65,6 +65,14 @@ export async function GET(): Promise<NextResponse<ApiResponse<{ systems: Record<
     : { status: 'ok', required: true, detail: `${goodKeys}/${etsyKeys} keys ok` }
 
   const lsOk = env('LS_API_KEY') && env('LS_WEBHOOK_SECRET')
+  // Google Ads Basic Access = 15,000 ops/day for the whole app; when exhausted every
+  // Google panel (volume, trends, countries, ideas) blanks until Google's retry time.
+  const gads = await googleAdsStatus().catch(() => ({ configured: isGoogleAdsConfigured(), quotaBlocked: false, retryAt: null as string | null }))
+  const googleHealth: SystemHealth = !gads.configured
+    ? { status: 'off', required: false, detail: 'no key - search volume blank' }
+    : gads.quotaBlocked
+      ? { status: 'down', required: false, detail: `daily Google Ads quota exhausted until ${gads.retryAt} - apply for Standard Access; cached data still served` }
+      : { status: 'ok', required: false, detail: 'configured (answers cached 30 days)' }
 
   const systems: Record<FlowSystem, SystemHealth> = {
     mongo,
@@ -72,7 +80,7 @@ export async function GET(): Promise<NextResponse<ApiResponse<{ systems: Record<
              detail: env('JWT_SECRET') && env('JWT_REFRESH_SECRET') ? 'secrets set' : 'JWT secrets missing' },
     etsy:  etsyHealth,
     gemini:       { status: isGeminiConfigured()   ? 'ok' : 'off', required: false, detail: isGeminiConfigured()   ? `${geminiKeyPoolSize()} key${geminiKeyPoolSize() === 1 ? '' : 's'} in pool` : 'no key - AI tools dormant' },
-    google:       { status: isGoogleAdsConfigured()? 'ok' : 'off', required: false, detail: isGoogleAdsConfigured()? 'configured' : 'no key - search volume blank' },
+    google:       googleHealth,
     openai:       { status: env('OPENAI_API_KEY')  ? 'ok' : 'off', required: false, detail: env('OPENAI_API_KEY')  ? 'configured' : 'no key - Listing Pro image off' },
     lemonsqueezy: { status: lsOk                    ? 'ok' : 'off', required: false, detail: lsOk ? 'configured' : 'checkout/webhook keys missing' },
     resend:       { status: env('RESEND_API_KEY')  ? 'ok' : 'off', required: false, detail: env('RESEND_API_KEY')  ? 'configured' : 'no key - OTP emails off' },

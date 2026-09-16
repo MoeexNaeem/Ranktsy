@@ -11,6 +11,7 @@ import { MONO } from '../kit'
 import type { EtsyListing, ListingReviewStats } from '@/types'
 import type { ListingSalesEstimate } from '@/lib/salesEstimate'
 import type { ShopSummary } from '@/app/api/etsy/shop-summary/route'
+import { copyWithToast } from '@/components/ui/toast'
 
 const CUR: Record<string, string> = { USD: '$', GBP: '£', EUR: '€', CAD: 'C$', AUD: 'A$', PKR: '₨', INR: '₹', JPY: '¥' }
 const sym = (c?: string) => CUR[c ?? 'USD'] ?? (c ? `${c} ` : '$')
@@ -217,14 +218,14 @@ export function ListingDetailPanel({ row, reviewStats, estimate, onClose }: {
 
               {/* Tags */}
               <Group title={`Tags (${l.tags?.length ?? 0})`} right={(l.tags?.length ?? 0) > 0 ? (
-                <button onClick={() => { navigator.clipboard?.writeText((l.tags ?? []).join(', ')); setCopied(true); setTimeout(() => setCopied(false), 1400) }}
+                <button onClick={() => { copyWithToast((l.tags ?? []).join(', '), 'Tags'); setCopied(true); setTimeout(() => setCopied(false), 1400) }}
                   style={{ fontSize: 11.5, fontFamily: MONO, fontWeight: 600, color: copied ? D.good : C.orange, background: copied ? D.goodBg : C.orangeFaint, border: `1px solid ${copied ? D.good : C.orange}`, borderRadius: 100, padding: '4px 12px', cursor: 'pointer' }}>
                   {copied ? '✓ Copied' : 'Copy all'}
                 </button>) : undefined}>
                 {(l.tags?.length ?? 0) > 0 ? (
                   <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
                     {(l.tags ?? []).map(t => (
-                      <span key={t} onClick={() => navigator.clipboard?.writeText(t)} title="Click to copy"
+                      <span key={t} onClick={() => copyWithToast(t, 'Tag')} title="Click to copy"
                         style={{ fontSize: 12, fontFamily: MONO, color: C.ink, background: C.canvas, border: `1px solid ${C.ash}`, padding: '5px 11px', borderRadius: 100, cursor: 'pointer' }}>{t}</span>
                     ))}
                   </div>

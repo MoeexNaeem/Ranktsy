@@ -264,6 +264,26 @@ function TrackKeywordButton({ keyword, country }: { keyword: string; country: st
   )
 }
 
+// Plain-language reason Google numbers are missing (never a bare "—" with no why).
+function googleGapNote(status?: string | null, retryAt?: string | null): string | null {
+  if (status === 'quota') {
+    const t = retryAt ? new Date(retryAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null
+    return `Google search data is paused: today’s Google Ads data limit was reached${t ? `. It resumes around ${t}` : ''}. Etsy data below is live.`
+  }
+  if (status === 'error') return 'Google didn’t respond just now. Search again in a minute to load Google data.'
+  return null
+}
+
+function GoogleGapNote({ status, retryAt }: { status?: string | null; retryAt?: string | null }) {
+  const text = googleGapNote(status, retryAt)
+  if (!text) return null
+  return (
+    <p role="status" style={{ fontSize: 12, lineHeight: 1.5, color: '#8A5A00', background: '#FFF7E6', border: '1px solid #F2D8A7', borderRadius: 8, padding: '7px 10px', margin: '10px 0 0' }}>
+      {text}
+    </p>
+  )
+}
+
 function KeywordStatsPanel({ s, geoName }: { s: KeywordStats; geoName: string }) {
   // Authentic data only, grouped by its real source so the origin of every number is
   // explicit: GOOGLE = search demand from the Google Keyword Planner API; ETSY = Etsy's
@@ -309,6 +329,7 @@ function KeywordStatsPanel({ s, geoName }: { s: KeywordStats; geoName: string })
               <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: C.stone }}>{g.source}</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+              {g.source === 'Google' && s.googleSearches == null && <GoogleGapNote status={s.googleStatus} retryAt={s.googleRetryAt} />}
               {g.items.map(r => (
                 <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                   <span style={{ fontSize: 14.5, color: C.ink, fontWeight: 500 }}>{r.label}</span>
@@ -577,6 +598,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
                  be a hardcoded curve - identical for every keyword - so this now
                  points at the real signal instead. */
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '30px 0' }}>
+                <GoogleGapNote status={tr.googleStatus} retryAt={tr.googleRetryAt} />
                 <p style={{ fontSize: 13.5, color: C.ink, fontWeight: 500 }}>No search-volume series for Etsy</p>
                 <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.6 }}>
                   Etsy doesn&apos;t publish search volume or history. The <strong style={{ color: C.ink }}>Search
@@ -593,7 +615,9 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
           {!tr ? <Shimmer h={200} r={8} />
             : tr.countries && tr.countries.length > 0
               ? <CountryChart data={tr.countries} />
-              : <EmptyState icon="🌍" title="No country data" sub="No country breakdown for this keyword yet." />}
+              : googleGapNote(tr.googleStatus, tr.googleRetryAt)
+                ? <EmptyState icon="🌍" title="Country data paused" sub={googleGapNote(tr.googleStatus, tr.googleRetryAt)!} />
+                : <EmptyState icon="🌍" title="No country data" sub="Google reports too little search volume for this keyword to split by country." />}
         </Card>
       </div>
 
@@ -753,6 +777,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
                 seed={kw.query}
                 ideas={ideas.data?.ideas ?? []}
                 currency={ideas.data?.currency ?? kw.stats.googleCurrency ?? null}
+                unavailableNote={googleGapNote(ideas.data?.googleStatus, ideas.data?.googleRetryAt)}
                 loading={ideas.isPending || ideas.isFetching}
                 configured={(kw.stats.googleCurrency ?? ideas.data?.currency ?? null) != null}
                 onSelect={run}

@@ -7,9 +7,9 @@
  * node/edge live from subsystem health (see /api/admin/health-flow).
  *
  * Layout is manual (x/y) so related steps stay in tidy vertical lanes. Keep new
- * nodes inside a lane's x, stepping y by ~110 per step.
+ * nodes inside a lane's x, stepping y by ~150 per step.
  *
- *   Lane x:  auth 40 · keyword 380 · ai 720 · payments 1060 · infra 1400
+ *   Lane x:  auth 80 · keyword 660 · ai 1240 · payments 1820 · infra 2400
  */
 
 // A node's `system` decides its live colour. Omit it for pure application code
@@ -55,9 +55,9 @@ export interface FlowEdgeDef {
   system?: FlowSystem
 }
 
-const X = { auth: 60, keyword: 460, ai: 860, payments: 1260, infra: 1660 } as const
-const Y = (row: number) => 20 + row * 100
-const OFFSET = 280   // horizontal nudge for a node that runs parallel to its lane
+const X = { auth: 80, keyword: 660, ai: 1240, payments: 1820, infra: 2400 } as const
+const Y = (row: number) => 20 + row * 150
+const OFFSET = 300   // horizontal nudge for a node that runs parallel to its lane
 
 export const FLOW_NODES: FlowNodeDef[] = [
   // ── Auth lane ──────────────────────────────────────────────────────────────

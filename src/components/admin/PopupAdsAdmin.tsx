@@ -5,6 +5,7 @@ import axios from 'axios'
 import { C } from '@/utils'
 import { Card, SectionTitle, primaryBtn, MONO, tableCard, tableHead, th, tableRow, EmptyState } from '@/components/dashboard/kit'
 import type { IPopupAd } from '@/types'
+import { toast } from '@/components/ui/toast'
 
 type AdRow = IPopupAd & { _id: string }
 
@@ -46,20 +47,20 @@ export function PopupAdsAdmin() {
     try {
       if (id) await axios.put(`/api/admin/popup-ads/${id}`, f)
       else await axios.post('/api/admin/popup-ads', f)
-      await load(); setView('list')
-    } catch (e) { setErr(axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Save failed') }
+      await load(); setView('list'); toast.success('Popup ad saved')
+    } catch (e) { const m = axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Save failed'; setErr(m); toast.error('Save failed', m) }
     finally { setSaving(false) }
   }
 
   const toggleEnabled = async (a: AdRow) => {
-    try { await axios.put(`/api/admin/popup-ads/${a._id}`, { enabled: !a.enabled }); await load() }
-    catch (e) { setErr(axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Failed') }
+    try { await axios.put(`/api/admin/popup-ads/${a._id}`, { enabled: !a.enabled }); await load(); toast.success(a.enabled ? 'Ad turned off' : 'Ad turned on') }
+    catch (e) { const m = axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Failed'; setErr(m); toast.error('Update failed', m) }
   }
 
   const del = async (adId: string) => {
     if (!window.confirm('Delete this ad permanently?')) return
-    try { await axios.delete(`/api/admin/popup-ads/${adId}`); await load() }
-    catch (e) { setErr(axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Delete failed') }
+    try { await axios.delete(`/api/admin/popup-ads/${adId}`); await load(); toast.success('Popup ad deleted') }
+    catch (e) { const m = axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Delete failed'; setErr(m); toast.error('Delete failed', m) }
   }
 
   // ─── List ──────────────────────────────────────────────────────────────────

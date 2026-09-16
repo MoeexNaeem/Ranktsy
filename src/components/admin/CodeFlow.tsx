@@ -56,22 +56,22 @@ function FlowNode({ data }: NodeProps<NodeData>) {
   const isExternal = data.kind === 'external'
   const base: React.CSSProperties = {
     display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
-    fontSize: 13, fontWeight: 600, lineHeight: 1.3, color: '#1f2430', background: data.state === 'code' ? '#ffffff' : c.tint,
-    border: `2px solid ${c.line}`, boxShadow: '0 4px 14px rgba(30,30,40,0.08)',
+    fontSize: 15, fontWeight: 600, lineHeight: 1.35, color: '#1f2430', background: data.state === 'code' ? '#ffffff' : c.tint,
+    border: `3px solid ${c.line}`, boxShadow: '0 6px 20px rgba(30,30,40,0.12)',
     fontFamily: 'system-ui, -apple-system, Segoe UI, sans-serif', position: 'relative',
   }
   const shape: React.CSSProperties = isDiamond
-    ? { ...base, width: 168, height: 100, clipPath: 'polygon(50% 0, 100% 50%, 50% 100%, 0 50%)', padding: '0 24px', fontSize: 12 }
+    ? { ...base, width: 220, height: 124, clipPath: 'polygon(50% 0, 100% 50%, 50% 100%, 0 50%)', padding: '0 34px', fontSize: 14, background: c.line, color: '#fff' }
     : isPill
-      ? { ...base, borderRadius: 999, padding: '12px 22px', minWidth: 148 }
-      : { ...base, borderRadius: 12, padding: '13px 18px', minWidth: 172, maxWidth: 228, ...(isExternal ? { borderStyle: 'dashed' } : null) }
+      ? { ...base, borderRadius: 999, padding: '16px 28px', minWidth: 190 }
+      : { ...base, borderRadius: 14, padding: '18px 24px', minWidth: 220, maxWidth: 250, ...(isExternal ? { borderStyle: 'dashed' } : null) }
 
   return (
     <div title={data.detail ? `${data.label} - ${data.detail}` : data.label} style={{ position: 'relative' }}>
       <Handle type="target" position={Position.Top} style={handleStyle(c.line)} />
       <div style={shape}>
         {/* status dot - visible on the light card even when the border colour is subtle */}
-        {!isDiamond && <span style={{ position: 'absolute', top: 7, right: 8, width: 8, height: 8, borderRadius: 999, background: c.dot,
+        {!isDiamond && <span style={{ position: 'absolute', top: 8, right: 9, width: 10, height: 10, borderRadius: 999, background: c.dot,
           boxShadow: data.state === 'down' ? `0 0 6px ${c.dot}` : 'none' }} />}
         {data.label}
       </div>
@@ -79,7 +79,7 @@ function FlowNode({ data }: NodeProps<NodeData>) {
     </div>
   )
 }
-const handleStyle = (col: string): React.CSSProperties => ({ width: 9, height: 9, background: '#fff', border: `2px solid ${col}` })
+const handleStyle = (col: string): React.CSSProperties => ({ width: 12, height: 12, background: '#fff', border: `3px solid ${col}` })
 
 const nodeTypes = { flow: FlowNode }
 
@@ -91,6 +91,16 @@ function CodeFlowInner() {
   const [checkedAt, setCheckedAt] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
+  // Fullscreen: the canvas takes over the whole viewport (Esc to exit).
+  const [full, setFull] = useState(false)
+  useEffect(() => {
+    if (!full) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFull(false) }
+    window.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev }
+  }, [full])
 
   const load = useCallback(async () => {
     setLoading(true); setErr('')
@@ -121,11 +131,11 @@ function CodeFlowInner() {
       return {
         id: e.id, source: e.source, target: e.target, label: e.label,
         type: 'smoothstep', animated: true,
-        style: { stroke: col, strokeWidth: broken ? 3 : 2.4 },
-        labelStyle: { fill: '#4b5563', fontSize: 11, fontWeight: 700 },
-        labelBgStyle: { fill: '#ffffff', fillOpacity: 0.95 },
-        labelBgPadding: [6, 3] as [number, number], labelBgBorderRadius: 5,
-        markerEnd: { type: MarkerType.ArrowClosed, color: col, width: 20, height: 20 },
+        style: { stroke: col, strokeWidth: broken ? 4.5 : 3.5 },
+        labelStyle: { fill: '#374151', fontSize: 13, fontWeight: 700 },
+        labelBgStyle: { fill: '#ffffff', fillOpacity: 0.97, stroke: col, strokeWidth: 1.5 },
+        labelBgPadding: [8, 4] as [number, number], labelBgBorderRadius: 6,
+        markerEnd: { type: MarkerType.ArrowClosed, color: col, width: 18, height: 18 },
       }
     })
   }, [health])
@@ -181,46 +191,53 @@ function CodeFlowInner() {
 
       {err && <div style={{ fontSize: 12.5, color: '#CF463A' }}>{err}</div>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 230px', gap: 12, alignItems: 'stretch' }}>
-        <div style={{ height: '86vh', minHeight: 600, borderRadius: 16, overflow: 'hidden', border: '1px solid #D2D2C8', background: '#f6f6ef' }}>
-          <ReactFlow
-            nodes={nodes} edges={edges} nodeTypes={nodeTypes}
-            // minZoom floor keeps nodes readable instead of shrinking to cram the
-            // whole graph in; anything off-screen is reachable by pan + the minimap.
-            fitView fitViewOptions={{ padding: 0.08, minZoom: 0.72, maxZoom: 1.4 }}
-            minZoom={0.3} maxZoom={2.2}
-            proOptions={{ hideAttribution: true }}
-            nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}
-            panOnDrag zoomOnScroll>
-            <Background variant={BackgroundVariant.Dots} color="#cfcfc4" gap={24} size={1.3} />
-            <Controls showInteractive={false} />
-            <MiniMap pannable zoomable maskColor="rgba(0,0,0,0.08)"
-              nodeColor={(n) => COLOR[(n.data as NodeData).state].line} nodeStrokeWidth={2}
-              style={{ background: '#ffffff', border: '1px solid #D2D2C8' }} />
-          </ReactFlow>
-        </div>
+      {/* Systems strip: full-width chips above the canvas, so the map gets every pixel of width. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        {legend.length === 0 && <span style={{ fontSize: 12.5, color: '#919183' }}>Checking systems...</span>}
+        {legend.map(l => (
+          <span key={l.sys} title={l.detail} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 13px', borderRadius: 999, background: '#fff',
+            border: `2px solid ${l.status === 'down' ? DOT.down : l.status === 'off' ? '#ecd29a' : '#cfe9d6'}` }}>
+            <span style={{ width: 10, height: 10, borderRadius: 999, background: DOT[l.status], boxShadow: l.status === 'down' ? `0 0 6px ${DOT.down}` : 'none' }} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#3D3E3B' }}>{SYSTEM_LABEL[l.sys]}</span>
+            <span style={{ fontSize: 11, color: l.status === 'down' ? DOT.down : '#919183', fontFamily: 'ui-monospace, monospace', fontWeight: 700 }}>{l.status === 'ok' ? 'ok' : l.status === 'down' ? 'DOWN' : 'off'}</span>
+          </span>
+        ))}
+        <span style={{ flex: 1 }} />
+        {([['#22c55e', 'Working'], ['#d99a2b', 'Optional / off'], ['#ef4444', 'Broken (required)']] as const).map(([col, txt]) => (
+          <span key={txt} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 999, background: col }} />
+            <span style={{ fontSize: 12, color: '#6E6E64' }}>{txt}</span>
+          </span>
+        ))}
+      </div>
 
-        <aside style={{ border: '1px solid #D2D2C8', borderRadius: 14, padding: 14, background: '#F5F5EB', alignSelf: 'start' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#3D3E3B', marginBottom: 10 }}>Systems</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            {legend.length === 0 && <span style={{ fontSize: 12, color: '#919183' }}>Loading...</span>}
-            {legend.map(l => (
-              <div key={l.sys} title={l.detail} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 9, height: 9, borderRadius: 999, background: DOT[l.status], flexShrink: 0, boxShadow: l.status === 'down' ? `0 0 6px ${DOT.down}` : 'none' }} />
-                <span style={{ fontSize: 12, color: '#3D3E3B', flex: 1 }}>{SYSTEM_LABEL[l.sys]}</span>
-                <span style={{ fontSize: 10, color: '#919183', fontFamily: 'ui-monospace, monospace' }}>{l.status === 'ok' ? 'ok' : l.status === 'down' ? 'DOWN' : 'off'}</span>
-              </div>
-            ))}
-          </div>
-          <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #D2D2C8', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {([['#22c55e', 'Working'], ['#d99a2b', 'Optional / off'], ['#ef4444', 'Broken (required)']] as const).map(([col, txt]) => (
-              <div key={txt} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 9, height: 9, borderRadius: 999, background: col }} />
-                <span style={{ fontSize: 11.5, color: '#6E6E64' }}>{txt}</span>
-              </div>
-            ))}
-          </div>
-        </aside>
+      <div style={full
+        ? { position: 'fixed', inset: 0, zIndex: 1000, background: '#f6f6ef' }
+        : { position: 'relative', height: 'max(780px, calc(100vh - 150px))', borderRadius: 18, overflow: 'hidden', border: '2px solid #BDBDB1', background: '#f6f6ef', boxShadow: '0 10px 30px rgba(30,30,40,0.08)' }}>
+        <button onClick={() => setFull(f => !f)} title={full ? 'Exit fullscreen (Esc)' : 'Fullscreen'}
+          style={{ position: 'absolute', top: 14, right: 14, zIndex: 10, display: 'inline-flex', alignItems: 'center', gap: 7, background: '#fff', color: '#3D3E3B', border: '2px solid #BDBDB1', borderRadius: 999, padding: '8px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px rgba(30,30,40,0.1)' }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            {full
+              ? <><path d="M8 3v3a2 2 0 0 1-2 2H3" /><path d="M21 8h-3a2 2 0 0 1-2-2V3" /><path d="M3 16h3a2 2 0 0 1 2 2v3" /><path d="M16 21v-3a2 2 0 0 1 2-2h3" /></>
+              : <><path d="M8 3H5a2 2 0 0 0-2 2v3" /><path d="M21 8V5a2 2 0 0 0-2-2h-3" /><path d="M3 16v3a2 2 0 0 0 2 2h3" /><path d="M16 21h3a2 2 0 0 0 2-2v-3" /></>}
+          </svg>
+          {full ? 'Exit fullscreen' : 'Fullscreen'}
+        </button>
+        <ReactFlow
+          nodes={nodes} edges={edges} nodeTypes={nodeTypes}
+          // minZoom floor keeps nodes readable instead of shrinking to cram the
+          // whole graph in; anything off-screen is reachable by pan + the minimap.
+          fitView fitViewOptions={{ padding: 0.06, minZoom: 0.6, maxZoom: 1.2 }}
+          minZoom={0.25} maxZoom={2.2}
+          proOptions={{ hideAttribution: true }}
+          nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}
+          panOnDrag zoomOnScroll>
+          <Background variant={BackgroundVariant.Dots} color="#c4c4b8" gap={26} size={1.6} />
+          <Controls showInteractive={false} style={{ transform: 'scale(1.25)', transformOrigin: 'bottom left' }} />
+          <MiniMap pannable zoomable maskColor="rgba(0,0,0,0.08)"
+            nodeColor={(n) => COLOR[(n.data as NodeData).state].line} nodeStrokeWidth={3}
+            style={{ background: '#ffffff', border: '2px solid #BDBDB1', borderRadius: 10, width: 240, height: 160 }} />
+        </ReactFlow>
       </div>
     </div>
   )

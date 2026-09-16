@@ -5,6 +5,7 @@ import { Navbar } from '@/components/landing/Navbar'
 import { Card } from '@/components/dashboard/kit'
 import { NavButton } from '@/components/ui/NavButton'
 import { C } from '@/utils'
+import { toast } from '@/components/ui/toast'
 
 const MONO = "'General Sans',monospace"
 
@@ -60,6 +61,8 @@ export default function ProfilePage() {
     setNameMsg(d.success
       ? { ok: true, text: 'Saved' }
       : { ok: false, text: d.errors?.name || d.error || 'Failed' })
+    if (d.success) toast.success('Profile saved', 'Your name has been updated.')
+    else toast.error('Profile not saved', d.errors?.name || d.error || 'Please try again.')
     if (d.success) setP(pp => pp ? { ...pp, name } : pp)
     setTimeout(() => setNameMsg(null), 2500)
   }, [name])
@@ -67,8 +70,8 @@ export default function ProfilePage() {
   const changePwd = useCallback(async () => {
     const r = await fetch('/api/auth/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword: cur, newPassword: nw }) })
     const d = await r.json()
-    if (d.success) { setPwdMsg({ ok: true, text: 'Password updated' }); setCur(''); setNw('') }
-    else setPwdMsg({ ok: false, text: d.errors?.currentPassword || d.errors?.newPassword || d.error || 'Failed' })
+    if (d.success) { setPwdMsg({ ok: true, text: 'Password updated' }); setCur(''); setNw(''); toast.success('Password updated', 'Use your new password next time you log in.') }
+    else { setPwdMsg({ ok: false, text: d.errors?.currentPassword || d.errors?.newPassword || d.error || 'Failed' }); toast.error('Password not changed', d.errors?.currentPassword || d.errors?.newPassword || d.error || 'Please try again.') }
     setTimeout(() => setPwdMsg(null), 3500)
   }, [cur, nw])
 
@@ -77,8 +80,8 @@ export default function ProfilePage() {
     setDeleting(true); setDeleteErr('')
     const r = await fetch('/api/auth/account', { method: 'DELETE' })
     const d = await r.json().catch(() => null)
-    if (r.ok && d?.success) { window.location.href = '/' }
-    else { setDeleteErr(d?.error || 'Could not delete your account. Please try again.'); setDeleting(false) }
+    if (r.ok && d?.success) { toast.info('Account deleted', 'Sorry to see you go.'); setTimeout(() => { window.location.href = '/' }, 900) }
+    else { setDeleteErr(d?.error || 'Could not delete your account. Please try again.'); toast.error('Account not deleted', d?.error || 'Please try again.'); setDeleting(false) }
   }, [p, deleteConfirm])
 
   return (

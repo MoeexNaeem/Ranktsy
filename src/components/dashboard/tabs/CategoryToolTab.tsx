@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { C } from '@/utils'
 import { SectionTitle, ErrorBox, EmptyState, tableCard, tableHead, th, tableRow, tdMono, MONO } from '../kit'
+import { copyWithToast } from '@/components/ui/toast'
 
 interface TaxItem { id: number; name: string; fullPath: string; level: number }
 const GRID = '1.4fr 2.4fr 0.6fr'
@@ -53,7 +54,7 @@ export function CategoryToolTab() {
                 <div key={c.id} style={tableRow(GRID)}>
                   <span style={{ fontSize: 13, fontWeight: 500, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
                   <span style={{ fontSize: 12, color: '#6E6E64', fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.fullPath}</span>
-                  <button onClick={() => navigator.clipboard?.writeText(String(c.id))} title="Copy taxonomy ID" style={{ ...tdMono, background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, color: C.orange }}>{c.id}</button>
+                  <button onClick={() => copyWithToast(String(c.id), 'Taxonomy ID')} title="Copy taxonomy ID" style={{ ...tdMono, background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, color: C.orange }}>{c.id}</button>
                 </div>
               ))}
             </div>

@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import { C } from '@/utils'
 import { MONO } from '@/components/dashboard/kit'
 import { Bars } from './AdminCharts'
+import { toast } from '@/components/ui/toast'
 
 interface Detail {
   id: string; name: string; email: string; authProvider: string | null
@@ -63,9 +64,9 @@ function SendEmailForm({ userId, email }: { userId: string; email: string }) {
         body: JSON.stringify({ subject: subject.trim(), message: message.trim() }),
       })
       const j = await r.json().catch(() => null)
-      if (r.ok && j?.success) { setNote({ ok: true, text: `Sent to ${email}` }); setSubject(''); setMessage('') }
-      else setNote({ ok: false, text: j?.error || 'Could not send the email.' })
-    } catch { setNote({ ok: false, text: 'Network error, please try again.' }) }
+      if (r.ok && j?.success) { setNote({ ok: true, text: `Sent to ${email}` }); setSubject(''); setMessage(''); toast.success('Email sent', `Sent to ${email}`) }
+      else { setNote({ ok: false, text: j?.error || 'Could not send the email.' }); toast.error('Email not sent', j?.error || 'Could not send the email.') }
+    } catch { setNote({ ok: false, text: 'Network error, please try again.' }); toast.error('Email not sent', 'Network error, please try again.') }
     finally { setBusy(false) }
   }
 

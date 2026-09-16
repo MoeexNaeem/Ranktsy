@@ -5,6 +5,7 @@ import { Card, SectionTitle, SearchBar, EmptyState, GenNote, GenSkeleton, MONO }
 import { C, D } from '@/utils'
 import { genFetch, busyRetry, busyRetryDelay, useWaitPhase } from '@/lib/ai/busy'
 import type { AiTagResult } from '@/types'
+import { copyWithToast } from '@/components/ui/toast'
 
 let savedInput = ''
 let savedSubmitted = ''
@@ -15,7 +16,7 @@ function Tag({ text, primary }: { text: string; primary?: boolean }) {
   const [done, setDone] = useState(false)
   return (
     <button
-      onClick={() => { navigator.clipboard?.writeText(text); setDone(true); setTimeout(() => setDone(false), 1000) }}
+      onClick={() => { copyWithToast(text, 'Text'); setDone(true); setTimeout(() => setDone(false), 1000) }}
       title="Click to copy"
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 7, borderRadius: 100, padding: '9px 16px', cursor: 'pointer',
@@ -57,7 +58,7 @@ export function TagGenTab() {
 
   const copyAll = () => {
     if (!data) return
-    navigator.clipboard?.writeText(data.tags.join(', '))
+    copyWithToast(data.tags.join(', '), 'Tags')
     setCopiedAll(true); setTimeout(() => setCopiedAll(false), 1400)
   }
 

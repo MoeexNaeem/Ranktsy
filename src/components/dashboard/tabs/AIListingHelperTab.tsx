@@ -7,6 +7,7 @@ import { C } from '@/utils'
 import { broadcastCredits } from '@/lib/credits-client'
 import { triggerUpgrade } from '@/lib/upgrade'
 import { busyRetry, busyRetryDelay, useWaitPhase } from '@/lib/ai/busy'
+import { copyWithToast } from '@/components/ui/toast'
 
 interface Result {
   titles: string[]
@@ -19,7 +20,7 @@ interface Result {
 function CopyBtn({ text, label = 'Copy' }: { text: string; label?: string }) {
   const [done, setDone] = useState(false)
   return (
-    <button onClick={() => { navigator.clipboard?.writeText(text); setDone(true); setTimeout(() => setDone(false), 1200) }}
+    <button onClick={() => { copyWithToast(text, 'Text'); setDone(true); setTimeout(() => setDone(false), 1200) }}
       style={{ fontSize: 12, fontFamily: MONO, color: done ? C.success : C.orange, background: 'transparent', border: `1px solid ${done ? C.success : C.orange}`, padding: '4px 12px', borderRadius: 100, cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s' }}>
       {done ? '✓ Copied' : label}
     </button>
@@ -134,7 +135,7 @@ export function AIListingHelperTab() {
             <SectionTitle right={<CopyBtn text={r.tags.join(', ')} label={`Copy all ${r.tags.length}`} />}>Tags ({r.tags.length}/13)</SectionTitle>
             <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
               {r.tags.map(t => (
-                <button key={t} onClick={() => navigator.clipboard?.writeText(t)} title="Click to copy"
+                <button key={t} onClick={() => copyWithToast(t, 'Tag')} title="Click to copy"
                   style={{ fontSize: 12.5, fontFamily: MONO, color: C.orange, background: C.orangeFaint, border: `1px solid rgba(251,94,9,0.22)`, padding: '5px 12px', borderRadius: 100, cursor: 'pointer', transition: 'all 0.15s' }}
                   onMouseEnter={e => { e.currentTarget.style.background = C.orange; e.currentTarget.style.color = '#fff' }}
                   onMouseLeave={e => { e.currentTarget.style.background = C.orangeFaint; e.currentTarget.style.color = C.orange }}>

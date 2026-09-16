@@ -104,7 +104,13 @@ export interface KeywordStats {
   googleCpcHigh?: number | null
   /** ISO code of the Ads account currency the CPC figures are in (e.g. "USD", "PKR"). null unless Google Ads is configured. */
   googleCurrency?: string | null
+  /** Why Google numbers may be missing: 'quota' = daily Google Ads limit hit, 'error' = Google failed. */
+  googleStatus?: GoogleDataStatus
+  /** ISO time Google data resumes (quota only). */
+  googleRetryAt?: string | null
 }
+
+export type GoogleDataStatus = 'ok' | 'quota' | 'error' | 'unconfigured'
 
 // ─── Google Keyword Ideas (generateKeywordIdeas) ──────────────────────────────
 // Google-SUGGESTED keywords for a seed - genuine discovery, not a lookup of terms
@@ -124,6 +130,9 @@ export interface KeywordIdeasResponse {
   /** ISO code the CPC figures are in (Ads account currency). null when unknown. */
   currency: string | null
   ideas: KeywordIdea[]
+  /** Why ideas may be empty (see GoogleDataStatus). */
+  googleStatus?: GoogleDataStatus
+  googleRetryAt?: string | null
 }
 
 // ─── Search Results Analysis (all derived from the sampled live listings) ─────
@@ -461,6 +470,8 @@ export interface TrendsPayload {
   market: ListingMarketStats | null
   googleAvailable: boolean
   note: string
+  googleStatus?: GoogleDataStatus
+  googleRetryAt?: string | null
 }
 
 // ─── Snapshots (our own history - Etsy returns state, never a series) ─────────

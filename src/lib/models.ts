@@ -313,6 +313,24 @@ const AppSettingSchema = new Schema<IAppSetting>({
   bool: { type: Boolean, default: false },
 }, { timestamps: true })
 
+// ─── Google Ads cache (shared across every user + PM2 worker) ───────────────────
+// Google Ads Basic Access allows 15,000 operations/day for the WHOLE app, so every
+// Keyword Planner answer is stored here and reused. `key` is e.g.
+// "m|2840|wedding dress" (metrics per geo), "i|US|wedding dress" (keyword ideas),
+// "currency", or "__quota__" (daily-quota lockout shared by all workers).
+// Planner data is monthly, so reuse is safe; old docs age out after 180 days.
+export interface IGoogleAdsCacheDoc extends Document {
+  key: string
+  data: unknown
+  fetchedAt: Date
+}
+const GoogleAdsCacheSchema = new Schema<IGoogleAdsCacheDoc>({
+  key:       { type: String, required: true, unique: true },
+  data:      { type: Schema.Types.Mixed, default: null },
+  fetchedAt: { type: Date, required: true, default: () => new Date() },
+})
+GoogleAdsCacheSchema.index({ fetchedAt: 1 }, { expireAfterSeconds: 180 * 86400 })
+
 // ─── Blog ──────────────────────────────────────────────────────────────────────
 const BlogSchema = new Schema<IBlog>({
   title:          { type: String, required: true, trim: true, maxlength: 200 },
@@ -491,6 +509,8 @@ export interface IChatMessageDoc extends Document {
   attachmentKind?: 'image' | 'file' | null
   readByUser: boolean
   readByAdmin: boolean
+  // Set when the admin edits a message they sent (shown as "edited").
+  editedAt?: Date | null
   createdAt?: Date
 }
 const ChatMessageSchema = new Schema<IChatMessageDoc>({
@@ -506,6 +526,7 @@ const ChatMessageSchema = new Schema<IChatMessageDoc>({
   attachmentKind: { type: String, enum: ['image', 'file', null], default: null },
   readByUser:  { type: Boolean, default: false },
   readByAdmin: { type: Boolean, default: false },
+  editedAt:    { type: Date, default: null },
 }, { timestamps: true })
 ChatMessageSchema.index({ userId: 1, createdAt: 1 })
 
@@ -658,6 +679,7 @@ export const AutomationRun = (models.AutomationRun as mongoose.Model<IAutomation
 export const Blog          = (models.Blog as mongoose.Model<IBlog>) ?? model<IBlog>('Blog', BlogSchema)
 export const Deal          = (models.Deal as mongoose.Model<IDeal>) ?? model<IDeal>('Deal', DealSchema)
 export const PopupAd       = (models.PopupAd as mongoose.Model<IPopupAd>) ?? model<IPopupAd>('PopupAd', PopupAdSchema)
+export const GoogleAdsCache = (models.GoogleAdsCache as mongoose.Model<IGoogleAdsCacheDoc>) ?? model<IGoogleAdsCacheDoc>('GoogleAdsCache', GoogleAdsCacheSchema)
 export const AppSetting     = (models.AppSetting as mongoose.Model<IAppSetting>) ?? model<IAppSetting>('AppSetting', AppSettingSchema)
 export const ShopSnapshot    = models.ShopSnapshot    ?? model<IShopSnapshot>('ShopSnapshot', ShopSnapshotSchema)
 export const ListingSnapshot = models.ListingSnapshot ?? model<IListingSnapshot>('ListingSnapshot', ListingSnapshotSchema)

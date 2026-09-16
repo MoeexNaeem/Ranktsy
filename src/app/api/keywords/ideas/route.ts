@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
-import { googleKeywordIdeas, googleAccountCurrency, isGoogleAdsConfigured, normalizeGeo } from '@/lib/google-ads'
+import { googleKeywordIdeas, googleAccountCurrency, isGoogleAdsConfigured, normalizeGeo, googleStatusOf, type GoogleMetricsMeta } from '@/lib/google-ads'
 import { guardSearch } from '@/lib/searchGate'
 import type { ApiResponse, KeywordIdeasResponse } from '@/types'
 
@@ -26,10 +26,10 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
   }
 
   if (!isGoogleAdsConfigured()) {
-    return NextResponse.json({ success: true, data: { seed: query, currency: null, ideas: [] } })
+    return NextResponse.json({ success: true, data: { seed: query, currency: null, ideas: [], googleStatus: 'unconfigured' } })
   }
 
-  const key    = cacheKey('kwideas', 'v1', geo, query)
+  const key    = cacheKey('kwideas', 'v2', geo, query)
   const cached = memCache.get<KeywordIdeasResponse>(key)
   if (cached) return NextResponse.json({ success: true, data: cached, cached: true })
 
@@ -37,13 +37,17 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
   if (gate) return gate
 
   try {
-    const [ideas, currency] = await Promise.all([googleKeywordIdeas(query, geo), googleAccountCurrency()])
+    const gmeta: GoogleMetricsMeta = {}
+    const [ideas, currency] = await Promise.all([googleKeywordIdeas(query, geo, 40, gmeta), googleAccountCurrency()])
     // Highest real demand first - the actionable order for discovery.
     ideas.sort((a, b) => (b.searches ?? 0) - (a.searches ?? 0))
     // GoogleIdea.competition is a raw string from the API; the response type
     // narrows it to the LOW/MEDIUM/HIGH/UNSPECIFIED union the client renders.
-    const data: KeywordIdeasResponse = { seed: query, currency, ideas: ideas as KeywordIdeasResponse['ideas'] }
-    memCache.set(key, data, CACHE_TTL.KEYWORD)
+    const data: KeywordIdeasResponse = {
+      seed: query, currency, ideas: ideas as KeywordIdeasResponse['ideas'],
+      googleStatus: googleStatusOf(gmeta), googleRetryAt: gmeta.retryAt ?? null,
+    }
+    memCache.set(key, data, gmeta.failed && !ideas.length ? 90 : CACHE_TTL.KEYWORD)
     return NextResponse.json({ success: true, data })
   } catch (e) {
     console.error('[Keywords/ideas] failed:', e)

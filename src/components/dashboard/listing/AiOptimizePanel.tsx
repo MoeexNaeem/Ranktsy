@@ -15,6 +15,7 @@ import { C } from '@/utils'
 import { Card, SectionTitle, MONO, primaryBtn, GenNote } from '../kit'
 import { busyRetry, busyRetryDelay, useWaitPhase } from '@/lib/ai/busy'
 import type { ApiResponse, AiOptimization, AiSuggestion, EtsyListing } from '@/types'
+import { copyWithToast } from '@/components/ui/toast'
 
 interface Finding { label: string; status: 'pass' | 'warn' | 'fail'; detail: string }
 
@@ -29,7 +30,7 @@ function CopyBtn({ text, label = 'Copy', copied, onCopied }: {
 }) {
   return (
     <button
-      onClick={() => { navigator.clipboard?.writeText(text); onCopied() }}
+      onClick={() => { copyWithToast(text, 'Text'); onCopied() }}
       style={{
         fontSize: 12, fontFamily: MONO, fontWeight: 600, cursor: 'pointer',
         color: copied ? C.paper : C.orange, background: copied ? C.orange : C.orangeFaint,

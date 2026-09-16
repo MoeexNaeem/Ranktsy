@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { Card, SectionTitle } from '../kit'
 import { C, D } from '@/utils'
+import { toast, pushToast } from '@/components/ui/toast'
 
 /**
  * "Send to Etsy" - pushes the generated listing to the seller's connected shop as
@@ -72,7 +73,7 @@ export function SendToEtsy({ title, description, tags, price }: {
         title, description, tags, price: priceNum,
         quantity: parseInt(qty, 10) || 1, taxonomyId: Number(taxonomyId), type, whoMade,
       })
-      if (!data.success || !data.data) { setError(data.error || 'Upload failed.'); return }
+      if (!data.success || !data.data) { setError(data.error || 'Upload failed.'); toast.error('Send to Etsy failed', data.error || 'Upload failed.'); return }
       const listingId: number = data.data.listingId
 
       // Step 2 - attach the seller's photos to that draft (one multipart request).
@@ -92,9 +93,12 @@ export function SendToEtsy({ title, description, tags, price }: {
         }
       }
       setResult({ url: data.data.url, photoCount, photoNote })
+      if (photoNote) toast.warning('Draft created, photos missing', photoNote)
+      else pushToast({ title: 'Draft created on Etsy', body: photoCount ? `With ${photoCount} photo${photoCount > 1 ? 's' : ''}. Review and publish it in Etsy.` : 'Review and publish it in Etsy.', kind: 'success', actionLabel: 'Open in Etsy', onClick: () => window.open(data.data.url, '_blank', 'noopener') })
     } catch (e) {
       const msg = axios.isAxiosError(e) ? (e.response?.data?.error as string) : ''
       setError(msg || 'Upload failed. Please try again.')
+      toast.error('Send to Etsy failed', msg || 'Upload failed. Please try again.')
     } finally {
       setBusy(false); setPhase('')
     }

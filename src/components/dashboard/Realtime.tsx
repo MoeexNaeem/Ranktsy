@@ -16,7 +16,7 @@ import { ChatAttachmentView } from '@/components/ui/ChatAttachmentView'
 
 interface Notif { id: string; type: string; title: string; body: string | null; link: string | null; createdAt: string | null; read: boolean }
 interface ChatMsg {
-  id: string; userId: string; sender: 'user' | 'admin'; body: string; createdAt: string | null
+  id: string; userId: string; sender: 'user' | 'admin'; body: string; createdAt: string | null; editedAt?: string | null
   attachmentUrl?: string | null; attachmentName?: string | null; attachmentType?: string | null
   attachmentSize?: number | null; attachmentKind?: 'image' | 'file' | null
 }
@@ -86,6 +86,7 @@ export function RealtimeProvider({ isAdmin, children }: { isAdmin: boolean; chil
     const r = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body }) })
     const j = await r.json().catch(() => null)
     if (j?.success) setChatMessages(m => [...m, j.data.message])
+    else throw new Error(j?.error || 'Message not sent. Please try again.')
   }, [])
 
   const uploadChat = useCallback(async (file: File): Promise<{ ok: boolean; error?: string }> => {
@@ -224,7 +225,13 @@ export function ChatWidget() {
     } finally { setSending(false) }
   }
 
-  useEffect(() => { if (open) loadChat() }, [open, loadChat])
+  // While open, refresh periodically so support edits/deletes show up without reopening.
+  useEffect(() => {
+    if (!open) return
+    loadChat()
+    const t = setInterval(loadChat, 10_000)
+    return () => clearInterval(t)
+  }, [open, loadChat])
   useEffect(() => { if (open && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, [chatMessages, open])
   // Clicking a "new reply" toast opens this widget.
   useEffect(() => {
@@ -239,7 +246,9 @@ export function ChatWidget() {
     const b = text.trim()
     if (!b || sending) return
     setSending(true); setText('')
-    try { await sendChat(b) } finally { setSending(false) }
+    try { await sendChat(b) }
+    catch (e) { setText(b); errorToast('Message not sent', e instanceof Error ? e.message : 'Please try again.') }
+    finally { setSending(false) }
   }
 
   return (
@@ -263,7 +272,7 @@ export function ChatWidget() {
                   )}
                   {m.body && <span style={{ padding: m.attachmentKind === 'image' ? '2px 8px 4px' : 0 }}>{m.body}</span>}
                 </div>
-                <p style={{ fontSize: 10.5, color: C.stone, fontFamily: MONO, marginTop: 3, textAlign: m.sender === 'user' ? 'right' : 'left' }}>{relTime(m.createdAt)}</p>
+                <p style={{ fontSize: 10.5, color: C.stone, fontFamily: MONO, marginTop: 3, textAlign: m.sender === 'user' ? 'right' : 'left' }}>{m.editedAt ? 'edited · ' : ''}{relTime(m.createdAt)}</p>
               </div>
             ))}
           </div>

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { C } from '@/utils'
 import { PASSWORD_RULES, isAllowedEmailDomain, EMAIL_DOMAIN_MESSAGE } from '@/lib/auth/schemas'
 import { Recaptcha, RECAPTCHA_ENABLED } from '@/components/security/Recaptcha'
+import { toast, AUTH_TOAST_KEY } from '@/components/ui/toast'
 
 type FormType = 'login' | 'register' | 'forgot' | 'verify-otp' | 'reset'
 interface Field { name: string; label: string; type: string; placeholder: string }
@@ -43,6 +44,7 @@ function MicrosoftLogo() {
 function OAuthButton({ provider, label, redirect }: { provider: 'google' | 'microsoft'; label: string; redirect: string }) {
   return (
     <a href={`/api/auth/oauth/${provider}?redirect=${encodeURIComponent(redirect)}`}
+      onClick={() => { try { sessionStorage.setItem(AUTH_TOAST_KEY, 'oauth') } catch { /* storage blocked */ } }}
       style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:10, width:'100%', border:`1px solid ${C.hair}`, background:'#fff', borderRadius:28, padding:'12px 14px', fontSize:14.5, fontWeight:500, color:C.ink, textDecoration:'none', fontFamily:'inherit', transition:'background 0.15s' }}
       onMouseEnter={e => (e.currentTarget.style.background = C.bone)}
       onMouseLeave={e => (e.currentTarget.style.background = '#fff')}>
@@ -162,6 +164,10 @@ function AuthFormInner({ type, email: initEmail, onNext, providers, cohort }: { 
   const sebtRegisterHref = isSebt ? '/register/sebtnext' : '/register'
   const sebtLoginHref    = isSebt ? '/login/sebtnext' : '/login'
 
+  useEffect(() => {
+    if (oauthMsg) toast.error('Sign-in failed', oauthMsg)
+  }, [oauthMsg])
+
   const [values,  setValues]  = useState<Record<string,string>>(initEmail ? { email: initEmail } : {})
   const [errors,  setErrors]  = useState<Record<string,string>>({})
   const [loading, setLoading] = useState(false)
@@ -229,17 +235,30 @@ function AuthFormInner({ type, email: initEmail, onNext, providers, cohort }: { 
       const json = await res.json()
       if (!json.success) {
         setErrors(json.errors ?? { _: json.error ?? 'Something went wrong' })
+        const firstFieldErr = json.errors ? Object.values(json.errors as Record<string, string>)[0] : ''
+        toast.error(
+          type === 'login' ? 'Login failed' : type === 'register' ? 'Sign up failed' : type === 'verify-otp' ? 'Code not verified' : type === 'reset' ? 'Password not reset' : 'Request failed',
+          json.error || firstFieldErr || 'Something went wrong. Please try again.',
+        )
         // The captcha token is single-use and was already spent server-side, so
         // reset the widget for the next attempt - no page refresh needed.
         if (needsCaptcha) { setCaptcha(''); setCaptchaKey(k => k + 1) }
         return
       }
-      if (type === 'login' || type === 'register') { router.push(redirect); router.refresh(); return }
-      if (type === 'forgot')     { setSuccess('OTP sent! Check your inbox.'); onNext?.(values.email); return }
-      if (type === 'verify-otp') { setSuccess('Code verified!'); onNext?.(initEmail ?? ''); return }
-      if (type === 'reset')      { setSuccess('Password reset! Redirecting to login...'); setTimeout(() => router.push('/login'), 2000) }
+      if (type === 'login') {
+        toast.success('Welcome back!', isSebt ? 'Logged in to your SEBT Enterprise account.' : 'You are logged in to Rankkw.')
+        router.push(redirect); router.refresh(); return
+      }
+      if (type === 'register') {
+        toast.success('Account created', isSebt ? 'Enterprise is unlocked free for 7 days. Welcome to Rankkw!' : 'Welcome to Rankkw! Let’s grow your Etsy shop.')
+        router.push(redirect); router.refresh(); return
+      }
+      if (type === 'forgot')     { setSuccess('OTP sent! Check your inbox.'); toast.success('Code sent', 'Check your inbox for the 6-digit code.'); onNext?.(values.email); return }
+      if (type === 'verify-otp') { setSuccess('Code verified!'); toast.success('Code verified', 'Now choose a new password.'); onNext?.(initEmail ?? ''); return }
+      if (type === 'reset')      { setSuccess('Password reset! Redirecting to login...'); toast.success('Password reset', 'Log in with your new password.'); setTimeout(() => router.push('/login'), 2000) }
     } catch {
       setErrors({ _: 'Network error. Please try again.' })
+      toast.error('Network error', 'Check your connection and try again.')
       if (needsCaptcha) { setCaptcha(''); setCaptchaKey(k => k + 1) }
     }
     finally  { setLoading(false) }

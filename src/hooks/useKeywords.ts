@@ -49,7 +49,8 @@ export function useKeywordSearch(query: string, geo = 'US') {
       return data.data
     },
     enabled:     query.trim().length >= 2, // don't fetch on empty input
-    staleTime:   1000 * 60 * 30,           // 30 min - keyword data is stable
+    // 30 min - keyword data is stable; 1 min when Google couldn't answer, so volume fills in.
+    staleTime:   q => (googleGap((q.state.data as { stats?: unknown } | undefined)?.stats) ? 60_000 : 1000 * 60 * 30),
     gcTime:      1000 * 60 * 60,           // 1 hour in React Query cache
     // NOTE: intentionally NO placeholderData. Keeping the previous keyword's data
     // while a new one loads made the stats swap silently (numbers changed with no
@@ -61,6 +62,12 @@ export function useKeywordSearch(query: string, geo = 'US') {
 }
 
 // ─── useRelatedKeywords - the slow stage: one live search per keyword ─────────
+// True when a response says Google data was unavailable (daily quota / error).
+const googleGap = (d: unknown) => {
+  const st = (d as { googleStatus?: string } | undefined)?.googleStatus
+  return st === 'quota' || st === 'error'
+}
+
 export function useRelatedKeywords(query: string, geo = 'US') {
   return useQuery({
     queryKey: [...queryKeys.related(query), geo] as const,
@@ -130,7 +137,8 @@ export function useKeywordIdeas(query: string, geo = 'US') {
       return data.data
     },
     enabled:   query.trim().length >= 2,
-    staleTime: 1000 * 60 * 60,
+    // A Google quota/error response must not sit in the browser for an hour.
+    staleTime: q => (googleGap(q.state.data) ? 60_000 : 1000 * 60 * 60),
     gcTime:    1000 * 60 * 60,
     placeholderData: (prev) => prev,
     retry: dontRetry4xx,
@@ -147,7 +155,7 @@ export function useTrends(query: string, geo = 'US') {
       return data.data
     },
     enabled:   query.trim().length >= 2,
-    staleTime: 1000 * 60 * 60, // 1 hour
+    staleTime: q => (googleGap(q.state.data) ? 60_000 : 1000 * 60 * 60), // 1 hour, 1 min when Google was unavailable
   })
 }
 

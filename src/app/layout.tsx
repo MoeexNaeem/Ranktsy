@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Providers } from '@/lib/providers'
-import { Toaster }   from 'react-hot-toast'
+import { AppToaster } from '@/components/ui/toast'
 import { RefCapture } from '@/components/RefCapture'
 import { siteUrl }   from '@/lib/seo/site'
 import './globals.css'
@@ -52,7 +52,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <RefCapture />
           {children}
-          <Toaster position="bottom-right" toastOptions={{ style: { background: '#3D3E3B', color: '#FFFFFF', borderRadius: 999, fontSize: 13, fontFamily: 'General Sans, sans-serif' } }} />
+          <AppToaster />
         </Providers>
       </body>
     </html>

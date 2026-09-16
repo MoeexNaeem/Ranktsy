@@ -8,6 +8,7 @@ import { Card, StatCard, SectionTitle, ErrorBox, Loading, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import { C, formatNumber } from '@/utils'
 import type { AiFact } from '@/types'
+import { toast } from '@/components/ui/toast'
 
 const CUR: Record<string, string> = { USD: '$', GBP: '£', EUR: '€', CAD: 'C$', AUD: 'A$', NZD: 'NZ$' }
 const sym = (c?: string) => CUR[c ?? 'USD'] ?? (c ? c + ' ' : '$')
@@ -57,7 +58,9 @@ export function MyShopTab() {
       qc.invalidateQueries({ queryKey: ['etsy-shops'] })
       qc.invalidateQueries({ queryKey: ['etsy-insights'] })
       if (shopId === manualShopId) setManualShopId(null) // falls back to the new first shop
+      toast.success('Shop disconnected')
     },
+    meta: { errorTitle: 'Could not disconnect shop' },
   })
 
   const cur = useMemo(() => sym(data?.summary?.currency ?? data?.shop?.currency), [data])

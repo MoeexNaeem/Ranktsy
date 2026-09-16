@@ -23,7 +23,7 @@ import { getCollectivePackage } from '@/lib/collective-read'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { singleFlight } from '@/lib/concurrency'
 import { searchEtsyListingsPaged, buildKeywordStats, buildSearchAnalysis, warmTaxonomy } from '@/lib/etsy'
-import { googleKeywordMetrics, googleAccountCurrency, isGoogleAdsConfigured, type GoogleMetricsMeta } from '@/lib/google-ads'
+import { googleKeywordMetrics, googleAccountCurrency, isGoogleAdsConfigured, googleStatusOf, type GoogleMetricsMeta } from '@/lib/google-ads'
 import type { KeywordSearchResponse } from '@/types'
 
 // v9: core/related now carry Google competition + CPC (account currency), not just
@@ -86,6 +86,10 @@ export async function getKeywordCore(query: string, geo = 'US'): Promise<Keyword
   return singleFlight(key, () => computeKeywordCore(query, geo, key))
 }
 
+// A failed lookup that still produced numbers (served from the stored Google cache)
+// is good enough to cache normally.
+const g_has = (m: Map<string, unknown>, q: string) => m.has(q.toLowerCase())
+
 async function computeKeywordCore(query: string, geo: string, key: string): Promise<KeywordSearchResponse> {
   // Re-check the cache inside the flight - an earlier coalesced call may have
   // just populated it.
@@ -119,6 +123,8 @@ async function computeKeywordCore(query: string, geo: string, key: string): Prom
         shared.stats.googleCpcHigh          = g.cpcHigh
       }
       shared.stats.googleCurrency = currency
+      shared.stats.googleStatus = googleStatusOf(gmeta)
+      shared.stats.googleRetryAt = gmeta.retryAt ?? null
       // Only cache long-term once the backfill actually succeeded.
       memCache.set(key, shared, gmeta.failed ? 120 : CACHE_TTL.KEYWORD)
       return shared
@@ -158,7 +164,9 @@ async function computeKeywordCore(query: string, geo: string, key: string): Prom
   if (isGoogleAdsConfigured()) {
     const gmeta: GoogleMetricsMeta = {}
     const [metrics, currency] = await Promise.all([googleKeywordMetrics([query], geo, gmeta), googleAccountCurrency()])
-    googleFailed = !!gmeta.failed
+    googleFailed = !!gmeta.failed && !g_has(metrics, query)
+    data.stats.googleStatus = googleStatusOf(gmeta)
+    data.stats.googleRetryAt = gmeta.retryAt ?? null
     const g = metrics.get(query)
     if (g) {
       data.stats.googleSearches         = g.searches ?? null

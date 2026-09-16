@@ -5,6 +5,7 @@ import { Card, SectionTitle, SearchBar, EmptyState, GenNote, GenSkeleton, MONO }
 import { C, D } from '@/utils'
 import { genFetch, busyRetry, busyRetryDelay, useWaitPhase } from '@/lib/ai/busy'
 import type { AiTitleResult, AiTitleItem } from '@/types'
+import { copyWithToast } from '@/components/ui/toast'
 
 function Chip({ children }: { children: React.ReactNode }) {
   return (
@@ -23,7 +24,7 @@ function CopyBtn({ text }: { text: string }) {
   const [done, setDone] = useState(false)
   return (
     <button
-      onClick={() => { navigator.clipboard?.writeText(text); setDone(true); setTimeout(() => setDone(false), 1200) }}
+      onClick={() => { copyWithToast(text, 'Text'); setDone(true); setTimeout(() => setDone(false), 1200) }}
       style={{ border: `1px solid ${done ? D.good : C.ash}`, background: done ? D.goodBg : C.paper, color: done ? D.good : C.orange, borderRadius: 100, padding: '6px 15px', fontSize: 13, fontWeight: 500, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}>
       {done ? 'Copied ✓' : 'Copy'}
     </button>

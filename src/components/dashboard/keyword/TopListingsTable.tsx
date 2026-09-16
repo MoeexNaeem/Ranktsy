@@ -8,6 +8,7 @@ import { ListingDetailPanel } from './ListingDetailPanel'
 import { C, D, formatNumber } from '@/utils'
 import { MONO, tableCard } from '../kit'
 import type { EtsyListing, ListingReviewStats } from '@/types'
+import { copyWithToast } from '@/components/ui/toast'
 
 // Real columns are exact Etsy fields (or a ratio of two): Age, Views, Favs/View,
 // Hearts, Reviews, Price, Qty… The Est. Sales / Revenue columns are the Everbee-
@@ -362,14 +363,14 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
                       Tags ({r.l.tags?.length ?? 0})
                     </span>
                     {(r.l.tags?.length ?? 0) > 0 && (
-                      <button onClick={e => { e.stopPropagation(); navigator.clipboard?.writeText((r.l.tags ?? []).join(', ')) }}
+                      <button onClick={e => { e.stopPropagation(); copyWithToast((r.l.tags ?? []).join(', '), 'Tags') }}
                         style={{ ...ctrlBtn, height: 28, fontSize: 11.5 }}>Copy Tags</button>
                     )}
                   </div>
                   {(r.l.tags?.length ?? 0) > 0 ? (
                     <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
                       {(r.l.tags ?? []).map(t => (
-                        <span key={t} onClick={e => { e.stopPropagation(); navigator.clipboard?.writeText(t) }}
+                        <span key={t} onClick={e => { e.stopPropagation(); copyWithToast(t, 'Tag') }}
                           title="Click to copy"
                           style={{ fontSize: 12, fontFamily: MONO, color: C.ink, background: C.paper, border: `1px solid ${C.ash}`, padding: '5px 11px', borderRadius: 100, cursor: 'pointer' }}>
                           {t}

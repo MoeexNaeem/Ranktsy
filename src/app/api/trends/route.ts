@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { searchEtsyListingsPaged, buildTrendData, buildListingSupplyByMonth, buildListingMarketStats } from '@/lib/etsy'
-import { googleKeywordMetrics, countriesForGeo, isGoogleAdsConfigured, normalizeGeo } from '@/lib/google-ads'
+import { googleKeywordMetrics, countriesForGeo, isGoogleAdsConfigured, normalizeGeo, googleStatusOf, type GoogleMetricsMeta } from '@/lib/google-ads'
 import { guardSearch } from '@/lib/searchGate'
 import { getCollectivePackage } from '@/lib/collective-read'
 import { withUsage } from '@/lib/track'
@@ -38,7 +38,10 @@ async function getHandler(req: NextRequest) {
   // Shared Collective store first - trends are geo-specific, so look up this geo's
   // saved package; if it carries trends, serve them with no Etsy/Google calls.
   const shared = await getCollectivePackage(query, geo)
-  if (shared?.trends) {
+  // A package saved while Google was failing has no Google series/countries; don't
+  // serve that blank forever - recompute (Google answers come from its own cache).
+  const sharedHasGoogle = !isGoogleAdsConfigured() || (shared?.trends?.googleAvailable && (shared.trends.countries?.length ?? 0) > 0)
+  if (shared?.trends && sharedHasGoogle) {
     memCache.set(key, shared.trends, CACHE_TTL.TRENDING)
     return NextResponse.json({ success: true, data: shared.trends, cached: true })
   }
@@ -54,11 +57,12 @@ async function getHandler(req: NextRequest) {
     // Searchers by Country - always the full breakdown (like eRank), with the
     // selected country flagged so the UI can highlight it and scale the Etsy-search
     // estimate to that country's real share of Google demand.
-    const countries: CountryData[] = await countriesForGeo(query, geo)
+    const gmeta: GoogleMetricsMeta = {}
+    const countries: CountryData[] = await countriesForGeo(query, geo, gmeta)
 
     let googleAvailable = false
     if (isGoogleAdsConfigured()) {
-      const metrics = await googleKeywordMetrics([query], geo)
+      const metrics = await googleKeywordMetrics([query], geo, gmeta)
       const monthly = metrics.get(query)?.monthly ?? []
       if (monthly.length) {
         // Google returns the trailing 12 months oldest→newest; label them as
@@ -84,8 +88,11 @@ async function getHandler(req: NextRequest) {
       note: googleAvailable
         ? 'Search-volume seasonality is real Google Ads monthly data. Etsy publishes no search volume.'
         : 'Etsy publishes no search volume or history, so no Etsy demand curve is shown. “Listings created by month” is real, but reflects seller behaviour, not buyer demand.',
+      googleStatus: googleStatusOf(gmeta),
+      googleRetryAt: gmeta.retryAt ?? null,
     }
-    memCache.set(key, data, CACHE_TTL.TRENDING)
+    // Never cache a Google failure for hours: retry soon so real numbers fill in.
+    memCache.set(key, data, gmeta.failed && !googleAvailable ? 90 : CACHE_TTL.TRENDING)
     return NextResponse.json({ success: true, data })
   } catch (err) {
     console.error('[Trends] Etsy API error:', err)

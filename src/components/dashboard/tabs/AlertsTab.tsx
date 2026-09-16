@@ -7,6 +7,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { C, D, formatNumber } from '@/utils'
 import { Card, SectionTitle, EmptyState, MONO } from '../kit'
+import { toast } from '@/components/ui/toast'
 
 interface Alert {
   id: string; keyword: string; country: string
@@ -36,12 +37,16 @@ export function AlertsTab() {
     try {
       const r = await fetch('/api/alerts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keyword: k, country: 'GLO' }) })
       const j = await r.json()
-      if (r.ok && j?.success) { setKw(''); load() } else setNote(j?.error || 'Could not add.')
-    } catch { setNote('Network error.') } finally { setBusy(false) }
+      if (r.ok && j?.success) { setKw(''); load(); toast.success('Alert added', `We’ll notify you when “${k}” moves.`) }
+      else { setNote(j?.error || 'Could not add.'); toast.error('Alert not added', j?.error || 'Please try again.') }
+    } catch { setNote('Network error.'); toast.error('Alert not added', 'Network error. Please try again.') } finally { setBusy(false) }
   }
   const remove = async (id: string) => {
     setItems(x => x ? x.filter(a => a.id !== id) : null)
-    try { await fetch(`/api/alerts/${id}`, { method: 'DELETE' }) } catch { /* ignore */ }
+    try {
+      const r = await fetch(`/api/alerts/${id}`, { method: 'DELETE' })
+      if (r.ok) toast.success('Alert removed'); else { toast.error('Alert not removed', 'Please try again.'); load() }
+    } catch { toast.error('Alert not removed', 'Network error. Please try again.'); load() }
   }
 
   const field: React.CSSProperties = { flex: 1, minWidth: 0, border: `1px solid ${C.ash}`, borderRadius: 10, background: C.canvas, color: C.ink, fontSize: 14, fontFamily: 'inherit', padding: '10px 13px', outline: 'none' }
