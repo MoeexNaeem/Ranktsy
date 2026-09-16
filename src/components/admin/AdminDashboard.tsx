@@ -25,7 +25,12 @@ interface AUser {
 }
 type ConfirmAction = { user: AUser; kind: 'delete' | 'restrict' | 'unrestrict' }
 const isRealPaid = (u: AUser) => u.paidViaLemonSqueezy && u.plan !== 'free'
-interface Stats { total: number; admins: number; verified: number; searches: number }
+interface Stats {
+  total: number; admins: number; verified: number; searches: number
+  paying: number; newThisWeek: number
+  signups: { label: string; value: number }[]
+  planDist: { plan: string; value: number }[]
+}
 
 interface TrackStats {
   trackedListings: number
@@ -86,20 +91,8 @@ const timeAgo = (d: string | null) => {
   const days = Math.floor((Date.now() - new Date(d).getTime()) / 86400000)
   return days <= 0 ? 'today' : days === 1 ? '1d ago' : days < 30 ? `${days}d ago` : `${Math.floor(days / 30)}mo ago`
 }
-const dayKeyLocal = (d: Date) => d.toISOString().slice(0, 10)
-
-// Time-reading kept in plain module functions (not the component render body) so
-// the render-purity lint stays happy - same pattern as timeAgo/fmtDate above.
-function countNewThisWeek(users: { createdAt: string | null }[]): number {
-  const cutoff = Date.now() - 7 * 86400000
-  return users.filter(u => u.createdAt && new Date(u.createdAt).getTime() >= cutoff).length
-}
-function buildSignups(users: { createdAt: string | null }[]): { label: string; value: number }[] {
-  const days = Array.from({ length: 14 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (13 - i)); return d })
-  const counts = new Map(days.map(d => [dayKeyLocal(d), 0]))
-  users.forEach(u => { if (u.createdAt) { const k = dayKeyLocal(new Date(u.createdAt)); if (counts.has(k)) counts.set(k, (counts.get(k) ?? 0) + 1) } })
-  return days.map(d => ({ label: d.toLocaleDateString('en-US', { day: 'numeric' }), value: counts.get(dayKeyLocal(d)) ?? 0 }))
-}
+// New-signups-per-week and the 14-day signups series are now computed server-side
+// (see /api/admin/users → stats), so the client no longer needs the full user list.
 
 const selectStyle: React.CSSProperties = {
   background: C.canvas, border: `1px solid ${C.hair}`, borderRadius: 100, padding: '6px 10px',
@@ -139,6 +132,10 @@ export function AdminDashboard() {
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState('')
   const [usersPage, setUsersPage] = useState(1)
+  const [usersTotal, setUsersTotal] = useState(0)
+  const [usersPageCount, setUsersPageCount] = useState(1)
+  const [usersLoading, setUsersLoading] = useState(false)
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [usagePage, setUsagePage] = useState(1)
   const [extPage, setExtPage] = useState(1)
   const [userQuery, setUserQuery] = useState('')
@@ -152,15 +149,28 @@ export function AdminDashboard() {
   const [live, setLive] = useState(false)          // auto-refresh toggle
   const [lastSync, setLastSync] = useState<Date | null>(null)
 
+  // Users list is server-paginated + searched (the Overview stats it also returns
+  // are computed server-side, so opening the admin never loads every user).
+  const loadUsers = useCallback(async (page: number, q: string) => {
+    setUsersLoading(true)
+    try {
+      const r = await fetch(`/api/admin/users?page=${page}&limit=${USERS_PAGE_SIZE}&q=${encodeURIComponent(q)}`)
+      if (r.status === 401) { window.location.href = '/login?redirect=/admin'; return }
+      if (r.status === 403) { setState('forbidden'); return }
+      const d = await r.json().catch(() => null)
+      if (r.ok && d?.success) {
+        setUsers(d.data.users)
+        setStats(d.data.stats)
+        setPromoOn(!!d.data.freeToProPromo)
+        setUsersTotal(d.data.matched ?? d.data.stats?.total ?? 0)
+        setUsersPageCount(d.data.pageCount ?? 1)
+        setState('ok')
+      } else setState('error')
+    } catch { setState('error') } finally { setUsersLoading(false) }
+  }, [])
+
   const load = useCallback(async () => {
     await Promise.all([
-      fetch('/api/admin/users').then(async r => {
-        if (r.status === 401) { window.location.href = '/login?redirect=/admin'; return }
-        if (r.status === 403) { setState('forbidden'); return }
-        const d = await r.json().catch(() => null)
-        if (r.ok && d?.success) { setUsers(d.data.users); setStats(d.data.stats); setPromoOn(!!d.data.freeToProPromo); setState('ok') }
-        else setState('error')
-      }).catch(() => setState('error')),
       fetch('/api/admin/usage').then(async r => {
         const d = await r.json().catch(() => null)
         if (r.ok && d?.success) setUsage(d.data)
@@ -176,17 +186,26 @@ export function AdminDashboard() {
     ])
     setLastSync(new Date())
   }, [])
-  // load() only setState's after awaiting fetches (never synchronously in the effect).
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load() }, [load])
 
+  // Debounce the user search box, and reset to page 1 when the term changes.
+  useEffect(() => {
+    const t = setTimeout(() => { setDebouncedQuery(userQuery.trim()); setUsersPage(1) }, 350)
+    return () => clearTimeout(t)
+  }, [userQuery])
+
+  // (Re)load the users page on mount and whenever the page or search changes.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void loadUsers(usersPage, debouncedQuery) }, [loadUsers, usersPage, debouncedQuery])
+
   // Manual refresh (spins the icon) and an optional 30s live auto-refresh.
-  const refresh = useCallback(async () => { setRefreshing(true); await load(); setRefreshing(false) }, [load])
+  const refresh = useCallback(async () => { setRefreshing(true); await Promise.all([load(), loadUsers(usersPage, debouncedQuery)]); setRefreshing(false) }, [load, loadUsers, usersPage, debouncedQuery])
   useEffect(() => {
     if (!live) return
-    const t = setInterval(() => { void load() }, 30000)
+    const t = setInterval(() => { void load(); void loadUsers(usersPage, debouncedQuery) }, 30000)
     return () => clearInterval(t)
-  }, [live, load])
+  }, [live, load, loadUsers, usersPage, debouncedQuery])
 
   // Keep the Messages nav badge current: poll the unread support-message count.
   useEffect(() => {
@@ -203,10 +222,10 @@ export function AdminDashboard() {
     const d = await r.json().catch(() => null)
     if (r.ok && d?.success) {
       setUsers(us => us.map(u => u.id === id ? { ...u, ...patch } : u))
-      if ('plan' in patch) load()
+      if ('plan' in patch) loadUsers(usersPage, debouncedQuery)
     }
     setBusy(null)
-  }, [load])
+  }, [loadUsers, usersPage, debouncedQuery])
 
   const callPromo = useCallback(async (body: { enabled?: boolean; refresh?: boolean }) => {
     setPromoBusy(true); setPromoMsg('')
@@ -217,23 +236,21 @@ export function AdminDashboard() {
         setPromoOn(d.data.enabled)
         if (body.enabled === false) setPromoMsg('Promo turned off.')
         else setPromoMsg(`${d.data.affected} free user${d.data.affected === 1 ? '' : 's'} converted to Pro.`)
-        load()
+        loadUsers(usersPage, debouncedQuery)
       } else setPromoMsg(d?.error || 'Failed.')
     } catch { setPromoMsg('Failed.') }
     setPromoBusy(false)
     setTimeout(() => setPromoMsg(''), 6000)
-  }, [load])
+  }, [loadUsers, usersPage, debouncedQuery])
 
   const deleteUser = useCallback(async (u: AUser) => {
     setBusy(u.id); setErr('')
     const r = await fetch(`/api/admin/users/${u.id}`, { method: 'DELETE' })
     const d = await r.json().catch(() => null)
-    if (r.ok && d?.success) {
-      setUsers(us => us.filter(x => x.id !== u.id))
-      setStats(s => s ? { ...s, total: s.total - 1, admins: s.admins - (u.role === 'admin' ? 1 : 0), verified: s.verified - (u.isVerified ? 1 : 0) } : s)
-    } else setErr(d?.error || 'Delete failed')
+    if (r.ok && d?.success) await loadUsers(usersPage, debouncedQuery)   // refresh page + stats
+    else setErr(d?.error || 'Delete failed')
     setBusy(null)
-  }, [])
+  }, [loadUsers, usersPage, debouncedQuery])
 
   const runConfirmed = useCallback(async () => {
     if (!confirmAction) return
@@ -243,7 +260,9 @@ export function AdminDashboard() {
     else await patchUser(u.id, { restricted: kind === 'restrict' })
   }, [confirmAction, deleteUser, patchUser])
 
-  const sortedUsers = useMemo(() => {
+  // The list is already the server-returned page, ordered newest-first; sort only
+  // within the page so paying customers surface at the top of what's shown.
+  const usersPageRows = useMemo(() => {
     const t = (d: string | null) => (d ? new Date(d).getTime() : 0)
     return [...users].sort((a, b) => {
       const pa = isRealPaid(a) ? 1 : 0, pb = isRealPaid(b) ? 1 : 0
@@ -253,19 +272,8 @@ export function AdminDashboard() {
       return t(b.createdAt) - t(a.createdAt)
     })
   }, [users])
-  const paidCount = useMemo(() => users.filter(isRealPaid).length, [users])
-  const newThisWeek = useMemo(() => countNewThisWeek(users), [users])
-  const filteredUsers = useMemo(() => {
-    const q = userQuery.trim().toLowerCase()
-    if (!q) return sortedUsers
-    return sortedUsers.filter(u =>
-      u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || u.id.toLowerCase().includes(q))
-  }, [sortedUsers, userQuery])
-  const usersPageCount = Math.max(1, Math.ceil(filteredUsers.length / USERS_PAGE_SIZE))
-  const usersPageRows = useMemo(
-    () => filteredUsers.slice((usersPage - 1) * USERS_PAGE_SIZE, usersPage * USERS_PAGE_SIZE),
-    [filteredUsers, usersPage],
-  )
+  const paidCount = stats?.paying ?? 0
+  const newThisWeek = stats?.newThisWeek ?? 0
   const copyId = useCallback((id: string) => {
     navigator.clipboard?.writeText(id).then(() => {
       setCopiedId(id); setTimeout(() => setCopiedId(c => (c === id ? null : c)), 1400)
@@ -284,13 +292,13 @@ export function AdminDashboard() {
     [extRows, extPage],
   )
 
-  // ─── Overview derived series ────────────────────────────────────────────────
-  const signups = useMemo(() => buildSignups(users), [users])
+  // ─── Overview derived series (computed server-side, mapped for the charts) ───
+  const signups = stats?.signups ?? []
   const planDist = useMemo(() => {
     const counts: Record<string, number> = {}
-    users.forEach(u => { counts[u.plan] = (counts[u.plan] ?? 0) + 1 })
+    for (const p of stats?.planDist ?? []) counts[p.plan] = p.value
     return PLAN_ORDER.filter(p => counts[p]).map(p => ({ label: PLAN_LABEL[p] ?? p, value: counts[p], color: PLAN_HUE[p] ?? C.stone }))
-  }, [users])
+  }, [stats])
 
   // ─── Loading / gate states ──────────────────────────────────────────────────
   const gate = (children: React.ReactNode) => (
@@ -421,7 +429,7 @@ export function AdminDashboard() {
 
           {section === 'users' && (
             <div>
-              <SectionTitle right={err ? <span style={{ fontSize: 12, color: C.danger }}>{err}</span> : <span style={{ fontSize: 11, fontFamily: MONO, color: '#808080' }}>{userQuery.trim() ? `${exact(filteredUsers.length)} match${filteredUsers.length === 1 ? '' : 'es'}` : `${exact(paidCount)} paying · ${exact(users.length)} total`} · page {usersPage}/{usersPageCount}</span>}>All users</SectionTitle>
+              <SectionTitle right={err ? <span style={{ fontSize: 12, color: C.danger }}>{err}</span> : <span style={{ fontSize: 11, fontFamily: MONO, color: '#808080' }}>{debouncedQuery ? `${exact(usersTotal)} match${usersTotal === 1 ? '' : 'es'}` : `${exact(paidCount)} paying · ${exact(stats?.total ?? 0)} total`} · page {usersPage}/{usersPageCount}{usersLoading ? ' · …' : ''}</span>}>All users</SectionTitle>
 
               <div style={{ position: 'relative', marginBottom: 12, maxWidth: 420 }}>
                 <span aria-hidden style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: '#8a8a82', pointerEvents: 'none', display: 'flex' }}><Icon name="search" size={13} color="#8a8a82" /></span>
