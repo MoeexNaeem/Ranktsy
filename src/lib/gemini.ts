@@ -25,30 +25,39 @@ const imageLimiter = createLimiter(Number(process.env.GEMINI_IMAGE_CONCURRENCY ?
 // cheaper and faster than images, so the default is higher. Tune with GEMINI_TEXT_CONCURRENCY.
 const textLimiter = createLimiter(Number(process.env.GEMINI_TEXT_CONCURRENCY ?? 8))
 
-// One or more API keys. The key was first uploaded under the non-standard name
-// `Gemini_API_KEY`; accept the conventional GEMINI_API_KEY too. A SECOND key
-// (GEMINI_SECONDARY_API_KEY) - or any number via a comma-separated
-// GEMINI_API_KEYS - lets us spread load across keys and fail over when one is
-// rate-limited, so a busy moment on a single key doesn't surface as "Generation
-// failed". Duplicates and blanks are dropped; order is primary-first.
+// One or more API keys, AUTO-DISCOVERED so adding a key is pure config.
+// Included: GEMINI_API_KEY / Gemini_API_KEY (primaries), GEMINI_SECONDARY_API_KEY,
+// the comma-separated GEMINI_API_KEYS (expanded), and ANY other env var whose name
+// starts with GEMINI_API_KEY / Gemini_API_KEY (e.g. _Second, _2, _Third). Spreading
+// load across keys with round-robin + failover means a busy/rate-limited key no
+// longer surfaces as "Generation failed". Blanks/dupes dropped; order primary-first.
+// (AUTOMATION_GEMINI_API_KEY is intentionally NOT matched - it stays isolated.)
 function geminiKeys(): string[] {
-  const raw = [
-    process.env.GEMINI_API_KEY,
-    process.env.Gemini_API_KEY,
-    process.env.GEMINI_SECONDARY_API_KEY,
-    ...(process.env.GEMINI_API_KEYS?.split(',') ?? []),
-  ]
   const seen = new Set<string>()
   const keys: string[] = []
-  for (const k of raw) {
-    const t = (k ?? '').trim()
-    if (t && !seen.has(t)) { seen.add(t); keys.push(t) }
+  const add = (v?: string | null) => { const t = (v ?? '').trim(); if (t && !seen.has(t)) { seen.add(t); keys.push(t) } }
+
+  add(process.env.GEMINI_API_KEY)
+  add(process.env.Gemini_API_KEY)
+  add(process.env.GEMINI_SECONDARY_API_KEY)
+  for (const [name, val] of Object.entries(process.env)) {
+    if (!val || !/^gemini_api_key/i.test(name)) continue
+    if (/^gemini_api_keys$/i.test(name)) { for (const p of val.split(',')) add(p); continue } // the list var
+    add(val)   // GEMINI_API_KEY / Gemini_API_KEY (already added, deduped) + any _Second/_2/…
   }
   return keys
 }
 
 export function isGeminiConfigured(): boolean {
   return geminiKeys().length > 0
+}
+
+/** How many Gemini keys are configured (for admin health / diagnostics). */
+export function geminiKeyPoolSize(): number { return geminiKeys().length }
+
+{
+  const _n = geminiKeys().length
+  if (_n > 1) console.log(`[Gemini] key pool: ${_n} keys (spread + failover across them).`)
 }
 
 // Round-robin so successive requests START on different keys - this spreads

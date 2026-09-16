@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin } from '@/lib/auth/roles'
 import { connectDB } from '@/lib/db'
 import { etsyKeyPoolSize, probeEtsyKeys } from '@/lib/etsy'
-import { isGeminiConfigured } from '@/lib/gemini'
+import { isGeminiConfigured, geminiKeyPoolSize } from '@/lib/gemini'
 import { isGoogleAdsConfigured } from '@/lib/google-ads'
 import { isRecaptchaConfigured } from '@/lib/recaptcha'
 import type { FlowSystem } from '@/lib/codeflow/graph'
@@ -71,7 +71,7 @@ export async function GET(): Promise<NextResponse<ApiResponse<{ systems: Record<
     auth:  { status: env('JWT_SECRET') && env('JWT_REFRESH_SECRET') ? 'ok' : 'down', required: true,
              detail: env('JWT_SECRET') && env('JWT_REFRESH_SECRET') ? 'secrets set' : 'JWT secrets missing' },
     etsy:  etsyHealth,
-    gemini:       { status: isGeminiConfigured()   ? 'ok' : 'off', required: false, detail: isGeminiConfigured()   ? 'configured' : 'no key - AI tools dormant' },
+    gemini:       { status: isGeminiConfigured()   ? 'ok' : 'off', required: false, detail: isGeminiConfigured()   ? `${geminiKeyPoolSize()} key${geminiKeyPoolSize() === 1 ? '' : 's'} in pool` : 'no key - AI tools dormant' },
     google:       { status: isGoogleAdsConfigured()? 'ok' : 'off', required: false, detail: isGoogleAdsConfigured()? 'configured' : 'no key - search volume blank' },
     openai:       { status: env('OPENAI_API_KEY')  ? 'ok' : 'off', required: false, detail: env('OPENAI_API_KEY')  ? 'configured' : 'no key - Listing Pro image off' },
     lemonsqueezy: { status: lsOk                    ? 'ok' : 'off', required: false, detail: lsOk ? 'configured' : 'checkout/webhook keys missing' },
