@@ -475,3 +475,15 @@ svg  { max-width: 100%; }
   .hiw-track { height: auto !important; }
   .hiw-stage { position: static !important; min-height: 0 !important; padding-top: 96px !important; padding-bottom: 96px !important; }
 }
+
+/* ── Toasts (goey-toast) ──────────────────────────────────────────────────────
+   The library's defaults are small (12px title, 13px body) and easy to miss in a
+   dense dashboard. Scale the type, icon and action button up so a toast reads at a
+   glance. The blob sizes itself from the measured DOM, so it grows with the text. */
+.gooey-title { font-size: 15px !important; line-height: 1.2 !important; padding-bottom: 3px !important; }
+.gooey-description { font-size: 14px !important; line-height: 1.55 !important; color: #3D3E3B !important; }
+.gooey-header { gap: 10px !important; }
+.gooey-iconWrapper { width: 22px !important; height: 22px !important; }
+.gooey-iconWrapper svg { width: 22px !important; height: 22px !important; }
+.gooey-actionButton { font-size: 14px !important; padding: 11px 22px !important; }
+.gooey-closeButton { width: 26px !important; height: 26px !important; }

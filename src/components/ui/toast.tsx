@@ -35,10 +35,10 @@ export function AppToaster() {
 
   return (
     <GooeyToaster
-      position="top-right"
+      position="bottom-right"
       preset="smooth"
-      gap={12}
-      offset="24px"
+      gap={14}
+      offset="28px"
       closeOnEscape
       showTimestamp={false}
       maxQueue={6}

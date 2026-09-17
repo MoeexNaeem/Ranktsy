@@ -369,22 +369,35 @@ export function DashboardLayout() {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             </button>
             <NotificationBell />
-            {credits && (
-              <span className="rdash-badge" data-tour="credits" title={`${formatNumber(credits.credits)} of ${formatNumber(credits.limit)} daily credits left · 10 per tool use · resets midnight UTC`}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, background: C.paper, color: C.ink, padding: '6px 12px', borderRadius: 999, fontFamily: "'General Sans',monospace", border: `1px solid ${credits.credits <= 0 ? C.orange : C.ash}`, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={credits.credits <= 0 ? C.orange : C.charcoal} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                {formatNumber(credits.credits)}<span style={{ color: C.stone, fontWeight: 500 }}>/{formatNumber(credits.limit)}</span>
-              </span>
-            )}
-            {planInfo && (
-              <span className="rdash-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11.5, background: C.paper, color: C.ink, padding: '6px 13px', borderRadius: 999, fontFamily: "'General Sans',monospace", border: `1px solid ${C.ash}`, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: planInfo.plan === 'free' ? C.stone : C.orange }} />
-                {/plan$/i.test(planInfo.label) ? planInfo.label : `${planInfo.label} plan`}
-              </span>
-            )}
+            {credits && (() => {
+              // Exact counts (2,500 / 2,500). An abbreviated "2.5K" hides whether a
+              // user has 2,500 or 2,549 left, which is the number they came to check.
+              const out = credits.credits <= 0
+              const low = !out && credits.credits <= credits.limit * 0.2
+              const tone = out ? C.danger : low ? '#B45309' : C.ink
+              return (
+                <span className="rdash-badge" data-tour="credits" title={`${credits.credits.toLocaleString('en-US')} of ${credits.limit.toLocaleString('en-US')} daily credits left · 10 per tool use · resets midnight UTC`}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, background: out ? C.dangerBg : low ? '#FFF7E6' : C.paper, color: tone, padding: '9px 15px', borderRadius: 999, fontFamily: "'General Sans',monospace", border: `1.5px solid ${out ? C.danger : low ? '#F2D8A7' : C.ash}`, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1 }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={tone} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  {credits.credits.toLocaleString('en-US')}
+                  <span style={{ color: C.graphite, fontWeight: 600 }}>/ {credits.limit.toLocaleString('en-US')}</span>
+                  <span style={{ color: C.graphite, fontWeight: 600, fontSize: 13 }}>credits</span>
+                </span>
+              )
+            })()}
+            {planInfo && (() => {
+              const paid = planInfo.plan !== 'free'
+              return (
+                <span className="rdash-badge" title={`You are on the ${planInfo.label} plan`}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, background: paid ? C.orangeFaint : C.paper, color: paid ? '#9A3A05' : C.ink, padding: '9px 16px', borderRadius: 999, fontFamily: "'General Sans',monospace", border: `1.5px solid ${paid ? 'rgba(251,94,9,0.45)' : C.ash}`, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1 }}>
+                  <span style={{ width: 9, height: 9, borderRadius: '50%', background: paid ? C.orange : C.stone, flexShrink: 0 }} />
+                  {/plan$/i.test(planInfo.label) ? planInfo.label : `${planInfo.label} plan`}
+                </span>
+              )
+            })()}
             {planInfo && !['business', 'agency', 'enterprise', 'custom'].includes(planInfo.plan) && (
               <button data-tour="upgrade" onClick={() => triggerUpgrade({ title: 'Upgrade your plan', message: 'Unlock higher daily limits, Etsy Listing Pro images and more with a paid plan.' })}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, background: C.orange, color: '#fff', padding: '7px 15px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 700, background: C.orange, color: '#fff', padding: '9px 18px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
                 onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
                 Upgrade
               </button>
