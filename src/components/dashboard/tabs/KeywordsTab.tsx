@@ -635,7 +635,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
       </div>
 
       {/* Measured monthly market activity from our own snapshot tracking (eHunt-style). */}
-      {kw && <MarketActivityPanel query={kw.query} />}
+      {kw && <MarketActivityPanel query={kw.query} analysis={kw.analysis} />}
 
       {/* Difficulty + the Google volume / competition / CPC detail. */}
       <div data-tour="kw-kd" className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 12, alignItems: 'stretch' }}>

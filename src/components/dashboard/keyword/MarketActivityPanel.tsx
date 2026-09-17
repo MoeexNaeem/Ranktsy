@@ -12,6 +12,8 @@ import { Card, SectionTitle, MONO } from '../kit'
 import { Sparkline, type SparkPoint } from '@/components/charts/pro'
 import { C, formatNumber } from '@/utils'
 import type { KeywordMarketHistory } from '@/lib/snapshots'
+import { SampledStatsGrid } from './SampledStats'
+import type { SearchAnalysis } from '@/types'
 
 type MetricKey = 'views' | 'favorites' | 'sales' | 'reviews'
 const METRICS: { key: MetricKey; label: string; color: string }[] = [
@@ -26,7 +28,7 @@ const fmtDay = (d: string) => {
   return new Date(Date.UTC(Number(y), Number(m) - 1, Number(day))).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export function MarketActivityPanel({ query }: { query: string }) {
+export function MarketActivityPanel({ query, analysis }: { query: string; analysis?: SearchAnalysis }) {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['kw-market', query],
     queryFn: async () => (await axios.get(`/api/keywords/market-history?q=${encodeURIComponent(query)}`)).data.data as KeywordMarketHistory,
@@ -56,6 +58,24 @@ export function MarketActivityPanel({ query }: { query: string }) {
             Measured monthly views, favorites, sales and reviews appear here as our tracking accrues for the listings that rank for &ldquo;{query}&rdquo;. The more they are seen, the richer this gets, and it is real data, never an estimate of search volume.
           </p>
         </div>
+      )}
+
+      {/* Sampled stats from the listings ranking right now. Shown above the tracked
+          metrics and labelled separately, so a sampled figure is never mistaken for
+          one of our own day-over-day measurements. */}
+      {analysis && analysis.listingsAnalyzed > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <p style={{ fontSize: 11.5, fontFamily: MONO, fontWeight: 600, color: C.stone, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 9px' }}>
+            Top {analysis.listingsAnalyzed} listings ranking now
+          </p>
+          <SampledStatsGrid analysis={analysis} />
+        </div>
+      )}
+
+      {analysis && analysis.listingsAnalyzed > 0 && !isLoading && data && data.measuredListings > 0 && (
+        <p style={{ fontSize: 11.5, fontFamily: MONO, fontWeight: 600, color: C.stone, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 9px' }}>
+          Measured day over day
+        </p>
       )}
 
       {!isLoading && data && data.measuredListings > 0 && (

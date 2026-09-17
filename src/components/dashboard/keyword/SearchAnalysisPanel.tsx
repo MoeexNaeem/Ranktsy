@@ -4,25 +4,14 @@ import { HistogramBars, type BarDatum } from '@/components/charts/pro'
 import { TagCloud } from '@/components/charts/TagCloud'
 import { Card, SectionTitle, EmptyState, MONO } from '../kit'
 import { Shimmer } from '../skeletons'
-import { C, D, formatNumber } from '@/utils'
+import { C, D } from '@/utils'
 import type { SearchAnalysis } from '@/types'
+import { SampledStatsCard } from './SampledStats'
 
 const CUR: Record<string, string> = { USD: '$', GBP: '£', EUR: '€', CAD: 'C$', AUD: 'A$' }
 const sym = (c?: string) => CUR[c ?? 'USD'] ?? (c ? c + ' ' : '$')
 
 // ─── Top metric strip ────────────────────────────────────────────────────────
-function Metric({ label, value, hint, color = C.ink, last }: {
-  label: string; value: string; hint?: string; color?: string; last?: boolean
-}) {
-  return (
-    <div style={{ flex: '1 1 130px', minWidth: 118, padding: '4px 18px 4px 0', borderRight: last ? 'none' : `1px solid ${C.hair}` }}>
-      <p style={{ fontSize: 11.5, fontFamily: MONO, fontWeight: 500, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 9 }}>{label}</p>
-      <p style={{ fontSize: 30, fontWeight: 500, color, letterSpacing: '-0.03em', lineHeight: 1 }}>{value}</p>
-      {hint && <p style={{ fontSize: 11.5, color: C.stone, marginTop: 6 }}>{hint}</p>}
-    </div>
-  )
-}
-
 export const SearchAnalysisPanel = memo(function SearchAnalysisPanel({
   analysis, onSelectTag,
 }: { analysis?: SearchAnalysis; onSelectTag?: (tag: string) => void }) {
@@ -60,20 +49,8 @@ export const SearchAnalysisPanel = memo(function SearchAnalysisPanel({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* Metric strip */}
-      <Card>
-        <div className="rwrap-sm" style={{ display: 'flex', flexWrap: 'wrap', gap: '22px 0' }}>
-          <Metric label="Listings Analyzed" value={formatNumber(a.listingsAnalyzed)} hint="live sample" />
-          {/* Median leads, not the mean: a handful of collector-priced pieces drags
-              the average far above what a typical listing actually sells for. */}
-          <Metric label="Median Price" value={`${cur}${a.medianPrice.toFixed(2)}`} hint={`avg ${cur}${a.averagePrice.toFixed(2)} · ${a.priceSample} of ${a.listingsAnalyzed} in ${a.currency}`} color={C.orange} />
-          <Metric label="Average Hearts" value={formatNumber(a.averageHearts)} hint="favorites / listing" color={D.hard} />
-          <Metric label="Total Views"    value={formatNumber(a.totalViews)} hint="lifetime, sampled" color="#2E6DB4" />
-          <Metric label="Avg. Views"     value={formatNumber(a.avgViews)} hint="per listing" color="#2E6DB4" />
-          <Metric label="Avg. Daily Views"  value={a.avgDailyViews != null ? a.avgDailyViews.toFixed(2) : '-'} hint={a.avgDailyViews != null ? 'views / day' : 'no listing dates'} color={D.good} />
-          <Metric label="Avg. Weekly Views" value={a.avgWeeklyViews != null ? a.avgWeeklyViews.toFixed(2) : '-'} hint={a.avgWeeklyViews != null ? 'views / week' : 'no listing dates'} color={D.good} last />
-        </div>
-      </Card>
+      {/* Sampled market stats (shared with Market Activity) */}
+      <SampledStatsCard analysis={a} />
 
       {/* Tags + categories */}
       <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 12, alignItems: 'start' }}>
