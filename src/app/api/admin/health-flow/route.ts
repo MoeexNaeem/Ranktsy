@@ -3,7 +3,7 @@ import mongoose from 'mongoose'
 import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin } from '@/lib/auth/roles'
 import { connectDB } from '@/lib/db'
-import { etsyKeyPoolSize, probeEtsyKeys } from '@/lib/etsy'
+import { etsyKeyPoolSize, probeEtsyKeys, etsyEndpointUsage } from '@/lib/etsy'
 import { isGeminiConfigured, geminiKeyPoolSize } from '@/lib/gemini'
 import { isGoogleAdsConfigured, googleAdsStatus } from '@/lib/google-ads'
 import { isRecaptchaConfigured } from '@/lib/recaptcha'
@@ -57,8 +57,17 @@ export async function GET(): Promise<NextResponse<ApiResponse<{ systems: Record<
   const probes = etsyKeys > 0 ? await probeEtsyKeys().catch(() => []) : []
   const goodKeys = probes.filter(p => p.ok).length
   const badKeys = probes.filter(p => !p.ok)
+  // A 429 is Etsy's DAILY quota (10k/day per key), not a broken key: say so plainly.
+  const quotaKeys = badKeys.filter(b => b.status === 429)
+  const reset = probes.map(p => p.retryAt).filter((x): x is string => !!x).sort()[0]
+  const usage = etsyEndpointUsage(4).map(u => `${u.endpoint} ${u.calls}`).join(', ')
+  const quotaNote = quotaKeys.length
+    ? `daily Etsy limit reached on key ${quotaKeys.map(q => `#${q.index}`).join(', ')}${reset ? ` (resets ~${reset.slice(11, 16)} UTC)` : ''} - add more Etsy app keys or ask Etsy for a higher limit${usage ? `; top endpoints (this worker): ${usage}` : ''}`
+    : ''
   const etsyHealth: SystemHealth =
     etsyKeys === 0 ? { status: 'down', required: true, detail: 'no Etsy key configured' }
+    : quotaKeys.length && quotaKeys.length === badKeys.length
+      ? { status: goodKeys === 0 ? 'down' : 'off', required: true, detail: goodKeys === 0 ? `all keys out of quota: ${quotaNote}` : `${goodKeys}/${etsyKeys} keys ok; ${quotaNote}` }
     : probes.length === 0 ? { status: 'ok', required: true, detail: `${etsyKeys} key${etsyKeys === 1 ? '' : 's'} (probe skipped)` }
     : goodKeys === 0 ? { status: 'down', required: true, detail: `all ${etsyKeys} keys failing (${badKeys.map(b => `#${b.index}:${b.status ?? 'err'}`).join(', ')})` }
     : badKeys.length > 0 ? { status: 'down', required: true, detail: `key ${badKeys.map(b => `#${b.index} (${b.status ?? 'err'})`).join(', ')} failing - fix or remove it; ${goodKeys}/${etsyKeys} ok` }

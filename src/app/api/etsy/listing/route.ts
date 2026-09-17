@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     // Cache + coalesce: Listing Audit, Compare Listings and Spell Checker all pull
     // listings by id. Not-found (null) is never cached, so a listing that later
     // goes active isn't stuck as missing.
-    const listing = await cachedFlight(cacheKey('etsylisting', 'v1', String(id)), CACHE_TTL.SHOP, () => getListingById(id))
+    const listing = await cachedFlight(cacheKey('etsylisting', 'v2', String(id)), CACHE_TTL.KEYWORD, () => getListingById(id))
     if (!listing) return NextResponse.json({ success: false, error: 'Listing not found or inactive' }, { status: 404 })
     return NextResponse.json({ success: true, data: listing })
   } catch (err: unknown) {

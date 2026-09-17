@@ -12,6 +12,7 @@
  */
 import { recordShopSnapshots, recordListingSnapshots, recordShopSnapshot, getKeywordTrendsBatch } from '@/lib/snapshots'
 import { recordEtsyCall } from '@/lib/usage'
+import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import type {
   EtsyListing, EtsyShop, KeywordData,
   KeywordSearchResponse, TrendData, CountryData,
@@ -55,7 +56,7 @@ if (!ETSY_API_KEY && process.env.NODE_ENV === 'production') {
 // "keystring:sharedsecret" (or just "keystring" if that app has no shared secret):
 //   ETSY_API_KEYS="keyB:secretB,keyC:secretC"
 // The primary ETSY_API_KEY is always first. Blanks and duplicates are dropped.
-interface EtsyKey { header: string; lastCallAt: number; gate: Promise<void> }
+interface EtsyKey { header: string; lastCallAt: number; gate: Promise<void>; blockedUntil: number }
 
 function buildKeyPool(): EtsyKey[] {
   const seen = new Set<string>()
@@ -87,11 +88,39 @@ function buildKeyPool(): EtsyKey[] {
     const sec = idx === -1 ? ''    : entry.slice(idx + 1)
     if (ks.trim()) add(keyHeader(ks, sec))
   }
-  return headers.map(header => ({ header, lastCallAt: 0, gate: Promise.resolve() }))
+  return headers.map(header => ({ header, lastCallAt: 0, gate: Promise.resolve(), blockedUntil: 0 }))
 }
 
 const KEY_POOL: EtsyKey[] = buildKeyPool()
 if (KEY_POOL.length > 1) console.log(`[Etsy] key pool: ${KEY_POOL.length} keys (public throughput ~${KEY_POOL.length}× one key).`)
+
+// ─── Daily quota lockout + usage by endpoint ──────────────────────────────────
+// Each Etsy key allows ~10,000 requests/DAY. When Etsy answers 429 "Exceeded daily
+// rate limit" (Retry-After is hours), that key is locked until its reset instead of
+// being retried. Retrying it (and sleeping the multi-hour Retry-After inside a user
+// request) turned one exhausted key into a retry storm of 250k+ calls/day and
+// requests that hung for hours.
+export class EtsyQuotaError extends Error {
+  constructor(readonly retryAt: number) {
+    super(`Etsy's daily API limit has been reached. Etsy data resumes around ${new Date(retryAt).toISOString().slice(11, 16)} UTC.`)
+  }
+}
+
+/** Keys currently locked out for the day (index is 1-based), for the admin health view. */
+export function etsyKeyLocks(): { index: number; blockedUntil: string }[] {
+  const now = Date.now()
+  return KEY_POOL.map((k, i) => ({ index: i + 1, until: k.blockedUntil }))
+    .filter(k => k.until > now)
+    .map(k => ({ index: k.index, blockedUntil: new Date(k.until).toISOString() }))
+}
+
+// Requests per Etsy endpoint since this worker started (ids normalised), so the
+// heaviest consumer of the daily quota is visible in the admin health view.
+const endpointCounts = new Map<string, number>()
+const endpointOf = (path: string) => path.replace(/\/\d+/g, '/{id}').replace(/\?.*$/, '')
+export function etsyEndpointUsage(top = 8): { endpoint: string; calls: number }[] {
+  return [...endpointCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, top).map(([endpoint, calls]) => ({ endpoint, calls }))
+}
 
 /** How many Etsy public-call keys are configured. 0 = misconfigured (all Etsy tools down). */
 export function etsyKeyPoolSize(): number { return KEY_POOL.length }
@@ -102,12 +131,16 @@ export function etsyKeyPoolSize(): number { return KEY_POOL.length }
  * fails ~half of all Etsy requests. Returns per-key ok/status. Spends one Etsy
  * call per key, so this is only for the admin health check, never the hot path.
  */
-export async function probeEtsyKeys(): Promise<{ index: number; ok: boolean; status: number | null }[]> {
+export async function probeEtsyKeys(): Promise<{ index: number; ok: boolean; status: number | null; retryAt?: string | null }[]> {
   const url = `${ETSY_BASE}/listings/active?limit=1`
   return Promise.all(KEY_POOL.map(async (k, i) => {
+    // A key already locked for the day needs no probe (it would only fail again).
+    if (k.blockedUntil > Date.now()) return { index: i + 1, ok: false, status: 429, retryAt: new Date(k.blockedUntil).toISOString() }
     try {
       const res = await fetch(url, { headers: { 'x-api-key': k.header, Accept: 'application/json' }, cache: 'no-store' })
-      return { index: i + 1, ok: res.ok, status: res.status }
+      const ra = Number(res.headers.get('retry-after'))
+      if (res.status === 429 && Number.isFinite(ra) && ra > 60) k.blockedUntil = Date.now() + ra * 1000
+      return { index: i + 1, ok: res.ok, status: res.status, retryAt: res.status === 429 && ra > 0 ? new Date(Date.now() + ra * 1000).toISOString() : null }
     } catch {
       return { index: i + 1, ok: false, status: null }
     }
@@ -156,10 +189,17 @@ async function etsyFetch<T = unknown>(path: string, params?: Record<string, stri
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const key = n ? pool[(start + attempt) % n] : null
+    // Skip keys locked out for the day. If every key is locked, fail fast.
+    if (key && key.blockedUntil > Date.now()) {
+      if (pool.every(k => k.blockedUntil > Date.now())) throw new EtsyQuotaError(Math.min(...pool.map(k => k.blockedUntil)))
+      continue
+    }
     // No key at all (misconfig): fall back to the primary header so the error is
     // Etsy's real 401/403, not a silent hang.
     await (key ? rateGate(key) : Promise.resolve())
     recordEtsyCall()   // attribute every Etsy HTTP request (incl. retries) to the caller
+    const ep = endpointOf(path)
+    endpointCounts.set(ep, (endpointCounts.get(ep) ?? 0) + 1)
     const res = await fetch(url.toString(), {
       headers: {
         'x-api-key': key ? key.header : ETSY_KEY_HEADER,
@@ -177,6 +217,18 @@ async function etsyFetch<T = unknown>(path: string, params?: Record<string, stri
 
     const text = await res.text().catch(() => res.statusText)
     lastErr = new Error(`Etsy API error ${res.status}: ${text}`)
+    const retryAfterSec = Number(res.headers.get('retry-after'))
+
+    // Daily quota exhausted on THIS key: lock it until Etsy's reset and move on.
+    if (res.status === 429 && key && (/daily/i.test(text) || (Number.isFinite(retryAfterSec) && retryAfterSec > 60))) {
+      const until = Date.now() + (Number.isFinite(retryAfterSec) && retryAfterSec > 0 ? retryAfterSec : 3600) * 1000
+      if (key.blockedUntil < Date.now()) {
+        console.warn(`[Etsy] key #${pool.indexOf(key) + 1}/${n} hit the DAILY rate limit - locked until ${new Date(until).toISOString()}`)
+      }
+      key.blockedUntil = until
+      if (pool.every(k => k.blockedUntil > Date.now())) throw new EtsyQuotaError(Math.min(...pool.map(k => k.blockedUntil)))
+      continue
+    }
 
     // 401/403 = this KEY is bad (invalid keystring, wrong/missing shared secret,
     // or the app lacks commercial access). With a pool, one bad key must NOT break
@@ -206,9 +258,10 @@ async function etsyFetch<T = unknown>(path: string, params?: Record<string, stri
     // immediately; only once we've cycled through every key do we back off.
     if (n > 1 && !cycledAllKeys && res.status === 429) continue
 
-    const retryAfter = Number(res.headers.get('retry-after')) * 1000
-    const backoff = Math.min(400 * 2 ** Math.max(0, attempt - Math.max(0, n - 1)), 4000)
-    await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : backoff)
+    // Short per-second throttle or 5xx: brief backoff only (never sleep for minutes
+    // inside a user request).
+    const backoff = Math.min(400 * 2 ** Math.max(0, attempt - Math.max(0, n - 1)), 3000)
+    await sleep(Number.isFinite(retryAfterSec) && retryAfterSec > 0 ? Math.min(retryAfterSec * 1000, 3000) : backoff)
   }
 
   throw lastErr ?? new Error('Etsy API error')
@@ -395,11 +448,66 @@ export async function checkKeywordRank(query: string, shopId: number, scan = 100
 
 // Fetch a single active listing by id (title, tags, description, price…) and
 // enrich it with images. Used by the Listing Audit tool.
+// ─── Single-listing loader (micro-batched) ────────────────────────────────────
+// The browser extension asks for one listing per Etsy card on the page, and the
+// naive version spent TWO Etsy calls each (/listings/{id} then /listings/batch for
+// images) - ~96 calls for one 48-card page, which drained the 10,000/day/key quota
+// within hours. Requests that arrive within a few ms are collected and answered by
+// ONE /listings/batch call (up to 100 ids, images + shop included), so the same
+// page costs a single call. Results are also memoised briefly so repeat cards on
+// the page are free.
+const LISTING_BATCH_WINDOW_MS = Number(process.env.ETSY_LISTING_BATCH_MS ?? 25)
+const LISTING_BATCH_MAX = 100
+interface PendingListing { id: number; resolve: (l: EtsyListing | null) => void; reject: (e: unknown) => void }
+let listingQueue: PendingListing[] = []
+let listingTimer: ReturnType<typeof setTimeout> | null = null
+
+async function flushListingBatch(): Promise<void> {
+  const batch = listingQueue.slice(0, LISTING_BATCH_MAX)
+  listingQueue = listingQueue.slice(LISTING_BATCH_MAX)
+  listingTimer = listingQueue.length ? setTimeout(() => { void flushListingBatch() }, LISTING_BATCH_WINDOW_MS) : null
+  if (!batch.length) return
+
+  const ids = [...new Set(batch.map(b => b.id))]
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = await etsyFetch<{ results: Record<string, any>[] }>('/listings/batch', {
+      listing_ids: ids.join(','),
+      includes:    'Images,Shop',
+    }, { noStore: true })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const byId = new Map<number, any>()
+    for (const r of data.results ?? []) byId.set(Number(r.listing_id), r)
+    for (const p of batch) {
+      const raw = byId.get(p.id)
+      if (!raw) { p.resolve(null); continue }
+      const listing = mapListing(raw)
+      const images: { url_570xN: string; url_75x75: string }[] = (raw.images ?? []).map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (img: any) => ({ url_570xN: img.url_570xN ?? '', url_75x75: img.url_75x75 ?? '' }),
+      )
+      p.resolve(images.length ? { ...listing, images } : listing)
+    }
+  } catch (e) {
+    for (const p of batch) p.reject(e)
+  }
+}
+
+/** One public listing by id. Concurrent callers share a single /listings/batch call. */
 export async function getListingById(id: number): Promise<EtsyListing | null> {
-  const data = await etsyFetch<Record<string, unknown>>(`/listings/${id}`)
-  if (!data || !data.listing_id) return null
-  const [enriched] = await attachImages([mapListing(data)])
-  return enriched ?? null
+  if (!Number.isFinite(id) || id <= 0) return null
+  const key = cacheKey('etsy-listing', 'v2', String(id))
+  const hit = memCache.get<EtsyListing | null>(key)
+  if (hit !== null && hit !== undefined) return hit
+
+  const listing = await new Promise<EtsyListing | null>((resolve, reject) => {
+    listingQueue.push({ id, resolve, reject })
+    if (!listingTimer) listingTimer = setTimeout(() => { void flushListingBatch() }, LISTING_BATCH_WINDOW_MS)
+    else if (listingQueue.length >= LISTING_BATCH_MAX) { clearTimeout(listingTimer); listingTimer = null; void flushListingBatch() }
+  })
+  // Etsy's caching policy allows listing content for up to 6 hours; 5 h keeps headroom.
+  if (listing) memCache.set(key, listing, CACHE_TTL.KEYWORD)
+  return listing
 }
 
 // ─── Keyword stats (derived from listing data) ────────────────────────────────

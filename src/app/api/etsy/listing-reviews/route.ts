@@ -8,6 +8,12 @@ export const runtime = 'nodejs'
 export const GET = withUsage(getHandler)
 
 const MAX_IDS = 100
+// Etsy has no batch reviews endpoint: every uncached listing costs one Etsy call,
+// and each key allows only ~10,000 a DAY. A single Etsy page with 48 product cards
+// would spend 48 of them, so one page view can drain the quota for everyone. Cached
+// ids are always returned; only this many NEW lookups happen per request, and the
+// rest simply come back unknown (the UI shows "-") and fill in on later views.
+const MAX_NEW_LOOKUPS = Math.max(1, Number(process.env.ETSY_REVIEWS_MAX_NEW) || 12)
 
 /**
  * Real review stats per listing - lifetime `count` (a verified units-sold floor)
@@ -35,7 +41,10 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Re
 
   // Fetch only the uncached ids. etsyFetch's internal rate gate serialises these,
   // so Promise.all here won't exceed Etsy's limit - it just avoids idle waiting.
-  await Promise.all(misses.map(async id => {
+  const fetchNow = misses.slice(0, MAX_NEW_LOOKUPS)
+  for (const id of misses.slice(MAX_NEW_LOOKUPS)) out[id] = { count: null, last30d: null }
+
+  await Promise.all(fetchNow.map(async id => {
     const stats = await getListingReviewStats(id)
     // Only cache a real lookup (count resolved). A total miss is left uncached so it
     // retries next time rather than being pinned as "-" for hours.

@@ -37,7 +37,8 @@ export function isGoogleAdsClientConfigured(): boolean {
 /** Who may see Connect Google Ads. Open to everyone only when GOOGLE_ADS_MANAGE_PUBLIC=true (after OAuth verification). */
 export function canUseGoogleAdsManager(user: AuthUser | null | undefined): boolean {
   if (!user || !isGoogleAdsClientConfigured()) return false
-  if (process.env.GOOGLE_ADS_MANAGE_PUBLIC === 'true') return true
+  // Tolerant: true / TRUE / yes / 1 / on (quotes and spaces ignored). Anything else keeps it gated.
+  if (/^(true|yes|1|on)$/i.test((process.env.GOOGLE_ADS_MANAGE_PUBLIC ?? '').trim().replace(/^["']|["']$/g, ''))) return true
   if (isAdmin(user)) return true
   const beta = (process.env.GOOGLE_ADS_BETA_EMAILS ?? '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
   return beta.includes(user.email.toLowerCase())
