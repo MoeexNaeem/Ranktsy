@@ -3,7 +3,7 @@ import { ImageResponse } from 'next/og'
 // Default social/preview card for every page that doesn't set its own. Previously
 // the whole site shipped no OG image, so shares and rich results had no thumbnail.
 export const runtime = 'nodejs'
-export const alt = 'Rankkw - Etsy Keyword Research & Analytics'
+export const alt = 'RankKW – Etsy SEO, Keyword Research, Product Research, Listing Optimization, Competitor Analysis & Seller Growth Tools'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 

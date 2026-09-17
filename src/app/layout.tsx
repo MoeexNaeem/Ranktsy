@@ -10,19 +10,19 @@ export const metadata: Metadata = {
   // cards and canonicals silently break.
   metadataBase: new URL(siteUrl()),
   title: {
-    default:  'Rankkw - Etsy SEO - Keyword Research & Analytics',
+    default:  'RankKW – Etsy SEO, Keyword Research, Product Research, Listing Optimization, Competitor Analysis & Seller Growth Tools',
     template: '%s',   // child pages set full titles themselves
   },
-  description: 'Data-driven keyword research, competition analysis, and trend tracking for Etsy sellers - measured from the official Etsy & Google APIs, never estimated.',
+  description: 'Etsy SEO toolkit for sellers: keyword research, product research, listing optimization, competitor analysis and seller growth tools, measured from live data, never estimated.',
   keywords:    ['Etsy SEO', 'Etsy keyword research', 'Etsy analytics', 'Etsy tags', 'Etsy competitor analysis'],
   applicationName: 'Rankkw',
   alternates:  { canonical: '/' },
   openGraph: {
-    title: 'Rankkw - Etsy SEO - Keyword Research & Analytics',
-    description: 'Real Etsy keyword data - search volume, competition and trends from the official APIs.',
+    title: 'RankKW – Etsy SEO, Keyword Research, Product Research, Listing Optimization, Competitor Analysis & Seller Growth Tools',
+    description: 'Etsy keyword research, product research, listing optimization and competitor analysis in one toolkit.',
     url: siteUrl(), siteName: 'Rankkw', type: 'website',
   },
-  twitter: { card: 'summary_large_image', title: 'Rankkw - Etsy SEO - Keyword Research', description: 'Real Etsy keyword data, not estimates.' },
+  twitter: { card: 'summary_large_image', title: 'RankKW – Etsy SEO, Keyword Research, Product Research, Listing Optimization, Competitor Analysis & Seller Growth Tools', description: 'Real Etsy keyword data, not estimates.' },
   robots: { index: true, follow: true },
   // Trustpilot one-time domain-verification tag. Renders:
   // <meta name="trustpilot-one-time-domain-verification-id" content="…">
