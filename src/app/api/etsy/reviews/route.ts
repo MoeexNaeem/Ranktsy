@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getShopReviews } from '@/lib/etsy'
 import { cachedFlight, cacheKey, CACHE_TTL } from '@/lib/cache'
+import { upstreamFailure } from '@/lib/upstream-errors'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
     const reviews = await cachedFlight(cacheKey('etsyreviews', 'v1', id, String(limit)), CACHE_TTL.SHOP, () => getShopReviews(id, limit))
     return NextResponse.json({ success: true, data: reviews })
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Etsy API error'
-    return NextResponse.json({ success: false, error: msg }, { status: 502 })
+    const fail = upstreamFailure(err)
+    return NextResponse.json({ success: false, error: fail.message }, { status: fail.status })
   }
 }

@@ -131,7 +131,7 @@ export function MonthlyTrendsTab() {
                 </SectionTitle>
                 <BarChart axis="x" height={240} labels={demand.labels} values={demand.values} colors={demand.colors} />
                 <p style={{ fontSize: 11.5, color: C.stone, marginTop: 8 }}>
-                  Real monthly search volume from the Keyword Planner. Etsy publishes no search volume of its own.
+                  Real monthly search volume, measured not estimated. Etsy publishes no search volume of its own.
                 </p>
               </Card>
             </>

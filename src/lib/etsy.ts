@@ -13,6 +13,7 @@
 import { recordShopSnapshots, recordListingSnapshots, recordShopSnapshot, getKeywordTrendsBatch } from '@/lib/snapshots'
 import { recordEtsyCall } from '@/lib/usage'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
+import { etsyCacheGet, etsyCacheSetMany } from '@/lib/etsy-cache'
 import type {
   EtsyListing, EtsyShop, KeywordData,
   KeywordSearchResponse, TrendData, CountryData,
@@ -102,7 +103,8 @@ if (KEY_POOL.length > 1) console.log(`[Etsy] key pool: ${KEY_POOL.length} keys (
 // requests that hung for hours.
 export class EtsyQuotaError extends Error {
   constructor(readonly retryAt: number) {
-    super(`Etsy's daily API limit has been reached. Etsy data resumes around ${new Date(retryAt).toISOString().slice(11, 16)} UTC.`)
+    // User-facing: no provider or quota wording. The real reason is in the logs.
+    super(`Marketplace data is temporarily unavailable. It should be back around ${new Date(retryAt).toISOString().slice(11, 16)} UTC.`)
   }
 }
 
@@ -488,6 +490,15 @@ async function flushListingBatch(): Promise<void> {
       )
       p.resolve(images.length ? { ...listing, images } : listing)
     }
+    // One batch answers many ids: cache them all for the next visitor.
+    etsyCacheSetMany(
+      [...byId.entries()].map(([lid, raw]) => {
+        const l = mapListing(raw)
+        const imgs = (raw.images ?? []).map((img: { url_570xN?: string; url_75x75?: string }) => ({ url_570xN: img.url_570xN ?? '', url_75x75: img.url_75x75 ?? '' }))
+        return { key: cacheKey('etsy-listing', 'v2', String(lid)), data: imgs.length ? { ...l, images: imgs } : l }
+      }),
+      CACHE_TTL.KEYWORD,
+    )
   } catch (e) {
     for (const p of batch) p.reject(e)
   }
@@ -497,8 +508,9 @@ async function flushListingBatch(): Promise<void> {
 export async function getListingById(id: number): Promise<EtsyListing | null> {
   if (!Number.isFinite(id) || id <= 0) return null
   const key = cacheKey('etsy-listing', 'v2', String(id))
-  const hit = memCache.get<EtsyListing | null>(key)
-  if (hit !== null && hit !== undefined) return hit
+  // Shared across every worker and restart (Mongo), so one fetch serves everyone.
+  const shared = await etsyCacheGet<EtsyListing>(key)
+  if (shared) return shared
 
   const listing = await new Promise<EtsyListing | null>((resolve, reject) => {
     listingQueue.push({ id, resolve, reject })
@@ -506,7 +518,7 @@ export async function getListingById(id: number): Promise<EtsyListing | null> {
     else if (listingQueue.length >= LISTING_BATCH_MAX) { clearTimeout(listingTimer); listingTimer = null; void flushListingBatch() }
   })
   // Etsy's caching policy allows listing content for up to 6 hours; 5 h keeps headroom.
-  if (listing) memCache.set(key, listing, CACHE_TTL.KEYWORD)
+  if (listing) etsyCacheSetMany([{ key, data: listing }], CACHE_TTL.KEYWORD)
   return listing
 }
 

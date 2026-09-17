@@ -285,7 +285,7 @@ export async function disconnect(userId: string): Promise<void> {
 export function adsErrorResponse(e: unknown): { status: number; error: string; code?: string } {
   if (e instanceof AdsNotConnectedError) return { status: 409, error: e.message, code: 'not_connected' }
   if (e instanceof GoogleAdsError) {
-    if (e.kind === 'quota') return { status: 503, error: 'Google Ads has paused requests for today (daily API limit). Please try again later.', code: 'quota' }
+    if (e.kind === 'quota') return { status: 503, error: 'Google Ads data is temporarily unavailable. Please try again later.', code: 'quota' }
     if (e.kind === 'auth') return { status: 403, error: e.message || 'Google Ads denied access to this account.', code: 'auth' }
     return { status: 400, error: e.message, code: e.kind }
   }

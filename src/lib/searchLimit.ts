@@ -1,16 +1,28 @@
 /**
  * Per-user search rate gate for the dashboard tools.
  *
- * Rule (from product): a user may run 25 searches within a rolling hour; the
- * 26th requires solving a reCAPTCHA to continue. Solving it clears the counter,
- * granting the next 25. This throttles bots/scrapers hammering the tools.
+ * Rule: a SIGNED-IN user may run SEARCH_LIMIT_USER searches within a rolling hour
+ * (default 150); anonymous/IP callers get SEARCH_LIMIT_ANON (default 25). Going over
+ * asks for a reCAPTCHA, and solving it clears the counter. The point is to stop bots
+ * and scrapers, not to interrupt real customers, so the signed-in limit is generous
+ * and tunable without a deploy (SEARCH_LIMIT_USER / SEARCH_LIMIT_ANON env vars).
  *
  * Storage is an in-process Map - fine for a single Node host (this app's setup).
  * If it ever runs multi-instance, back this with Redis/Mongo; the limit would
  * then just be enforced per-instance until then (fails safe, never over-blocks a
  * legitimate user beyond their own instance).
  */
-export const SEARCH_LIMIT = 25
+const envLimit = (name: string, fallback: number) => {
+  const n = Number(process.env[name])
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback
+}
+/** Signed-in users: generous, so normal research never hits a captcha. */
+export const SEARCH_LIMIT_USER = envLimit('SEARCH_LIMIT_USER', 150)
+/** Anonymous callers (by IP): tight, this is the bot surface. */
+export const SEARCH_LIMIT_ANON = envLimit('SEARCH_LIMIT_ANON', 25)
+/** Back-compat for callers that just want "the" limit. */
+export const SEARCH_LIMIT = SEARCH_LIMIT_USER
+const limitFor = (key: string) => (key.startsWith('u:') ? SEARCH_LIMIT_USER : SEARCH_LIMIT_ANON)
 const WINDOW_MS = 60 * 60 * 1000   // 1 hour
 
 interface Entry { count: number; windowStart: number }
@@ -28,7 +40,7 @@ function current(key: string): Entry {
 
 /** True if this key may run another search right now (under the hourly limit). */
 export function isSearchAllowed(key: string): boolean {
-  return current(key).count < SEARCH_LIMIT
+  return current(key).count < limitFor(key)
 }
 
 /** Count one search against the key's current window. */
@@ -38,7 +50,7 @@ export function recordSearch(key: string): void {
 
 /** How many searches remain in the current window (for optional UI hints). */
 export function searchesRemaining(key: string): number {
-  return Math.max(0, SEARCH_LIMIT - current(key).count)
+  return Math.max(0, limitFor(key) - current(key).count)
 }
 
 /** Reset the window - called after a valid captcha, granting the next 25. */

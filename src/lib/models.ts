@@ -372,6 +372,23 @@ const GoogleAdsConnectionSchema = new Schema<IGoogleAdsConnectionDoc>({
   lastError:          { type: String, default: null },
 }, { timestamps: true })
 
+// ─── Etsy response cache (shared by every PM2 worker) ──────────────────────────
+// memCache lives inside ONE worker and dies on restart, so with N workers the same
+// Etsy listing is fetched up to N times and again after every deploy. Etsy allows
+// only ~10,000 requests/day per key, so this shared cache is what keeps the daily
+// quota from draining. TTLs stay within Etsy's caching policy (<= 6 h for listing
+// content). Rows expire themselves via the TTL index on expiresAt.
+export interface IEtsyCacheDoc extends Document {
+  key: string
+  data: unknown
+  expiresAt: Date
+}
+const EtsyCacheSchema = new Schema<IEtsyCacheDoc>({
+  key:       { type: String, required: true, unique: true },
+  data:      { type: Schema.Types.Mixed, default: null },
+  expiresAt: { type: Date, required: true, index: { expireAfterSeconds: 0 } },
+})
+
 // ─── Blog ──────────────────────────────────────────────────────────────────────
 const BlogSchema = new Schema<IBlog>({
   title:          { type: String, required: true, trim: true, maxlength: 200 },
@@ -721,6 +738,7 @@ export const Blog          = (models.Blog as mongoose.Model<IBlog>) ?? model<IBl
 export const Deal          = (models.Deal as mongoose.Model<IDeal>) ?? model<IDeal>('Deal', DealSchema)
 export const PopupAd       = (models.PopupAd as mongoose.Model<IPopupAd>) ?? model<IPopupAd>('PopupAd', PopupAdSchema)
 export const GoogleAdsConnection = (models.GoogleAdsConnection as mongoose.Model<IGoogleAdsConnectionDoc>) ?? model<IGoogleAdsConnectionDoc>('GoogleAdsConnection', GoogleAdsConnectionSchema)
+export const EtsyCache = (models.EtsyCache as mongoose.Model<IEtsyCacheDoc>) ?? model<IEtsyCacheDoc>('EtsyCache', EtsyCacheSchema)
 export const GoogleAdsCache = (models.GoogleAdsCache as mongoose.Model<IGoogleAdsCacheDoc>) ?? model<IGoogleAdsCacheDoc>('GoogleAdsCache', GoogleAdsCacheSchema)
 export const AppSetting     = (models.AppSetting as mongoose.Model<IAppSetting>) ?? model<IAppSetting>('AppSetting', AppSettingSchema)
 export const ShopSnapshot    = models.ShopSnapshot    ?? model<IShopSnapshot>('ShopSnapshot', ShopSnapshotSchema)

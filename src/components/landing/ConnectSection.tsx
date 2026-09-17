@@ -146,7 +146,7 @@ export function ConnectSection() {
                 maxWidth: 460, margin: '0 auto',
               }}>
                 Research keywords, size up the competition, and optimize your listings -
-                every number measured live from the official Etsy API.
+                every number measured live from official Etsy data.
               </p>
             </Reveal>
           </div>
@@ -169,7 +169,7 @@ export function ConnectSection() {
               maxWidth: 420, margin: '0 auto',
             }}>
               Research keywords, size up the competition, and optimize your listings -
-              every number measured live from the official Etsy API.
+              every number measured live from official Etsy data.
             </p>
           </div>
 

@@ -132,7 +132,7 @@ export function Hero() {
         </div>
 
         <p className="hero-reveal" style={{ fontSize: 'clamp(16px,1.4vw,19px)', lineHeight: 1.5, color: C.graphite, marginBottom: 34, maxWidth: 520, marginLeft: 'auto', marginRight: 'auto' }}>
-          Research the keywords, tags and competition behind top-ranking Etsy listings - real signals from the official Etsy API, in one toolkit.
+          Research the keywords, tags and competition behind top-ranking Etsy listings - real signals from live Etsy data, in one toolkit.
         </p>
 
         <div className="hero-reveal" style={{ display: 'inline-flex', alignItems: 'center', gap: 30, justifyContent: 'center', flexWrap: 'wrap', background: C.canvas, borderRadius: 40, padding: '6px 6px 6px 8px' }}>

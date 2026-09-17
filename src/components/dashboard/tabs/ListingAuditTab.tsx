@@ -180,7 +180,7 @@ export function ListingAuditTab() {
         const status = axios.isAxiosError(e) ? e.response?.status : undefined
         const serverMsg = axios.isAxiosError(e) ? (e.response?.data as { error?: string })?.error : undefined
         if (status === 404) throw new Error('Etsy could not find this listing. It may be expired or sold out (needs renewing), a draft or private listing, or the URL/ID is wrong. Open the listing on Etsy and copy the URL straight from your browser, then try again.')
-        if (status === 429) throw new Error('Etsy is busy right now. Please wait a few seconds and try again.')
+        if (status === 429) throw new Error('This data is temporarily unavailable. Please wait a few seconds and try again.')
         throw new Error(serverMsg || 'Could not reach Etsy to load this listing. Please try again in a moment.')
       })
       const [vRes, bRes] = await Promise.all([

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
-import { getListingReviewStats } from '@/lib/etsy'
+import { cacheKey, CACHE_TTL } from '@/lib/cache'
+import { etsyCacheGetMany, etsyCacheSetMany } from '@/lib/etsy-cache'
+import { getListingReviewStats, etsyKeyLocks } from '@/lib/etsy'
 import { withUsage } from '@/lib/track'
 import type { ApiResponse, ListingReviewStats } from '@/types'
 
@@ -9,11 +10,12 @@ export const GET = withUsage(getHandler)
 
 const MAX_IDS = 100
 // Etsy has no batch reviews endpoint: every uncached listing costs one Etsy call,
-// and each key allows only ~10,000 a DAY. A single Etsy page with 48 product cards
-// would spend 48 of them, so one page view can drain the quota for everyone. Cached
-// ids are always returned; only this many NEW lookups happen per request, and the
-// rest simply come back unknown (the UI shows "-") and fill in on later views.
-const MAX_NEW_LOOKUPS = Math.max(1, Number(process.env.ETSY_REVIEWS_MAX_NEW) || 12)
+// and each key allows only ~10,000 a DAY. Normally we fetch every requested id, so
+// users always see complete data. ONLY when a key is already locked out for the day
+// (quota trouble) do we limit new lookups, so the last of the quota is spread across
+// users instead of one page view spending it all - the rest come back unknown ("-")
+// and fill in from the shared cache on later views.
+const MAX_NEW_UNDER_PRESSURE = Math.max(1, Number(process.env.ETSY_REVIEWS_MAX_NEW) || 12)
 
 /**
  * Real review stats per listing - lifetime `count` (a verified units-sold floor)
@@ -32,23 +34,27 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Re
 
   const out: Record<number, ListingReviewStats> = {}
   const misses: number[] = []
+  // v2 key: cached shape changed from a bare count to { count, last30d }.
+  const keyOf = (id: number) => cacheKey('lreview', 'v2', String(id))
+  const cached = await etsyCacheGetMany<ListingReviewStats>(ids.map(keyOf))
   for (const id of ids) {
-    // v2 key: cached shape changed from a bare count to { count, last30d }.
-    const hit = memCache.get<ListingReviewStats>(cacheKey('lreview', 'v2', String(id)))
-    if (hit !== null) out[id] = hit
+    const hit = cached.get(keyOf(id))
+    if (hit) out[id] = hit
     else misses.push(id)
   }
 
   // Fetch only the uncached ids. etsyFetch's internal rate gate serialises these,
   // so Promise.all here won't exceed Etsy's limit - it just avoids idle waiting.
-  const fetchNow = misses.slice(0, MAX_NEW_LOOKUPS)
-  for (const id of misses.slice(MAX_NEW_LOOKUPS)) out[id] = { count: null, last30d: null }
+  // Full data normally; capped only while the Etsy pool is out of quota.
+  const limit = etsyKeyLocks().length ? MAX_NEW_UNDER_PRESSURE : misses.length
+  const fetchNow = misses.slice(0, limit)
+  for (const id of misses.slice(limit)) out[id] = { count: null, last30d: null }
 
   await Promise.all(fetchNow.map(async id => {
     const stats = await getListingReviewStats(id)
     // Only cache a real lookup (count resolved). A total miss is left uncached so it
     // retries next time rather than being pinned as "-" for hours.
-    if (stats.count !== null) memCache.set(cacheKey('lreview', 'v2', String(id)), stats, CACHE_TTL.KEYWORD)
+    if (stats.count !== null) etsyCacheSetMany([{ key: keyOf(id), data: stats }], CACHE_TTL.KEYWORD)
     out[id] = stats
   }))
 

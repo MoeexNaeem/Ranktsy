@@ -269,9 +269,9 @@ function TrackKeywordButton({ keyword, country }: { keyword: string; country: st
 function googleGapNote(status?: string | null, retryAt?: string | null): string | null {
   if (status === 'quota') {
     const t = retryAt ? new Date(retryAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null
-    return `Google search data is paused: today’s Google Ads data limit was reached${t ? `. It resumes around ${t}` : ''}. Etsy data below is live.`
+    return `Search-volume data is paused for today${t ? ` and resumes around ${t}` : ''}. Everything else on this page is live.`
   }
-  if (status === 'error') return 'Google didn’t respond just now. Search again in a minute to load Google data.'
+  if (status === 'error') return 'Search-volume data didn’t load just now. Search again in a minute.'
   return null
 }
 
@@ -304,8 +304,8 @@ function KeywordStatsPanel({ s, geoName }: { s: KeywordStats; geoName: string })
     {
       source: 'Google', dot: '#4285F4',
       items: [
-        { label: 'Search Volume',  tip: `Real average monthly Google searches for this keyword in ${geoName} (Google Keyword Planner API) — genuine search demand.`, value: s.googleSearches != null ? exact(s.googleSearches) : '—', color: s.googleSearches != null ? D.good : C.lightGray },
-        { label: 'Ad Competition', tip: 'How strongly advertisers compete for this keyword on Google Ads — real Google advertiser-competition band.', value: band(s.googleCompetition), color: s.googleCompetition === 'HIGH' ? D.hard : s.googleCompetition === 'MEDIUM' ? D.mid : s.googleCompetition === 'LOW' ? D.good : C.lightGray },
+        { label: 'Search Volume',  tip: `Real average monthly Google searches for this keyword in ${geoName}, measured not estimated.`, value: s.googleSearches != null ? exact(s.googleSearches) : '—', color: s.googleSearches != null ? D.good : C.lightGray },
+        { label: 'Ad Competition', tip: 'How strongly advertisers compete for this keyword on Google, measured not estimated.', value: band(s.googleCompetition), color: s.googleCompetition === 'HIGH' ? D.hard : s.googleCompetition === 'MEDIUM' ? D.mid : s.googleCompetition === 'LOW' ? D.good : C.lightGray },
       ],
     },
     {
@@ -669,7 +669,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
           </div>
           <p style={{ fontSize: 11.5, color: C.stone, lineHeight: 1.55, marginTop: 10 }}>
             Real monthly search volume, advertiser competition and top-of-page CPC for &ldquo;{query}&rdquo; (US),
-            from the Keyword Planner.
+            from real advertiser data.
           </p>
         </Card>
       </div>

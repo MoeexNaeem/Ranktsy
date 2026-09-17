@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { searchEtsyListingsPaged, type SearchOpts } from '@/lib/etsy'
 import { guardSearch } from '@/lib/searchGate'
 import { cachedFlight, cacheKey, CACHE_TTL } from '@/lib/cache'
+import { upstreamFailure } from '@/lib/upstream-errors'
 
 // Etsy caps offset-based paging; keep it within a sane range.
 const MAX_OFFSET = 12000
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
       hasMore: offset + listings.length < count,
     })
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Etsy API error'
-    return NextResponse.json({ success: false, error: msg }, { status: 502 })
+    const fail = upstreamFailure(err)
+    return NextResponse.json({ success: false, error: fail.message }, { status: fail.status })
   }
 }

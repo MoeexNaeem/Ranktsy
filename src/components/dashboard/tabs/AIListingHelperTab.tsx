@@ -8,6 +8,7 @@ import { broadcastCredits } from '@/lib/credits-client'
 import { triggerUpgrade } from '@/lib/upgrade'
 import { busyRetry, busyRetryDelay, useWaitPhase } from '@/lib/ai/busy'
 import { copyWithToast } from '@/components/ui/toast'
+import { markdownToPlainText } from '@/lib/markdown-text'
 
 interface Result {
   titles: string[]
@@ -20,7 +21,7 @@ interface Result {
 function CopyBtn({ text, label = 'Copy' }: { text: string; label?: string }) {
   const [done, setDone] = useState(false)
   return (
-    <button onClick={() => { copyWithToast(text, 'Text'); setDone(true); setTimeout(() => setDone(false), 1200) }}
+    <button onClick={() => { copyWithToast(markdownToPlainText(text), 'Text'); setDone(true); setTimeout(() => setDone(false), 1200) }}
       style={{ fontSize: 12, fontFamily: MONO, color: done ? C.success : C.orange, background: 'transparent', border: `1px solid ${done ? C.success : C.orange}`, padding: '4px 12px', borderRadius: 100, cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s' }}>
       {done ? '✓ Copied' : label}
     </button>

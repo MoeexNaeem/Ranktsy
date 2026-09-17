@@ -11,6 +11,7 @@ import { busyRetry, busyRetryDelay, useWaitPhase, isTerminal } from '@/lib/ai/bu
 import type { ApiResponse } from '@/types'
 import type { ListingPro } from '@/app/api/ai/listing-pro/route'
 import { copyWithToast } from '@/components/ui/toast'
+import { markdownToPlainText } from '@/lib/markdown-text'
 
 // Survives a page refresh - the tab otherwise loses the whole generated
 // listing + images because they only ever lived in React state.
@@ -29,7 +30,7 @@ const IMAGE_TYPES: { type: ImageType; name: string; desc: string }[] = [
 function CopyBtn({ text, label = 'Copy' }: { text: string; label?: string }) {
   const [done, setDone] = useState(false)
   return (
-    <button onClick={() => { copyWithToast(text, 'Text'); setDone(true); setTimeout(() => setDone(false), 1200) }}
+    <button onClick={() => { copyWithToast(markdownToPlainText(text), 'Text'); setDone(true); setTimeout(() => setDone(false), 1200) }}
       style={{ fontSize: 12, fontFamily: MONO, color: done ? D.good : C.orange, background: 'transparent', border: `1px solid ${done ? D.good : C.orange}`, padding: '4px 12px', borderRadius: 100, cursor: 'pointer', flexShrink: 0 }}>
       {done ? '✓ Copied' : label}
     </button>

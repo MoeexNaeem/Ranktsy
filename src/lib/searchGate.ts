@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/session'
 import { verifyRecaptcha, isRecaptchaConfigured } from '@/lib/recaptcha'
-import { isSearchAllowed, recordSearch, clearSearchLimit } from '@/lib/searchLimit'
+import { isSearchAllowed, recordSearch, clearSearchLimit, SEARCH_LIMIT_USER, SEARCH_LIMIT_ANON } from '@/lib/searchLimit'
 import type { ApiResponse } from '@/types'
 
 /**
@@ -38,7 +38,7 @@ export async function guardSearch<T = unknown>(req: NextRequest): Promise<NextRe
 
   if (!isSearchAllowed(key)) {
     return NextResponse.json<ApiResponse<T>>(
-      { success: false, captchaRequired: true, error: 'You’ve hit 25 searches this hour. Please verify you’re human to continue.' },
+      { success: false, captchaRequired: true, error: `You’ve hit ${user?.id ? SEARCH_LIMIT_USER : SEARCH_LIMIT_ANON} searches this hour. Please verify you’re human to continue.` },
       { status: 429 },
     )
   }

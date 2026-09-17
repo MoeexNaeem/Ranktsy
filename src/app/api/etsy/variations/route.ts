@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getListingVariations } from '@/lib/etsy'
+import { upstreamFailure } from '@/lib/upstream-errors'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -10,7 +11,7 @@ export async function GET(req: NextRequest) {
     const data = await getListingVariations(id)
     return NextResponse.json({ success: true, data })
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Etsy API error'
-    return NextResponse.json({ success: false, error: msg }, { status: 502 })
+    const fail = upstreamFailure(err)
+    return NextResponse.json({ success: false, error: fail.message }, { status: fail.status })
   }
 }

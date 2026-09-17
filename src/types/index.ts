@@ -133,6 +133,8 @@ export interface KeywordIdeasResponse {
   /** Why ideas may be empty (see GoogleDataStatus). */
   googleStatus?: GoogleDataStatus
   googleRetryAt?: string | null
+  /** False when the Etsy listing sample couldn't be fetched (the Google panels still render). */
+  marketplaceAvailable?: boolean
 }
 
 // ─── Search Results Analysis (all derived from the sampled live listings) ─────

@@ -48,11 +48,21 @@ async function getHandler(req: NextRequest) {
 
   try {
     // 100 listings so the supply-by-month distribution has a real population.
-    const { listings } = await searchEtsyListingsPaged(query, 100, 0, { skipImages: true })
+    // One unavailable source must not blank the panels fed by the other: if the
+    // marketplace sample can't be fetched, the search-volume chart and the country
+    // breakdown (both search-demand data) are still returned.
+    let listings: Awaited<ReturnType<typeof searchEtsyListingsPaged>>['listings'] = []
+    let marketplaceAvailable = true
+    try {
+      listings = (await searchEtsyListingsPaged(query, 100, 0, { skipImages: true })).listings
+    } catch (e) {
+      marketplaceAvailable = false
+      console.error('[Trends] marketplace sample unavailable:', e instanceof Error ? e.message : e)
+    }
     const trends: TrendData[] = buildTrendData()
-    const supplyByMonth = buildListingSupplyByMonth(listings)
+    const supplyByMonth = marketplaceAvailable ? buildListingSupplyByMonth(listings) : []
     // Real market detail measured from the same 100-listing sample.
-    const market = buildListingMarketStats(listings)
+    const market = marketplaceAvailable ? buildListingMarketStats(listings) : null
 
     // Searchers by Country - always the full breakdown (like eRank), with the
     // selected country flagged so the UI can highlight it and scale the Etsy-search
@@ -90,12 +100,14 @@ async function getHandler(req: NextRequest) {
         : 'Etsy publishes no search volume or history, so no Etsy demand curve is shown. “Listings created by month” is real, but reflects seller behaviour, not buyer demand.',
       googleStatus: googleStatusOf(gmeta),
       googleRetryAt: gmeta.retryAt ?? null,
+      marketplaceAvailable,
     }
-    // Never cache a Google failure for hours: retry soon so real numbers fill in.
-    memCache.set(key, data, gmeta.failed && !googleAvailable ? 90 : CACHE_TTL.TRENDING)
+    // Never cache a partial result for hours: retry soon so the missing half fills in.
+    const partial = (gmeta.failed && !googleAvailable) || !marketplaceAvailable
+    memCache.set(key, data, partial ? 90 : CACHE_TTL.TRENDING)
     return NextResponse.json({ success: true, data })
   } catch (err) {
-    console.error('[Trends] Etsy API error:', err)
-    return NextResponse.json({ success: false, error: 'Failed to fetch trend data.' }, { status: 502 })
+    console.error('[Trends] failed:', err)
+    return NextResponse.json({ success: false, error: 'This data is temporarily unavailable. Please try again in a moment.' }, { status: 503 })
   }
 }

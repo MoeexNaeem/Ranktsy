@@ -25,7 +25,7 @@ const CARDS: Card[] = [
   { kind: 'quote', bg: '#FB5E09', fg: '#fff', who: 'Priya S.', role: 'Digital planner creator',
     quote: 'The Google search volume next to Etsy competition finally tells me what’s worth making before I make it.' },
   { kind: 'stat', bg: '#14352A', fg: '#fff', big: '2', sub: 'live data sources',
-    body: 'Etsy Open API + Google Ads Keyword Planner, cross-referenced on every single keyword you research.' },
+    body: 'Live Etsy marketplace data and real Google search demand, cross-referenced on every single keyword you research.' },
 ]
 
 function Stars({ fg }: { fg: string }) {

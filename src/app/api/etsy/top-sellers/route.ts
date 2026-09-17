@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTopSellers } from '@/lib/etsy'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
+import { upstreamFailure } from '@/lib/upstream-errors'
 
 export const runtime = 'nodejs'
 export const revalidate = 1800
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
     memCache.set(key, sellers, CACHE_TTL.TRENDING)
     return NextResponse.json({ success: true, data: sellers })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Etsy API error'
-    return NextResponse.json({ success: false, error: msg }, { status: 502 })
+    const fail = upstreamFailure(err)
+    return NextResponse.json({ success: false, error: fail.message }, { status: fail.status })
   }
 }

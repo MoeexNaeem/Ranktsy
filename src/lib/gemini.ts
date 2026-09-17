@@ -306,7 +306,7 @@ async function geminiImageInner(keys: string[], prompt: string, refs?: GeminiRef
         if (res.status === 429) {
           // This key is out - fail over to the next key; only give up (quota)
           // once every key has been tried.
-          last = { ok: false, reason: 'quota', detail: 'Image-generation quota exhausted on all keys - enable billing or add another Gemini key.' }
+          last = { ok: false, reason: 'quota', detail: 'Image generation is temporarily unavailable.' }
           if (attempt < MAX - 1) { await sleep(keys.length > 1 ? 150 : 700 * (attempt + 1)); continue }
           return last
         }

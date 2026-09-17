@@ -103,7 +103,7 @@ export const KeywordIdeasPanel = memo(function KeywordIdeasPanel({
       ) : !ideas.length && unavailableNote ? (
         <EmptyState icon="⏳" title="Keyword ideas paused" sub={unavailableNote} />
       ) : !ideas.length ? (
-        <EmptyState icon="💡" title="No keyword ideas returned" sub={`Google had no suggestions for “${seed}”. Try a broader seed keyword.`} />
+        <EmptyState icon="💡" title="No keyword ideas returned" sub={`No keyword suggestions for “${seed}”. Try a broader seed keyword.`} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {/* Toolbar */}
@@ -151,7 +151,7 @@ export const KeywordIdeasPanel = memo(function KeywordIdeasPanel({
           </div>
 
           <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6, marginTop: 4 }}>
-            Real Keyword Planner data (US). Competition is <em>advertiser</em> competition, not Etsy listing
+            Real search data (US). Competition is <em>advertiser</em> competition, not Etsy listing
             competition. CPC is the top-of-page bid range in your Ads account currency{currency ? ` (${currency})` : ''}.
           </p>
         </div>

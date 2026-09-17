@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { openaiImage, isOpenAIConfigured, type OpenAIRefImage } from '@/lib/openai-image'
+import { geminiImage, isGeminiConfigured } from '@/lib/gemini'
 import { getCurrentUser } from '@/lib/auth/session'
 import { connectDB } from '@/lib/db'
 import { consumeMonthlyImage, refundMonthlyImage } from '@/lib/quota'
@@ -86,7 +87,9 @@ async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<{
   if (product.length < 2) {
     return NextResponse.json({ success: false, error: 'Missing product.' }, { status: 400 })
   }
-  if (!isOpenAIConfigured()) {
+  // Images need at least ONE provider: OpenAI (preferred for in-image typography)
+  // or Gemini as the fallback.
+  if (!isOpenAIConfigured() && !isGeminiConfigured()) {
     return NextResponse.json({ success: false, error: AI_IMAGE_UNAVAILABLE }, { status: 503 })
   }
 
@@ -117,11 +120,21 @@ async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<{
   }
 
   const prompt = buildPrompt(type, product, String(body.visual ?? ''), Array.isArray(body.features) ? body.features.map(String) : [], refs.length > 0)
-  const out = await openaiImage(prompt, refs)
+  const out = isOpenAIConfigured() ? await openaiImage(prompt, refs) : { ok: false as const, reason: 'unconfigured' as const }
 
   if (out.ok) {
     // Return the full-resolution image as generated (one complete hero image).
     return NextResponse.json({ success: true, data: { dataUrl: out.dataUrl, costUsd: out.usage.costUsd, tokens: out.usage.totalTokens } })
+  }
+
+  // OpenAI can't serve right now (no credits, key missing, or a transient error):
+  // fall back to Gemini so sellers still get their image. Gemini renders in-image
+  // text slightly less cleanly, which is why OpenAI is tried first.
+  if (out.reason !== 'blocked' && isGeminiConfigured()) {
+    console.warn(`[ListingImage] OpenAI unavailable (${out.reason}${out.detail ? `: ${out.detail.slice(0, 120)}` : ''}) - falling back to Gemini.`)
+    const g = await geminiImage(prompt, refs)
+    if (g.ok) return NextResponse.json({ success: true, data: { dataUrl: g.dataUrl } })
+    console.error('[ListingImage] Gemini fallback failed:', g.reason)
   }
 
   // Generation failed - give the consumed monthly image credit back.

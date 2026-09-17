@@ -7,6 +7,7 @@ import { C, D } from '@/utils'
 import { genFetch, busyRetry, busyRetryDelay, useWaitPhase } from '@/lib/ai/busy'
 import type { AiDescResult } from '@/types'
 import { copyWithToast } from '@/components/ui/toast'
+import { markdownToPlainText } from '@/lib/markdown-text'
 
 interface DescParams { q: string; productName: string; productType: string; audience: string; features: string }
 // Module-level memory so inputs + submitted params survive tab navigation.
@@ -108,7 +109,7 @@ export function DescriptionGenTab() {
           <>
             <Card>
               <SectionTitle right={
-                <button onClick={() => { copyWithToast(cur.description, 'Description'); setCopied(true); setTimeout(() => setCopied(false), 1400) }}
+                <button onClick={() => { copyWithToast(markdownToPlainText(cur.description), 'Description'); setCopied(true); setTimeout(() => setCopied(false), 1400) }}
                   style={{ border: `1px solid ${copied ? D.good : C.ash}`, background: copied ? D.goodBg : C.paper, color: copied ? D.good : C.orange, borderRadius: 100, padding: '6px 15px', fontSize: 13, fontWeight: 500, fontFamily: 'inherit', cursor: 'pointer' }}>
                   {copied ? 'Copied ✓' : 'Copy description'}
                 </button>

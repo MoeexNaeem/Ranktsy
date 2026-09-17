@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getTrendingListings } from '@/lib/etsy'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
+import { upstreamFailure } from '@/lib/upstream-errors'
 
 // Run only at request time, never prerendered at build. Next 16 otherwise tries to
 // execute this param-less GET during the build to cache it, which fires live Etsy
@@ -19,7 +20,7 @@ export async function GET() {
     memCache.set(key, listings, CACHE_TTL.TRENDING)
     return NextResponse.json({ success: true, data: listings })
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Etsy API error'
-    return NextResponse.json({ success: false, error: msg }, { status: 502 })
+    const fail = upstreamFailure(err)
+    return NextResponse.json({ success: false, error: fail.message }, { status: fail.status })
   }
 }
