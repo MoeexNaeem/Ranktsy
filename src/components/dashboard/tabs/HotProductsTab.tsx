@@ -130,7 +130,7 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
   const reviewsQ = useListingReviews(reviewIds)
   const estOf = useCallback((p: HotProduct) => {
     const rs = reviewsQ.data?.[p.listing_id]
-    return estimateListingSales({ reviewCount: rs?.count ?? null, reviewsLast30d: rs?.last30d ?? null, price: p.price, ageDays: ageDaysOf(p.createdTimestamp), views: p.views ?? null, favorites: p.favorites ?? null })
+    return estimateListingSales({ reviewCount: rs?.count ?? null, reviewsLast30d: rs?.last30d ?? null, price: p.price, ageDays: ageDaysOf(p.createdTimestamp), views: p.views ?? null, favorites: p.favorites ?? null, title: p.title, tags: p.tags })
   }, [reviewsQ.data])
   const reviewsLoading = reviewsQ.isPending || reviewsQ.isFetching
 

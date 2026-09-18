@@ -69,7 +69,11 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
     ageDays,
     views: product.views ?? null,
     favorites: product.favorites ?? null,
-  }), [rstats, product.price, ageDays, product.views, product.favorites])
+    // Same category / digital signals the extension uses, so both agree.
+    categoryTop: listing?.categoryTop ?? null,
+    title: product.title,
+    tags: product.tags,
+  }), [rstats, product.price, ageDays, product.views, product.favorites, product.title, product.tags, listing?.categoryTop])
 
   const images = listing?.images?.length ? listing.images : (product.image ? [{ url_570xN: product.image, url_75x75: product.image }] : [])
   const shopSales = shop?.sales != null ? Number(shop.sales) : null

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getListingById } from '@/lib/etsy'
+import { getListingById, topCategoryForTaxonomy } from '@/lib/etsy'
 import { cachedFlight, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { upstreamFailure } from '@/lib/upstream-errors'
 
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     // goes active isn't stuck as missing.
     const listing = await cachedFlight(cacheKey('etsylisting', 'v2', String(id)), CACHE_TTL.KEYWORD, () => getListingById(id))
     if (!listing) return NextResponse.json({ success: false, error: 'Listing not found or inactive' }, { status: 404 })
-    return NextResponse.json({ success: true, data: listing })
+    return NextResponse.json({ success: true, data: { ...listing, categoryTop: topCategoryForTaxonomy(listing.taxonomy_id) } })
   } catch (err: unknown) {
     // Map the failure to the RIGHT status so the client can show an accurate reason:
     // a real 404 (listing gone/inactive) vs a transient one. The provider's own error

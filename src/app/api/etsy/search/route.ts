@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { searchEtsyListingsPaged, type SearchOpts } from '@/lib/etsy'
+import { searchEtsyListingsPaged, attachCategoryTop, type SearchOpts } from '@/lib/etsy'
 import { guardSearch } from '@/lib/searchGate'
 import { cachedFlight, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { upstreamFailure } from '@/lib/upstream-errors'
@@ -35,7 +35,9 @@ export async function GET(req: NextRequest) {
     const { listings, count } = await cachedFlight(key, CACHE_TTL.TRENDING, () => searchEtsyListingsPaged(q, limit, offset, opts))
     return NextResponse.json({
       success: true,
-      data: listings,
+      // Category-aware conversion needs the top-level category; stamped after the
+      // cache so a warm taxonomy improves results without invalidating entries.
+      data: attachCategoryTop(listings),
       count,
       offset,
       limit,

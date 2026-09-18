@@ -11,6 +11,7 @@ import { Card, SectionTitle, StatCard, EmptyState, MONO, tableCard, tableHead, t
 import { copyWithToast, toast } from '@/components/ui/toast'
 
 interface Conversion { id: string; plan: string; commissionUsd: number; status: string; date: string | null }
+interface CustomLink { id: string; code: string; link: string; label: string | null; clicks: number; signups: number; createdAt: string | null }
 interface AffiliateData {
   enrolled: boolean
   payoutMin: number
@@ -34,6 +35,9 @@ interface AffiliateData {
   bonusRate?: number
   recurringMonths?: number
   conversionList?: Conversion[]
+  maxCustomLinks?: number
+  codeMin?: number
+  codeMax?: number
 }
 
 const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string }> = {
@@ -46,6 +50,223 @@ const money = (n?: number | null) => `$${(n ?? 0).toFixed(2)}`
 const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'
 const PLAN_LABEL: Record<string, string> = { starter: 'Starter', basic: 'Basic', pro: 'Pro', 'pro-1yr': 'Pro · 1-Year', business: 'Business', agency: 'Agency', enterprise: 'Enterprise' }
 const CONV_GRID = '1.4fr 1fr 1.2fr auto'
+
+// Mirrors CODE_RE in lib/affiliate.ts, so the field rejects what the API would
+// reject rather than letting the user submit and fail.
+const CODE_RE = /^[a-z0-9][a-z0-9_-]{1,38}[a-z0-9]$/
+/** What the user typed, turned into a candidate code (spaces become hyphens). */
+const cleanCode = (v: string) => v.trim().toLowerCase().replace(/\s+/g, '-')
+
+/**
+ * Custom referral links.
+ *
+ * The affiliate's default link always works and is shown above; these are the
+ * readable ones they create per channel. A code is unique across the whole
+ * programme, so the API answers 409 for a clash and that message is shown
+ * inline on the field. Deleting a link never affects referrals it already
+ * brought in, because commission is attributed to the affiliate.
+ */
+function CustomLinks({ base, enabled }: { base: string; enabled: boolean }) {
+  const [links, setLinks] = useState<CustomLink[] | null>(null)
+  const [max, setMax] = useState(10)
+  const [code, setCode] = useState('')
+  const [label, setLabel] = useState('')
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
+  // The link currently being renamed, plus its draft values.
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editCode, setEditCode] = useState('')
+  const [editLabel, setEditLabel] = useState('')
+  const [editErr, setEditErr] = useState('')
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch('/api/affiliate/links')
+      const j = await r.json()
+      if (j?.success) { setLinks(j.data?.links ?? []); setMax(j.data?.max ?? 10) }
+      else setLinks([])
+    } catch { setLinks([]) }
+  }, [])
+  useEffect(() => { if (enabled) load() }, [enabled, load])
+
+  const field: React.CSSProperties = { border: `1px solid ${C.ash}`, borderRadius: 10, background: C.canvas, color: C.ink, fontSize: 14, fontFamily: 'inherit', padding: '11px 13px', outline: 'none', width: '100%' }
+  const labelStyle: React.CSSProperties = { fontSize: 12.5, fontWeight: 600, color: C.graphite, marginBottom: 6, display: 'block' }
+  const ghostBtn: React.CSSProperties = { background: 'transparent', border: `1px solid ${C.ash}`, borderRadius: 8, color: C.graphite, fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit', padding: '7px 13px', cursor: 'pointer' }
+
+  const create = async () => {
+    const c = cleanCode(code)
+    setErr('')
+    if (!CODE_RE.test(c)) {
+      setErr('Use 3 to 40 characters: lowercase letters, numbers, hyphens or underscores, starting and ending with a letter or number.')
+      return
+    }
+    setBusy(true)
+    try {
+      const r = await fetch('/api/affiliate/links', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: c, label }),
+      })
+      const j = await r.json()
+      if (r.ok && j?.success) {
+        setLinks(j.data?.links ?? [])
+        setCode(''); setLabel('')
+        toast.success('Custom link created', j.data?.link?.link ?? '')
+      } else {
+        // 409 means the code is taken - the message is written for the user.
+        setErr(j?.error || 'Could not create that link.')
+      }
+    } catch { setErr('Network error. Please try again.') }
+    finally { setBusy(false) }
+  }
+
+  const startEdit = (l: CustomLink) => {
+    setEditId(l.id); setEditCode(l.code); setEditLabel(l.label ?? ''); setEditErr(''); setConfirmId(null)
+  }
+
+  const saveEdit = async () => {
+    if (!editId) return
+    const c = cleanCode(editCode)
+    setEditErr('')
+    if (!CODE_RE.test(c)) {
+      setEditErr('Use 3 to 40 characters: lowercase letters, numbers, hyphens or underscores.')
+      return
+    }
+    setBusy(true)
+    try {
+      const r = await fetch('/api/affiliate/links', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editId, code: c, label: editLabel }),
+      })
+      const j = await r.json()
+      if (r.ok && j?.success) {
+        setLinks(j.data?.links ?? [])
+        setEditId(null)
+        toast.success('Custom link updated')
+      } else {
+        setEditErr(j?.error || 'Could not update that link.')
+      }
+    } catch { setEditErr('Network error. Please try again.') }
+    finally { setBusy(false) }
+  }
+
+  const remove = async (id: string) => {
+    setBusy(true)
+    try {
+      const r = await fetch(`/api/affiliate/links?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+      const j = await r.json()
+      if (r.ok && j?.success) {
+        setLinks(j.data?.links ?? [])
+        setConfirmId(null)
+        toast.success('Custom link deleted', 'Referrals it already brought in are unaffected.')
+      } else {
+        toast.error('Could not delete that link', j?.error || 'Please try again.')
+      }
+    } catch { toast.error('Could not delete that link', 'Network error. Please try again.') }
+    finally { setBusy(false) }
+  }
+
+  const rows = links ?? []
+  const atMax = rows.length >= max
+
+  return (
+    <Card>
+      <SectionTitle right={<span style={{ fontSize: 11, fontFamily: MONO, color: '#808080' }}>{rows.length} of {max}</span>}>
+        Your custom links
+      </SectionTitle>
+      <p style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.6, margin: '0 0 18px' }}>
+        Make a readable link for each place you promote, so you can tell which one works. Every custom link points at
+        the same account as your default link, and you can rename or delete one at any time without losing referrals it
+        already brought in.
+      </p>
+
+      {/* Create */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1.2fr) minmax(180px, 1fr) auto', gap: 12, alignItems: 'end', maxWidth: 760 }}>
+        <div>
+          <label style={labelStyle} htmlFor="rk-new-code">Link name</label>
+          <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${err ? C.danger : C.ash}`, borderRadius: 10, background: C.canvas, overflow: 'hidden' }}>
+            <span style={{ fontSize: 13, fontFamily: MONO, color: C.stone, padding: '11px 0 11px 12px', whiteSpace: 'nowrap' }}>{base}/?ref=</span>
+            <input id="rk-new-code" value={code} onChange={e => { setCode(e.target.value); setErr('') }}
+              onKeyDown={e => { if (e.key === 'Enter') create() }}
+              placeholder="spring-video" maxLength={40} spellCheck={false}
+              style={{ ...field, border: 'none', borderRadius: 0, padding: '11px 12px 11px 2px', fontFamily: MONO }} />
+          </div>
+        </div>
+        <div>
+          <label style={labelStyle} htmlFor="rk-new-label">Note (optional)</label>
+          <input id="rk-new-label" value={label} onChange={e => setLabel(e.target.value)} placeholder="YouTube description" maxLength={60} style={field} />
+        </div>
+        <button onClick={create} disabled={busy || atMax}
+          style={{ background: busy || atMax ? C.ash : C.orange, color: '#fff', border: 'none', borderRadius: 100, padding: '12px 22px', fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: busy || atMax ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
+          {busy ? 'Working…' : 'Create link'}
+        </button>
+      </div>
+      {err && <p style={{ fontSize: 13, color: C.danger, margin: '10px 0 0', maxWidth: 700, lineHeight: 1.5 }}>{err}</p>}
+      {atMax && !err && <p style={{ fontSize: 13, color: C.graphite, margin: '10px 0 0' }}>You have reached the limit of {max} custom links. Delete one to add another.</p>}
+
+      {/* List */}
+      <div style={{ marginTop: 22, display: 'grid', gap: 10 }}>
+        {links === null ? (
+          <div className="shimmer" style={{ height: 58, borderRadius: 12, background: '#e8e7e2' }} />
+        ) : rows.length === 0 ? (
+          <p style={{ fontSize: 13.5, color: C.stone, margin: 0 }}>No custom links yet. Your default link above already works.</p>
+        ) : rows.map(l => (
+          <div key={l.id} style={{ border: `1px solid ${C.ash}`, borderRadius: 12, padding: '13px 15px', background: C.canvas }}>
+            {editId === l.id ? (
+              <div style={{ display: 'grid', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1.2fr) minmax(160px, 1fr)', gap: 10 }}>
+                  <div>
+                    <label style={labelStyle}>Link name</label>
+                    <input value={editCode} onChange={e => { setEditCode(e.target.value); setEditErr('') }}
+                      onKeyDown={e => { if (e.key === 'Enter') saveEdit() }}
+                      maxLength={40} spellCheck={false} style={{ ...field, fontFamily: MONO, borderColor: editErr ? C.danger : C.ash }} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Note</label>
+                    <input value={editLabel} onChange={e => setEditLabel(e.target.value)} maxLength={60} style={field} />
+                  </div>
+                </div>
+                {editErr && <p style={{ fontSize: 13, color: C.danger, margin: 0, lineHeight: 1.5 }}>{editErr}</p>}
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={saveEdit} disabled={busy}
+                    style={{ background: busy ? C.ash : C.ink, color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: busy ? 'default' : 'pointer' }}>
+                    {busy ? 'Saving…' : 'Save'}
+                  </button>
+                  <button onClick={() => setEditId(null)} style={ghostBtn}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 220 }}>
+                  <code style={{ fontSize: 13.5, fontFamily: MONO, color: C.ink, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.link}</code>
+                  <span style={{ fontSize: 12, color: C.stone }}>
+                    {l.label ? `${l.label} · ` : ''}{l.clicks} click{l.clicks === 1 ? '' : 's'} · {l.signups} signup{l.signups === 1 ? '' : 's'}
+                  </span>
+                </div>
+                {confirmId === l.id ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 12.5, color: C.graphite }}>Delete this link?</span>
+                    <button onClick={() => remove(l.id)} disabled={busy}
+                      style={{ background: C.danger, color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit', cursor: busy ? 'default' : 'pointer' }}>
+                      Delete
+                    </button>
+                    <button onClick={() => setConfirmId(null)} style={ghostBtn}>Keep</button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => copyWithToast(l.link, 'Custom link')} style={ghostBtn}>Copy</button>
+                    <button onClick={() => startEdit(l)} style={ghostBtn}>Edit</button>
+                    <button onClick={() => setConfirmId(l.id)} style={{ ...ghostBtn, color: C.danger, borderColor: C.ash }}>Delete</button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </Card>
+  )
+}
 
 export function AffiliateTab() {
   const [data, setData] = useState<(AffiliateData & { convList?: Conversion[] }) | null>(null)
@@ -133,6 +354,11 @@ export function AffiliateTab() {
       ? `50% bonus active: you are on referral ${paying + 1} of the ${threshold + 1} to ${windowEnd} bonus window.`
       : `Bonus window complete. New referrals earn ${Math.round((data.baseRate ?? 0.3) * 100)}%.`
   const convs = data.convList ?? []
+  // Derive the origin from the affiliate's own link, so the prefix shown beside
+  // the input is the real one for this environment.
+  const linkBase = (() => {
+    try { return new URL(data.link ?? '').origin } catch { return '' }
+  })()
   const field: React.CSSProperties = { border: `1px solid ${C.ash}`, borderRadius: 10, background: C.canvas, color: C.ink, fontSize: 14, fontFamily: 'inherit', padding: '11px 13px', outline: 'none', width: '100%' }
   const label: React.CSSProperties = { fontSize: 12.5, fontWeight: 600, color: C.graphite, marginBottom: 6, display: 'block' }
 
@@ -148,6 +374,9 @@ export function AffiliateTab() {
         <p style={{ fontSize: 13, color: C.stone, marginTop: 11 }}>Share this anywhere. Anyone who signs up through it is tied to you for 60 days, and you earn on their payments for up to 12 months.</p>
         <p style={{ fontSize: 12.5, color: C.graphite, marginTop: 8, padding: '9px 13px', background: C.canvas, border: `1px solid ${C.ash}`, borderRadius: 9 }}>{bonusNote}</p>
       </Card>
+
+      {/* Custom links the affiliate creates, edits and deletes themselves. */}
+      <CustomLinks base={linkBase} enabled={data.status !== 'suspended'} />
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(168px, 1fr))', gap: 14 }}>

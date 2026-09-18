@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
-import { ListingSnapshot, ShopSnapshot, TrackedListing } from '@/lib/models'
+import { ListingSnapshot, ShopSnapshot, TrackedListing, SearchRankSnapshot, KeywordMarketSnapshot } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin } from '@/lib/auth/roles'
 import { dayKey } from '@/lib/snapshots'
@@ -22,11 +22,19 @@ export async function GET(): Promise<NextResponse<ApiResponse<unknown>>> {
     await connectDB()
     const today = dayKey()
 
-    const [trackedListings, listingSnapshots, snapshotsToday, shopSnapshots] = await Promise.all([
+    const [
+      trackedListings, listingSnapshots, snapshotsToday, shopSnapshots,
+      rankSnapshots, rankSnapshotsToday, keywordsTracked, keywordMarketDays,
+    ] = await Promise.all([
       TrackedListing.estimatedDocumentCount(),
       ListingSnapshot.estimatedDocumentCount(),
       ListingSnapshot.countDocuments({ day: today }),
       ShopSnapshot.estimatedDocumentCount(),
+      // Keyword rank history - the dataset no Etsy endpoint can ever backfill.
+      SearchRankSnapshot.estimatedDocumentCount(),
+      SearchRankSnapshot.countDocuments({ day: today }),
+      SearchRankSnapshot.distinct('keyword').then(k => k.length).catch(() => 0),
+      KeywordMarketSnapshot.estimatedDocumentCount(),
     ])
 
     // Listings with >= 2 review-count snapshots → real measured sales velocity.
@@ -44,6 +52,15 @@ export async function GET(): Promise<NextResponse<ApiResponse<unknown>>> {
       .select('listingId title observeCount lastSeenAt')
       .lean<{ listingId: number; title?: string; observeCount: number; lastSeenAt: Date }[]>()
 
+    // Listings whose rank we have captured on >= 2 days for the same keyword →
+    // real rank MOVEMENT, not just a current position.
+    const rankMeasuredAgg = await SearchRankSnapshot.aggregate<{ n: number }>([
+      { $group: { _id: { k: '$keyword', l: '$listingId' }, c: { $sum: 1 } } },
+      { $match: { c: { $gte: 2 } } },
+      { $count: 'n' },
+    ])
+    const measuredRankPairs = rankMeasuredAgg[0]?.n ?? 0
+
     return NextResponse.json({
       success: true,
       data: {
@@ -52,6 +69,11 @@ export async function GET(): Promise<NextResponse<ApiResponse<unknown>>> {
         snapshotsToday,
         shopSnapshots,
         measuredListings,
+        rankSnapshots,
+        rankSnapshotsToday,
+        keywordsTracked,
+        keywordMarketDays,
+        measuredRankPairs,
         recent: recent.map(r => ({
           listingId: r.listingId,
           title: r.title ?? '',

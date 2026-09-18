@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
 import { TrackedShop, ShopSnapshot, TrackedListing, ListingSnapshot } from '@/lib/models'
-import { getEtsyShop, getListingById, getListingReviewStats } from '@/lib/etsy'
+import { getEtsyShop, getListingById, getListingReviewStats, topCategoryForTaxonomy } from '@/lib/etsy'
 import { dayKey, recordObservedListings } from '@/lib/snapshots'
 import type { ApiResponse } from '@/types'
 
@@ -96,6 +96,12 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<un
             views: listing.views ?? null,
             favorers: listing.num_favorers ?? null,
             reviewCount: reviews?.count ?? null,
+            quantity: listing.quantity ?? null,
+            // Stable attributes, so a crowd-observed listing ends up with the
+            // category/age facts even if nobody opened its page.
+            shopName: listing.shop_name || null,
+            categoryTop: topCategoryForTaxonomy(listing.taxonomy_id),
+            createdTimestamp: listing.created_timestamp ?? null,
           }])
           listingsCaptured++
         } catch (e) {

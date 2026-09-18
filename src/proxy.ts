@@ -24,6 +24,7 @@ const PUBLIC_API = [
   '/api/geo',              // used by the public marketing site
   '/api/popup-ad',         // used by the public marketing site
   '/api/affiliate/click',  // anonymous referral-click tracking (sets the ?ref cookie)
+  '/api/etsy/estimate-config', // static model constants the extension loads at startup
   '/api/fx',               // harmless cached currency rate (sanitised input)
   '/api/health',           // uptime / load-balancer health probe
   '/api/mcp',              // public MCP server (agents connect without a session)

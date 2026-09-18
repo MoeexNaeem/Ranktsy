@@ -4,6 +4,7 @@ import { PLAN_SLUGS, type PlanSlug } from '@/lib/plans'
 import type {
   IKeywordCache, IKeywordHistory, ISavedKeyword, IPayment, IOTP,
   IShopSnapshot, IListingSnapshot, ITrackedShop, ITrackedListing, IConnectedShop,
+  ISearchRankSnapshot, IKeywordMarketSnapshot, IAffiliateLink,
   ICollectiveKeywordData, IApiUsage, IBlog, IDeal, IPopupAd,
 } from '@/types'
 
@@ -256,6 +257,16 @@ const ListingSnapshotSchema = new Schema<IListingSnapshot>({
   views:      { type: Number, default: 0 },
   favorers:   { type: Number, default: 0 },
   reviewCount:{ type: Number, default: null },
+  // What the buyer actually saw that day. The Etsy API reports a listing's
+  // ORIGINAL list price, so a discounted listing is wrong everywhere unless the
+  // real price is captured from the page - which is exactly what the extension
+  // sees. Keeping the pair lets us reconstruct discount history per listing.
+  priceOriginal: { type: Number, default: null },
+  onSale:        { type: Boolean, default: null },
+  rating:        { type: Number, default: null },
+  quantity:      { type: Number, default: null },
+  // Best rank this listing held in any tracked keyword that day (1 = top).
+  bestRank:      { type: Number, default: null },
   capturedAt: { type: Date, default: Date.now },
 }, { timestamps: false })
 
@@ -285,9 +296,78 @@ const TrackedListingSchema = new Schema<ITrackedListing>({
   title:        { type: String, default: '' },
   observeCount: { type: Number, default: 0 },
   lastSeenAt:   { type: Date, default: Date.now },
+  // ── Stable attributes ──────────────────────────────────────────────────────
+  // Facts that describe the listing rather than a given day. Held here (one row
+  // per listing) instead of repeated on every daily snapshot, and used to pick
+  // the right conversion rate, to group by shop or category, and to answer
+  // "what do we already know about this listing" without an Etsy call.
+  shopName:     { type: String, default: null },
+  tags:         { type: [String], default: undefined },
+  categoryTop:  { type: String, default: null },
+  isDigital:    { type: Boolean, default: null },
+  currency:     { type: String, default: null },
+  createdTimestamp: { type: Number, default: null },
+  // ── Last observed state ────────────────────────────────────────────────────
+  // A denormalised copy of the newest snapshot, so leaderboards and coverage
+  // readouts don't have to fan out across ListingSnapshot.
+  lastPrice:       { type: Number, default: null },
+  lastViews:       { type: Number, default: null },
+  lastFavorers:    { type: Number, default: null },
+  lastReviewCount: { type: Number, default: null },
+  firstSeenAt:  { type: Date, default: Date.now },
 }, { timestamps: true })
 
 TrackedListingSchema.index({ lastSeenAt: -1 })
+TrackedListingSchema.index({ shopId: 1, lastSeenAt: -1 })
+TrackedListingSchema.index({ observeCount: -1 })
+
+// ─── Search rank snapshot ──────────────────────────────────────────────────────
+// WHERE a listing ranked for a keyword on a given day.
+//
+// Etsy's API returns today's relevance order and nothing else: there is no rank
+// history endpoint and no backfill, so a day not captured is a day lost. The
+// extension sees the real, personalised-free ordering a shopper sees, which is
+// the only honest source for "did my rank move". One row per
+// (keyword, listing, day) keeps capture idempotent however many users search the
+// same term.
+const SearchRankSnapshotSchema = new Schema<ISearchRankSnapshot>({
+  keyword:    { type: String, required: true, trim: true, lowercase: true },
+  listingId:  { type: Number, required: true },
+  shopId:     { type: Number, default: null },
+  day:        { type: String, required: true },     // YYYY-MM-DD (UTC)
+  position:   { type: Number, required: true },     // 1-based, ads excluded from the count
+  page:       { type: Number, default: 1 },
+  isAd:       { type: Boolean, default: false },
+  capturedAt: { type: Date, default: Date.now },
+}, { timestamps: false })
+
+// Idempotent per keyword/listing/day. Best (lowest) position of the day wins -
+// see recordSearchRanks, which only lowers an existing position.
+SearchRankSnapshotSchema.index({ keyword: 1, listingId: 1, day: 1 }, { unique: true })
+SearchRankSnapshotSchema.index({ keyword: 1, day: -1, position: 1 })
+SearchRankSnapshotSchema.index({ listingId: 1, day: -1 })
+SearchRankSnapshotSchema.index({ capturedAt: 1 }, { expireAfterSeconds: SNAPSHOT_TTL_SECONDS })
+
+// ─── Keyword market snapshot ───────────────────────────────────────────────────
+// The shape of a keyword's results page on a given day: how many listings Etsy
+// claims to match, how many were ads, the price spread of what actually ranks.
+// Competition on a keyword is a moving target and Etsy exposes no history for
+// it either, so this is captured the same way - once per keyword per day.
+const KeywordMarketSnapshotSchema = new Schema<IKeywordMarketSnapshot>({
+  keyword:      { type: String, required: true, trim: true, lowercase: true },
+  day:          { type: String, required: true },
+  totalResults: { type: Number, default: null },  // Etsy's own match count
+  sampled:      { type: Number, default: 0 },     // rows we actually saw
+  adCount:      { type: Number, default: null },
+  priceMin:     { type: Number, default: null },
+  priceMax:     { type: Number, default: null },
+  priceMedian:  { type: Number, default: null },
+  currency:     { type: String, default: null },
+  capturedAt:   { type: Date, default: Date.now },
+}, { timestamps: false })
+
+KeywordMarketSnapshotSchema.index({ keyword: 1, day: 1 }, { unique: true })
+KeywordMarketSnapshotSchema.index({ capturedAt: 1 }, { expireAfterSeconds: SNAPSHOT_TTL_SECONDS })
 
 // ─── Connected Shop ────────────────────────────────────────────────────────────
 // A user's OWN Etsy shop(s), connected via OAuth. One row per (userId, shopId) -
@@ -724,6 +804,29 @@ const ReferralConversionSchema = new Schema<IReferralConversionDoc>({
 // so the older subscriptionId-unique index (if present) is dropped automatically.
 ReferralConversionSchema.index({ invoiceId: 1 }, { unique: true, partialFilterExpression: { invoiceId: { $type: 'string' } } })
 
+// ─── Affiliate link (custom referral links) ────────────────────────────────────
+// An affiliate's default code lives on the Affiliate doc. These are the extra,
+// human-readable codes they create themselves (one per channel, typically), so
+// they can run ?ref=spring-video alongside ?ref=sarah4k2f.
+//
+// `code` is unique HERE, and creation also checks Affiliate.code, so no two
+// referral codes in the programme can ever collide - that check is what the
+// dashboard surfaces as "already taken". Per-link clicks and signups are counted
+// so an affiliate can see which channel actually works; commission itself is
+// always attributed to the owning affiliate, never to the link.
+const AffiliateLinkSchema = new Schema<IAffiliateLink>({
+  affiliateId: { type: String, required: true, index: true },
+  userId:      { type: String, required: true, index: true },
+  code:        { type: String, required: true, unique: true, index: true, lowercase: true, trim: true },
+  label:       { type: String, default: null },
+  clicks:      { type: Number, default: 0 },
+  signups:     { type: Number, default: 0 },
+}, { timestamps: true })
+
+AffiliateLinkSchema.index({ affiliateId: 1, createdAt: -1 })
+
+export const AffiliateLink = (models.AffiliateLink as mongoose.Model<IAffiliateLink>) ?? model<IAffiliateLink>('AffiliateLink', AffiliateLinkSchema)
+
 export const ExtensionUsage = (models.ExtensionUsage as mongoose.Model<IExtensionUsageDoc>) ?? model<IExtensionUsageDoc>('ExtensionUsage', ExtensionUsageSchema)
 export const Notification   = (models.Notification as mongoose.Model<INotificationDoc>)   ?? model<INotificationDoc>('Notification', NotificationSchema)
 export const ChatMessage    = (models.ChatMessage as mongoose.Model<IChatMessageDoc>)     ?? model<IChatMessageDoc>('ChatMessage', ChatMessageSchema)
@@ -745,6 +848,8 @@ export const ShopSnapshot    = models.ShopSnapshot    ?? model<IShopSnapshot>('S
 export const ListingSnapshot = models.ListingSnapshot ?? model<IListingSnapshot>('ListingSnapshot', ListingSnapshotSchema)
 export const TrackedShop     = models.TrackedShop     ?? model<ITrackedShop>('TrackedShop', TrackedShopSchema)
 export const TrackedListing  = models.TrackedListing  ?? model<ITrackedListing>('TrackedListing', TrackedListingSchema)
+export const SearchRankSnapshot = (models.SearchRankSnapshot as mongoose.Model<ISearchRankSnapshot>) ?? model<ISearchRankSnapshot>('SearchRankSnapshot', SearchRankSnapshotSchema)
+export const KeywordMarketSnapshot = (models.KeywordMarketSnapshot as mongoose.Model<IKeywordMarketSnapshot>) ?? model<IKeywordMarketSnapshot>('KeywordMarketSnapshot', KeywordMarketSnapshotSchema)
 export const ConnectedShop   = models.ConnectedShop   ?? model<IConnectedShop>('ConnectedShop', ConnectedShopSchema)
 export const OTP           = models.OTP           ?? model<IOTP>('OTP', OTPSchema)
 export const KeywordCache  = models.KeywordCache  ?? model<IKeywordCache>('KeywordCache', KeywordCacheSchema)

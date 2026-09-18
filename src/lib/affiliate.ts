@@ -16,9 +16,10 @@
  * Squeezy and pays the affiliate out of it, so a conversion is just an owed-amount
  * ledger the admin marks "paid" once settled.
  */
-import { Affiliate, ReferralConversion, type IAffiliateDoc } from '@/lib/models'
+import { Affiliate, AffiliateLink, ReferralConversion, type IAffiliateDoc } from '@/lib/models'
 import { siteUrl } from '@/lib/seo/site'
 import type { PlanSlug } from '@/lib/plans'
+import type { IAffiliateLink } from '@/types'
 
 export const REF_COOKIE = 'rk_ref'
 export const REF_COOKIE_MAX_AGE = 60 * 24 * 60 * 60 // 60 days, in seconds
@@ -90,19 +91,133 @@ export function affiliateLink(code: string): string {
   return `${siteUrl()}/?ref=${encodeURIComponent(code)}`
 }
 
+/* ── Referral codes ─────────────────────────────────────────────────────────── */
+
+/** How many custom links one affiliate may hold at a time. */
+export const MAX_CUSTOM_LINKS = 10
+
+export const CODE_MIN = 3
+export const CODE_MAX = 40
+
+/**
+ * Codes that would let a link impersonate Rankkw itself or a staff channel.
+ * A referral code is only ever a query value (?ref=CODE), so this is about
+ * trust, not routing.
+ */
+const RESERVED_CODES = new Set([
+  'rankkw', 'rankkw-official', 'official', 'admin', 'administrator', 'support',
+  'help', 'billing', 'team', 'staff', 'sales', 'security', 'noreply', 'no-reply',
+  'etsy', 'etsy-official', 'api', 'root', 'system', 'test', 'null', 'undefined',
+])
+
+/**
+ * The single source of truth for what a referral code may look like: lowercase
+ * letters, digits, hyphen and underscore, starting and ending on a letter or
+ * digit. Enforced here, in the API, in the click tracker and in the client-side
+ * capture, so a code that can be created is always a code that can be resolved.
+ */
+export const CODE_RE = /^[a-z0-9](?:[a-z0-9_-]{1,38})[a-z0-9]$/
+
+export type CodeProblem = 'empty' | 'length' | 'charset' | 'reserved'
+
+/** Normalise user input into a candidate code (does not validate it). */
+export function normalizeCode(raw: unknown): string {
+  return String(raw ?? '').trim().toLowerCase().replace(/\s+/g, '-')
+}
+
+/** Why a code is unacceptable, or null when it is fine. */
+export function codeProblem(code: string): CodeProblem | null {
+  if (!code) return 'empty'
+  if (code.length < CODE_MIN || code.length > CODE_MAX) return 'length'
+  if (!CODE_RE.test(code)) return 'charset'
+  if (RESERVED_CODES.has(code)) return 'reserved'
+  return null
+}
+
+/** A message for the affiliate, phrased for the dashboard. */
+export function codeProblemMessage(problem: CodeProblem): string {
+  switch (problem) {
+    case 'empty': return 'Enter a link name.'
+    case 'length': return `Use between ${CODE_MIN} and ${CODE_MAX} characters.`
+    case 'charset': return 'Use lowercase letters, numbers, hyphens and underscores only, starting and ending with a letter or number.'
+    case 'reserved': return 'That name is reserved. Please choose another.'
+  }
+}
+
+/**
+ * Is this code free to claim?
+ *
+ * Checks BOTH namespaces - every affiliate's default code and every custom link
+ * - because they are resolved from the same ?ref value and so must never
+ * collide. `ignoreLinkId` lets an affiliate keep their own code while renaming
+ * the rest of a link.
+ */
+export async function isCodeAvailable(code: string, ignoreLinkId?: string): Promise<boolean> {
+  const [onAffiliate, onLink] = await Promise.all([
+    Affiliate.exists({ code }),
+    AffiliateLink.findOne({ code }).select('_id').lean(),
+  ])
+  if (onAffiliate) return false
+  if (onLink && String(onLink._id) !== String(ignoreLinkId ?? '')) return false
+  return true
+}
+
+/**
+ * Resolve any referral code to the affiliate it belongs to.
+ *
+ * A code is either an affiliate's default code or one of their custom links, and
+ * the caller should not care which: attribution, commission and the recurring
+ * cap all belong to the AFFILIATE. The matched link is returned as well so
+ * per-link clicks and signups can be counted.
+ */
+export async function resolveReferralCode(raw: unknown): Promise<{ affiliate: IAffiliateDoc; linkId: string | null } | null> {
+  const code = normalizeCode(raw)
+  if (codeProblem(code)) return null
+
+  const direct = await Affiliate.findOne({ code, status: 'active' })
+  if (direct) return { affiliate: direct, linkId: null }
+
+  const link = await AffiliateLink.findOne({ code }).select('_id affiliateId').lean()
+  if (!link) return null
+  const affiliate = await Affiliate.findById(link.affiliateId)
+  if (!affiliate || affiliate.status !== 'active') return null
+  return { affiliate, linkId: String(link._id) }
+}
+
+/** Shape a custom link for the client. */
+export function serializeLink(l: IAffiliateLink): {
+  id: string; code: string; link: string; label: string | null; clicks: number; signups: number; createdAt: string | null
+} {
+  return {
+    id: String(l._id),
+    code: l.code,
+    link: affiliateLink(l.code),
+    label: l.label ?? null,
+    clicks: l.clicks ?? 0,
+    signups: l.signups ?? 0,
+    createdAt: l.createdAt ? new Date(l.createdAt).toISOString() : null,
+  }
+}
+
 /**
  * First-touch attribution at signup: stamp the referrer on a brand-new user and
  * bump the affiliate's signup counter. No-op for an unknown/suspended code.
  */
 export async function applySignupReferral(user: { _id: unknown; save: () => Promise<unknown>; referredBy?: string | null; referredByAffiliateId?: string | null }, code?: string | null): Promise<void> {
   if (!code) return
-  const affiliate = await Affiliate.findOne({ code: code.toLowerCase(), status: 'active' })
-  if (!affiliate) return
+  const hit = await resolveReferralCode(code)
+  if (!hit) return
+  const { affiliate, linkId } = hit
   if (String(affiliate.userId) === String(user._id)) return
+  // Always stamp the affiliate's DEFAULT code, whichever link was used: the
+  // commission path looks the affiliate up by this value, and a custom link the
+  // affiliate later deletes must not orphan an existing referral.
   user.referredBy = affiliate.code
   user.referredByAffiliateId = String(affiliate._id)
   await user.save()
   await Affiliate.updateOne({ _id: affiliate._id }, { $inc: { signups: 1 } })
+  // Per-link signups, so the affiliate can tell which channel converts.
+  if (linkId) await AffiliateLink.updateOne({ _id: linkId }, { $inc: { signups: 1 } }).catch(() => null)
 }
 
 // Sync indexes once per process so an older subscriptionId-unique index (from the
@@ -239,5 +354,8 @@ export function serializeAffiliate(a: IAffiliateDoc) {
     recurringMonths: RECURRING_MONTHS,
     earnedTotal: round2(a.earnedTotal ?? 0),
     paidTotal: round2(a.paidTotal ?? 0),
+    maxCustomLinks: MAX_CUSTOM_LINKS,
+    codeMin: CODE_MIN,
+    codeMax: CODE_MAX,
   }
 }

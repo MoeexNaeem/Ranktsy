@@ -419,6 +419,11 @@ export interface EtsyListing {
   /** Review count saved in the shared Collective package (Ranktsy Bulk search);
    *  present when this listing came from `collectivekeyworddatas`, else undefined. */
   review_count?: number | null
+  /** Etsy TOP-LEVEL category name (e.g. "Home & Living"), resolved from
+   *  `taxonomy_id` when the taxonomy tree is warm. Feeds the per-category
+   *  conversion rate in salesEstimate.ts so server surfaces and the extension
+   *  (which reads the page breadcrumb) agree. Undefined when not yet resolved. */
+  categoryTop?: string | null
 }
 
 export interface EtsyShop {
@@ -512,6 +517,15 @@ export interface IListingSnapshot {
   /** Lifetime review count on that day. Its day-over-day delta is the only real
    *  per-listing sales signal Etsy exposes (reviews ÷ review-rate = units sold). */
   reviewCount?: number | null
+  /** Pre-discount price, when the page showed a struck-through original. */
+  priceOriginal?: number | null
+  onSale?: boolean | null
+  /** Star rating shown for the listing (not the shop). */
+  rating?: number | null
+  /** Stock Etsy was advertising that day. */
+  quantity?: number | null
+  /** Best (lowest) organic rank held in any observed keyword that day. */
+  bestRank?: number | null
   capturedAt: Date
 }
 
@@ -526,6 +540,85 @@ export interface ITrackedListing {
   observeCount: number
   lastSeenAt: Date
   createdAt?: Date
+  // Stable attributes - describe the listing, not a given day.
+  shopName?: string | null
+  tags?: string[]
+  /** Etsy top-level category, e.g. "Home & Living" - picks the conversion rate. */
+  categoryTop?: string | null
+  isDigital?: boolean | null
+  currency?: string | null
+  createdTimestamp?: number | null
+  // Newest observed state, denormalised off the latest snapshot.
+  lastPrice?: number | null
+  lastViews?: number | null
+  lastFavorers?: number | null
+  lastReviewCount?: number | null
+  firstSeenAt?: Date
+}
+
+/** A custom referral link an affiliate created for themselves, e.g. ?ref=my-newsletter.
+ *  One affiliate can hold several; `code` is unique across the whole programme
+ *  (including every affiliate's default code), which is what "already taken"
+ *  means in the dashboard. */
+export interface IAffiliateLink {
+  _id?: string
+  affiliateId: string
+  userId: string
+  code: string
+  /** The affiliate's own note about where this link is used. */
+  label?: string | null
+  clicks: number
+  signups: number
+  createdAt?: Date
+  updatedAt?: Date
+}
+
+/** Where a listing ranked for a keyword on one UTC day. Etsy exposes no rank
+ *  history, so this only exists for days we captured. */
+export interface ISearchRankSnapshot {
+  _id?: string
+  keyword: string
+  listingId: number
+  shopId?: number | null
+  day: string
+  position: number
+  page?: number
+  isAd?: boolean
+  capturedAt: Date
+}
+
+/** The shape of a keyword's results page on one UTC day (competition history). */
+export interface IKeywordMarketSnapshot {
+  _id?: string
+  keyword: string
+  day: string
+  totalResults?: number | null
+  sampled?: number
+  adCount?: number | null
+  priceMin?: number | null
+  priceMax?: number | null
+  priceMedian?: number | null
+  currency?: string | null
+  capturedAt: Date
+}
+
+/** One listing's rank history for a keyword, oldest to newest. */
+export interface ListingRankPoint {
+  day: string
+  position: number
+  isAd?: boolean
+}
+
+export interface ListingRankHistory {
+  keyword: string
+  listingId: number
+  points: ListingRankPoint[]
+  best: number | null
+  worst: number | null
+  latest: number | null
+  /** Change from the first captured day to the latest; negative means improved. */
+  change: number | null
+  trackedDays: number
 }
 
 /** Per-day delta for one listing, derived from consecutive snapshots. */

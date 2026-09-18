@@ -39,6 +39,12 @@ interface TrackStats {
   snapshotsToday: number
   shopSnapshots: number
   measuredListings: number
+  // Keyword rank history captured from the extension (no Etsy endpoint provides it).
+  rankSnapshots?: number
+  rankSnapshotsToday?: number
+  keywordsTracked?: number
+  keywordMarketDays?: number
+  measuredRankPairs?: number
   recent: { listingId: number; title: string; observeCount: number; lastSeenAt: string }[]
 }
 interface UsageUser { userId: string; userEmail: string | null; etsyCalls: number; googleCalls: number; searches: number; cacheHits: number; apiHits: number; imageCalls: number; imageTokens: number; imageCostUsd: number; creditsSpent: number }
@@ -407,6 +413,16 @@ export function AdminDashboard() {
                 <Kpi label="Measured listings" value={track?.measuredListings ?? 0} accent="#0D9488" delay={60} sub="real sales velocity" />
                 <Kpi label="Listing snapshots" value={track?.listingSnapshots ?? 0} accent={C.ink} delay={120} />
                 <Kpi label="Snapshots today" value={track?.snapshotsToday ?? 0} accent="#2563EB" delay={180} />
+              </div>
+
+              {/* ─── Keyword rank tracking (extension capture) ──────────────────
+                  Etsy has no rank-history endpoint, so these rows only exist
+                  because the extension recorded the live results order. */}
+              <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+                <Kpi label="Keywords tracked" value={track?.keywordsTracked ?? 0} accent={C.orange} delay={0} sub="with rank history" />
+                <Kpi label="Rank movement" value={track?.measuredRankPairs ?? 0} accent="#0D9488" delay={60} sub="listing + keyword pairs" />
+                <Kpi label="Rank snapshots" value={track?.rankSnapshots ?? 0} accent={C.ink} delay={120} />
+                <Kpi label="Ranks today" value={track?.rankSnapshotsToday ?? 0} accent="#2563EB" delay={180} />
               </div>
 
               {track && track.recent.length > 0 && (

@@ -2,8 +2,9 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import { Popover, PopItem, ExportBtn, toCsv, downloadCsv, slugify, ctrlBtn } from '../controls'
 import { useListingReviews } from '@/hooks/useListingReviews'
+import { useListingVelocity } from '@/hooks/useListingVelocity'
 import { useUsdRates } from '@/hooks/useFx'
-import { estimateListingSales, type ListingSalesEstimate } from '@/lib/salesEstimate'
+import { estimateListingSales, withMeasuredMonthly, type ListingSalesEstimate } from '@/lib/salesEstimate'
 import { ListingDetailPanel } from './ListingDetailPanel'
 import { C, D, formatNumber } from '@/utils'
 import { MONO, tableCard } from '../kit'
@@ -106,6 +107,11 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
   }, [listings])
   const ids = useMemo(() => storedReviews ? [] : listings.slice(0, 30).map(l => l.listing_id), [listings, storedReviews])
   const reviewsQ = useListingReviews(ids)
+  // MEASURED 30-day sales from our own snapshot history, for every row we've
+  // tracked long enough. Where present it replaces the modelled monthly figure -
+  // the same rule the extension applies on Etsy, so both surfaces agree.
+  const velocityIds = useMemo(() => listings.slice(0, 100).map(l => l.listing_id), [listings])
+  const velocity = useListingVelocity(velocityIds).data
   // Live rates so the estimated-revenue column can be shown in ONE currency (USD),
   // regardless of each listing's own currency. Null rate → keep the local figure.
   const usdRates = useUsdRates(useMemo(() => listings.map(l => l.price.currency_code), [listings])).data
@@ -126,10 +132,17 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
         ageDays: r.ageDays,
         views: r.l.views ?? null,
         favorites: r.l.num_favorers ?? null,
+        // Category / digital context, so the conversion rate here is the same one
+        // the extension picks for this listing off the page breadcrumb.
+        categoryTop: r.l.categoryTop ?? null,
+        title: r.l.title,
+        tags: r.l.tags,
       })
+      // Measured beats modelled wherever we have the history.
+      m[r.l.listing_id] = withMeasuredMonthly(m[r.l.listing_id], velocity?.[String(r.l.listing_id)], r.price)
     }
     return m
-  }, [rows, reviews])
+  }, [rows, reviews, velocity])
 
   const cols = useMemo(() => ALL_COLS.filter(c => !hidden.has(c.id)), [hidden])
   const grid = useMemo(() => cols.map(c => c.width).join(' ') + ' 34px', [cols])
@@ -203,6 +216,14 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
     return <span style={{ fontFamily: MONO, fontSize: 17.5, color: D.mid, fontWeight: 600 }} title="Estimated - from review count & velocity, not real, measured sales">~{prefix}{formatNumber(v)}</span>
   }
 
+  // Measured cell: no "~", green tone, and it says where the number came from.
+  // Only ever used for a listing our snapshot history actually covers.
+  const measuredNum = (v: number | null, loading = false, prefix = '') => {
+    if (v == null && loading) return <span className="shimmer" style={{ height: 15, width: 46, borderRadius: 4, background: '#e8e7e2', display: 'inline-block' }} />
+    if (v == null) return <span style={{ fontFamily: MONO, fontSize: 17.5, color: C.stone }}>-</span>
+    return <span style={{ fontFamily: MONO, fontSize: 17.5, color: D.good, fontWeight: 600 }} title="Measured - from Rankkw's own tracked daily history for this listing, not a model">{prefix}{formatNumber(v)}</span>
+  }
+
   const cell = (c: Col, r: Row) => {
     switch (c.id) {
       case 'rank': {
@@ -249,16 +270,23 @@ export const TopListingsTable = memo(function TopListingsTable({ listings, query
         if (v === undefined && reviewsLoading) return <span key={c.id} className="shimmer" style={{ height: 15, width: 42, borderRadius: 4, background: '#e8e7e2', display: 'inline-block' }} />
         return <span key={c.id}>{num(v ?? null, { color: (v ?? 0) > 0 ? D.good : C.stone })}</span>
       }
-      case 'estSales': return <span key={c.id}>{estNum(estimates[r.l.listing_id]?.estMonthlySales ?? null, reviewsLoading && !reviews)}</span>
+      case 'estSales': {
+        const measured = !!velocity?.[String(r.l.listing_id)]?.measured
+        return <span key={c.id}>{measured
+          ? measuredNum(estimates[r.l.listing_id]?.estMonthlySales ?? null)
+          : estNum(estimates[r.l.listing_id]?.estMonthlySales ?? null, reviewsLoading && !reviews)}</span>
+      }
       case 'estRev': {
         // Show estimated revenue in USD when we have a live rate; otherwise fall
         // back to the listing's own currency (never a guessed conversion).
         const revLocal = estimates[r.l.listing_id]?.estMonthlyRevenue ?? null
         const rate = usdRates?.[(r.l.price.currency_code ?? 'USD').toUpperCase()]
         const revUsd = revLocal != null && rate != null ? Math.round(revLocal * rate) : null
+        const measured = !!velocity?.[String(r.l.listing_id)]?.measured
+        const show = measured ? measuredNum : estNum
         return <span key={c.id}>{revUsd != null
-          ? estNum(revUsd, false, '$')
-          : estNum(revLocal, reviewsLoading && !reviews, sym(r.l.price.currency_code))}</span>
+          ? show(revUsd, false, '$')
+          : show(revLocal, reviewsLoading && !reviews, sym(r.l.price.currency_code))}</span>
       }
       case 'estTotal': return <span key={c.id}>{estNum(estimates[r.l.listing_id]?.estTotalSales ?? null, reviewsLoading && !reviews)}</span>
       case 'fpd':    return <span key={c.id}>{num(r.favsPerDay, { digits: 2 })}</span>

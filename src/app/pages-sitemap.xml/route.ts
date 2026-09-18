@@ -12,6 +12,7 @@ const PAGES: { path: string; priority: number; changefreq: string }[] = [
   { path: '/about', priority: 0.6, changefreq: 'monthly' },
   { path: '/contact', priority: 0.6, changefreq: 'monthly' },
   { path: '/methodology', priority: 0.6, changefreq: 'monthly' },
+  { path: '/affiliate', priority: 0.7, changefreq: 'monthly' },
   { path: '/etsy-fee-calculator', priority: 0.7, changefreq: 'monthly' },
   { path: '/terms', priority: 0.3, changefreq: 'yearly' },
   { path: '/terms-and-conditions', priority: 0.3, changefreq: 'yearly' },

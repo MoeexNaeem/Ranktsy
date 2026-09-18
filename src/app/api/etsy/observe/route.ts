@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/session'
-import { recordObservedListings, recordShopSnapshots, type ObservedListing, type ShopSnapshotInput } from '@/lib/snapshots'
+import {
+  recordObservedListings, recordShopSnapshots, recordSearchRanks, normalizeKeyword,
+  type ObservedListing, type ShopSnapshotInput, type ObservedRank, type ObservedKeywordMarket,
+} from '@/lib/snapshots'
 import { recordExtensionUsage } from '@/lib/extension'
 import type { ApiResponse } from '@/types'
 
@@ -8,30 +11,61 @@ export const runtime = 'nodejs'
 
 const MAX_ITEMS = 120
 const MAX_SHOPS = 40
+const MAX_RANKS = 120
 
 /**
- * Crowd-sourced snapshot capture. The rankkw extension POSTs the listings a user
- * is looking at on Etsy - {listingId, shopId, views, favorers, reviewCount, price} -
- * and we record one snapshot per listing per UTC day. As the user base browses,
- * this quietly builds the per-listing history that powers real sales velocity
- * (see getListingVelocity). Auth-gated so it can't be scripted anonymously; the
- * capture itself is deduped per day and only writes the fields actually observed.
+ * Crowd-sourced snapshot capture - the data flywheel behind every time-based
+ * figure in Rankkw.
+ *
+ * Etsy's API returns STATE, never HISTORY: a lifetime view count, a lifetime
+ * sales total, today's relevance order. There is no historical endpoint and no
+ * backfill, so a day nobody captured is a day gone for good. The extension sees
+ * exactly what a shopper sees, which makes it the best (and for price and rank,
+ * the only) honest source. Every request here is idempotent per UTC day, so the
+ * same page viewed by ten users costs one row.
+ *
+ * Three streams, all optional in one call:
+ *   items   - per-listing state (views, favorites, reviews, real price, rating,
+ *             stock) plus stable attributes (shop, category, digital, created)
+ *   shops   - shop totals, which power Competitor Sales velocity
+ *   keyword + results - WHERE each listing ranked for a search term today, the
+ *             one thing no Etsy endpoint can ever tell us after the fact
+ *
+ * Auth-gated so it cannot be scripted anonymously. Writes are fire-and-forget
+ * where they are a side effect, and only fields actually observed are written -
+ * a thin search-card observation never blanks out richer listing-page data.
  */
-export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{ captured: number }>>> {
+export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{ captured: number; ranks: number }>>> {
   const user = await getCurrentUser().catch(() => null)
   if (!user) return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 })
   // This endpoint is only ever called by the extension, so record usage for the user.
   void recordExtensionUsage(req, user.id, true)
 
-  const body = (await req.json().catch(() => ({}))) as { items?: unknown; shops?: unknown }
+  const body = (await req.json().catch(() => ({}))) as {
+    items?: unknown; shops?: unknown; keyword?: unknown; results?: unknown; market?: unknown
+  }
   const items = Array.isArray(body.items) ? body.items : []
   const shopsIn = Array.isArray(body.shops) ? body.shops : []
-  if (!items.length && !shopsIn.length) return NextResponse.json({ success: false, error: 'Nothing to record' }, { status: 400 })
+  const ranksIn = Array.isArray(body.results) ? body.results : []
+  const keyword = normalizeKeyword(body.keyword)
+
+  if (!items.length && !shopsIn.length && !(keyword && ranksIn.length)) {
+    return NextResponse.json({ success: false, error: 'Nothing to record' }, { status: 400 })
+  }
 
   const numOrNull = (v: unknown): number | null => {
     const n = Number(v)
     return Number.isFinite(n) ? n : null
   }
+  // A bounded positive number, so a malformed or hostile payload cannot write a
+  // nonsense figure into the shared research dataset.
+  const boundedOrNull = (v: unknown, max: number): number | null => {
+    const n = Number(v)
+    return Number.isFinite(n) && n >= 0 && n <= max ? n : null
+  }
+  const boolOrNull = (v: unknown): boolean | null => (typeof v === 'boolean' ? v : null)
+  const strOrNull = (v: unknown, max: number): string | null =>
+    typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null
 
   // Shop-level rows (from listing pages' seller card + shop pages) feed ShopSnapshot,
   // which powers Competitor Sales velocity. Fire-and-forget, deduped per shop per day.
@@ -52,7 +86,44 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
   }
   if (shops.length) recordShopSnapshots(shops)
 
-  if (!items.length) return NextResponse.json({ success: true, data: { captured: 0 } })
+  // Keyword rank rows. Captured before the listing pass so a search page's rank
+  // history lands even if its listing payload is empty.
+  let ranks = 0
+  if (keyword && ranksIn.length) {
+    const rows: ObservedRank[] = []
+    for (const raw of ranksIn.slice(0, MAX_RANKS)) {
+      const r = raw as Record<string, unknown>
+      const listingId = Number(r.listingId)
+      const position = Number(r.position)
+      if (!Number.isFinite(listingId) || listingId <= 0) continue
+      if (!Number.isFinite(position) || position <= 0 || position > 1000) continue
+      rows.push({
+        listingId,
+        shopId: numOrNull(r.shopId),
+        position: Math.round(position),
+        page: boundedOrNull(r.page, 100) ?? 1,
+        isAd: r.isAd === true,
+      })
+    }
+    const m = (body.market ?? null) as Record<string, unknown> | null
+    const market: ObservedKeywordMarket | undefined = m
+      ? {
+          totalResults: boundedOrNull(m.totalResults, 100_000_000),
+          sampled: boundedOrNull(m.sampled, 1000),
+          adCount: boundedOrNull(m.adCount, 1000),
+          priceMin: boundedOrNull(m.priceMin, 1_000_000),
+          priceMax: boundedOrNull(m.priceMax, 1_000_000),
+          priceMedian: boundedOrNull(m.priceMedian, 1_000_000),
+          currency: strOrNull(m.currency, 8),
+        }
+      : undefined
+    if (rows.length || market) {
+      recordSearchRanks(keyword, rows, market)
+      ranks = rows.length
+    }
+  }
+
+  if (!items.length) return NextResponse.json({ success: true, data: { captured: 0, ranks } })
 
   const clean: ObservedListing[] = []
   for (const raw of items.slice(0, MAX_ITEMS)) {
@@ -73,10 +144,21 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
       views: numOrNull(r.views),
       favorers: numOrNull(r.favorers),
       reviewCount: numOrNull(r.reviewCount),
+      // Day-varying facts only the page can tell us.
+      priceOriginal: boundedOrNull(r.priceOriginal, 1_000_000),
+      onSale: boolOrNull(r.onSale),
+      rating: boundedOrNull(r.rating, 5),
+      quantity: boundedOrNull(r.quantity, 1_000_000),
+      rank: boundedOrNull(r.rank, 1000),
+      // Stable attributes, stored once per listing on TrackedListing.
+      shopName: strOrNull(r.shopName, 120),
+      categoryTop: strOrNull(r.categoryTop, 80),
+      isDigital: boolOrNull(r.isDigital),
+      createdTimestamp: boundedOrNull(r.createdTimestamp, 4_000_000_000),
     })
   }
-  if (!clean.length) return NextResponse.json({ success: false, error: 'No valid items' }, { status: 400 })
+  if (!clean.length) return NextResponse.json({ success: true, data: { captured: 0, ranks } })
 
   const captured = await recordObservedListings(clean)
-  return NextResponse.json({ success: true, data: { captured } })
+  return NextResponse.json({ success: true, data: { captured, ranks } })
 }

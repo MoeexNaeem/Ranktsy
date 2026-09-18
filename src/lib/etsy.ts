@@ -681,6 +681,32 @@ function taxonomyIfReady(): Map<number, string> | null {
   return taxonomyFresh() ? taxonomyCache!.byId : null
 }
 
+/**
+ * Etsy TOP-LEVEL category name for a taxonomy id, e.g. 65 → "Home & Living".
+ * The sales-estimate model picks its conversion rate per top-level category
+ * (see salesEstimate.ts), and the extension reads that category off the page
+ * breadcrumb - this is how the server-rendered surfaces get the same signal, so
+ * both compute the same number.
+ *
+ * Never blocks: returns null until the (large, 24h-cached) taxonomy tree is
+ * warm, which only means the estimate falls back to the default rate.
+ */
+export function topCategoryForTaxonomy(taxonomyId?: number | null): string | null {
+  if (!taxonomyId) return null
+  const map = taxonomyIfReady()
+  if (!map) { warmTaxonomy(); return null }
+  const path = map.get(Number(taxonomyId))
+  if (!path) return null
+  return path.split('›')[0]?.trim() || null
+}
+
+/** Stamp `categoryTop` on listings so client-side estimates are category-aware. */
+export function attachCategoryTop<T extends { taxonomy_id?: number; categoryTop?: string | null }>(listings: T[]): T[] {
+  if (!listings.length) return listings
+  if (!taxonomyIfReady()) { warmTaxonomy(); return listings }
+  return listings.map(l => (l.taxonomy_id ? { ...l, categoryTop: topCategoryForTaxonomy(l.taxonomy_id) } : l))
+}
+
 // ─── Search Results Analysis ──────────────────────────────────────────────────
 // Everything here is computed from the sampled live listings the official search
 // endpoint returned - no external data, no estimation beyond what's labelled.

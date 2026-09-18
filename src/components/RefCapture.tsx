@@ -13,8 +13,10 @@ export function RefCapture() {
     try {
       const code = new URLSearchParams(window.location.search).get('ref')
       if (!code) return
-      const clean = code.trim().toLowerCase()
-      if (!/^[a-z0-9]{1,40}$/.test(clean)) return
+      // Same shape the server accepts (see CODE_RE in lib/affiliate.ts): custom
+      // links may contain hyphens and underscores, e.g. ?ref=spring-video.
+      const clean = code.trim().toLowerCase().replace(/\s+/g, '-')
+      if (!/^[a-z0-9][a-z0-9_-]{1,38}[a-z0-9]$/.test(clean)) return
       const key = `rk_ref_sent:${clean}`
       if (sessionStorage.getItem(key)) return
       sessionStorage.setItem(key, '1')

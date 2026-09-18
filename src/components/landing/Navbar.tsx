@@ -91,6 +91,7 @@ const RESOURCES_COLS: Col[] = [
     items: [
       { href: '/about',       label: 'About us',    icon: 'info' },
       { href: '/methodology', label: 'Methodology', icon: 'book' },
+      { href: '/affiliate',   label: 'Affiliate Program', icon: 'dollar' },
       { href: '/contact',     label: 'Contact',     icon: 'mail' },
     ],
   },
@@ -242,6 +243,11 @@ export function Navbar() {
               </Link>
             </li>
             <li>
+              <Link href="/affiliate" style={{ ...S.trigger, color: C.graphite, textDecoration: 'none' }} onMouseEnter={e => { setOpenMenu(null); e.currentTarget.style.background = C.bone; e.currentTarget.style.color = C.ink }} onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.graphite }}>
+                Affiliate
+              </Link>
+            </li>
+            <li>
               {/* Deals - frosted glass pill with a moving dashed border to draw the eye */}
               <Link href="/deals" className="rk-deals-nav rk-ants" style={{ ...S.trigger, ['--ant' as string]: C.orange, color: C.orange, fontWeight: 600, textDecoration: 'none', padding: '7px 16px' }} onMouseEnter={() => setOpenMenu(null)}>
                 Deals
@@ -330,6 +336,10 @@ export function Navbar() {
             <span className="rnav-chip"><Icon name="book" /></span>
             <span className="rnav-label">Blog</span>
           </a>
+          <Link href="/affiliate" onClick={closeAll} className="rnav-link block">
+            <span className="rnav-chip"><Icon name="dollar" /></span>
+            <span className="rnav-label">Affiliate</span>
+          </Link>
           <Link href="/deals" onClick={closeAll} className="rnav-link block rk-ants" style={{ ['--ant' as string]: C.orange, ['--ant-tile' as string]: '14px', borderRadius: 12, marginTop: 4, background: 'rgba(251,94,9,0.06)' }}>
             <span className="rnav-chip" style={{ color: C.orange }}><Icon name="dollar" /></span>
             <span className="rnav-label" style={{ color: C.orange, fontWeight: 600 }}>Deals</span>
