@@ -45,24 +45,42 @@ export async function GET(req: NextRequest) {
     // wrong", which made the common cases (a Google login with no Ads account,
     // or our own daily quota lock) indistinguishable from a real bug and left
     // the only explanation in the server log. Classify them instead.
-    console.error('[GoogleAds connect] callback failed:', e)
+    console.error(
+      '[GoogleAds connect] callback failed:',
+      e instanceof GoogleAdsError ? `kind=${e.kind} codes=[${e.codes.join(', ')}] ${e.message}` : e,
+    )
     return back(classify(e))
   }
 }
 
-/** Map a callback failure to a reason the user can act on. */
+/**
+ * Map a callback failure to a reason the user can act on.
+ *
+ * Branching is on Google's error ENUMS (`e.codes`), never on its prose: the
+ * message for a non-Ads user reads "User in the cookie is not a valid Ads
+ * user." and never contains NOT_ADS_USER, so matching the text sends the most
+ * common case down the wrong path.
+ */
 function classify(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e)
-
-  // Google tells us plainly when the Google account simply isn't a Google Ads
-  // user. That is a normal thing for an Etsy seller, not an error on our side.
-  if (/NOT_ADS_USER|not associated with any Google Ads account|no Google Ads account/i.test(msg)) return 'notadsuser'
 
   if (e instanceof GoogleAdsError) {
     if (e.kind === 'quota') return 'quota'
     if (e.kind === 'rate') return 'busy'
-    // The developer token or this login is not allowed to reach the Ads API.
-    if (/DEVELOPER_TOKEN|CUSTOMER_NOT_ENABLED|USER_PERMISSION_DENIED|PERMISSION_DENIED/i.test(msg)) return 'noaccess'
+
+    // This Google login has no Google Ads account at all. Normal for an Etsy
+    // seller who has never advertised, and not an error on our side.
+    if (e.hasCode(/NOT_ADS_USER|USER_NOT_PERMITTED_TO_ACT_AS|NOT_ADS_USER_IN_COOKIE/)) return 'notadsuser'
+
+    // The account exists but is cancelled, suspended or not yet activated.
+    if (e.hasCode(/CUSTOMER_NOT_ENABLED|CUSTOMER_NOT_FOUND/)) return 'notenabled'
+
+    // Signed in with a Google account that cannot operate the Ads account.
+    if (e.hasCode(/USER_PERMISSION_DENIED|MISSING_TOS/)) return 'nopermission'
+
+    // Our developer token, not the user's account.
+    if (e.hasCode(/DEVELOPER_TOKEN/)) return 'appconfig'
+
     if (e.kind === 'auth') return 'noaccess'
   }
 

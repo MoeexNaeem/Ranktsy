@@ -38,6 +38,8 @@ const RETURN_MESSAGES: Record<string, { ok: boolean; title: string; body: string
   quota:       { ok: false, title: 'Google Ads is rate limited right now', body: 'Rankkw has hit its daily Google Ads API allowance. Please try again tomorrow.' },
   busy:        { ok: false, title: 'Google Ads is busy', body: 'Google is rate limiting requests at the moment. Please try again in a minute.' },
   appconfig:   { ok: false, title: 'Google Ads is misconfigured', body: 'Rankkw could not authenticate with Google. Our team has been notified, please try again later.' },
+  notenabled:  { ok: false, title: 'That Google Ads account is not active', body: 'The account is cancelled, suspended, or was never finished being set up. Open ads.google.com, complete or reactivate it, then connect again.' },
+  nopermission:{ ok: false, title: 'That Google login cannot manage the account', body: 'You signed in with a Google account that does not have access to those ads. Sign in with the login that owns the Google Ads account, or ask its admin for access.' },
 }
 
 

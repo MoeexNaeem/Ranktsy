@@ -118,8 +118,26 @@ export function googleStatusOf(meta: GoogleMetricsMeta): GoogleDataStatus {
 }
 
 export class GoogleAdsError extends Error {
-  constructor(message: string, readonly kind: 'quota' | 'rate' | 'auth' | 'http', readonly retryAt: number | null = null) {
+  /**
+   * Google's own error enums for this failure, e.g.
+   * `authenticationError.NOT_ADS_USER`, `authorizationError.CUSTOMER_NOT_ENABLED`.
+   *
+   * Callers must branch on THESE, not on the human message: the message is prose
+   * written by Google ("User in the cookie is not a valid Ads user.") and does
+   * not contain the enum, so string matching silently misclassifies.
+   */
+  constructor(
+    message: string,
+    readonly kind: 'quota' | 'rate' | 'auth' | 'http',
+    readonly retryAt: number | null = null,
+    readonly codes: string[] = [],
+  ) {
     super(message)
+  }
+
+  /** True when any of Google's enums for this failure matches `re`. */
+  hasCode(re: RegExp): boolean {
+    return this.codes.some(c => re.test(c))
   }
 }
 
@@ -211,6 +229,26 @@ const ADS_ERROR_HINTS: { test: RegExp; hint: string }[] = [
 ]
 
 /** Turn a Google Ads API error body into a sentence a person can act on. */
+/**
+ * Google's error enums from a GoogleAdsFailure body, as `group.CODE` strings.
+ * Each entry of `errors[]` carries `errorCode: { <group>: <ENUM> }`.
+ */
+export function googleAdsErrorCodes(text: string): string[] {
+  try {
+    const errs = JSON.parse(text)?.error?.details?.[0]?.errors
+    if (!Array.isArray(errs)) return []
+    const out: string[] = []
+    for (const e of errs) {
+      const code = (e as { errorCode?: Record<string, unknown> })?.errorCode
+      if (!code || typeof code !== 'object') continue
+      for (const [group, value] of Object.entries(code)) {
+        if (typeof value === 'string') out.push(`${group}.${value}`)
+      }
+    }
+    return [...new Set(out)]
+  } catch { return [] }
+}
+
 export function googleAdsErrorMessage(text: string): string {
   try {
     const j = JSON.parse(text)
@@ -301,7 +339,12 @@ export async function adsApiCall<T>(o: AdsCallOptions): Promise<T> {
         `Google Ads API ${V} returned 404 - that version has almost certainly been sunset. ` +
         `Set GOOGLE_ADS_API_VERSION to a current one (see https://developers.google.com/google-ads/api/docs/sunset-dates). Body: ${text.slice(0, 200)}`, 'http')
     }
-    throw new GoogleAdsError(googleAdsErrorMessage(text), res.status === 401 || res.status === 403 ? 'auth' : 'http')
+    throw new GoogleAdsError(
+      googleAdsErrorMessage(text),
+      res.status === 401 || res.status === 403 ? 'auth' : 'http',
+      null,
+      googleAdsErrorCodes(text),
+    )
   }
   throw new GoogleAdsError('Google Ads request failed', 'http')
 }
