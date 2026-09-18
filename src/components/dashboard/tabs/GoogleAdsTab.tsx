@@ -32,6 +32,12 @@ const RETURN_MESSAGES: Record<string, { ok: boolean; title: string; body: string
   norefresh:   { ok: false, title: 'Connection incomplete', body: 'Google did not return long-term access. Please try connecting again.' },
   failed:      { ok: false, title: 'Could not connect Google Ads', body: 'Something went wrong talking to Google. Please try again.' },
   unavailable: { ok: false, title: 'Not available yet', body: 'Google Ads management is not enabled for your account yet.' },
+  // Specific reasons, so a normal situation does not read as a broken feature.
+  notadsuser:  { ok: false, title: 'That Google account has no Google Ads account', body: 'Google Ads campaigns need a Google Ads account. Create one free at ads.google.com, then connect again with that same Google login.' },
+  noaccess:    { ok: false, title: 'Google denied access to the Ads API', body: 'Google would not let Rankkw read that account. Make sure you signed in with the Google login that manages your ads, and that the account is active.' },
+  quota:       { ok: false, title: 'Google Ads is rate limited right now', body: 'Rankkw has hit its daily Google Ads API allowance. Please try again tomorrow.' },
+  busy:        { ok: false, title: 'Google Ads is busy', body: 'Google is rate limiting requests at the moment. Please try again in a minute.' },
+  appconfig:   { ok: false, title: 'Google Ads is misconfigured', body: 'Rankkw could not authenticate with Google. Our team has been notified, please try again later.' },
 }
 
 

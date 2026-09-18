@@ -123,7 +123,9 @@ const NAV: { id: Section; label: string; icon: string }[] = [
 ]
 
 interface ExtRow { userId: string; name: string; email: string; plan: string; version: string | null; hits: number; firstSeenAt: string | null; lastSeenAt: string | null; lastEndpoint: string | null }
-interface ExtData { total: number; active7d: number; rows: ExtRow[] }
+// `total` / `active7d` / `totalCaptures` are aggregates over the whole
+// collection; `rows` is only the newest `listed` of them (see ROW_CAP in the API).
+interface ExtData { total: number; active7d: number; totalCaptures: number; listed?: number; rowCap?: number; rows: ExtRow[] }
 const EXTGRID = '1.7fr 0.7fr 0.7fr 0.7fr 0.9fr 1fr'
 
 export function AdminDashboard() {
@@ -611,10 +613,12 @@ export function AdminDashboard() {
               <div className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
                 <Kpi label="Extension users" value={ext?.total ?? 0} accent={C.orange} delay={0} sub="signed-in users on the extension" />
                 <Kpi label="Active last 7 days" value={ext?.active7d ?? 0} accent="#0D9488" delay={60} />
-                <Kpi label="Total captures" value={ext?.rows.reduce((s, r) => s + r.hits, 0) ?? 0} accent={C.ink} delay={120} />
+                <Kpi label="Total captures" value={ext?.totalCaptures ?? 0} accent={C.ink} delay={120} />
               </div>
               <div>
-                <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>{ext?.rows.length ? `${exact(ext.rows.length)} users · page ${extPage}/${extPageCount}` : 'newest activity first'}</span>}>Extension users</SectionTitle>
+                <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>{ext?.rows.length
+                  ? `${ext.total > ext.rows.length ? `newest ${exact(ext.rows.length)} of ${exact(ext.total)}` : `${exact(ext.rows.length)} users`} · page ${extPage}/${extPageCount}`
+                  : 'newest activity first'}</span>}>Extension users</SectionTitle>
                 {!ext || ext.rows.length === 0 ? (
                   <EmptyState icon="🧩" title="No extension activity yet" sub="Usage appears here once a signed-in user browses Etsy with the Rankkw extension installed." />
                 ) : (
