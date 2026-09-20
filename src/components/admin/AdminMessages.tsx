@@ -17,6 +17,18 @@ interface Msg {
   attachmentUrl?: string | null; attachmentName?: string | null; attachmentKind?: 'image' | 'file' | null; attachmentSize?: number | null
 }
 
+/**
+ * The thread poll returns a fresh array every 5s. Handing that straight to
+ * setMessages re-renders the thread and retriggers the scroll effect even when
+ * nothing changed, which yanked the admin back to the newest message mid-read.
+ * Keeping the previous array when the content matches makes a quiet poll a no-op.
+ */
+const sameMessages = (a: Msg[], b: Msg[]) =>
+  a.length === b.length && a.every((m, i) => {
+    const n = b[i]
+    return m.id === n.id && m.body === n.body && m.editedAt === n.editedAt && m.readByUser === n.readByUser
+  })
+
 const rel = (d: string | null) => {
   if (!d) return ''
   const s = Math.floor((Date.now() - new Date(d).getTime()) / 1000)
@@ -58,6 +70,9 @@ export function AdminMessages() {
   const [busyMsgId, setBusyMsgId] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  // True while the view is at (or near) the newest message. Scrolling up to read
+  // history clears it, so incoming messages stop dragging the view down.
+  const stickToBottom = useRef(true)
 
   // Broadcast composer
   const [bTitle, setBTitle] = useState('')
@@ -75,7 +90,7 @@ export function AdminMessages() {
   }, [])
 
   const openThread = useCallback(async (userId: string, name: string) => {
-    setSel(userId); setSelName(name); setMessages([])
+    setSel(userId); setSelName(name); setMessages([]); stickToBottom.current = true
     try {
       const r = await fetch(`/api/admin/chat/${userId}`)
       const j = await r.json()
@@ -91,7 +106,7 @@ export function AdminMessages() {
     try {
       const r = await fetch(`/api/admin/chat/${sel}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: b }) })
       const j = await r.json()
-      if (j?.success) { setMessages(m => [...m, j.data.message]); loadThreads() }
+      if (j?.success) { stickToBottom.current = true; setMessages(m => [...m, j.data.message]); loadThreads() }
       else { setReply(b); errorToast('Reply not sent', j?.error || 'Please try again.') }
     } catch { setReply(b); errorToast('Reply not sent', 'Network error. Please try again.') }
     finally { setSending(false) }
@@ -148,7 +163,7 @@ export function AdminMessages() {
       const fd = new FormData(); fd.append('file', file)
       const r = await fetch(`/api/admin/chat/${sel}/upload`, { method: 'POST', body: fd })
       const j = await r.json().catch(() => null)
-      if (r.ok && j?.success) { setMessages(m => [...m, j.data.message]); loadThreads(); toast.success('File sent', file.name) }
+      if (r.ok && j?.success) { stickToBottom.current = true; setMessages(m => [...m, j.data.message]); loadThreads(); toast.success('File sent', file.name) }
       else errorToast('Upload failed', j?.error || 'Please try again.')
     } finally { setSending(false) }
   }, [sel, loadThreads])
@@ -197,13 +212,23 @@ export function AdminMessages() {
       try {
         const r = await fetch(`/api/admin/chat/${sel}`)
         const j = await r.json()
-        if (j?.success) setMessages(j.data.messages)
+        if (j?.success) setMessages(prev => (sameMessages(prev, j.data.messages) ? prev : j.data.messages))
       } catch { /* ignore */ }
     }, 5000)
     return () => clearInterval(t)
   }, [sel])
 
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, [messages])
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el && stickToBottom.current) el.scrollTop = el.scrollHeight
+  }, [messages])
+
+  // Within 80px of the end still counts as "at the bottom", so a nudge off the
+  // last message does not switch following off.
+  const onThreadScroll = useCallback(() => {
+    const el = scrollRef.current
+    if (el) stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+  }, [])
 
   const q = search.trim().toLowerCase()
   const filtered = q ? threads.filter(t => t.name.toLowerCase().includes(q) || t.email.toLowerCase().includes(q)) : threads
@@ -292,7 +317,7 @@ export function AdminMessages() {
                   Delete
                 </button>
               </div>
-              <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '18px 18px', display: 'flex', flexDirection: 'column', gap: 12, background: C.snow }}>
+              <div ref={scrollRef} onScroll={onThreadScroll} style={{ flex: 1, overflowY: 'auto', padding: '18px 18px', display: 'flex', flexDirection: 'column', gap: 12, background: C.snow }}>
                 {messages.map((m, i) => {
                   const mine = m.sender === 'admin'
                   const editing = mine && editingId === m.id
