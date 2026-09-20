@@ -5,27 +5,33 @@ import { C } from '@/utils'
 
 const SANS = "'General Sans',sans-serif"
 
-/* NOTE ON HONESTY: Rankkw's whole identity is "no fabricated data". The `quote`
-   cards below are PLACEHOLDER testimonials - swap them for real, attributable
-   seller reviews before relying on them. The `stat` cards are all true facts about
-   the product. */
+/* NOTE ON HONESTY: Rankkw's whole identity is "no fabricated data", and that has to
+   hold for the testimonials too. Every `quote` below is a real Google review from a
+   named reviewer, edited only for grammar and trimmed for length - nothing added,
+   no invented job titles. The `stat` cards are all true facts about the product. */
 type Card =
   | { kind: 'stat'; big: string; sub: string; body: string; bg: string; fg: string }
   | { kind: 'quote'; quote: string; who: string; role: string; bg: string; fg: string }
 
 const CARDS: Card[] = [
-  { kind: 'quote', bg: '#1E2A5A', fg: '#fff', who: 'Maya R.', role: 'Handmade jewelry seller',
-    quote: 'Finally an Etsy tool that shows the actual competition - not made-up sales guesses. I trust the numbers.' },
+  { kind: 'quote', bg: '#1E2A5A', fg: '#fff', who: 'Rumi Ch', role: 'Google review',
+    quote: 'I’ve tested many Etsy research tools, but this one stands out because it focuses on finding profitable keywords instead of just showing data. It has helped me improve my titles, tags and listing strategy.' },
   { kind: 'stat', bg: '#3B5BFF', fg: '#fff', big: '100%', sub: 'real data',
     body: 'Every metric is measured live from the official Etsy & Google APIs. If it isn’t available, you see a dash - never an invented number.' },
-  { kind: 'quote', bg: '#F3B6DD', fg: '#3D3E3B', who: 'Daniel K.', role: 'Vintage prints shop',
-    quote: 'Real favorites-per-view and keyword difficulty helped me pick winners I would have completely skipped.' },
+  { kind: 'quote', bg: '#F3B6DD', fg: '#3D3E3B', who: 'Ali Raza', role: 'Google review',
+    quote: 'RankKW has been a game-changer for my Etsy shop’s SEO. From keyword research to product research and listing optimization, it covers everything I need in one place. Super easy to use, even for beginners, and the insights are spot on.' },
   { kind: 'stat', bg: '#2E7D46', fg: '#fff', big: '33', sub: 'tools, one dashboard',
     body: 'Keywords, competitors, trends, listing audits and AI title / tag / description generators - all in one place.' },
-  { kind: 'quote', bg: '#FB5E09', fg: '#fff', who: 'Priya S.', role: 'Digital planner creator',
-    quote: 'The Google search volume next to Etsy competition finally tells me what’s worth making before I make it.' },
+  { kind: 'quote', bg: '#FB5E09', fg: '#fff', who: 'Khadija Javed', role: 'Google review',
+    quote: 'RankKW has made finding low-competition keywords and writing Etsy titles and descriptions so much faster. It takes out the guesswork and saves a ton of manual effort when listing new items.' },
   { kind: 'stat', bg: '#14352A', fg: '#fff', big: '2', sub: 'live data sources',
     body: 'Live Etsy marketplace data and real Google search demand, cross-referenced on every single keyword you research.' },
+  { kind: 'quote', bg: '#F3B6DD', fg: '#3D3E3B', who: 'Asma Aftab', role: 'Google review',
+    quote: 'RankKW is a very useful tool for keyword research and SEO analysis. It’s simple to use and makes it easier to find and analyze keywords. I’m currently learning SEO, and it has helped my research and my understanding of keyword opportunities.' },
+  { kind: 'quote', bg: '#1E2A5A', fg: '#fff', who: 'Muhammad Sayam', role: 'Google review',
+    quote: 'One of the most useful features is the Etsy keyword research. Finding the right keywords matters, because a well-optimized listing reaches far more potential buyers. It also helps you analyze competitors and discover product opportunities.' },
+  { kind: 'quote', bg: '#FB5E09', fg: '#fff', who: 'Hussnain Naeem', role: 'Google review',
+    quote: 'I’ve been using RankKW for Etsy SEO, and I’ve found it very useful for keyword research, product research and competitor analysis. The platform is easy to use and brings several helpful features together in one place.' },
 ]
 
 function Stars({ fg }: { fg: string }) {
@@ -53,7 +59,7 @@ function CardView({ c }: { c: Card }) {
   return (
     <article className="rv-card" style={{ background: c.bg, color: c.fg }}>
       <Stars fg={c.fg} />
-      <p style={{ fontSize: 'clamp(19px,1.9vw,23px)', fontWeight: 500, lineHeight: 1.42, letterSpacing: '-0.01em', marginTop: 18 }}>
+      <p style={{ fontSize: c.quote.length > 200 ? 17.5 : c.quote.length > 150 ? 19.5 : 'clamp(19px,1.9vw,23px)', fontWeight: 500, lineHeight: 1.45, letterSpacing: '-0.01em', marginTop: 18 }}>
         &ldquo;{c.quote}&rdquo;
       </p>
       <div style={{ marginTop: 'auto', paddingTop: 22 }}>
