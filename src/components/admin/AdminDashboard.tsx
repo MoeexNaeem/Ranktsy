@@ -11,6 +11,7 @@ import { UserDetailPanel } from './UserDetailPanel'
 import { AdminMessages } from './AdminMessages'
 import { AdminAffiliates } from './AdminAffiliates'
 import { AdminSavedKeywords } from './AdminSavedKeywords'
+import { AdminSebtSettings } from '@/components/admin/AdminSebtSettings'
 import { AdminSebtStudents } from './AdminSebtStudents'
 import { AdminEarnings } from './AdminEarnings'
 import { CodeFlow } from './CodeFlow'
@@ -680,6 +681,8 @@ export function AdminDashboard() {
           )}
 
           {section === 'settings' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+            <AdminSebtSettings />
             <div style={{ ...tableCard, padding: '20px 24px', maxWidth: 640, display: 'flex', alignItems: 'flex-start', gap: 18, flexWrap: 'wrap', borderColor: promoOn ? C.orange : C.ash, background: promoOn ? 'rgba(251,94,9,0.05)' : C.paper }}>
               <div style={{ flex: 1, minWidth: 240 }}>
                 <p style={{ fontSize: 15, fontWeight: 600, color: C.ink }}>Convert all free users to Pro</p>
@@ -694,6 +697,7 @@ export function AdminDashboard() {
                   <span style={{ position: 'absolute', top: 3, left: promoOn ? 29 : 3, width: 26, height: 26, borderRadius: '50%', background: '#fff', transition: 'left 0.18s', boxShadow: '0 2px 5px rgba(0,0,0,0.25)' }} />
                 </button>
               </div>
+            </div>
             </div>
           )}
         </div>

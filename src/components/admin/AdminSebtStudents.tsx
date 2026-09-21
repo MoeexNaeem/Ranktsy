@@ -11,12 +11,12 @@ import { MONO, SectionTitle, StatCard, EmptyState, tableCard, tableHead, th, tab
 
 interface StudentRow {
   id: string; name: string; email: string; plan: string
-  joinedAt: string | null; expiresAt: string | null; daysLeft: number; active: boolean
+  joinedAt: string | null; expiresAt: string | null; daysLeft: number; active: boolean; batch: number | null
 }
-interface Payload { total: number; active: number; expired: number; students: StudentRow[]; page: number; limit: number; pageCount: number }
+interface Payload { total: number; active: number; expired: number; students: StudentRow[]; page: number; limit: number; pageCount: number; batches: number[] }
 
 const fmtDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'
-const GRID = '1.3fr 2fr 0.9fr 1fr 1fr 0.8fr'
+const GRID = '1.2fr 1.9fr 0.6fr 0.9fr 1fr 1fr 0.7fr'
 const PAGE_SIZE = 50
 
 export function AdminSebtStudents() {
@@ -24,31 +24,33 @@ export function AdminSebtStudents() {
   const [state, setState] = useState<'loading' | 'ok' | 'error'>('loading')
   const [exporting, setExporting] = useState(false)
   const [page, setPage] = useState(1)
+  // '' = every batch. Students from before batches existed have no number.
+  const [batch, setBatch] = useState('')
 
-  const load = useCallback(async (p: number) => {
+  const load = useCallback(async (p: number, b: string) => {
     setState('loading')
     try {
-      const r = await fetch(`/api/admin/sebt-students?page=${p}&limit=${PAGE_SIZE}`)
+      const r = await fetch(`/api/admin/sebt-students?page=${p}&limit=${PAGE_SIZE}${b ? `&batch=${b}` : ''}`)
       const j = await r.json()
       if (r.ok && j?.success) { setData(j.data); setState('ok') }
       else setState('error')
     } catch { setState('error') }
   }, [])
 
-  useEffect(() => { load(page) }, [load, page])
+  useEffect(() => { load(page, batch) }, [load, page, batch])
 
   const exportCsv = useCallback(async () => {
     setExporting(true)
     try {
-      const r = await fetch('/api/admin/sebt-students?format=csv')
+      const r = await fetch(`/api/admin/sebt-students?format=csv${batch ? `&batch=${batch}` : ''}`)
       if (!r.ok) return
       const blob = await r.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = url; a.download = 'sebt-students.csv'; a.click()
+      a.href = url; a.download = batch ? `sebt-students-batch-${batch}.csv` : 'sebt-students.csv'; a.click()
       URL.revokeObjectURL(url)
     } finally { setExporting(false) }
-  }, [])
+  }, [batch])
 
   const students = data?.students ?? []
 
@@ -63,8 +65,16 @@ export function AdminSebtStudents() {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <p style={{ fontSize: 12.5, color: C.graphite, margin: 0 }}>
-          Everyone who signed up via the SEBT link (rankkw.com/register?cohort=sebt).
+          Everyone who signed up via the SEBT link. Open or close a batch under <strong style={{ color: C.ink }}>Settings → SEBT NEXT</strong>.
         </p>
+        {(data?.batches?.length ?? 0) > 0 && (
+          <select value={batch} onChange={e => { setPage(1); setBatch(e.target.value) }}
+            aria-label="Filter by batch"
+            style={{ height: 40, padding: '0 12px', borderRadius: 100, border: `1px solid ${C.ash}`, background: C.paper, color: C.ink, fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' }}>
+            <option value="">All batches</option>
+            {data?.batches.map(b => <option key={b} value={b}>Batch {b}</option>)}
+          </select>
+        )}
         <button onClick={exportCsv} disabled={exporting || !students.length}
           style={{ marginLeft: 'auto', height: 40, padding: '0 16px', borderRadius: 100, border: `1px solid ${C.ash}`, background: C.paper, color: C.ink, fontSize: 13, fontWeight: 500, fontFamily: 'inherit', cursor: (exporting || !students.length) ? 'not-allowed' : 'pointer', opacity: (exporting || !students.length) ? 0.6 : 1 }}>
           {exporting ? 'Exporting…' : 'Export CSV'}
@@ -79,18 +89,21 @@ export function AdminSebtStudents() {
         {state === 'loading' && <p style={{ fontSize: 13, color: '#808080', padding: '18px 2px' }}>Loading…</p>}
         {state === 'error' && <EmptyState icon="⚠️" title="Could not load" sub="Please try again." />}
         {state === 'ok' && students.length === 0 && (
-          <EmptyState icon="🎓" title="No SEBT students yet" sub="They appear here once someone signs up through the SEBT link." />
+          <EmptyState icon="🎓" title={batch ? `No students in batch ${batch}` : 'No SEBT students yet'} sub={batch ? 'Try another batch, or clear the filter.' : 'They appear here once someone signs up through the SEBT link.'} />
         )}
 
         {state === 'ok' && students.length > 0 && (
           <div className="rtable" style={tableCard}>
             <div style={tableHead(GRID)}>
-              {['Name', 'Email', 'Status', 'Signed up', 'Trial ends', 'Days left'].map((h, i) => <span key={i} style={th}>{h}</span>)}
+              {['Name', 'Email', 'Batch', 'Status', 'Signed up', 'Trial ends', 'Days left'].map((h, i) => <span key={i} style={th}>{h}</span>)}
             </div>
             {students.map((s, i) => (
               <div key={s.id} style={{ ...tableRow(GRID), background: i % 2 ? C.canvas : 'transparent' }}>
                 <span style={{ fontSize: 13.5, color: C.ink, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name || '-'}</span>
                 <span style={{ fontSize: 12.5, color: '#555', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.email}>{s.email}</span>
+                <span style={{ fontSize: 12.5, fontFamily: MONO, color: s.batch == null ? C.stone : C.ink, fontWeight: 600 }} title={s.batch == null ? 'Signed up before batches were tracked' : undefined}>
+                  {s.batch ?? '-'}
+                </span>
                 <span>
                   <span style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', padding: '2px 8px', borderRadius: 999, background: s.active ? '#E4F3E9' : '#F0EFEA', color: s.active ? '#1F7A44' : '#7A7A72' }}>
                     {s.active ? 'Active' : 'Expired'}

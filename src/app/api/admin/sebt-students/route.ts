@@ -20,15 +20,16 @@ interface StudentRow {
   expiresAt: string | null
   daysLeft: number
   active: boolean
+  batch: number | null
 }
 
 const csvCell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
 const fmt = (iso: string | null) => (iso ? new Date(iso).toISOString().replace('T', ' ').slice(0, 16) : '')
 
 function toCsv(rows: StudentRow[]): string {
-  const head = ['Name', 'Email', 'Status', 'Plan', 'Signed up', 'Trial ends', 'Days left']
+  const head = ['Name', 'Email', 'Batch', 'Status', 'Plan', 'Signed up', 'Trial ends', 'Days left']
   const body = rows.map(r => [
-    r.name, r.email, r.active ? 'Active' : 'Expired', r.plan, fmt(r.joinedAt), fmt(r.expiresAt), r.active ? r.daysLeft : 0,
+    r.name, r.email, r.batch ?? '', r.active ? 'Active' : 'Expired', r.plan, fmt(r.joinedAt), fmt(r.expiresAt), r.active ? r.daysLeft : 0,
   ].map(csvCell).join(','))
   return [head.map(csvCell).join(','), ...body].join('\n')
 }
@@ -51,6 +52,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Server-side pagination for the table (CSV export still returns everyone).
   const page = Math.max(1, Number(searchParams.get('page')) || 1)
   const limit = Math.min(200, Math.max(1, Number(searchParams.get('limit')) || 50))
+  // ?batch=2 narrows the list (and the CSV) to one cohort.
+  const batchParam = Number(searchParams.get('batch'))
+  const batchFilter = Number.isFinite(batchParam) && batchParam > 0 ? { sebtBatch: batchParam } : {}
 
   try {
     // Revert any expired comp grants first, so the trial status shown is truthful.
@@ -60,13 +64,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     // Headline counts, computed with cheap countDocuments (no full-collection load).
     // A SEBT trial is "active" while its comp grant hasn't expired.
-    const [total, activeCount] = await Promise.all([
-      User.countDocuments({ sebtStudent: true }),
-      User.countDocuments({ sebtStudent: true, compExpiresAt: { $gt: new Date(now) } }),
+    const [total, activeCount, batches] = await Promise.all([
+      User.countDocuments({ sebtStudent: true, ...batchFilter }),
+      User.countDocuments({ sebtStudent: true, ...batchFilter, compExpiresAt: { $gt: new Date(now) } }),
+      User.distinct('sebtBatch', { sebtStudent: true, sebtBatch: { $ne: null } }) as Promise<number[]>,
     ])
 
     // Only load the rows we actually return: the whole list for CSV, one page for UI.
-    const q = User.find({ sebtStudent: true }).sort({ createdAt: -1 })
+    const q = User.find({ sebtStudent: true, ...batchFilter }).sort({ createdAt: -1 })
     if (!isCsv) q.skip((page - 1) * limit).limit(limit)
     const docs = await q.lean()
 
@@ -83,6 +88,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         expiresAt: u.compExpiresAt ? new Date(u.compExpiresAt).toISOString() : null,
         daysLeft: active ? Math.ceil((exp - now) / DAY) : 0,
         active,
+        batch: u.sebtBatch ?? null,
       }
     })
 
@@ -101,6 +107,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       data: {
         total, active: activeCount, expired: total - activeCount,
         students, page, limit, pageCount: Math.max(1, Math.ceil(total / limit)),
+        batches: batches.sort((a, b) => b - a),
       },
     })
   } catch (e) {

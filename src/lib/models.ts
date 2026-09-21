@@ -32,6 +32,9 @@ export interface IUserDoc extends Document {
   // (?cohort=sebt). Grants the Agency plan free for 7 days (via compExpiresAt)
   // and drives the "SEBT Student" / "SEBT NEXT Agency Plan" labels in the UI.
   sebtStudent?: boolean
+  // Which SEBT batch the student signed up in, copied from the live batch number
+  // at signup. Lets an admin tell batch 1 from batch 2 long after both have closed.
+  sebtBatch?: number | null
   // Admin-set: blocks dashboard access with an explanatory screen. Checked
   // fresh from the DB on dashboard load (never baked into the JWT) so it
   // takes effect immediately, not after the access token expires.
@@ -77,6 +80,7 @@ const UserSchema = new Schema<IUserDoc>({
   planRenewsAt:      { type: Date },
   compExpiresAt:     { type: Date, default: null },
   sebtStudent:       { type: Boolean, default: false },
+  sebtBatch:         { type: Number, default: null },
   restricted:        { type: Boolean, default: false },
   etsyShopId:       { type: String },
   etsyAccessToken:  { type: String, select: false },
@@ -386,11 +390,14 @@ const ConnectedShopSchema = new Schema<IConnectedShop>({
 ConnectedShopSchema.index({ userId: 1, shopId: 1 }, { unique: true })
 
 // ─── App Setting ─────────────────────────────────────────────────────────────
-// Tiny key/value store for global admin switches (e.g. the Free→Pro promo).
-interface IAppSetting { key: string; bool?: boolean }
+// Tiny key/value store for global admin switches (the Free→Pro promo, the SEBT
+// batch number and trial length). One field per type; a key uses only what it needs.
+interface IAppSetting { key: string; bool?: boolean; num?: number; str?: string }
 const AppSettingSchema = new Schema<IAppSetting>({
   key:  { type: String, required: true, unique: true, index: true },
   bool: { type: Boolean, default: false },
+  num:  { type: Number },
+  str:  { type: String },
 }, { timestamps: true })
 
 // ─── Google Ads cache (shared across every user + PM2 worker) ───────────────────

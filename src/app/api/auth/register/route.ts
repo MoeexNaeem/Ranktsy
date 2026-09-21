@@ -9,7 +9,7 @@ import { resolveRole } from '@/lib/auth/roles'
 import { verifyRecaptcha } from '@/lib/recaptcha'
 import { rateLimit, clientIp, tooManyResponse } from '@/lib/auth/rateLimit'
 import { applySignupReferral, REF_COOKIE } from '@/lib/affiliate'
-import { sebtBatchOpen } from '@/lib/sebt'
+import { getSebtConfig, sebtGrantFields } from '@/lib/sebt'
 import type { ApiResponse, AuthUser } from '@/types'
 
 export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<AuthUser>>> {
@@ -46,15 +46,14 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<A
     const hashed  = await hashPassword(password)
     const role    = resolveRole(email)
 
-    // SEBT NEXT education cohort: signups via the SEBT link (?cohort=sebt) get the
-    // Enterprise plan free for 7 days. We reuse the comp-plan clock (compExpiresAt),
-    // so the plan auto-reverts to free after 7 days with no webhook (see plan-lifecycle).
-    // Only honored while the batch window is open - after it closes the grant stops
-    // (defence in depth; the SEBT pages already show a "Batch 1 has ended" screen).
-    const isSebt = body?.cohort === 'sebt' && sebtBatchOpen()
-    const sebtGrant = isSebt
-      ? { plan: 'enterprise' as const, compExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), sebtStudent: true }
-      : {}
+    // SEBT NEXT education cohort: signups via the SEBT link (?cohort=sebt) are
+    // stamped with the live batch number and, while the trial is on, granted the
+    // Enterprise plan for the configured number of days. That runs on the comp
+    // clock (compExpiresAt), so it auto-reverts to free with no webhook - see
+    // plan-lifecycle. Only honoured while registration is open: defence in depth,
+    // since the SEBT pages already show a "Batch N has ended" screen.
+    const sebtCfg = body?.cohort === 'sebt' ? await getSebtConfig() : null
+    const sebtGrant = sebtCfg?.registrationOpen ? sebtGrantFields(sebtCfg) : {}
 
     const user    = await User.create({ name, email, password: hashed, role, ...sebtGrant })
 
