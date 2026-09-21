@@ -14,9 +14,14 @@ import { pushToast, errorToast } from '@/components/ui/toast'
 import { validateUpload, CHAT_ACCEPT } from '@/lib/chat-upload-constants'
 import { ChatAttachmentView } from '@/components/ui/ChatAttachmentView'
 
+/** Announcements from Rankkw render blue, so they read as news, not a 1:1 reply. */
+const ANNOUNCE_BLUE = '#2563EB'
+
 interface Notif { id: string; type: string; title: string; body: string | null; link: string | null; createdAt: string | null; read: boolean }
 interface ChatMsg {
   id: string; userId: string; sender: 'user' | 'admin'; body: string; createdAt: string | null; editedAt?: string | null
+  // Set when this came from an admin announcement rather than a personal reply.
+  broadcast?: 'all' | 'sebt' | null
   attachmentUrl?: string | null; attachmentName?: string | null; attachmentType?: string | null
   attachmentSize?: number | null; attachmentKind?: 'image' | 'file' | null
 }
@@ -132,7 +137,7 @@ export function RealtimeProvider({ isAdmin, children }: { isAdmin: boolean; chil
         if (m.sender === 'admin' && !toastedRef.current.has(`chat:${m.id}`)) {
           toastedRef.current.add(`chat:${m.id}`)
           const preview = m.body || (m.attachmentName ? `📎 ${m.attachmentName}` : 'Sent an attachment')
-          pushToast({ title: 'New reply from support', body: preview, kind: 'info', onClick: () => window.dispatchEvent(new Event('rk-open-chat')) })
+          pushToast({ title: m.broadcast ? 'Message from Rankkw' : 'New reply from support', body: preview, kind: 'info', onClick: () => window.dispatchEvent(new Event('rk-open-chat')) })
         }
         setChatMessages(list => list.some(x => x.id === m.id) ? list : [...list, m])
       })
@@ -266,7 +271,12 @@ export function ChatWidget() {
             {chatMessages.length === 0 && <p style={{ fontSize: 13, color: C.graphite, textAlign: 'center', margin: 'auto 0' }}>Send us a message and we will get back to you here.</p>}
             {chatMessages.map(m => (
               <div key={m.id} style={{ alignSelf: m.sender === 'user' ? 'flex-end' : 'flex-start', maxWidth: '82%' }}>
-                <div style={{ padding: m.attachmentKind === 'image' ? 5 : '9px 13px', borderRadius: 13, fontSize: 13.5, lineHeight: 1.5, background: m.sender === 'user' ? C.orange : C.canvas, color: m.sender === 'user' ? '#fff' : C.ink, border: m.sender === 'user' ? 'none' : `1px solid ${C.ash}`, whiteSpace: 'pre-wrap', wordBreak: 'break-word', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {m.broadcast && (
+                  <p style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, color: ANNOUNCE_BLUE, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 3px' }}>
+                    Announcement
+                  </p>
+                )}
+                <div style={{ padding: m.attachmentKind === 'image' ? 5 : '9px 13px', borderRadius: 13, fontSize: 13.5, lineHeight: 1.5, background: m.sender === 'user' ? C.orange : m.broadcast ? ANNOUNCE_BLUE : C.canvas, color: m.sender === 'user' || m.broadcast ? '#fff' : C.ink, border: m.sender === 'user' || m.broadcast ? 'none' : `1px solid ${C.ash}`, whiteSpace: 'pre-wrap', wordBreak: 'break-word', display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {m.attachmentUrl && m.attachmentKind && (
                     <ChatAttachmentView url={m.attachmentUrl} name={m.attachmentName || 'file'} kind={m.attachmentKind} size={m.attachmentSize} />
                   )}

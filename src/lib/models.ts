@@ -656,6 +656,10 @@ export interface IChatMessageDoc extends Document {
   readByAdmin: boolean
   // Set when the admin edits a message they sent (shown as "edited").
   editedAt?: Date | null
+  // Set when this message came from an admin broadcast rather than a one-to-one
+  // reply, and records who it went to. Broadcasts render blue instead of orange
+  // so nobody mistakes an announcement for a personal reply.
+  broadcast?: 'all' | 'sebt' | null
   createdAt?: Date
 }
 const ChatMessageSchema = new Schema<IChatMessageDoc>({
@@ -672,6 +676,7 @@ const ChatMessageSchema = new Schema<IChatMessageDoc>({
   readByUser:  { type: Boolean, default: false },
   readByAdmin: { type: Boolean, default: false },
   editedAt:    { type: Date, default: null },
+  broadcast:   { type: String, enum: ['all', 'sebt', null], default: null },
 }, { timestamps: true })
 ChatMessageSchema.index({ userId: 1, createdAt: 1 })
 

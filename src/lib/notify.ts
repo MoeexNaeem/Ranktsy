@@ -97,6 +97,8 @@ export function serializeChat(m: any) {
     attachmentKind: (m.attachmentKind ?? null) as 'image' | 'file' | null,
     createdAt: m.createdAt ?? null,
     editedAt: m.editedAt ?? null,
+    // 'all' | 'sebt' when this was an announcement, null for a normal reply.
+    broadcast: (m.broadcast ?? null) as 'all' | 'sebt' | null,
     // Read receipts: for an admin message, readByUser tells us whether the user has
     // opened the thread and seen it (the user GET marks admin msgs readByUser=true).
     readByUser: !!m.readByUser,

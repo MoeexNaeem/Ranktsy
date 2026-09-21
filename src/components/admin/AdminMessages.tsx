@@ -12,8 +12,15 @@ import { ChatAttachmentView } from '@/components/ui/ChatAttachmentView'
 import { validateUpload, CHAT_ACCEPT } from '@/lib/chat-upload-constants'
 
 interface Thread { userId: string; name: string; email: string; lastBody: string; lastSender: 'user' | 'admin'; lastAt: string | null; count: number; unread: number }
+type Audience = 'all' | 'sebt'
+
+/** Announcements are blue so an admin never mistakes one for a personal reply. */
+const BROADCAST_BLUE = '#2563EB'
+const AUDIENCE_LABEL: Record<Audience, string> = { all: 'all users', sebt: 'SEBT students' }
+
 interface Msg {
   id: string; userId: string; sender: 'user' | 'admin'; body: string; createdAt: string | null; editedAt?: string | null; readByUser?: boolean
+  broadcast?: Audience | null
   attachmentUrl?: string | null; attachmentName?: string | null; attachmentKind?: 'image' | 'file' | null; attachmentSize?: number | null
 }
 
@@ -73,6 +80,13 @@ export function AdminMessages() {
   // True while the view is at (or near) the newest message. Scrolling up to read
   // history clears it, so incoming messages stop dragging the view down.
   const stickToBottom = useRef(true)
+
+  // Message-everyone composer (writes into chat threads, not the notification bell).
+  const [castText, setCastText] = useState('')
+  const [castAudience, setCastAudience] = useState<Audience>('all')
+  const [castBusy, setCastBusy] = useState(false)
+  const [castConfirm, setCastConfirm] = useState(false)
+  const [counts, setCounts] = useState<{ all: number; sebt: number } | null>(null)
 
   // Broadcast composer
   const [bTitle, setBTitle] = useState('')
@@ -197,6 +211,36 @@ export function AdminMessages() {
     finally { setBBusy(false) }
   }, [bTitle, bBody, bLink, bTarget, bBusy])
 
+  const sendCast = useCallback(async () => {
+    const text = castText.trim()
+    if (!text || castBusy) return
+    setCastConfirm(false); setCastBusy(true)
+    try {
+      const r = await fetch('/api/admin/chat/broadcast', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: text, audience: castAudience }),
+      })
+      const j = await r.json().catch(() => null)
+      if (r.ok && j?.success) {
+        setCastText('')
+        toast.success(`Sent to ${j.data.sent.toLocaleString()} ${AUDIENCE_LABEL[castAudience]}`, 'It lands in each recipient\u2019s support chat.')
+        // The thread on screen has just gained a message; reload so it shows.
+        if (sel) openThread(sel, selName)
+        loadThreads()
+      } else errorToast('Message not sent', j?.error || 'Please try again.')
+    } catch { errorToast('Message not sent', 'Network error. Please try again.') }
+    finally { setCastBusy(false) }
+  }, [castText, castAudience, castBusy, sel, selName, openThread, loadThreads])
+
+  useEffect(() => {
+    let off = false
+    fetch('/api/admin/chat/broadcast')
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { if (!off && j?.success) setCounts(j.data) })
+      .catch(() => {})
+    return () => { off = true }
+  }, [])
+
   useEffect(() => {
     // loadThreads setStates only after its fetch resolves (async), not synchronously.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -244,6 +288,39 @@ export function AdminMessages() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Message everyone at once - lands in each person's support chat. */}
+      <div style={{ ...cardStyle, padding: '20px 22px', borderColor: 'rgba(37,99,235,0.35)', background: 'rgba(37,99,235,0.035)' }}>
+        <SectionTitle>Message users directly</SectionTitle>
+        <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.6, margin: '0 0 12px' }}>
+          Drops one message into every recipient&rsquo;s support chat. They can reply, and the reply comes back as a normal conversation.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {(['all', 'sebt'] as Audience[]).map(a => {
+              const on = castAudience === a
+              const n = a === 'all' ? counts?.all : counts?.sebt
+              return (
+                <button key={a} onClick={() => setCastAudience(a)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', borderRadius: 100, padding: '8px 16px', cursor: 'pointer', border: `1.5px solid ${on ? BROADCAST_BLUE : C.ash}`, background: on ? BROADCAST_BLUE : C.paper, color: on ? '#fff' : C.ink }}>
+                  {a === 'all' ? 'All users' : 'SEBT students'}
+                  {n != null && <span style={{ fontSize: 11.5, fontFamily: MONO, opacity: on ? 0.85 : 0.6 }}>{n.toLocaleString()}</span>}
+                </button>
+              )
+            })}
+          </div>
+          <textarea value={castText} onChange={e => setCastText(e.target.value)} rows={3} maxLength={4000}
+            placeholder={castAudience === 'sebt' ? 'Message to every SEBT student...' : 'Message to every user...'}
+            style={{ ...field, resize: 'vertical' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <button onClick={() => setCastConfirm(true)} disabled={castBusy || !castText.trim()}
+              style={{ background: castBusy || !castText.trim() ? C.ash : BROADCAST_BLUE, color: '#fff', border: 'none', borderRadius: 9, padding: '9px 18px', fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: castBusy || !castText.trim() ? 'default' : 'pointer' }}>
+              {castBusy ? 'Sending...' : `Send to ${castAudience === 'all' ? 'all users' : 'SEBT students'}`}
+            </button>
+            <span style={{ fontSize: 11.5, color: C.stone, fontFamily: MONO }}>{castText.length}/4000</span>
+          </div>
+        </div>
+      </div>
+
       {/* Broadcast composer */}
       <div style={{ ...cardStyle, padding: '20px 22px' }}>
         <SectionTitle>Send a notification</SectionTitle>
@@ -336,7 +413,12 @@ export function AdminMessages() {
                         </div>
                       </div>
                     ) : (<>
-                    <div style={{ padding: m.attachmentKind === 'image' ? 5 : '10px 14px', borderRadius: m.sender === 'admin' ? '16px 16px 5px 16px' : '16px 16px 16px 5px', fontSize: 13.5, lineHeight: 1.5, background: m.sender === 'admin' ? C.orange : C.canvas, color: m.sender === 'admin' ? '#fff' : C.ink, border: m.sender === 'admin' ? 'none' : `1px solid ${C.hair}`, whiteSpace: 'pre-wrap', wordBreak: 'break-word', boxShadow: m.sender === 'admin' ? '0 2px 6px rgba(251,94,9,0.22)' : '0 1px 2px rgba(61,62,59,0.05)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {m.broadcast && (
+                      <p style={{ fontSize: 10.5, fontWeight: 700, fontFamily: MONO, color: BROADCAST_BLUE, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 4px', textAlign: 'right' }}>
+                        Announcement &middot; {AUDIENCE_LABEL[m.broadcast]}
+                      </p>
+                    )}
+                    <div style={{ padding: m.attachmentKind === 'image' ? 5 : '10px 14px', borderRadius: m.sender === 'admin' ? '16px 16px 5px 16px' : '16px 16px 16px 5px', fontSize: 13.5, lineHeight: 1.5, background: m.sender === 'admin' ? (m.broadcast ? BROADCAST_BLUE : C.orange) : C.canvas, color: m.sender === 'admin' ? '#fff' : C.ink, border: m.sender === 'admin' ? 'none' : `1px solid ${C.hair}`, whiteSpace: 'pre-wrap', wordBreak: 'break-word', boxShadow: m.sender === 'admin' ? (m.broadcast ? '0 2px 6px rgba(37,99,235,0.28)' : '0 2px 6px rgba(251,94,9,0.22)') : '0 1px 2px rgba(61,62,59,0.05)', display: 'flex', flexDirection: 'column', gap: 6 }}>
                       {m.attachmentUrl && m.attachmentKind && (
                         <ChatAttachmentView url={m.attachmentUrl} name={m.attachmentName || 'file'} kind={m.attachmentKind} size={m.attachmentSize} />
                       )}
@@ -386,6 +468,27 @@ export function AdminMessages() {
           )}
         </div>
       </div>
+
+      {/* Confirm before writing a message into every recipient's thread. */}
+      {castConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,18,14,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: 20 }} onClick={() => setCastConfirm(false)}>
+          <div style={{ background: C.paper, borderRadius: 16, padding: '26px 28px', maxWidth: 440, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 18, fontWeight: 600, color: C.ink, marginBottom: 10 }}>
+              Send to {castAudience === 'all' ? 'every user' : 'every SEBT student'}?
+            </h3>
+            <p style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.6, marginBottom: 14 }}>
+              This message goes into <strong style={{ color: C.ink }}>{((castAudience === 'all' ? counts?.all : counts?.sebt) ?? 0).toLocaleString()}</strong> support chats and cannot be unsent in one go.
+            </p>
+            <blockquote style={{ fontSize: 13, color: C.ink, lineHeight: 1.55, background: 'rgba(37,99,235,0.07)', borderLeft: `3px solid ${BROADCAST_BLUE}`, borderRadius: 6, padding: '10px 13px', margin: '0 0 22px', whiteSpace: 'pre-wrap', maxHeight: 160, overflowY: 'auto' }}>
+              {castText.trim()}
+            </blockquote>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button onClick={() => setCastConfirm(false)} style={{ background: 'transparent', border: `1px solid ${C.hairInk}`, color: C.ink, borderRadius: 100, padding: '9px 18px', fontSize: 13.5, fontFamily: 'inherit', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={sendCast} style={{ background: BROADCAST_BLUE, border: 'none', color: '#fff', borderRadius: 100, padding: '9px 18px', fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>Send now</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
