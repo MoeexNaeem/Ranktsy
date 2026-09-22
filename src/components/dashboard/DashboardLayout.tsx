@@ -385,6 +385,29 @@ export function DashboardLayout() {
                 </span>
               )
             })()}
+            {credits?.searches && (() => {
+              // A SEPARATE meter from credits: Keyword Search is capped per plan
+              // and never costs credits, so showing only the credits pill made it
+              // look like searching was free. An unlimited plan shows just a count.
+              const { used, limit } = credits.searches
+              const unlimited = limit == null || !Number.isFinite(limit)
+              const left = unlimited ? 0 : Math.max(0, limit - used)
+              const out = !unlimited && left <= 0
+              const low = !unlimited && !out && left <= limit * 0.2
+              const tone = out ? C.danger : low ? '#B45309' : C.ink
+              return (
+                <span className="rdash-badge" data-tour="searches"
+                  title={unlimited
+                    ? `${used.toLocaleString('en-US')} keyword searches today · unlimited on your plan`
+                    : `${left.toLocaleString('en-US')} of ${limit.toLocaleString('en-US')} daily keyword searches left · resets midnight UTC · searches don't use credits`}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, background: out ? C.dangerBg : low ? '#FFF7E6' : C.paper, color: tone, padding: '9px 15px', borderRadius: 999, fontFamily: "'General Sans',monospace", border: `1.5px solid ${out ? C.danger : low ? '#F2D8A7' : C.ash}`, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1 }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={out || low ? tone : '#2E6DB4'} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  {unlimited ? used.toLocaleString('en-US') : left.toLocaleString('en-US')}
+                  {!unlimited && <span style={{ color: C.graphite, fontWeight: 600 }}>/ {limit.toLocaleString('en-US')}</span>}
+                  <span style={{ color: C.graphite, fontWeight: 600, fontSize: 13 }}>searches</span>
+                </span>
+              )
+            })()}
             {planInfo && (() => {
               const paid = planInfo.plan !== 'free'
               return (

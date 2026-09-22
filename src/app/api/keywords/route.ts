@@ -7,9 +7,10 @@ import { getListingReviewStats } from '@/lib/etsy'
 import { normalizeGeo } from '@/lib/google-ads'
 import { getCurrentUser } from '@/lib/auth/session'
 import { guardSearch } from '@/lib/searchGate'
-import { consumeDailySearch } from '@/lib/quota'
+import { consumeDailySearch, peekDailySearch } from '@/lib/quota'
 import { withUsage } from '@/lib/track'
 import { recordSearch, recordCacheHit, recordApiHit, peekApiCalls } from '@/lib/usage'
+import { upstreamFailure } from '@/lib/upstream-errors'
 import type { ApiResponse, KeywordSearchResponse } from '@/types'
 
 export const runtime = 'nodejs'
@@ -36,11 +37,13 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
   const gate = await guardSearch<KeywordSearchResponse>(req)
   if (gate) return gate
 
-  // Per-plan DAILY search quota (independent of the hourly bot gate).
+  // Per-plan DAILY search quota (independent of the hourly bot gate). Checked
+  // here but only COUNTED once a result is actually delivered, so an upstream
+  // failure never burns one of the user's searches.
   const authUser = await getCurrentUser().catch(() => null)
   if (authUser) {
     await connectDB()
-    const q = await consumeDailySearch(authUser.id)
+    const q = await peekDailySearch(authUser.id)
     if (q && !q.allowed) {
       return NextResponse.json(
         { success: false, code: 'plan_limit', metric: 'searches', plan: q.plan, limit: q.limit,
@@ -110,12 +113,17 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
       ])))
       .catch(() => {})
 
-    return NextResponse.json({ success: true, data, cached: !!data.cachedAt })
+    // The search delivered: NOW count it against the daily plan limit, and hand
+    // the fresh figure back so the top-bar pill updates without a refetch.
+    const counted = authUser ? await consumeDailySearch(authUser.id).catch(() => null) : null
+
+    return NextResponse.json({
+      success: true, data, cached: !!data.cachedAt,
+      searches: counted ? { used: counted.used, limit: Number.isFinite(counted.limit) ? counted.limit : null } : undefined,
+    })
   } catch (err) {
-    console.error('[Keywords] Etsy API error:', err)
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch keyword data from Etsy. Check your ETSY_API_KEY.' },
-      { status: 502 },
-    )
+    // Uncounted: the user asked for a result and did not get one.
+    const fail = upstreamFailure(err)
+    return NextResponse.json({ success: false, error: fail.message }, { status: fail.status })
   }
 })

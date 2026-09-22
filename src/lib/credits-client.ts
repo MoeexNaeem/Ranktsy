@@ -8,7 +8,20 @@ import { triggerUpgrade } from './upgrade'
  * it opens the upgrade modal and returns false so the caller aborts the action.
  */
 
-export interface CreditState { credits: number; limit: number; usedToday: number; plan: string }
+/** `limit: null` means unlimited - JSON has no Infinity, so the API sends null. */
+export interface SearchUsage { used: number; limit: number | null }
+export interface CreditState {
+  credits: number; limit: number; usedToday: number; plan: string
+  /** Keyword searches used today against the plan's own daily cap. Not credits. */
+  searches?: SearchUsage
+}
+
+/** Broadcast fresh keyword-search usage (the second top-bar pill). */
+export function broadcastSearches(usage: SearchUsage | undefined | null) {
+  if (usage && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent<SearchUsage>('rk-searches', { detail: usage }))
+  }
+}
 
 /** Broadcast a fresh credit balance to any mounted useCredits() listeners. */
 export function broadcastCredits(state: CreditState | undefined | null) {

@@ -1,11 +1,12 @@
 'use client'
 import { useEffect, useState } from 'react'
-import type { CreditState } from '@/lib/credits-client'
+import type { CreditState, SearchUsage } from '@/lib/credits-client'
 
 /**
- * The signed-in user's daily credit balance for the dashboard top bar. Fetches
- * once on mount, then updates live from the `rk-credits` events that
- * chargeCredits() broadcasts after every tool use - no polling, no refetch.
+ * The signed-in user's daily allowances for the dashboard top bar: tool credits
+ * and the separate keyword-search cap. Fetches once on mount, then updates live
+ * from `rk-credits` (after a metered tool) and `rk-searches` (after a keyword
+ * search) - no polling, no refetch.
  */
 export function useCredits(): CreditState | null {
   const [state, setState] = useState<CreditState | null>(null)
@@ -17,12 +18,23 @@ export function useCredits(): CreditState | null {
       .then(d => { if (alive && d?.success) setState(d.state) })
       .catch(() => {})
 
-    const onEvt = (e: Event) => {
-      const detail = (e as CustomEvent<CreditState>).detail
-      if (detail) setState(detail)
+    // A credit charge knows nothing about searches (and vice versa), so each
+    // event merges into the existing state rather than replacing it.
+    const onCredits = (e: Event) => {
+      const d = (e as CustomEvent<CreditState>).detail
+      if (d) setState(prev => (prev ? { ...prev, ...d } : d))
     }
-    window.addEventListener('rk-credits', onEvt)
-    return () => { alive = false; window.removeEventListener('rk-credits', onEvt) }
+    const onSearches = (e: Event) => {
+      const d = (e as CustomEvent<SearchUsage>).detail
+      if (d) setState(prev => (prev ? { ...prev, searches: d } : prev))
+    }
+    window.addEventListener('rk-credits', onCredits)
+    window.addEventListener('rk-searches', onSearches)
+    return () => {
+      alive = false
+      window.removeEventListener('rk-credits', onCredits)
+      window.removeEventListener('rk-searches', onSearches)
+    }
   }, [])
 
   return state

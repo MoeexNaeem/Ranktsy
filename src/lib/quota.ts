@@ -15,6 +15,26 @@ const sameUTCMonth = (a?: Date | null, b?: Date | null) =>
 
 export interface QuotaResult { allowed: boolean; used: number; limit: number; plan: PlanSlug }
 
+/**
+ * Can this user run another search today? A read-only peek: it never increments,
+ * so a search that then fails upstream costs the user nothing. Mirrors
+ * credits.ts canAfford → consumeCredits: check before the work, count after it
+ * delivers. Two searches fired at once can both pass this, same as credits; the
+ * cap is a fair-use limit, not a ledger.
+ */
+export async function peekDailySearch(userId: string): Promise<QuotaResult | null> {
+  const user = await User.findById(userId).select('plan compExpiresAt subscriptionStatus planRenewsAt lsSubscriptionId searchCount lastSearchReset').lean<{
+    searchCount?: number; lastSearchReset?: Date | null
+  } & Record<string, unknown>>()
+  if (!user) return null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const plan = effectivePlan(user as any)
+  const limit = limitsFor(plan).searchesPerDay
+  // A stale counter from a previous UTC day reads as zero; consume resets it.
+  const used = sameUTCDay(user.lastSearchReset, new Date()) ? (user.searchCount ?? 0) : 0
+  return { allowed: limit === Infinity || used < limit, used, limit, plan }
+}
+
 /** Count one keyword search against the user's daily plan limit. */
 export async function consumeDailySearch(userId: string): Promise<QuotaResult | null> {
   const user = await User.findById(userId)

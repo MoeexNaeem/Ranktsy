@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { attachCaptchaInterceptor } from '@/components/security/captchaController'
 import { attachUpgradeInterceptor } from '@/lib/upgrade'
+import { broadcastSearches, type SearchUsage } from '@/lib/credits-client'
 import type { ApiResponse, KeywordSearchResponse, KeywordData, NearMatch, EtsyListing, KeywordIdeasResponse } from '@/types'
 
 // ─── Axios instance (shared, avoids creating new instance per component) ──────
@@ -41,11 +42,13 @@ export function useKeywordSearch(query: string, geo = 'US') {
   return useQuery({
     queryKey:  [...queryKeys.keywords(query), geo] as const,
     queryFn:   async ({ signal }) => {
-      const { data } = await api.get<ApiResponse<KeywordSearchResponse>>(
+      const { data } = await api.get<ApiResponse<KeywordSearchResponse> & { searches?: SearchUsage }>(
         `/keywords?q=${encodeURIComponent(query)}&geo=${geo}`,
         { signal } // abort on unmount / query key change
       )
       if (!data.success || !data.data) throw new Error(data.error ?? 'Unknown error')
+      // Only a delivered search is counted, so this is the moment the pill moves.
+      broadcastSearches(data.searches)
       return data.data
     },
     enabled:     query.trim().length >= 2, // don't fetch on empty input
