@@ -416,6 +416,21 @@ svg  { max-width: 100%; }
 .rv-track::-webkit-scrollbar { display: none; }
 .rv-card  { flex: 0 0 auto; width: min(85vw, 384px); scroll-snap-align: start; border-radius: 24px; padding: 30px 30px 28px; display: flex; flex-direction: column; min-height: 384px; }
 
+/* Top-listings card deck (Keyword Search). Snap scrolling with the scrollbar
+   hidden, since the prev/next arrows are the intended control. */
+.tlc-track {
+  display: flex; gap: 14px; overflow-x: auto; scroll-behavior: smooth;
+  padding: 2px 2px 6px; -ms-overflow-style: none; scrollbar-width: none;
+  /* `proximity`, not `mandatory`: mandatory re-snaps every wheel tick, which reads
+     as the deck fighting the cursor. Proximity still lands arrow paging on a card
+     (the step is exactly one pitch) but leaves free scrolling alone. */
+  scroll-snap-type: x proximity;
+  /* Stop a flick past either end from scrolling the page behind the deck. */
+  overscroll-behavior-x: contain;
+}
+.tlc-track::-webkit-scrollbar { display: none; }
+
+
 /* Legal-page table-of-contents link hover — CSS so the pages stay server
    components (a JS onMouseEnter would force 'use client' and block metadata). */
 .toc-link { transition: color 0.15s; }

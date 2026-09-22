@@ -28,6 +28,10 @@ interface Config {
 
 type Tab = 'batch' | 'trial'
 
+/** Fired after a bulk grant so the Overview stats re-read instead of showing a
+ *  snapshot from page load. AdminDashboard listens for it. */
+export const ADMIN_STATS_REFRESH = 'rk-admin-stats-refresh'
+
 const BTN: React.CSSProperties = {
   fontSize: 13, fontWeight: 600, fontFamily: MONO, borderRadius: 100,
   padding: '9px 17px', cursor: 'pointer', border: `1px solid ${C.orange}`,
@@ -116,6 +120,8 @@ export function AdminSebtSettings() {
     const d = await save({ applyToAll: true, scope })
     if (d) {
       const n = d.affected ?? 0
+      // Thousands of plans may have just changed; nudge the Overview to re-read.
+      if (n) window.dispatchEvent(new Event(ADMIN_STATS_REFRESH))
       toast.success(
         n ? `${n.toLocaleString()} student${n === 1 ? '' : 's'} updated` : 'No students needed updating',
         n ? `Enterprise for ${d.trialDays} days, starting now.` : 'Everyone matching is already on a paid plan.',

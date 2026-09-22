@@ -11,7 +11,7 @@ import { UserDetailPanel } from './UserDetailPanel'
 import { AdminMessages } from './AdminMessages'
 import { AdminAffiliates } from './AdminAffiliates'
 import { AdminSavedKeywords } from './AdminSavedKeywords'
-import { AdminSebtSettings } from '@/components/admin/AdminSebtSettings'
+import { AdminSebtSettings, ADMIN_STATS_REFRESH } from '@/components/admin/AdminSebtSettings'
 import { AdminSebtStudents } from './AdminSebtStudents'
 import { AdminEarnings } from './AdminEarnings'
 import { CodeFlow } from './CodeFlow'
@@ -216,6 +216,16 @@ export function AdminDashboard() {
     const t = setInterval(() => { void load(); void loadUsers(usersPage, debouncedQuery) }, 30000)
     return () => clearInterval(t)
   }, [live, load, loadUsers, usersPage, debouncedQuery])
+
+  // Overview stats are a snapshot from page load, and the 30s poll only runs while
+  // "Live" is on. An action in another section (e.g. the SEBT bulk grant) can change
+  // thousands of plans, so let it ask for an immediate re-read instead of leaving
+  // stale numbers on screen.
+  useEffect(() => {
+    const onRefresh = () => { void load(); void loadUsers(usersPage, debouncedQuery) }
+    window.addEventListener(ADMIN_STATS_REFRESH, onRefresh)
+    return () => window.removeEventListener(ADMIN_STATS_REFRESH, onRefresh)
+  }, [load, loadUsers, usersPage, debouncedQuery])
 
   // Keep the Messages nav badge current: poll the unread support-message count.
   useEffect(() => {

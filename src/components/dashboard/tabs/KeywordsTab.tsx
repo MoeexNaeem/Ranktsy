@@ -11,6 +11,7 @@ import { OpportunityBarChart, MixDonut } from '@/components/charts/InsightCharts
 import { PlatformToggle }  from '../PlatformToggle'
 import { Star }            from '../controls'
 import { SearchAnalysisPanel } from '../keyword/SearchAnalysisPanel'
+import { TopListingsCarousel } from '../keyword/TopListingsCarousel'
 import { NearMatchesTable }    from '../keyword/NearMatchesTable'
 import { MarketplacesPanel }   from '../keyword/MarketplacesPanel'
 import { KeywordIdeasPanel }   from '../keyword/KeywordIdeasPanel'
@@ -441,9 +442,20 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
   const { data: kw, isLoading, isError, isFetching } = useKeywordSearch(query, country)
   const related = useRelatedKeywords(query, country)
   const near    = useNearMatches(query)
-  // Images cost a separate ~1.5s Etsy batch call and only this grid uses them,
-  // so they're fetched only once the tab is actually opened.
-  const listingImgs = useKeywordListings(query, sub === 'listings')
+  // The core keyword payload skips images on purpose: Etsy's search endpoint has
+  // none, so they cost a separate ~1.5s /listings/batch round-trip. A package
+  // served from the shared Collective store DOES carry them, which is why some
+  // keywords showed pictures and others did not. Ask for them only when the
+  // payload actually came back without any, so a cached keyword costs no extra
+  // Etsy call, and never block first paint on it.
+  const imagesMissing = !!kw?.listings.length && !kw.listings.some(l => l.images?.[0]?.url_570xN)
+  const listingImgs = useKeywordListings(query, sub === 'listings' || imagesMissing)
+  // Prefer the image-bearing copy once it lands; the deck renders immediately
+  // from the fast payload either way. `isPlaceholderData` guards the hook's
+  // keep-previous behaviour: without it, searching a new keyword would show the
+  // OLD keyword's listings in the deck until the new ones arrived.
+  const deckImages = listingImgs.data?.length && !listingImgs.isPlaceholderData ? listingImgs.data : null
+  const deckListings = deckImages ?? kw?.listings ?? []
   const { data: tr } = useTrends(query, country)
   // Google-suggested keywords (generateKeywordIdeas) - real discovery beyond Etsy tags.
   const ideas = useKeywordIdeas(query, country)
@@ -674,22 +686,13 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
         </Card>
       </div>
 
-      {/* Best Keyword Opportunities - a big, readable bar graph right beneath the
-          Google volume. Fed by related keywords, so it fills in once they land. */}
-      {kw && (
-        <div data-tour="kw-opportunities">
+      {/* The ranking listings themselves, as a card deck. Sits right under the
+          Difficulty / Search Volume pair so the numbers above have faces. */}
+      {kw && deckListings.length > 0 && (
         <Card>
-          <SectionTitle right={relatedPending ? <Measuring /> : insights ? <span style={{ fontSize: 12, fontFamily: MONO, color: C.graphite }}>{insights.pts.length} keywords</span> : undefined}>Best Keyword Opportunities</SectionTitle>
-          <p style={{ fontSize: 13, color: C.graphite, marginTop: -8, marginBottom: 12 }}>
-            Your related keywords <strong style={{ color: C.ink }}>ranked best-to-worst</strong> - the longer the bar, the better the target (real search demand you can realistically rank for).
-          </p>
-          {insights?.pts.length
-            ? <OpportunityBarChart points={insights.pts} unit={insights.unit} />
-            : relatedPending
-              ? <Shimmer h={340} r={8} />
-              : <EmptyState icon="📊" title="Measuring opportunities…" sub="Ranked keywords appear once their difficulty is measured." />}
+          <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: C.stone }}>top {deckListings.length}</span>}>Top Listings</SectionTitle>
+          <TopListingsCarousel listings={deckListings} imagesPending={imagesMissing && listingImgs.isPending} />
         </Card>
-        </div>
       )}
 
       {isError && <ErrorBox>Failed to load keyword data live. Please try again.</ErrorBox>}
@@ -782,6 +785,22 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
                 those real inputs. The Searches / Comp. / CPC columns are real search data (US), shown only when
                 available.
               </p>
+
+              {/* Ranked opportunities from the table above, read as a graph, kept
+                  directly beside the Google ideas they lead into. */}
+              <div data-tour="kw-opportunities">
+                <Card>
+                  <SectionTitle right={relatedPending ? <Measuring /> : insights ? <span style={{ fontSize: 12, fontFamily: MONO, color: C.graphite }}>{insights.pts.length} keywords</span> : undefined}>Best Keyword Opportunities</SectionTitle>
+                  <p style={{ fontSize: 13, color: C.graphite, marginTop: -8, marginBottom: 12 }}>
+                    Your related keywords <strong style={{ color: C.ink }}>ranked best-to-worst</strong> - the longer the bar, the better the target (real search demand you can realistically rank for).
+                  </p>
+                  {insights?.pts.length
+                    ? <OpportunityBarChart points={insights.pts} unit={insights.unit} />
+                    : relatedPending
+                      ? <Shimmer h={340} r={8} />
+                      : <EmptyState icon="📊" title="Measuring opportunities…" sub="Ranked keywords appear once their difficulty is measured." />}
+                </Card>
+              </div>
 
               {/* Google keyword DISCOVERY - terms Google suggests that an Etsy-tag
                   sample can't contain. The one place we surface keywords Etsy never
