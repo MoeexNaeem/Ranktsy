@@ -32,6 +32,9 @@ export interface IUserDoc extends Document {
   // (?cohort=sebt). Grants the Agency plan free for 7 days (via compExpiresAt)
   // and drives the "SEBT Student" / "SEBT NEXT Agency Plan" labels in the UI.
   sebtStudent?: boolean
+  /** The most recent metered charge, kept briefly so the client can have it
+   *  reversed when a result never reached the user. See credits.ts refundLastCharge. */
+  lastCharge?: { tool: string; credits: number; searchCounted: boolean; at: Date; refunded: boolean } | null
   // Which SEBT batch the student signed up in, copied from the live batch number
   // at signup. Lets an admin tell batch 1 from batch 2 long after both have closed.
   sebtBatch?: number | null
@@ -80,6 +83,13 @@ const UserSchema = new Schema<IUserDoc>({
   planRenewsAt:      { type: Date },
   compExpiresAt:     { type: Date, default: null },
   sebtStudent:       { type: Boolean, default: false },
+  lastCharge:        { type: new Schema({
+    tool:          { type: String, required: true },
+    credits:       { type: Number, default: 0 },
+    searchCounted: { type: Boolean, default: false },
+    at:            { type: Date, required: true },
+    refunded:      { type: Boolean, default: false },
+  }, { _id: false }), default: null },
   sebtBatch:         { type: Number, default: null },
   restricted:        { type: Boolean, default: false },
   etsyShopId:       { type: String },

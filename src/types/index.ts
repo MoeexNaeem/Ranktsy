@@ -918,8 +918,10 @@ export interface ApiResponse<T> {
   cached?: boolean
   /** Set by the search rate gate - the client should prompt a reCAPTCHA and retry. */
   captchaRequired?: boolean
-  /** Set when a plan quota is exhausted (HTTP 402) - client shows the upgrade modal. */
-  code?: 'plan_limit'
+  /** Set when an allowance is exhausted (HTTP 402) - client shows the upgrade modal.
+   *  'plan_limit' = a per-plan cap (searches/day, audits/day...).
+   *  'credit_limit' = the daily credit allowance. A keyword search can hit either. */
+  code?: 'plan_limit' | 'credit_limit'
   plan?: string
   limit?: number
   metric?: string

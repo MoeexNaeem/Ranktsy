@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { attachCaptchaInterceptor } from '@/components/security/captchaController'
 import { attachUpgradeInterceptor } from '@/lib/upgrade'
-import { broadcastSearches, type SearchUsage } from '@/lib/credits-client'
+import { broadcastSearches, broadcastCredits, refundLastCharge, type SearchUsage, type CreditState } from '@/lib/credits-client'
 import type { ApiResponse, KeywordSearchResponse, KeywordData, NearMatch, EtsyListing, KeywordIdeasResponse } from '@/types'
 
 // ─── Axios instance (shared, avoids creating new instance per component) ──────
@@ -42,14 +42,29 @@ export function useKeywordSearch(query: string, geo = 'US') {
   return useQuery({
     queryKey:  [...queryKeys.keywords(query), geo] as const,
     queryFn:   async ({ signal }) => {
-      const { data } = await api.get<ApiResponse<KeywordSearchResponse> & { searches?: SearchUsage }>(
-        `/keywords?q=${encodeURIComponent(query)}&geo=${geo}`,
-        { signal } // abort on unmount / query key change
-      )
-      if (!data.success || !data.data) throw new Error(data.error ?? 'Unknown error')
-      // Only a delivered search is counted, so this is the moment the pill moves.
-      broadcastSearches(data.searches)
-      return data.data
+      // The server charges once it has a good answer. If anything below this line
+      // fails, the user never saw a result, so the charge is reversed - an error on
+      // either side costs nothing.
+      let charged = false
+      try {
+        const { data } = await api.get<ApiResponse<KeywordSearchResponse> & { searches?: SearchUsage; state?: CreditState }>(
+          `/keywords?q=${encodeURIComponent(query)}&geo=${geo}`,
+          { signal } // abort on unmount / query key change
+        )
+        charged = !!data.state || !!data.searches
+        if (!data.success || !data.data) throw new Error(data.error ?? 'Unknown error')
+        // The result is in hand: now the pills may move.
+        broadcastSearches(data.searches)
+        broadcastCredits(data.state)
+        return data.data
+      } catch (err) {
+        // A 402/429/5xx never charged in the first place, so only reverse when the
+        // server told us it had charged, or when the failure happened in transit
+        // (aborted, dropped) and we cannot know.
+        const status = (err as { response?: { status?: number } })?.response?.status
+        if (charged || status == null) void refundLastCharge('keywords')
+        throw err
+      }
     },
     enabled:     query.trim().length >= 2, // don't fetch on empty input
     // 30 min - keyword data is stable; 1 min when Google couldn't answer, so volume fills in.

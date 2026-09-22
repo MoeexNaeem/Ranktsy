@@ -35,15 +35,21 @@ export function creditLimitFor(plan: PlanSlug | undefined): number {
 }
 
 /**
- * Tools that consume credits - the dashboard tab ids without a hard limit.
+ * Tools that consume credits - the dashboard tab ids that charge CREDIT_COST.
  *
- * DELIBERATELY EXCLUDED (already limit-gated, so never charged): keywords
- * (searches/day), competitors (competitors monitored), listingpro (Listing Pro
- * images/mo), audit (audits/day). Also excluded: overview/myshop/salesmap/
- * delivery (your own connected shop), and the purely client-side calculators
- * (fees, adsroi, calendar, lists, category) that make no metered API call.
+ * `keywords` carries BOTH meters on purpose: a keyword search costs credits and
+ * counts against the plan's searches/day cap. Since credits run out first on
+ * every paid plan (e.g. Enterprise: 2,500 credits = 250 searches, well under its
+ * 2,000 cap), credits are the limit users will actually hit.
+ *
+ * DELIBERATELY EXCLUDED (already limit-gated, so never charged): competitors
+ * (competitors monitored), listingpro (Listing Pro images/mo), audit
+ * (audits/day). Also excluded: overview/myshop/salesmap/delivery (your own
+ * connected shop), and the purely client-side calculators (fees, adsroi,
+ * calendar, lists, category) that make no metered API call.
  */
 export const CREDIT_TOOLS = new Set<string>([
+  'keywords',
   'hotproducts', 'gap', 'listings', 'compsales', 'trends', 'buzz', 'monthly',
   'topsellers', 'catreport', 'shop', 'tags', 'ctags', 'compare', 'spell',
   'rank', 'bulk', 'titlegen', 'taggen', 'descgen', 'aihelper',
@@ -82,6 +88,67 @@ export async function getCreditState(userId: string): Promise<(CreditState & { u
   const now = new Date()
   const used = sameUTCDay(user.creditsResetAt, now) ? (user.creditsUsedToday ?? 0) : 0
   return { credits: Math.max(0, limit - used), limit, usedToday: used, plan, usedTotal: user.creditsUsedTotal ?? 0 }
+}
+
+/**
+ * Window during which a charge can still be reversed. Long enough for a client to
+ * notice a failed render and report it, short enough that it can't be replayed
+ * against an unrelated later charge.
+ */
+export const REFUND_WINDOW_MS = 2 * 60 * 1000
+
+/**
+ * Remember a charge so it can be undone if the result never reached the user.
+ *
+ * The server charges when it has produced a good answer, which is the only point
+ * it can be sure of - but "produced" is not "delivered". If the client then fails
+ * (network drop, aborted request, a render that throws), it calls the refund
+ * endpoint and this is what gets reversed. Charging first and reversing on a
+ * reported failure is deliberate: the opposite default (wait for the client to
+ * confirm before charging) hands free usage to any client that simply stays quiet.
+ */
+export async function recordCharge(userId: string, tool: string, credits: number, searchCounted: boolean): Promise<void> {
+  await User.updateOne(
+    { _id: userId },
+    { $set: { lastCharge: { tool, credits, searchCounted, at: new Date(), refunded: false } } },
+  ).catch(() => {})
+}
+
+/**
+ * Reverse the most recent unrefunded charge for `tool`, if it is still inside the
+ * window. One atomic update guarded on `lastCharge.refunded: false`, so two
+ * refund calls racing can only give the credits back once.
+ * Returns the restored state, or null when there was nothing to reverse.
+ */
+export async function refundLastCharge(userId: string, tool: string): Promise<CreditState | null> {
+  const since = new Date(Date.now() - REFUND_WINDOW_MS)
+  const user = await User.findOneAndUpdate(
+    {
+      _id: userId,
+      'lastCharge.tool': tool,
+      'lastCharge.refunded': false,
+      'lastCharge.at': { $gte: since },
+    },
+    [{
+      $set: {
+        // Guard against a day rollover between charge and refund: never push the
+        // counters below zero, or a user would gain allowance they never had.
+        creditsUsedToday: { $max: [0, { $subtract: ['$creditsUsedToday', '$lastCharge.credits'] }] },
+        creditsUsedTotal: { $max: [0, { $subtract: ['$creditsUsedTotal', '$lastCharge.credits'] }] },
+        searchCount: {
+          $cond: ['$lastCharge.searchCounted', { $max: [0, { $subtract: ['$searchCount', 1] }] }, '$searchCount'],
+        },
+        'lastCharge.refunded': true,
+      },
+    }],
+    { new: true },
+  ).catch(() => null)
+
+  if (!user) return null
+  const plan = effectivePlan(user)
+  const limit = creditLimitFor(plan)
+  const used = user.creditsUsedToday ?? 0
+  return { credits: Math.max(0, limit - used), limit, usedToday: used, plan }
 }
 
 /**

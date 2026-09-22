@@ -16,6 +16,18 @@ export interface CreditState {
   searches?: SearchUsage
 }
 
+/**
+ * Ask the server to reverse the last charge for `tool`, because the result never
+ * reached the user. Best-effort and silent: this runs on a path that has already
+ * failed, so it must never surface a second error of its own.
+ */
+export async function refundLastCharge(tool: string): Promise<void> {
+  try {
+    const { data } = await axios.post('/api/credits/refund', { tool })
+    if (data?.refunded) broadcastCredits(data.state)
+  } catch { /* the charge stands; nothing more we can do from here */ }
+}
+
 /** Broadcast fresh keyword-search usage (the second top-bar pill). */
 export function broadcastSearches(usage: SearchUsage | undefined | null) {
   if (usage && typeof window !== 'undefined') {

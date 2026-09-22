@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useAuth, useLogout } from '@/hooks/useAuth'
 import { useCredits } from '@/hooks/useCredits'
+import { UsageMeters } from '@/components/dashboard/UsageMeters'
 import { C, ACCENT, withAlpha, formatNumber, type AccentName } from '@/utils'
 import { UpgradeModalHost } from './UpgradeModal'
 import { triggerUpgrade } from '@/lib/upgrade'
@@ -369,45 +370,7 @@ export function DashboardLayout() {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             </button>
             <NotificationBell />
-            {credits && (() => {
-              // Exact counts (2,500 / 2,500). An abbreviated "2.5K" hides whether a
-              // user has 2,500 or 2,549 left, which is the number they came to check.
-              const out = credits.credits <= 0
-              const low = !out && credits.credits <= credits.limit * 0.2
-              const tone = out ? C.danger : low ? '#B45309' : C.ink
-              return (
-                <span className="rdash-badge" data-tour="credits" title={`${credits.credits.toLocaleString('en-US')} of ${credits.limit.toLocaleString('en-US')} daily credits left · 10 per tool use · resets midnight UTC`}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, background: out ? C.dangerBg : low ? '#FFF7E6' : C.paper, color: tone, padding: '9px 15px', borderRadius: 999, fontFamily: "'General Sans',monospace", border: `1.5px solid ${out ? C.danger : low ? '#F2D8A7' : C.ash}`, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1 }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={tone} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                  {credits.credits.toLocaleString('en-US')}
-                  <span style={{ color: C.graphite, fontWeight: 600 }}>/ {credits.limit.toLocaleString('en-US')}</span>
-                  <span style={{ color: C.graphite, fontWeight: 600, fontSize: 13 }}>credits</span>
-                </span>
-              )
-            })()}
-            {credits?.searches && (() => {
-              // A SEPARATE meter from credits: Keyword Search is capped per plan
-              // and never costs credits, so showing only the credits pill made it
-              // look like searching was free. An unlimited plan shows just a count.
-              const { used, limit } = credits.searches
-              const unlimited = limit == null || !Number.isFinite(limit)
-              const left = unlimited ? 0 : Math.max(0, limit - used)
-              const out = !unlimited && left <= 0
-              const low = !unlimited && !out && left <= limit * 0.2
-              const tone = out ? C.danger : low ? '#B45309' : C.ink
-              return (
-                <span className="rdash-badge" data-tour="searches"
-                  title={unlimited
-                    ? `${used.toLocaleString('en-US')} keyword searches today · unlimited on your plan`
-                    : `${left.toLocaleString('en-US')} of ${limit.toLocaleString('en-US')} daily keyword searches left · resets midnight UTC · searches don't use credits`}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, background: out ? C.dangerBg : low ? '#FFF7E6' : C.paper, color: tone, padding: '9px 15px', borderRadius: 999, fontFamily: "'General Sans',monospace", border: `1.5px solid ${out ? C.danger : low ? '#F2D8A7' : C.ash}`, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1 }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={out || low ? tone : '#2E6DB4'} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                  {unlimited ? used.toLocaleString('en-US') : left.toLocaleString('en-US')}
-                  {!unlimited && <span style={{ color: C.graphite, fontWeight: 600 }}>/ {limit.toLocaleString('en-US')}</span>}
-                  <span style={{ color: C.graphite, fontWeight: 600, fontSize: 13 }}>searches</span>
-                </span>
-              )
-            })()}
+            <UsageMeters credits={credits} />
             {planInfo && (() => {
               const paid = planInfo.plan !== 'free'
               return (
