@@ -531,6 +531,7 @@ export async function getListingVelocity(listingId: number, days = 90): Promise<
       .select('day reviewCount views favorers')
       .lean<{ day: string; reviewCount: number | null; views: number | null; favorers: number | null }[]>()
     if (!rows.length) return null
+    for (const r of rows) r.reviewCount = trustedReviews(r.day, r.reviewCount)
 
     const rate = reviewRate()
 
@@ -601,6 +602,22 @@ export async function getListingVelocity(listingId: number, days = 90): Promise<
 }
 
 /**
+ * First day whose stored reviewCount can be trusted. Before it, /api/etsy/observe
+ * turned every `null` the extension sent into 0 (Number(null) === 0), so the
+ * history is full of fake zeros; a series reading 0,0,0 then the real 5 would
+ * otherwise "gain" 5 reviews and print invented measured sales. Set it to the
+ * day the observe fix went live (override with REVIEW_HISTORY_FROM=YYYY-MM-DD).
+ */
+const REVIEW_HISTORY_FROM = /^\d{4}-\d{2}-\d{2}$/.test(process.env.REVIEW_HISTORY_FROM ?? '')
+  ? (process.env.REVIEW_HISTORY_FROM as string)
+  : '2026-09-24'
+
+/** A stored reviewCount, or null when it predates REVIEW_HISTORY_FROM. Applied
+ *  wherever review deltas are computed, so no consumer sees the fake zeros. */
+const trustedReviews = (day: string, n: number | null | undefined): number | null =>
+  n != null && day >= REVIEW_HISTORY_FROM ? n : null
+
+/**
  * Review growth over a tracked series, projected to 30 days - or null when the
  * series can't support a measurement.
  *
@@ -617,7 +634,7 @@ export async function getListingVelocity(listingId: number, days = 90): Promise<
  *    of thousands of views. The model's estimate stands until a review lands.
  */
 function reviewGrowth(rows: { day: string; reviewCount: number | null }[]): { per30: number; spanDays: number; gained: number } | null {
-  const pts = rows.filter(r => r.reviewCount != null) as { day: string; reviewCount: number }[]
+  const pts = rows.filter(r => trustedReviews(r.day, r.reviewCount) != null) as { day: string; reviewCount: number }[]
   if (pts.length < 2) return null
   for (let i = 1; i < pts.length; i++) {
     const prev = pts[i - 1].reviewCount
@@ -769,7 +786,7 @@ export async function getKeywordMarketHistory(listingIds: number[], daysBack = 9
     const byListing = new Map<number, { day: string; views: number | null; favorers: number | null; reviewCount: number | null }[]>()
     for (const r of rows) {
       const arr = byListing.get(r.listingId) ?? []
-      arr.push({ day: r.day, views: r.views, favorers: r.favorers, reviewCount: r.reviewCount })
+      arr.push({ day: r.day, views: r.views, favorers: r.favorers, reviewCount: trustedReviews(r.day, r.reviewCount) })
       byListing.set(r.listingId, arr)
     }
 
@@ -853,7 +870,7 @@ export async function getKeywordTrendsBatch(keywordToIds: Map<string, number[]>,
 
     const rate = reviewRate()
     const byListing = new Map<number, { day: string; views: number | null; favorers: number | null; reviewCount: number | null }[]>()
-    for (const r of rows) { const a = byListing.get(r.listingId) ?? []; a.push(r); byListing.set(r.listingId, a) }
+    for (const r of rows) { const a = byListing.get(r.listingId) ?? []; a.push({ ...r, reviewCount: trustedReviews(r.day, r.reviewCount) }); byListing.set(r.listingId, a) }
 
     // Per-listing map of day → gains.
     const perListing = new Map<number, Map<string, { v: number; f: number; s: number }>>()

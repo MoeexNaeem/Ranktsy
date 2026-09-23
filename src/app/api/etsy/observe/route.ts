@@ -53,14 +53,29 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
     return NextResponse.json({ success: false, error: 'Nothing to record' }, { status: 400 })
   }
 
+  // `null` means "not observed" and must stay null. Number(null) and Number('')
+  // are 0, so a bare Number() turned every unknown field the extension sent into
+  // a real-looking 0: listing review counts were stored as 0 every day (which also
+  // made measured velocity "0 sales"), and missing prices as $0.
+  const toNum = (v: unknown): number => {
+    if (v == null || typeof v === 'boolean') return NaN
+    if (typeof v === 'string' && !v.trim()) return NaN
+    return Number(v)
+  }
+  // Every numeric field here is a count or an amount, so negatives are malformed.
   const numOrNull = (v: unknown): number | null => {
-    const n = Number(v)
-    return Number.isFinite(n) ? n : null
+    const n = toNum(v)
+    return Number.isFinite(n) && n >= 0 ? n : null
+  }
+  // A price of 0 is never a real Etsy price; it is a failed read.
+  const priceOrNull = (v: unknown): number | null => {
+    const n = toNum(v)
+    return Number.isFinite(n) && n > 0 && n <= 1_000_000 ? n : null
   }
   // A bounded positive number, so a malformed or hostile payload cannot write a
   // nonsense figure into the shared research dataset.
   const boundedOrNull = (v: unknown, max: number): number | null => {
-    const n = Number(v)
+    const n = toNum(v)
     return Number.isFinite(n) && n >= 0 && n <= max ? n : null
   }
   const boolOrNull = (v: unknown): boolean | null => (typeof v === 'boolean' ? v : null)
@@ -111,9 +126,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
           totalResults: boundedOrNull(m.totalResults, 100_000_000),
           sampled: boundedOrNull(m.sampled, 1000),
           adCount: boundedOrNull(m.adCount, 1000),
-          priceMin: boundedOrNull(m.priceMin, 1_000_000),
-          priceMax: boundedOrNull(m.priceMax, 1_000_000),
-          priceMedian: boundedOrNull(m.priceMedian, 1_000_000),
+          priceMin: priceOrNull(m.priceMin),
+          priceMax: priceOrNull(m.priceMax),
+          priceMedian: priceOrNull(m.priceMedian),
           currency: strOrNull(m.currency, 8),
         }
       : undefined
@@ -139,13 +154,13 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
       tags: Array.isArray(r.tags)
         ? ((r.tags as unknown[]).filter(t => typeof t === 'string').slice(0, 13) as string[])
         : undefined,
-      price: numOrNull(r.price),
+      price: priceOrNull(r.price),
       currency: typeof r.currency === 'string' ? r.currency.slice(0, 8) : undefined,
       views: numOrNull(r.views),
       favorers: numOrNull(r.favorers),
       reviewCount: numOrNull(r.reviewCount),
       // Day-varying facts only the page can tell us.
-      priceOriginal: boundedOrNull(r.priceOriginal, 1_000_000),
+      priceOriginal: priceOrNull(r.priceOriginal),
       onSale: boolOrNull(r.onSale),
       rating: boundedOrNull(r.rating, 5),
       quantity: boundedOrNull(r.quantity, 1_000_000),

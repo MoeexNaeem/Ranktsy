@@ -49,7 +49,7 @@
  */
 
 /** Bump when any constant or the formula changes, so extension caches refresh. */
-export const ESTIMATE_MODEL_VERSION = 3
+export const ESTIMATE_MODEL_VERSION = 4
 
 function envNum(name: string, fallback: number): number {
   const n = Number(process.env[name])
@@ -104,9 +104,15 @@ export const CATEGORY_CONVERSION: Record<string, number> = {
   'books, movies & music': 0.035,
 }
 
-/** Words that mark a listing as a digital download rather than a physical item. */
+/**
+ * Words that mark a listing as a digital download rather than a physical item.
+ * v4 added the planner/template vocabulary: "Digital Planner… GoodNotes…"
+ * listings matched none of the v3 words and got a physical category rate
+ * (Paper & Party 4.5%), 6.4x the calibrated digital rate. The extension also
+ * reads Etsy's own "Digital download" card label, which is authoritative.
+ */
 export const DIGITAL_PATTERN =
-  '\\b(png|svg|eps|dxf|pdf pattern|digital download|instant download|printable|clip ?art|cut file|sublimation|procreate|digital paper|digital file)\\b'
+  '\\b(png|svg|eps|dxf|pdf|digital download|instant download|printables?|clip ?art|cut files?|sublimation|procreate|digital paper|digital files?|digital planners?|digital templates?|goodnotes|notability|canva|editable|google sheets?|spreadsheet|e-?books?|lightroom presets?)\\b'
 const DIGITAL_RE = new RegExp(DIGITAL_PATTERN, 'i')
 
 /** Signals that let us pick the right conversion rate for one listing. */
