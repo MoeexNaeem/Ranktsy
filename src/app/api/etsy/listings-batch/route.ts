@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getListingById, topCategoryForTaxonomy } from '@/lib/etsy'
+import { upstreamFailure } from '@/lib/upstream-errors'
 import type { ApiResponse, EtsyListing } from '@/types'
 
 export const runtime = 'nodejs'
@@ -31,10 +32,27 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<E
 
   // One settled promise per id: a listing that is gone or inactive resolves to
   // null and is simply left out, which must never fail the whole page.
-  const results = await Promise.all(ids.map(id => getListingById(id).catch(() => null)))
+  //
+  // A THROWN lookup is different: it is an upstream failure (Etsy throttled or
+  // down), and because ids are micro-batched into one Etsy call, one failure
+  // throws for every id at once. That used to be swallowed into
+  // `{ success: true, data: [] }`, so the extension saw "no listings", logged
+  // nothing, and left the whole grid bare. Report it so the client retries.
+  let failed = 0
+  let lastErr: unknown = null
+  const results = await Promise.all(ids.map(id => getListingById(id).catch((e: unknown) => {
+    failed++
+    lastErr = e
+    return null
+  })))
   const listings = results
     .filter((l): l is EtsyListing => !!l)
     .map(l => ({ ...l, categoryTop: topCategoryForTaxonomy(l.taxonomy_id) }))
+
+  if (!listings.length && failed) {
+    const fail = upstreamFailure(lastErr)
+    return NextResponse.json({ success: false, error: fail.message }, { status: fail.status >= 500 ? fail.status : 502 })
+  }
 
   return NextResponse.json({ success: true, data: listings })
 }

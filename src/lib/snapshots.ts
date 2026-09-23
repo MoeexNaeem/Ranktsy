@@ -553,10 +553,9 @@ export async function getListingVelocity(listingId: number, days = 90): Promise<
 
     // Reviews are SPARSE - a listing can go days without a new one - so a 30-day
     // sales figure is only trustworthy once the tracked span is wide enough for
-    // review events to accrue. Below that we return `measured:false` and the client
-    // keeps showing the point-in-time estimate (never a misleading tracked 0).
-    const MIN_MEASURE_DAYS = 14
-
+    // review events to accrue (reviewGrowth enforces that, plus a consistent
+    // series and at least one real review). Otherwise `measured:false` and the
+    // client keeps the point-in-time estimate (never a misleading tracked 0).
     const dayGap = (a: string, b: string) =>
       Math.max(0, Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86_400_000))
 
@@ -571,10 +570,10 @@ export async function getListingVelocity(listingId: number, days = 90): Promise<
       return { per30: Math.round((delta / spanDays) * 30), spanDays }
     }
 
-    const reviewProj = projected30('reviewCount')
+    const reviewProj = reviewGrowth(rows)
     const favProj = projected30('favorers')
     const viewProj = projected30('views')
-    const measured = !!reviewProj && reviewProj.spanDays >= MIN_MEASURE_DAYS
+    const measured = !!reviewProj
 
     const reviewsLast30 = measured ? reviewProj!.per30 : null
     const reviewsLast7 = measured ? Math.round(reviewProj!.per30 * 7 / 30) : null
@@ -599,6 +598,40 @@ export async function getListingVelocity(listingId: number, days = 90): Promise<
     console.error('[Snapshots] listing velocity failed:', e)
     return null
   }
+}
+
+/**
+ * Review growth over a tracked series, projected to 30 days - or null when the
+ * series can't support a measurement.
+ *
+ * Two rules on top of the MIN_MEASURE_DAYS span:
+ *
+ *  - The series must behave like ONE cumulative count. A real count only dips
+ *    when a review is removed (a couple at most) and never leaps by orders of
+ *    magnitude between snapshots. Older extension builds stored the SHOP's review
+ *    total (the stars on a search card) as the listing's, so a history can mix
+ *    6 (the listing) with 20,796 (its shop); deltas across that are noise.
+ *  - At least one review must actually have been gained. Sales are inferred as
+ *    reviews ÷ review-rate, so zero reviews over two weeks cannot tell 0 sales
+ *    from 9 - a "measured 0" there was printed as fact on listings with hundreds
+ *    of thousands of views. The model's estimate stands until a review lands.
+ */
+function reviewGrowth(rows: { day: string; reviewCount: number | null }[]): { per30: number; spanDays: number; gained: number } | null {
+  const pts = rows.filter(r => r.reviewCount != null) as { day: string; reviewCount: number }[]
+  if (pts.length < 2) return null
+  for (let i = 1; i < pts.length; i++) {
+    const prev = pts[i - 1].reviewCount
+    const cur = pts[i].reviewCount
+    const gap = Math.max(1, gapDays(pts[i - 1].day, pts[i].day))
+    if (cur < prev - Math.max(2, prev * 0.02)) return null
+    if (cur > prev * 3 + 30 + 3 * gap) return null
+  }
+  const first = pts[0], last = pts[pts.length - 1]
+  const spanDays = gapDays(first.day, last.day)
+  if (spanDays < MIN_MEASURE_DAYS) return null
+  const gained = Math.max(0, last.reviewCount - first.reviewCount)
+  if (gained < 1) return null
+  return { per30: Math.round((gained / spanDays) * 30), spanDays, gained }
 }
 
 /** Compact measured summary for one listing - what a table row needs. */
@@ -636,8 +669,8 @@ function per30(rows: VelRow[], field: keyof VelRow): { per30: number; spanDays: 
 
 function summarise(listingId: number, rows: VelRow[]): ListingVelocitySummary {
   const rate = reviewRate()
-  const rev = per30(rows, 'reviewCount')
-  const measured = !!rev && rev.spanDays >= MIN_MEASURE_DAYS
+  const rev = reviewGrowth(rows)
+  const measured = !!rev
   const reviewsLast30 = measured ? rev!.per30 : null
   return {
     listingId,
