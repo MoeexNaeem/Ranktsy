@@ -17,7 +17,7 @@ import { ChatAttachmentView } from '@/components/ui/ChatAttachmentView'
 /** Announcements from Rankkw render blue, so they read as news, not a 1:1 reply. */
 const ANNOUNCE_BLUE = '#2563EB'
 
-interface Notif { id: string; type: string; title: string; body: string | null; link: string | null; createdAt: string | null; read: boolean }
+export interface Notif { id: string; type: string; title: string; body: string | null; link: string | null; createdAt: string | null; read: boolean }
 interface ChatMsg {
   id: string; userId: string; sender: 'user' | 'admin'; body: string; createdAt: string | null; editedAt?: string | null
   // Set when this came from an admin announcement rather than a personal reply.
@@ -32,6 +32,8 @@ interface RealtimeCtx {
   notifications: Notif[]
   loadNotifications: () => void
   markAllRead: () => void
+  /** Mark specific notifications read (default) or unread. */
+  markRead: (ids: string[], read?: boolean) => void
   chatUnread: number
   chatMessages: ChatMsg[]
   loadChat: () => void
@@ -45,13 +47,23 @@ export const useRealtime = () => {
   return c
 }
 
-function relTime(d: string | null): string {
+export function relTime(d: string | null): string {
   if (!d) return ''
   const s = Math.floor((Date.now() - new Date(d).getTime()) / 1000)
   if (s < 60) return 'just now'
   if (s < 3600) return `${Math.floor(s / 60)}m ago`
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`
   return `${Math.floor(s / 86400)}d ago`
+}
+
+/** Open a notification's link. Dashboard tab links switch tabs in place (no reload). */
+export function openNotifLink(link: string) {
+  const m = /^\/dashboard\?tab=([\w-]+)$/.exec(link)
+  if (m && window.location.pathname === '/dashboard') {
+    window.dispatchEvent(new CustomEvent('rk-open-tab', { detail: m[1] }))
+    return
+  }
+  window.location.assign(link)
 }
 
 export function RealtimeProvider({ isAdmin, children }: { isAdmin: boolean; children: React.ReactNode }) {
@@ -65,6 +77,9 @@ export function RealtimeProvider({ isAdmin, children }: { isAdmin: boolean; chil
   const adminRef = useRef(isAdmin)
   // Ids we've already shown a toast for, so a reconnect/replay never double-toasts.
   const toastedRef = useRef<Set<string>>(new Set())
+  // Latest list, for callbacks that need it without re-creating themselves.
+  const notifsRef = useRef<Notif[]>([])
+  useEffect(() => { notifsRef.current = notifications }, [notifications])
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -77,6 +92,21 @@ export function RealtimeProvider({ isAdmin, children }: { isAdmin: boolean; chil
   const markAllRead = useCallback(async () => {
     setNotifications(ns => ns.map(n => ({ ...n, read: true }))); setNotifUnread(0)
     try { await fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }) } catch { /* ignore */ }
+  }, [])
+
+  const markRead = useCallback(async (ids: string[], read = true) => {
+    if (!ids.length) return
+    const set = new Set(ids)
+    // Adjust the badge optimistically, only for loaded rows whose state actually flips;
+    // the server's count below is the source of truth (it also covers older pages).
+    const flips = notifsRef.current.filter(n => set.has(n.id) && n.read !== read).length
+    if (flips) setNotifUnread(u => Math.max(0, u + (read ? -flips : flips)))
+    setNotifications(ns => ns.map(n => set.has(n.id) ? { ...n, read } : n))
+    try {
+      const r = await fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, unread: !read }) })
+      const j = await r.json()
+      if (j?.success) setNotifUnread(j.data.unread)
+    } catch { /* ignore */ }
   }, [])
 
   const loadChat = useCallback(async () => {
@@ -125,7 +155,9 @@ export function RealtimeProvider({ isAdmin, children }: { isAdmin: boolean; chil
         // alert, etc.). Clicking follows its link; the bell still lists it.
         if (!toastedRef.current.has(n.id)) {
           toastedRef.current.add(n.id)
-          pushToast({ title: n.title, body: n.body, link: n.link, kind: n.type === 'success' ? 'success' : 'info' })
+          // Bodies are stored in full; the toast only needs a short preview.
+          const body = n.body && n.body.length > 140 ? `${n.body.slice(0, 140)}…` : n.body
+          pushToast({ title: n.title, body, link: n.link, kind: n.type === 'success' ? 'success' : 'info' })
         }
         setNotifications(list => list.some(x => x.id === n.id) ? list : [{ ...n, read: false }, ...list].slice(0, 50))
       })
@@ -149,15 +181,54 @@ export function RealtimeProvider({ isAdmin, children }: { isAdmin: boolean; chil
   }, [isAdmin])
 
   return (
-    <Ctx.Provider value={{ isAdmin: effAdmin, notifUnread, notifications, loadNotifications, markAllRead, chatUnread, chatMessages, loadChat, sendChat, uploadChat }}>
+    <Ctx.Provider value={{ isAdmin: effAdmin, notifUnread, notifications, loadNotifications, markAllRead, markRead, chatUnread, chatMessages, loadChat, sendChat, uploadChat }}>
       {children}
     </Ctx.Provider>
   )
 }
 
 // ─── Notification bell (top bar) ────────────────────────────────────────────────
+/** Unread count pill for the sidebar's Notifications item (hidden at zero). */
+export function NotifNavBadge() {
+  const { notifUnread } = useRealtime()
+  if (notifUnread <= 0) return null
+  return (
+    <span className="rlabel" style={{ marginLeft: 'auto', minWidth: 20, height: 20, padding: '0 6px', borderRadius: 100, background: C.orange, color: '#fff', fontSize: 11, fontWeight: 700, fontFamily: MONO, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+      {notifUnread > 99 ? '99+' : notifUnread}
+    </span>
+  )
+}
+
+/** How many recent notifications the bell previews; the full list lives on its own page. */
+const BELL_PREVIEW = 8
+
+/** Id the Notifications page should scroll to and highlight when it opens. */
+let pendingFocusId: string | null = null
+export function takePendingNotifFocus(): string | null {
+  const id = pendingFocusId
+  pendingFocusId = null
+  return id
+}
+
+/** Open the full Notifications page (a dashboard tab), optionally focused on one item. */
+export function openNotificationsPage(focusId?: string) {
+  pendingFocusId = focusId ?? null
+  window.dispatchEvent(new CustomEvent('rk-open-tab', { detail: 'notifications' }))
+  window.dispatchEvent(new Event('rk-notif-focus'))
+}
+
+/**
+ * What a click on a notification does, shared by the bell and the page: follow its link,
+ * open the support chat for replies/announcements, or null when there is nowhere to go.
+ */
+export function notifAction(n: Notif, isAdmin: boolean): (() => void) | null {
+  if (n.link) { const link = n.link; return () => openNotifLink(link) }
+  if (n.type === 'chat' && !isAdmin) return () => window.dispatchEvent(new Event('rk-open-chat'))
+  return null
+}
+
 export function NotificationBell() {
-  const { notifUnread, notifications, loadNotifications, markAllRead } = useRealtime()
+  const { isAdmin, notifUnread, notifications, loadNotifications, markAllRead, markRead } = useRealtime()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -169,6 +240,17 @@ export function NotificationBell() {
     return () => document.removeEventListener('mousedown', onDoc)
   }, [open, loadNotifications])
 
+  // Clicking an item marks it read, then follows it. Items with nowhere to go open
+  // the full page on that item, so a long message can always be read in full.
+  const onItem = (n: Notif) => {
+    setOpen(false)
+    if (!n.read) markRead([n.id])
+    const act = notifAction(n, isAdmin)
+    if (act) act(); else openNotificationsPage(n.id)
+  }
+
+  const preview = notifications.slice(0, BELL_PREVIEW)
+
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button onClick={() => setOpen(o => !o)} title="Notifications" aria-label="Notifications" className="rdash-badge"
@@ -179,28 +261,34 @@ export function NotificationBell() {
         )}
       </button>
       {open && (
-        <div style={{ position: 'absolute', right: 0, top: 44, width: 340, maxHeight: 440, overflowY: 'auto', background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 14, boxShadow: '0 18px 50px rgba(20,18,14,0.22)', zIndex: 50 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', borderBottom: `1px solid ${C.ash}`, position: 'sticky', top: 0, background: C.paper }}>
+        <div style={{ position: 'absolute', right: 0, top: 44, width: 'min(360px, 92vw)', background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 14, boxShadow: '0 18px 50px rgba(20,18,14,0.22)', zIndex: 50, display: 'flex', flexDirection: 'column', maxHeight: 480, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', borderBottom: `1px solid ${C.ash}` }}>
             <span style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>Notifications</span>
             {notifUnread > 0 && <button onClick={markAllRead} style={{ background: 'none', border: 'none', color: C.orange, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Mark all read</button>}
           </div>
-          {notifications.length === 0 ? (
-            <p style={{ fontSize: 13, color: C.graphite, padding: '26px 16px', textAlign: 'center' }}>You are all caught up.</p>
-          ) : notifications.map(n => {
-            const inner = (
-              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.hair}`, background: n.read ? 'transparent' : C.orangeFaint, display: 'flex', gap: 10 }}>
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            {preview.length === 0 ? (
+              <p style={{ fontSize: 13, color: C.graphite, padding: '26px 16px', textAlign: 'center' }}>You are all caught up.</p>
+            ) : preview.map(n => (
+              <button key={n.id} type="button" onClick={() => onItem(n)}
+                style={{ width: '100%', textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer', border: 'none', borderBottom: `1px solid ${C.hair}`, padding: '12px 16px', background: n.read ? 'transparent' : C.orangeFaint, display: 'flex', gap: 10 }}
+                onMouseEnter={e => { if (n.read) e.currentTarget.style.background = C.canvas }}
+                onMouseLeave={e => { if (n.read) e.currentTarget.style.background = 'transparent' }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: n.read ? C.ash : C.orange, marginTop: 6, flexShrink: 0 }} />
-                <div style={{ minWidth: 0 }}>
-                  <p style={{ fontSize: 13.5, fontWeight: 600, color: C.ink, marginBottom: 2 }}>{n.title}</p>
-                  {n.body && <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.5 }}>{n.body}</p>}
-                  <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, marginTop: 4 }}>{relTime(n.createdAt)}</p>
-                </div>
-              </div>
-            )
-            return n.link
-              ? <a key={n.id} href={n.link} style={{ textDecoration: 'none', display: 'block' }}>{inner}</a>
-              : <div key={n.id}>{inner}</div>
-          })}
+                <span style={{ minWidth: 0, flex: 1, display: 'block' }}>
+                  <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: C.ink, marginBottom: 2 }}>{n.title}</span>
+                  {n.body && (
+                    <span style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.5, wordBreak: 'break-word', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{n.body}</span>
+                  )}
+                  <span style={{ display: 'block', fontSize: 11, color: C.stone, fontFamily: MONO, marginTop: 4 }}>{relTime(n.createdAt)}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={() => { setOpen(false); openNotificationsPage() }}
+            style={{ border: 'none', borderTop: `1px solid ${C.ash}`, background: C.paper, padding: '12px 16px', fontSize: 13, fontWeight: 600, color: C.orange, cursor: 'pointer', fontFamily: 'inherit' }}>
+            View all notifications
+          </button>
         </div>
       )}
     </div>

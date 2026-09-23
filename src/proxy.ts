@@ -63,9 +63,11 @@ export async function proxy(req: NextRequest) {
 
   // Redirect unauthenticated users away from protected routes
   if (isProtected && !isAuthed) {
+    // Keep the query (e.g. /dashboard?tab=notifications) so deep links survive login.
     const url = req.nextUrl.clone()
     url.pathname = '/login'
-    url.searchParams.set('redirect', pathname)
+    url.search = ''
+    url.searchParams.set('redirect', pathname + req.nextUrl.search)
     return NextResponse.redirect(url)
   }
 

@@ -49,9 +49,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ use
   if (!u) return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
 
   const msg = await ChatMessage.create({ userId, sender: 'admin', body: text, readByUser: false, readByAdmin: true })
-  // Surface the reply in the user's notification bell, not only the chat badge.
-  const preview = text.length > 90 ? `${text.slice(0, 90)}…` : text
-  void notifyUser(userId, 'New reply from Rankkw support', preview, undefined, 'chat')
+  // Surface the reply in the user's notification bell, not only the chat badge. The full
+  // text is stored so the bell can show the whole message (the toast shortens it itself).
+  void notifyUser(userId, 'New reply from Rankkw support', text, undefined, 'chat')
   return NextResponse.json({ success: true, data: { message: serializeChat(msg) } })
 }
 

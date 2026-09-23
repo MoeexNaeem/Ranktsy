@@ -13,7 +13,7 @@ import { AnimIcon, DASH_ICON } from '@/components/ui/AnimIcon'
 import { NavButton } from '@/components/ui/NavButton'
 import { DashboardLoader } from './DashboardLoader'
 import { DashboardTour } from './DashboardTour'
-import { RealtimeProvider, NotificationBell, ChatWidget } from './Realtime'
+import { RealtimeProvider, NotificationBell, NotifNavBadge, ChatWidget } from './Realtime'
 import { OnboardingChecklist } from './OnboardingChecklist'
 
 const KeywordsTab      = dynamic(() => import('./tabs/KeywordsTab').then(m => ({ default: m.KeywordsTab })), { ssr: false })
@@ -52,12 +52,14 @@ const KeywordGapTab        = dynamic(() => import('./tabs/KeywordGapTab').then(m
 const HotProductsTab       = dynamic(() => import('./tabs/HotProductsTab').then(m => ({ default: m.HotProductsTab })), { ssr: false })
 const AlertsTab            = dynamic(() => import('./tabs/AlertsTab').then(m => ({ default: m.AlertsTab })), { ssr: false })
 const AffiliateTab         = dynamic(() => import('./tabs/AffiliateTab').then(m => ({ default: m.AffiliateTab })), { ssr: false })
+const NotificationsTab     = dynamic(() => import('./tabs/NotificationsTab').then(m => ({ default: m.NotificationsTab })), { ssr: false })
 
-type TabId = 'overview' | 'myshop' | 'hotproducts' | 'keywords' | 'gap' | 'listings' | 'competitors' | 'compsales' | 'trends' | 'buzz' | 'monthly' | 'topsellers' | 'catreport' | 'bulk' | 'rank' | 'shop' | 'salesmap' | 'delivery' | 'tags' | 'aihelper' | 'listingpro' | 'ctags' | 'titlegen' | 'taggen' | 'descgen' | 'audit' | 'compare' | 'spell' | 'fees' | 'adsroi' | 'category' | 'calendar' | 'lists' | 'alerts' | 'affiliate' | 'googleads'
+type TabId = 'overview' | 'myshop' | 'hotproducts' | 'keywords' | 'gap' | 'listings' | 'competitors' | 'compsales' | 'trends' | 'buzz' | 'monthly' | 'topsellers' | 'catreport' | 'bulk' | 'rank' | 'shop' | 'salesmap' | 'delivery' | 'tags' | 'aihelper' | 'listingpro' | 'ctags' | 'titlegen' | 'taggen' | 'descgen' | 'audit' | 'compare' | 'spell' | 'fees' | 'adsroi' | 'category' | 'calendar' | 'lists' | 'alerts' | 'affiliate' | 'googleads' | 'notifications'
 
 const TABS: { id: TabId; label: string; description: string; group: string; accent: AccentName }[] = [
   { id: 'overview',    label: 'Overview',      group: 'Home',        accent: 'indigo',  description: 'Your Etsy SEO command center' },
   { id: 'myshop',      label: 'My Shop',       group: 'Home',        accent: 'orange',  description: 'Your connected shop\'s sales & insights' },
+  { id: 'notifications', label: 'Notifications', group: 'Home',      accent: 'orange',  description: 'Replies, alerts, deals and updates in one place' },
   { id: 'hotproducts', label: 'Find Hot Products',group: 'Research', accent: 'rose',    description: 'Discover trending products by real engagement' },
   { id: 'keywords',    label: 'Keywords',      group: 'Research',    accent: 'blue',    description: 'Research search volume & CTR' },
   { id: 'listings',    label: 'Listings',      group: 'Research',    accent: 'cyan',    description: 'Browse live listings' },
@@ -138,6 +140,7 @@ function TabContent({ active, onNavigate }: { active: TabId; onNavigate: (id: Ta
     alerts:      <AlertsTab />,
     affiliate:   <AffiliateTab />,
     googleads:   <GoogleAdsTab />,
+    notifications: <NotificationsTab />,
   }
   return (
     <Suspense fallback={<div className="shimmer" style={{ height: 300, borderRadius: 8, background: '#e8e7e2' }} />}>
@@ -292,6 +295,7 @@ export function DashboardLayout() {
                       transition: 'background 0.15s',
                     }}><AnimIcon src={DASH_ICON[tab.id]} size={25} color={hue} active={active} target="button" /></span>
                     <span className="rlabel" style={{ fontSize: 14, fontWeight: active ? 600 : 500, color: active ? C.ink : C.inkSoft, letterSpacing: '-0.01em' }}>{tab.label}</span>
+                    {tab.id === 'notifications' && <NotifNavBadge />}
                   </button>
                 )
               })}

@@ -31,8 +31,8 @@ export async function POST(req: NextRequest) {
 
   await connectDB()
   const msg = await ChatMessage.create({ userId: user.id, sender: 'user', body: text, readByUser: true, readByAdmin: false })
-  // Raise an admin notification so a new support message shows in the bell, not just the chat badge.
-  const preview = text.length > 90 ? `${text.slice(0, 90)}…` : text
-  void notifyAdmins(`New message from ${user.name || user.email}`, preview, '/admin', 'chat')
+  // Raise an admin notification so a new support message shows in the bell, not just the chat
+  // badge. Full text, so the Notifications page can show the whole message.
+  void notifyAdmins(`New message from ${user.name || user.email}`, text, '/admin', 'chat')
   return NextResponse.json({ success: true, data: { message: serializeChat(msg) } })
 }

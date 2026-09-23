@@ -93,13 +93,13 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
 
     // Raise the bell too, not just the chat badge. "All" is a single broadcast row;
     // SEBT has to be per-user, since notifications have no student audience.
-    const preview = text.length > 90 ? `${text.slice(0, 90)}…` : text
+    // Full text, so the bell can show the whole announcement.
     if (audience === 'all') {
-      void notifyAll('Message from Rankkw', preview, undefined, 'chat')
+      void notifyAll('Message from Rankkw', text, undefined, 'chat')
     } else {
       const notifs = recipients.map(u => ({
         audience: 'user' as const, userId: String(u._id), type: 'chat',
-        title: 'Message from Rankkw', body: preview, readBy: [] as string[],
+        title: 'Message from Rankkw', body: text, readBy: [] as string[],
         createdAt: now, updatedAt: now,
       }))
       for (let i = 0; i < notifs.length; i += CHUNK) {

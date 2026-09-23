@@ -102,6 +102,7 @@ export const ICON = {
   check:     'https://cdn.lordicon.com/oqdmuxru.json', // check (audit/spell)
   barChart:  'https://cdn.lordicon.com/abwrkdvl.json', // bar chart
   target:    'https://cdn.lordicon.com/iltqorsz.json', // target (rank/gap)
+  bell:      'https://cdn.lordicon.com/vspbqszr.json', // notification bell
 } as const
 
 // Dashboard tab id → animated icon. One place to retune any tab's icon.
@@ -117,5 +118,5 @@ export const DASH_ICON: Record<string, string> = {
   audit: ICON.check, ctags: ICON.build, compare: ICON.display,
   spell: ICON.check, fees: ICON.coins, adsroi: ICON.addCard,
   category: ICON.book, calendar: ICON.celebration, lists: ICON.document,
-  affiliate: ICON.gift, googleads: ICON.addCard,
+  affiliate: ICON.gift, googleads: ICON.addCard, notifications: ICON.bell,
 }
