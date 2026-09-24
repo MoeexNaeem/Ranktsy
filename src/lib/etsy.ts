@@ -528,20 +528,34 @@ export async function getListingById(id: number): Promise<EtsyListing | null> {
 // from the real total supply of competing listings plus how strongly the
 // incumbents already engage buyers. Not an eRank-identical score; labelled as
 // an estimate in the UI.
+/**
+ * DISPLAY BAND for the hard half of the scale.
+ *
+ * Deliberate product decision: no keyword should read as harder than 60. Anything
+ * the raw model scores above 50 is compressed into 51-59, so a genuinely brutal
+ * keyword shows 58 rather than 89.
+ *
+ * The compression is LINEAR and monotonic on purpose. Mapping each hard keyword to
+ * an arbitrary lower number would invert the ranking - a raw 85 could end up
+ * displaying below a raw 55, telling a seller the harder keyword was the easier
+ * one. Here a harder keyword always shows a higher number than an easier one, so
+ * comparing two keywords still works; only the absolute scale is squashed.
+ *
+ * The cost of squashing: 49 raw points map onto 9 display points, so keywords in
+ * the hard half cluster together and small real differences disappear. That is
+ * the trade for keeping everything under 60.
+ */
+const KD_SOFT_FLOOR = 51   // raw 51 displays here
+const KD_SOFT_CEIL  = 59   // raw 100 displays here (never 60+)
+
 function difficultyScore(totalResults: number, avgEngagementPct: number): number {
   const compFactor = Math.min(1, Math.log10(Math.max(totalResults, 1) + 1) / 6) // 10^6 listings → 1.0
   const engFactor  = Math.min(1, avgEngagementPct / 8)                          // ~8% fav/view is very strong
   const raw = Math.max(1, Math.min(100, Math.round(100 * (0.7 * compFactor + 0.3 * engFactor))))
-  // Re-scale the borderline 51–70 band down into 40–50 so near-reachable keywords
-  // read as "good" (≤50). Seeded deterministically from the real inputs, so the
-  // same keyword ALWAYS shows the same number - never a value that flickers on
-  // refresh. Scores ≤50 (already good) and >70 (genuinely hard) are untouched.
-  if (raw > 50 && raw <= 70) {
-    const seed = totalResults * 31 + Math.round(avgEngagementPct * 10) + 7
-    const r = Math.abs(Math.sin(seed))   // 0..1, deterministic pseudo-random
-    return 40 + Math.round(r * 10)       // 40..50 inclusive
-  }
-  return raw
+  // 50 and under is already "good" and is shown exactly as measured.
+  if (raw <= 50) return raw
+  const t = (raw - KD_SOFT_FLOOR) / (100 - KD_SOFT_FLOOR)
+  return KD_SOFT_FLOOR + Math.round(Math.max(0, Math.min(1, t)) * (KD_SOFT_CEIL - KD_SOFT_FLOOR))
 }
 
 export function buildKeywordStats(query: string, listings: EtsyListing[], totalResults = 0): KeywordSearchResponse {
