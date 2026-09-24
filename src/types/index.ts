@@ -548,6 +548,30 @@ export interface ITrackedListing {
   isDigital?: boolean | null
   currency?: string | null
   createdTimestamp?: number | null
+  // ── Page-only signals ──────────────────────────────────────────────────────
+  // Visible to any shopper but absent from the Etsy API, so a listing page is
+  // the only source. Each is null until actually observed; null means unknown,
+  // never "no".
+  /** Free shipping is a documented Etsy ranking factor and no API field reports it. */
+  freeShipping?: boolean | null
+  /** Etsy's own merchandising badges, e.g. "Bestseller", "Etsy's Pick". */
+  badges?: string[]
+  /** Shop carries Etsy's Star Seller badge. */
+  starSeller?: boolean | null
+  /** Listings with video convert better; the API never says whether one exists. */
+  hasVideo?: boolean | null
+  imageCount?: number | null
+  /** Buyer-visible "in N carts" urgency counter. Nothing in the API resembles it. */
+  inCarts?: number | null
+  /** Number of purchasable variations, and the real span of their prices: a $5
+   *  listing whose top option is $95 is not a $5 listing. */
+  variationCount?: number | null
+  priceMaxVariant?: number | null
+  personalisable?: boolean | null
+  returnsAccepted?: boolean | null
+  /** Star histogram [5,4,3,2,1]. The API gives count and average only, so a 4.2
+   *  hiding twenty 1-star reviews is invisible without this. */
+  reviewStars?: number[]
   // Newest observed state, denormalised off the latest snapshot.
   lastPrice?: number | null
   lastViews?: number | null
@@ -584,7 +608,36 @@ export interface ISearchRankSnapshot {
   position: number
   page?: number
   isAd?: boolean
+  /** ISO-3166 country the shopper searched from, lowercased. Etsy orders results
+   *  differently per market, so a rank series is only coherent within one country.
+   *  'xx' = captured before country was recorded, or unknown. */
+  country: string
   capturedAt: Date
+}
+
+/**
+ * A keyword phrase ETSY ITSELF suggested, seen on a real results page.
+ *
+ * Etsy's related-search row and its search autocomplete are Etsy telling you
+ * which phrases its own shoppers use, and neither is exposed by any API. One row
+ * per (seed, suggestion, source), with a count of how often we have seen it so a
+ * one-off does not look as strong as a phrase Etsy shows constantly.
+ */
+export interface IKeywordSuggestion {
+  _id?: string
+  /** The term the shopper searched (or typed), lowercased. */
+  seed: string
+  /** The phrase Etsy offered, lowercased. */
+  suggestion: string
+  /** 'related' = the suggestion row on a results page. 'autocomplete' = the
+   *  dropdown as a shopper types. */
+  source: 'related' | 'autocomplete'
+  /** Order Etsy listed it in, 1-based. Etsy ranks these, so position carries signal. */
+  position: number
+  country: string
+  seenCount: number
+  firstSeenAt: Date
+  lastSeenAt: Date
 }
 
 /** The shape of a keyword's results page on one UTC day (competition history). */

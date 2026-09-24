@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/session'
 import {
-  recordObservedListings, recordShopSnapshots, recordSearchRanks, normalizeKeyword,
+  recordObservedListings, recordShopSnapshots, recordSearchRanks, recordKeywordSuggestions, normalizeKeyword,
   type ObservedListing, type ShopSnapshotInput, type ObservedRank, type ObservedKeywordMarket,
+  type ObservedSuggestion,
 } from '@/lib/snapshots'
 import { recordExtensionUsage } from '@/lib/extension'
 import type { ApiResponse } from '@/types'
@@ -12,6 +13,7 @@ export const runtime = 'nodejs'
 const MAX_ITEMS = 120
 const MAX_SHOPS = 40
 const MAX_RANKS = 120
+const MAX_SUGGESTIONS = 40
 
 /**
  * Crowd-sourced snapshot capture - the data flywheel behind every time-based
@@ -43,13 +45,17 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
 
   const body = (await req.json().catch(() => ({}))) as {
     items?: unknown; shops?: unknown; keyword?: unknown; results?: unknown; market?: unknown
+    country?: unknown; related?: unknown; autocomplete?: unknown; typed?: unknown
   }
   const items = Array.isArray(body.items) ? body.items : []
   const shopsIn = Array.isArray(body.shops) ? body.shops : []
   const ranksIn = Array.isArray(body.results) ? body.results : []
   const keyword = normalizeKeyword(body.keyword)
 
-  if (!items.length && !shopsIn.length && !(keyword && ranksIn.length)) {
+  const relatedIn = Array.isArray(body.related) ? body.related : []
+  const acIn = Array.isArray(body.autocomplete) ? body.autocomplete : []
+
+  if (!items.length && !shopsIn.length && !(keyword && ranksIn.length) && !relatedIn.length && !acIn.length) {
     return NextResponse.json({ success: false, error: 'Nothing to record' }, { status: 400 })
   }
 
@@ -133,9 +139,33 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
         }
       : undefined
     if (rows.length || market) {
-      recordSearchRanks(keyword, rows, market)
+      // The market the shopper searched from. Etsy orders results per country,
+      // so without this every country's ordering collapses into one series.
+      recordSearchRanks(keyword, rows, market, body.country)
       ranks = rows.length
     }
+  }
+
+  // Etsy's OWN suggested phrases - its related-search row and its autocomplete.
+  // No Etsy API returns either, so a real results page is the only source.
+  const toSuggestions = (raw: unknown[]): ObservedSuggestion[] =>
+    raw.slice(0, MAX_SUGGESTIONS).map((x, i) => {
+      if (typeof x === 'string') return { suggestion: x, position: i + 1 }
+      const r = (x ?? {}) as Record<string, unknown>
+      return {
+        suggestion: typeof r.suggestion === 'string' ? r.suggestion : '',
+        position: Number(r.position) > 0 ? Number(r.position) : i + 1,
+      }
+    }).filter(s => s.suggestion.trim().length > 0)
+
+  if (keyword && relatedIn.length) {
+    recordKeywordSuggestions(keyword, toSuggestions(relatedIn), 'related', body.country)
+  }
+  // Autocomplete is keyed on what the shopper had TYPED, which is a prefix and
+  // not necessarily the search they ran.
+  const typedSeed = normalizeKeyword(body.typed) ?? keyword
+  if (typedSeed && acIn.length) {
+    recordKeywordSuggestions(typedSeed, toSuggestions(acIn), 'autocomplete', body.country)
   }
 
   if (!items.length) return NextResponse.json({ success: true, data: { captured: 0, ranks } })
@@ -165,6 +195,27 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
       rating: boundedOrNull(r.rating, 5),
       quantity: boundedOrNull(r.quantity, 1_000_000),
       rank: boundedOrNull(r.rank, 1000),
+      // Page-only signals: real and buyer-visible, but in no API field. Bounded
+      // and type-checked so a malformed or hostile payload cannot poison the
+      // shared research dataset.
+      freeShipping: boolOrNull(r.freeShipping),
+      badges: Array.isArray(r.badges)
+        ? ((r.badges as unknown[]).filter(b => typeof b === 'string' && b.trim()).slice(0, 6).map(b => (b as string).trim().slice(0, 40)) as string[])
+        : undefined,
+      starSeller: boolOrNull(r.starSeller),
+      hasVideo: boolOrNull(r.hasVideo),
+      imageCount: boundedOrNull(r.imageCount, 50),
+      inCarts: boundedOrNull(r.inCarts, 100_000),
+      variationCount: boundedOrNull(r.variationCount, 1000),
+      priceMaxVariant: priceOrNull(r.priceMaxVariant),
+      personalisable: boolOrNull(r.personalisable),
+      returnsAccepted: boolOrNull(r.returnsAccepted),
+      // Exactly five buckets [5,4,3,2,1] or nothing: a partial histogram would
+      // silently misreport the distribution.
+      reviewStars: Array.isArray(r.reviewStars) && r.reviewStars.length === 5
+        && (r.reviewStars as unknown[]).every(n => Number.isFinite(Number(n)) && Number(n) >= 0)
+        ? (r.reviewStars as unknown[]).map(n => Math.round(Number(n)))
+        : undefined,
       // Stable attributes, stored once per listing on TrackedListing.
       shopName: strOrNull(r.shopName, 120),
       categoryTop: strOrNull(r.categoryTop, 80),

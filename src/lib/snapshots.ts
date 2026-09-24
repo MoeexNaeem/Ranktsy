@@ -18,7 +18,7 @@
  * content as current; a snapshot is a dated measurement presented as history.
  */
 import { connectDB } from '@/lib/db'
-import { ShopSnapshot, ListingSnapshot, TrackedListing, SearchRankSnapshot, KeywordMarketSnapshot } from '@/lib/models'
+import { ShopSnapshot, ListingSnapshot, TrackedListing, SearchRankSnapshot, KeywordMarketSnapshot, KeywordSuggestion } from '@/lib/models'
 import { reviewRate } from '@/lib/salesEstimate'
 import type { EtsyListing, SalesPoint, ShopVelocity, ListingVelocity, ListingSalesPoint, ListingRankHistory, ListingRankPoint } from '@/types'
 
@@ -272,6 +272,20 @@ export interface ObservedListing {
   quantity?: number | null
   /** Best organic rank this listing held in the observed keyword. */
   rank?: number | null
+  // ── Page-only signals ──────────────────────────────────────────────────────
+  // Buyer-visible, but absent from every Etsy API field. Undefined/null means we
+  // did not see it, which is NOT the same as "no".
+  freeShipping?: boolean | null
+  badges?: string[]
+  starSeller?: boolean | null
+  hasVideo?: boolean | null
+  imageCount?: number | null
+  inCarts?: number | null
+  variationCount?: number | null
+  priceMaxVariant?: number | null
+  personalisable?: boolean | null
+  returnsAccepted?: boolean | null
+  reviewStars?: number[]
   // ── Stable attributes, stored once on TrackedListing ──────────────────────
   shopName?: string | null
   categoryTop?: string | null
@@ -339,6 +353,20 @@ export async function recordObservedListings(rows: ObservedListing[]): Promise<n
       if (r.views != null) set.lastViews = r.views
       if (r.favorers != null) set.lastFavorers = r.favorers
       if (r.reviewCount != null) set.lastReviewCount = r.reviewCount
+      // Page-only signals. Same rule: written only when actually observed, so a
+      // search card (which shows none of these) cannot erase what a listing page
+      // already told us.
+      if (r.freeShipping != null) set.freeShipping = r.freeShipping
+      if (r.badges != null && r.badges.length) set.badges = r.badges
+      if (r.starSeller != null) set.starSeller = r.starSeller
+      if (r.hasVideo != null) set.hasVideo = r.hasVideo
+      if (r.imageCount != null) set.imageCount = r.imageCount
+      if (r.inCarts != null) set.inCarts = r.inCarts
+      if (r.variationCount != null) set.variationCount = r.variationCount
+      if (r.priceMaxVariant != null) set.priceMaxVariant = r.priceMaxVariant
+      if (r.personalisable != null) set.personalisable = r.personalisable
+      if (r.returnsAccepted != null) set.returnsAccepted = r.returnsAccepted
+      if (r.reviewStars != null && r.reviewStars.length === 5) set.reviewStars = r.reviewStars
       return {
         updateOne: {
           filter: { listingId: r.listingId },
@@ -403,11 +431,19 @@ export function normalizeKeyword(raw: unknown): string | null {
  * Fire-and-forget: this is a side effect of someone else's page view and must
  * never fail their request.
  */
-export function recordSearchRanks(keywordRaw: string, rows: ObservedRank[], market?: ObservedKeywordMarket): void {
+/** Two letters, lowercase, or 'xx' when the page did not say. */
+export function normalizeCountry(raw: unknown): string {
+  const c = typeof raw === 'string' ? raw.trim().toLowerCase() : ''
+  return /^[a-z]{2}$/.test(c) ? c : 'xx'
+}
+
+export function recordSearchRanks(keywordRaw: string, rows: ObservedRank[], market?: ObservedKeywordMarket, countryRaw?: unknown): void {
   const keyword = normalizeKeyword(keywordRaw)
   if (!keyword) return
   const valid = rows.filter(r => r.listingId > 0 && r.position > 0 && r.position <= 1000)
   if (!valid.length && !market) return
+
+  const country = normalizeCountry(countryRaw)
 
   void (async () => {
     try {
@@ -419,12 +455,15 @@ export function recordSearchRanks(keywordRaw: string, rows: ObservedRank[], mark
         await SearchRankSnapshot.bulkWrite(
           valid.map(r => ({
             updateOne: {
-              filter: { keyword, listingId: r.listingId, day },
+              // Country is part of the key: the same listing legitimately holds
+              // different positions in different markets on the same day.
+              filter: { keyword, listingId: r.listingId, day, country },
               update: {
-                // Lowest position of the day wins; everything else just refreshes.
+                // Best position seen in THIS market today; two shoppers in one
+                // country see near-identical ordering, so $min is safe here.
                 $min: { position: r.position },
                 $set: { shopId: r.shopId ?? null, page: r.page ?? 1, isAd: !!r.isAd, capturedAt: now },
-                $setOnInsert: { keyword, listingId: r.listingId, day },
+                $setOnInsert: { keyword, listingId: r.listingId, day, country },
               },
               upsert: true,
             },
@@ -467,7 +506,7 @@ export async function getListingRankHistory(keywordRaw: string, listingId: numbe
     await connectDB()
     const rows = await SearchRankSnapshot.find({ keyword, listingId, day: { $gte: daysAgoKey(days) } })
       .sort({ day: 1 })
-      .select('day position isAd')
+      .select('day position isAd country')
       .lean<{ day: string; position: number; isAd?: boolean }[]>()
     if (!rows.length) return null
 
@@ -487,6 +526,320 @@ export async function getListingRankHistory(keywordRaw: string, listingId: numbe
     }
   } catch (e) {
     console.error('[Snapshots] rank history failed:', e)
+    return null
+  }
+}
+
+/** One listing's rank movement for a keyword, built from our own daily captures. */
+export interface RankMover {
+  listingId: number
+  shopId: number | null
+  title: string
+  shopName: string | null
+  first: number          // position on the earliest captured day in the window
+  latest: number         // position on the most recent captured day
+  best: number
+  worst: number
+  /** first - latest. POSITIVE = climbed (toward position 1), negative = fell. */
+  change: number
+  days: number           // distinct days captured
+  firstDay: string
+  latestDay: string
+  series: { day: string; position: number }[]
+}
+
+/**
+ * `reliable: false` means we hold captures but they do not form a trustworthy
+ * ranking yet, so the UI must say so instead of drawing numbers.
+ *   'none'      - nothing captured for this keyword
+ *   'ambiguous' - captures collide (several listings sharing one position on a
+ *                 day), so a "move" could be an artefact of merging different
+ *                 shoppers' result sets rather than a real change
+ */
+export interface RankMoversResult {
+  movers: RankMover[]
+  reliable: boolean
+  reason: 'ok' | 'none' | 'ambiguous'
+  /** Which market these positions are for. 'xx' = captured before we recorded it. */
+  country?: string
+}
+
+/**
+ * Who climbed and who fell for a keyword, measured from our own rank captures.
+ *
+ * This is the one question no Etsy endpoint can answer after the fact: the API
+ * returns today's ordering and keeps no history, so a day nobody captured is
+ * gone. Everything here comes from SearchRankSnapshot rows the extension
+ * recorded while real shoppers browsed.
+ *
+ * Only listings captured on two or more DIFFERENT days are returned. A single
+ * capture is a position, not a movement, and showing it as "0 change" would
+ * invent a stability we never observed.
+ */
+export async function getKeywordRankMovers(keywordRaw: string, days = 30, limit = 40, countryRaw?: string): Promise<RankMoversResult> {
+  const keyword = normalizeKeyword(keywordRaw)
+  if (!keyword) return { movers: [], reliable: false, reason: 'none' }
+  try {
+    await connectDB()
+    const since = daysAgoKey(days)
+
+    // ONE market at a time. Etsy orders results differently per country, so a
+    // series mixing them is not a ranking. Without an explicit country, use the
+    // market we hold the most captures for.
+    let country = countryRaw ? normalizeCountry(countryRaw) : ''
+    if (!country) {
+      const byCountry = await SearchRankSnapshot.aggregate<{ _id: string; n: number }>([
+        { $match: { keyword, day: { $gte: since } } },
+        { $group: { _id: { $ifNull: ['$country', 'xx'] }, n: { $sum: 1 } } },
+        { $sort: { n: -1 } },
+        { $limit: 1 },
+      ])
+      country = byCountry[0]?._id ?? 'xx'
+    }
+
+    // Rows captured before `country` existed have no such field at all, and
+    // { country: 'xx' } does NOT match a missing field - without this they would
+    // silently vanish from every series the day the field was introduced.
+    const countryFilter: Record<string, unknown> = country === 'xx'
+      ? { $or: [{ country: 'xx' }, { country: { $exists: false } }] }
+      : { country }
+
+    // Ads are excluded: a promoted placement is bought, not earned, and mixing it
+    // with organic order turns "was an ad yesterday" into a fake 40-place drop.
+    const rows = await SearchRankSnapshot.find({ keyword, ...countryFilter, isAd: { $ne: true }, day: { $gte: since } })
+      .sort({ day: 1 })
+      .select('listingId shopId day position')
+      .lean<{ listingId: number; shopId: number | null; day: string; position: number }[]>()
+    if (!rows.length) return { movers: [], reliable: false, reason: 'none', country }
+
+    // INTEGRITY GATE. A day's capture is only a ranking if each position belongs
+    // to one listing. Today it often does not: captures from different shoppers,
+    // pages and countries are merged with $min, so several listings can each end
+    // up "position 1". Rather than present that as precise movement, refuse it.
+    const seen = new Map<string, Set<number>>()
+    let collisions = 0
+    for (const r of rows) {
+      const k = `${r.day}|${r.position}`
+      let set = seen.get(k)
+      if (!set) { set = new Set(); seen.set(k, set) }
+      if (set.size > 0 && !set.has(r.listingId)) collisions++
+      set.add(r.listingId)
+    }
+    if (collisions > 0) return { movers: [], reliable: false, reason: 'ambiguous', country }
+
+    const byListing = new Map<number, { shopId: number | null; pts: { day: string; position: number }[] }>()
+    for (const r of rows) {
+      let e = byListing.get(r.listingId)
+      if (!e) { e = { shopId: r.shopId ?? null, pts: [] }; byListing.set(r.listingId, e) }
+      e.pts.push({ day: r.day, position: r.position })
+    }
+
+    const movers: RankMover[] = []
+    for (const [listingId, e] of byListing) {
+      // Two captures on the SAME day are one observation, not a trend.
+      if (new Set(e.pts.map(p => p.day)).size < 2) continue
+      const pts = e.pts
+      const positions = pts.map(p => p.position)
+      const first = pts[0].position
+      const latest = pts[pts.length - 1].position
+      movers.push({
+        listingId,
+        shopId: e.shopId,
+        title: '',
+        shopName: null,
+        first,
+        latest,
+        best: Math.min(...positions),
+        worst: Math.max(...positions),
+        // A lower position number is better, so a DROP in the number is a climb.
+        change: first - latest,
+        days: new Set(pts.map(p => p.day)).size,
+        firstDay: pts[0].day,
+        latestDay: pts[pts.length - 1].day,
+        series: pts,
+      })
+    }
+
+    // Biggest absolute movement first: the story is who moved, either way.
+    movers.sort((a, b) => Math.abs(b.change) - Math.abs(a.change) || a.latest - b.latest)
+    const top = movers.slice(0, limit)
+
+    // Titles live on TrackedListing, not on the rank rows.
+    const meta = await TrackedListing.find({ listingId: { $in: top.map(m => m.listingId) } })
+      .select('listingId title shopName')
+      .lean<{ listingId: number; title?: string; shopName?: string | null }[]>()
+    const byId = new Map(meta.map(m => [m.listingId, m]))
+    for (const m of top) {
+      const t = byId.get(m.listingId)
+      m.title = t?.title ?? ''
+      m.shopName = t?.shopName ?? null
+    }
+    return { movers: top, reliable: true, reason: 'ok', country }
+  } catch (e) {
+    console.error('[Snapshots] rank movers failed:', e)
+    return { movers: [], reliable: false, reason: 'none' }
+  }
+}
+
+export interface ObservedSuggestion { suggestion: string; position?: number }
+
+/**
+ * Record the phrases ETSY suggested for a search term.
+ *
+ * Etsy's related-search row and its autocomplete are the marketplace naming the
+ * words its own shoppers use. No Etsy API returns either, and Google's keyword
+ * ideas are a different population (web searchers, not Etsy buyers), so this is
+ * the only route to Etsy-native keyword expansion.
+ *
+ * Upserted per (seed, suggestion, source, country) with a seenCount, so a phrase
+ * Etsy shows on every visit ranks above one seen once. Fire-and-forget: a
+ * suggestion write must never slow down or fail a shopper's page.
+ */
+export function recordKeywordSuggestions(
+  seedRaw: string,
+  rows: ObservedSuggestion[],
+  source: 'related' | 'autocomplete',
+  countryRaw?: unknown,
+): void {
+  const seed = normalizeKeyword(seedRaw)
+  if (!seed || !rows.length) return
+  const country = normalizeCountry(countryRaw)
+
+  // Dedupe within the payload and drop anything that is just the seed again.
+  const seen = new Map<string, number>()
+  for (const r of rows) {
+    const phrase = normalizeKeyword(r.suggestion)
+    if (!phrase || phrase === seed || phrase.length > 120) continue
+    if (!seen.has(phrase)) seen.set(phrase, Number(r.position) > 0 ? Math.round(Number(r.position)) : seen.size + 1)
+  }
+  if (!seen.size) return
+
+  void (async () => {
+    try {
+      await connectDB()
+      const now = new Date()
+      await KeywordSuggestion.bulkWrite(
+        [...seen.entries()].map(([suggestion, position]) => ({
+          updateOne: {
+            filter: { seed, suggestion, source, country },
+            update: {
+              $inc: { seenCount: 1 },
+              // Etsy reorders these, so the newest position is the current truth.
+              $set: { position, lastSeenAt: now },
+              $setOnInsert: { seed, suggestion, source, country, firstSeenAt: now },
+            },
+            upsert: true,
+          },
+        })),
+        { ordered: false },
+      )
+    } catch (e) {
+      console.error('[Snapshots] keyword suggestions failed:', e)
+    }
+  })()
+}
+
+export interface KeywordSuggestionRow {
+  suggestion: string
+  source: 'related' | 'autocomplete'
+  position: number
+  seenCount: number
+  lastSeenAt: string
+}
+
+/** Etsy's own suggestions for a seed term, strongest (most often seen) first. */
+export async function getKeywordSuggestions(seedRaw: string, limit = 40): Promise<KeywordSuggestionRow[]> {
+  const seed = normalizeKeyword(seedRaw)
+  if (!seed) return []
+  try {
+    await connectDB()
+    const rows = await KeywordSuggestion.find({ seed })
+      .sort({ seenCount: -1, position: 1 })
+      .limit(limit)
+      .select('suggestion source position seenCount lastSeenAt')
+      .lean<{ suggestion: string; source: 'related' | 'autocomplete'; position: number; seenCount: number; lastSeenAt: Date }[]>()
+    return rows.map(r => ({
+      suggestion: r.suggestion,
+      source: r.source,
+      position: r.position,
+      seenCount: r.seenCount,
+      lastSeenAt: new Date(r.lastSeenAt).toISOString(),
+    }))
+  } catch (e) {
+    console.error('[Snapshots] keyword suggestions read failed:', e)
+    return []
+  }
+}
+
+export interface KeywordPageSignals {
+  sample: number                 // listings in our store that rank for this keyword
+  freeShippingPct: number | null // share offering free shipping
+  withVideoPct: number | null
+  badgePct: number | null        // share carrying any Etsy badge
+  starSellerPct: number | null
+  medianImages: number | null
+  topBadges: { badge: string; count: number }[]
+  inCartsMedian: number | null
+}
+
+/**
+ * Aggregate the PAGE-ONLY signals across the listings ranking for a keyword.
+ *
+ * Free shipping, Etsy's own badges, whether a listing has video: all visible to
+ * any shopper, none of them in the API. Answering "what do the listings winning
+ * this keyword have in common" needs them, and this is the only place they exist.
+ *
+ * Every percentage is computed over the listings that ACTUALLY reported the
+ * field, not over the whole sample. Treating "not observed" as "no" would
+ * understate every share and quietly invent a fact we never checked.
+ */
+export async function getKeywordPageSignals(keywordRaw: string, days = 30): Promise<KeywordPageSignals | null> {
+  const keyword = normalizeKeyword(keywordRaw)
+  if (!keyword) return null
+  try {
+    await connectDB()
+    const ids = await SearchRankSnapshot.distinct('listingId', {
+      keyword, isAd: { $ne: true }, day: { $gte: daysAgoKey(days) },
+    }) as number[]
+    if (!ids.length) return null
+
+    const rows = await TrackedListing.find({ listingId: { $in: ids.slice(0, 500) } })
+      .select('freeShipping hasVideo badges starSeller imageCount inCarts')
+      .lean<{ freeShipping?: boolean | null; hasVideo?: boolean | null; badges?: string[]; starSeller?: boolean | null; imageCount?: number | null; inCarts?: number | null }[]>()
+    if (!rows.length) return null
+
+    // Share of the listings that reported the field, never of the whole sample.
+    const share = (pred: (r: typeof rows[number]) => boolean | null | undefined): number | null => {
+      const known = rows.filter(r => pred(r) != null)
+      if (!known.length) return null
+      return Math.round((known.filter(r => pred(r) === true).length / known.length) * 100)
+    }
+    const median = (vals: number[]): number | null => {
+      if (!vals.length) return null
+      const v = [...vals].sort((a, b) => a - b)
+      return v[Math.floor(v.length / 2)]
+    }
+
+    const badgeCounts = new Map<string, number>()
+    for (const r of rows) for (const b of r.badges ?? []) badgeCounts.set(b, (badgeCounts.get(b) ?? 0) + 1)
+
+    return {
+      sample: rows.length,
+      freeShippingPct: share(r => r.freeShipping),
+      withVideoPct: share(r => r.hasVideo),
+      starSellerPct: share(r => r.starSeller),
+      badgePct: rows.some(r => r.badges != null)
+        ? Math.round((rows.filter(r => (r.badges ?? []).length > 0).length / rows.length) * 100)
+        : null,
+      medianImages: median(rows.map(r => r.imageCount).filter((n): n is number => n != null)),
+      inCartsMedian: median(rows.map(r => r.inCarts).filter((n): n is number => n != null)),
+      topBadges: [...badgeCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 4)
+        .map(([badge, count]) => ({ badge, count })),
+    }
+  } catch (e) {
+    console.error('[Snapshots] keyword page signals failed:', e)
     return null
   }
 }

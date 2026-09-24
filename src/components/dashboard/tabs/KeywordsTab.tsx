@@ -12,6 +12,8 @@ import { PlatformToggle }  from '../PlatformToggle'
 import { Star }            from '../controls'
 import { SearchAnalysisPanel } from '../keyword/SearchAnalysisPanel'
 import { TopListingsCarousel } from '../keyword/TopListingsCarousel'
+import { RankMovementPanel } from '../keyword/RankMovementPanel'
+import { EtsySuggestionsPanel } from '../keyword/EtsySuggestionsPanel'
 import { NearMatchesTable }    from '../keyword/NearMatchesTable'
 import { MarketplacesPanel }   from '../keyword/MarketplacesPanel'
 import { KeywordIdeasPanel }   from '../keyword/KeywordIdeasPanel'
@@ -648,6 +650,12 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
 
       {/* Measured monthly market activity from our own snapshot tracking (eHunt-style). */}
       {kw && <MarketActivityPanel query={kw.query} analysis={kw.analysis} />}
+
+      {/* Measured rank movement, the one thing Etsy's API can never answer later. */}
+      {kw && <RankMovementPanel query={kw.query} />}
+
+      {/* Etsy's own words for this term - no API returns these. */}
+      {kw && <EtsySuggestionsPanel query={kw.query} onSelect={run} />}
 
       {/* Difficulty + the Google volume / competition / CPC detail. */}
       <div data-tour="kw-kd" className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 12, alignItems: 'stretch' }}>

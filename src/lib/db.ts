@@ -88,6 +88,7 @@ export async function connectDB(): Promise<typeof mongoose> {
   }
 
   void reconcileTtlIndexes(cached.conn)
+  void reconcileRankIndex(cached.conn)
   return cached.conn
 }
 
@@ -96,6 +97,33 @@ export async function connectDB(): Promise<typeof mongoose> {
 // (e.g. an old CHAT_RETENTION_DAYS), messages keep expiring early forever. This runs
 // ONCE per process and uses collMod to force the live index back to RETENTION_SECONDS
 // (30 days), which corrects the retention without dropping the index. Best-effort.
+/**
+ * Rank snapshots were once unique on (keyword, listingId, day). Rank is per
+ * MARKET, so that key forced one row per listing per day across every country
+ * and merged orderings that were never comparable. The key now includes
+ * `country`, and the OLD unique index has to go or it blocks the second
+ * country's row for the same listing and day.
+ *
+ * Runs once per process, best-effort: dropping an index that is already gone,
+ * or on a collection that does not exist yet, is not an error worth surfacing.
+ */
+let rankIndexReconciled = false
+async function reconcileRankIndex(conn: typeof mongoose): Promise<void> {
+  if (rankIndexReconciled) return
+  rankIndexReconciled = true
+  const db = conn.connection.db
+  if (!db) return
+  try {
+    const coll = db.collection('searchranksnapshots')
+    const existing = await coll.indexes()
+    for (const ix of existing) {
+      const k = ix.key as Record<string, number>
+      const isOldKey = k.keyword === 1 && k.listingId === 1 && k.day === 1 && k.country == null
+      if (isOldKey && ix.unique && ix.name) await coll.dropIndex(ix.name)
+    }
+  } catch { /* collection or index absent, or no permission - ignore */ }
+}
+
 let ttlReconciled = false
 async function reconcileTtlIndexes(conn: typeof mongoose): Promise<void> {
   if (ttlReconciled) return

@@ -4,7 +4,7 @@ import { PLAN_SLUGS, type PlanSlug } from '@/lib/plans'
 import type {
   IKeywordCache, IKeywordHistory, ISavedKeyword, IPayment, IOTP,
   IShopSnapshot, IListingSnapshot, ITrackedShop, ITrackedListing, IConnectedShop,
-  ISearchRankSnapshot, IKeywordMarketSnapshot, IAffiliateLink,
+  ISearchRankSnapshot, IKeywordMarketSnapshot, IKeywordSuggestion, IAffiliateLink,
   ICollectiveKeywordData, IApiUsage, IBlog, IDeal, IPopupAd,
 } from '@/types'
 
@@ -324,6 +324,19 @@ const TrackedListingSchema = new Schema<ITrackedListing>({
   // ── Last observed state ────────────────────────────────────────────────────
   // A denormalised copy of the newest snapshot, so leaderboards and coverage
   // readouts don't have to fan out across ListingSnapshot.
+  // Page-only signals: real, buyer-visible, and absent from the Etsy API. Null
+  // always means "not observed", never "no" - see the no-fabricated-data rule.
+  freeShipping:    { type: Boolean, default: null },
+  badges:          { type: [String], default: undefined },
+  starSeller:      { type: Boolean, default: null },
+  hasVideo:        { type: Boolean, default: null },
+  imageCount:      { type: Number, default: null },
+  inCarts:         { type: Number, default: null },
+  variationCount:  { type: Number, default: null },
+  priceMaxVariant: { type: Number, default: null },
+  personalisable:  { type: Boolean, default: null },
+  returnsAccepted: { type: Boolean, default: null },
+  reviewStars:     { type: [Number], default: undefined },
   lastPrice:       { type: Number, default: null },
   lastViews:       { type: Number, default: null },
   lastFavorers:    { type: Number, default: null },
@@ -352,13 +365,17 @@ const SearchRankSnapshotSchema = new Schema<ISearchRankSnapshot>({
   position:   { type: Number, required: true },     // 1-based, ads excluded from the count
   page:       { type: Number, default: 1 },
   isAd:       { type: Boolean, default: false },
+  // Rank is per MARKET. A shopper in the US and one in Germany see different
+  // orderings for the same term, so merging them produced several listings all
+  // claiming position 1. 'xx' marks rows captured before this was recorded.
+  country:    { type: String, default: 'xx', lowercase: true, trim: true },
   capturedAt: { type: Date, default: Date.now },
 }, { timestamps: false })
 
 // Idempotent per keyword/listing/day. Best (lowest) position of the day wins -
 // see recordSearchRanks, which only lowers an existing position.
-SearchRankSnapshotSchema.index({ keyword: 1, listingId: 1, day: 1 }, { unique: true })
-SearchRankSnapshotSchema.index({ keyword: 1, day: -1, position: 1 })
+SearchRankSnapshotSchema.index({ keyword: 1, listingId: 1, day: 1, country: 1 }, { unique: true })
+SearchRankSnapshotSchema.index({ keyword: 1, country: 1, day: -1, position: 1 })
 SearchRankSnapshotSchema.index({ listingId: 1, day: -1 })
 SearchRankSnapshotSchema.index({ capturedAt: 1 }, { expireAfterSeconds: SNAPSHOT_TTL_SECONDS })
 
@@ -382,6 +399,26 @@ const KeywordMarketSnapshotSchema = new Schema<IKeywordMarketSnapshot>({
 
 KeywordMarketSnapshotSchema.index({ keyword: 1, day: 1 }, { unique: true })
 KeywordMarketSnapshotSchema.index({ capturedAt: 1 }, { expireAfterSeconds: SNAPSHOT_TTL_SECONDS })
+
+// ─── Keyword suggestion (Etsy's own words) ─────────────────────────────────────
+// Etsy's related-search row and autocomplete are the marketplace telling us which
+// phrases its shoppers actually use. No API exposes either, so this is only
+// obtainable from a real results page. Deduped per (seed, suggestion, source,
+// country) with a seenCount, so a phrase Etsy shows every day outranks a one-off.
+const KeywordSuggestionSchema = new Schema<IKeywordSuggestion>({
+  seed:        { type: String, required: true, trim: true, lowercase: true },
+  suggestion:  { type: String, required: true, trim: true, lowercase: true },
+  source:      { type: String, enum: ['related', 'autocomplete'], required: true },
+  position:    { type: Number, default: 1 },
+  country:     { type: String, default: 'xx', lowercase: true, trim: true },
+  seenCount:   { type: Number, default: 1 },
+  firstSeenAt: { type: Date, default: Date.now },
+  lastSeenAt:  { type: Date, default: Date.now },
+}, { timestamps: false })
+
+KeywordSuggestionSchema.index({ seed: 1, suggestion: 1, source: 1, country: 1 }, { unique: true })
+KeywordSuggestionSchema.index({ seed: 1, seenCount: -1 })
+KeywordSuggestionSchema.index({ lastSeenAt: 1 }, { expireAfterSeconds: SNAPSHOT_TTL_SECONDS })
 
 // ─── Connected Shop ────────────────────────────────────────────────────────────
 // A user's OWN Etsy shop(s), connected via OAuth. One row per (userId, shopId) -
@@ -872,6 +909,7 @@ export const TrackedShop     = models.TrackedShop     ?? model<ITrackedShop>('Tr
 export const TrackedListing  = models.TrackedListing  ?? model<ITrackedListing>('TrackedListing', TrackedListingSchema)
 export const SearchRankSnapshot = (models.SearchRankSnapshot as mongoose.Model<ISearchRankSnapshot>) ?? model<ISearchRankSnapshot>('SearchRankSnapshot', SearchRankSnapshotSchema)
 export const KeywordMarketSnapshot = (models.KeywordMarketSnapshot as mongoose.Model<IKeywordMarketSnapshot>) ?? model<IKeywordMarketSnapshot>('KeywordMarketSnapshot', KeywordMarketSnapshotSchema)
+export const KeywordSuggestion     = (models.KeywordSuggestion as mongoose.Model<IKeywordSuggestion>) ?? model<IKeywordSuggestion>('KeywordSuggestion', KeywordSuggestionSchema)
 export const ConnectedShop   = models.ConnectedShop   ?? model<IConnectedShop>('ConnectedShop', ConnectedShopSchema)
 export const OTP           = models.OTP           ?? model<IOTP>('OTP', OTPSchema)
 export const KeywordCache  = models.KeywordCache  ?? model<IKeywordCache>('KeywordCache', KeywordCacheSchema)
