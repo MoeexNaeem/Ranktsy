@@ -155,6 +155,24 @@ export function formatNumber(n: number | null): string {
   return n.toString()
 }
 
+/**
+ * Shop age the way Etsy counts it ("11 years on Etsy"): COMPLETED years since the
+ * shop's creation date, never rounded up. "This year minus year opened" over-counts
+ * by one for most of the year (a shop opened Nov 2014 is 11, not 12, in Sep 2026).
+ * Under a year, completed months.
+ */
+export function shopAge(createdAtSec: number | null | undefined): { years: number; months: number; label: string } | null {
+  if (!createdAtSec || createdAtSec <= 0) return null
+  const c = new Date(createdAtSec * 1000)
+  const n = new Date()
+  let months = (n.getUTCFullYear() - c.getUTCFullYear()) * 12 + (n.getUTCMonth() - c.getUTCMonth())
+  if (n.getUTCDate() < c.getUTCDate()) months--
+  months = Math.max(0, months)
+  const years = Math.floor(months / 12)
+  const label = years >= 1 ? `${years} yr${years === 1 ? '' : 's'}` : months >= 1 ? `${months} mo` : 'under a month'
+  return { years, months, label }
+}
+
 export function formatPercent(n: number | null): string {
   if (n === null || n === undefined) return '-'
   return n.toFixed(1) + '%'

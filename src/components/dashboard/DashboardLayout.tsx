@@ -15,6 +15,7 @@ import { DashboardLoader } from './DashboardLoader'
 import { DashboardTour } from './DashboardTour'
 import { RealtimeProvider, NotificationBell, NotifNavBadge, ChatWidget } from './Realtime'
 import { OnboardingChecklist } from './OnboardingChecklist'
+import { TabLink } from './TabLink'
 
 const KeywordsTab      = dynamic(() => import('./tabs/KeywordsTab').then(m => ({ default: m.KeywordsTab })), { ssr: false })
 const ListingsTab      = dynamic(() => import('./tabs/ListingsTab').then(m => ({ default: m.ListingsTab })), { ssr: false })
@@ -149,8 +150,34 @@ function TabContent({ active, onNavigate }: { active: TabId; onNavigate: (id: Ta
   )
 }
 
+const isTabId = (id: string | null): id is TabId => !!id && TABS.some(t => t.id === id)
+
+/**
+ * The open tool lives in the URL (/dashboard?tab=<id>), so a refresh, a bookmark or a
+ * shared link reopens the same tool, and Back/Forward move between tools. The Etsy
+ * OAuth redirect (?etsy=connected) lands on My Shop.
+ */
+function tabFromUrl(): TabId {
+  const params = new URLSearchParams(window.location.search)
+  if (params.has('etsy')) return 'myshop'
+  const tab = params.get('tab')
+  return isTabId(tab) ? tab : 'overview'
+}
+
+function writeTabToUrl(id: TabId, mode: 'push' | 'replace') {
+  const params = new URLSearchParams(window.location.search)
+  params.delete('etsy')   // one-shot OAuth flag; never keep it around
+  if (id === 'overview') params.delete('tab'); else params.set('tab', id)
+  const qs = params.toString()
+  const url = window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash
+  if (url === window.location.pathname + window.location.search + window.location.hash) return
+  if (mode === 'push') window.history.pushState(null, '', url)
+  else window.history.replaceState(null, '', url)
+}
+
 export function DashboardLayout() {
-  const [activeTab, setActiveTab] = useState<TabId>('overview')
+  // Read synchronously (this component is client-only) so a refresh never flashes Overview.
+  const [activeTab, setActiveTab] = useState<TabId>(() => tabFromUrl())
   const [navOpen, setNavOpen] = useState(false)
   // Filter the sidebar so a user can find a tool by typing part of its name.
   const [navFilter, setNavFilter] = useState('')
@@ -165,7 +192,7 @@ export function DashboardLayout() {
   useEffect(() => {
     fetch('/api/plan').then(r => (r.ok ? r.json() : null)).then(d => { if (d?.success) setPlanInfo({ plan: d.plan, label: d.label, sebtStudent: !!d.sebtStudent }) }).catch(() => {})
   }, [])
-  const handleTab = useCallback((id: TabId) => { setActiveTab(id); setNavOpen(false) }, [])
+  const handleTab = useCallback((id: TabId) => { setActiveTab(id); setNavOpen(false); writeTabToUrl(id, 'push') }, [])
   // Google Ads management is gated (admins/beta until Google verifies the adwords scope).
   const [adsEnabled, setAdsEnabled] = useState(false)
   useEffect(() => {
@@ -182,22 +209,12 @@ export function DashboardLayout() {
     return () => window.removeEventListener('rk-open-tab', onOpen)
   }, [handleTab])
 
-  // Deep links: the Etsy OAuth redirect (…/dashboard?etsy=connected) lands on My
-  // Shop; the marketing nav opens a specific tool via …/dashboard?tab=<id>. Either
-  // way the query is cleaned so a refresh doesn't re-trigger it.
+  // Normalise the landing URL once (drops ?etsy=, keeps ?tab=), and follow Back/Forward.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    let target: TabId | null = null
-    if (params.has('etsy')) { target = 'myshop'; params.delete('etsy') }
-    const tab = params.get('tab')
-    if (tab && TABS.some(t => t.id === tab)) { target = tab as TabId; params.delete('tab') }
-    if (target) {
-      // Deliberate one-time deep-link handling on mount (runs once, empty deps).
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setActiveTab(target)
-      const qs = params.toString()
-      window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''))
-    }
+    writeTabToUrl(tabFromUrl(), 'replace')
+    const onPop = () => setActiveTab(tabFromUrl())
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
   }, [])
 
   const activeInfo = TABS.find(t => t.id === activeTab)!
@@ -270,12 +287,13 @@ export function DashboardLayout() {
                 const active = activeTab === tab.id
                 const hue = ACCENT[tab.accent]
                 return (
-                  <button key={tab.id} onClick={() => handleTab(tab.id)}
+                  <TabLink key={tab.id} tab={tab.id} onOpen={() => handleTab(tab.id)}
                     data-tour={tab.id === 'keywords' ? 'tool-keywords' : undefined}
+                    aria-current={active ? 'page' : undefined}
                     style={{
                       position: 'relative',
                       display: 'flex', alignItems: 'center', gap: 12,
-                      padding: '9px 12px', borderRadius: 10, border: 'none',
+                      padding: '9px 12px', borderRadius: 10, border: 'none', boxSizing: 'border-box',
                       cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%',
                       transition: 'background 0.15s, color 0.15s',
                       background: active ? withAlpha(hue, 0.12) : 'transparent',
@@ -293,10 +311,10 @@ export function DashboardLayout() {
                       background: active ? withAlpha(hue, 0.14) : 'transparent',
                       color: hue,
                       transition: 'background 0.15s',
-                    }}><AnimIcon src={DASH_ICON[tab.id]} size={25} color={hue} active={active} target="button" /></span>
+                    }}><AnimIcon src={DASH_ICON[tab.id]} size={25} color={hue} active={active} target="a" /></span>
                     <span className="rlabel" style={{ fontSize: 14, fontWeight: active ? 600 : 500, color: active ? C.ink : C.inkSoft, letterSpacing: '-0.01em' }}>{tab.label}</span>
                     {tab.id === 'notifications' && <NotifNavBadge />}
-                  </button>
+                  </TabLink>
                 )
               })}
             </div>

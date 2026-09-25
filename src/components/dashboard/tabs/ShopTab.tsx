@@ -3,7 +3,7 @@ import { Icon } from '@/components/ui/Icon'
 import { useCallback, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
-import { C, D, flag, formatNumber } from '@/utils'
+import { C, D, flag, formatNumber, shopAge } from '@/utils'
 import { chargeCredits } from '@/lib/credits-client'
 import { Card, SearchBar, StatCard, SectionTitle, ErrorBox, EmptyState, tableCard, tableHead, th, tableRow, tdMono, tdTitle, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
@@ -86,7 +86,9 @@ export function ShopTab() {
   const countryIso = shop.countryIso ? String(shop.countryIso) : null
   const yearOpened = shop.yearOpened != null ? Number(shop.yearOpened) : null
   const onVacation = Boolean(shop.is_vacation)
-  const age        = yearOpened ? new Date().getFullYear() - yearOpened : null
+  // Completed years from the exact creation date, matching Etsy's "N years on Etsy".
+  const age        = shopAge(shop.createdAt != null ? Number(shop.createdAt) : null)
+  const openedOn   = shop.createdAt ? new Date(Number(shop.createdAt) * 1000).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' }) : null
   // Sales per active listing - how hard each listing works. Useful, and only
   // computable now that real sales are available.
   const salesPerListing = sales != null && activeCount > 0 ? sales / activeCount : null
@@ -107,7 +109,7 @@ export function ShopTab() {
     if (salesPerListing != null) aiFacts.push({ label: 'Sales per listing', value: salesPerListing.toFixed(1), hint: 'lifetime sales ÷ active listings' })
     aiFacts.push({ label: 'Shop admirers', value: formatNumber(shopFavs) })
     if (avgPrice > 0) aiFacts.push({ label: 'Avg listing price', value: `${cur}${avgPrice.toFixed(2)}` })
-    if (age != null) aiFacts.push({ label: 'Years open', value: `${age}`, hint: `since ${yearOpened}` })
+    if (age) aiFacts.push({ label: 'Shop age', value: age.label, hint: `opened ${openedOn ?? yearOpened}` })
     if (countryIso) aiFacts.push({ label: 'Country', value: countryIso })
     if (onVacation) aiFacts.push({ label: 'Status', value: 'On vacation' })
   }
@@ -148,7 +150,7 @@ export function ShopTab() {
                 {countryIso && <span style={{ fontSize: 13.5, color: 'rgba(245,245,235,0.75)' }}>{flag(countryIso)} {countryIso}</span>}
                 {yearOpened && (
                   <span style={{ fontSize: 13.5, color: 'rgba(245,245,235,0.6)' }}>
-                    since {yearOpened}{age ? ` · ${age} yr${age === 1 ? '' : 's'}` : ''}
+                    since {openedOn ?? yearOpened}{age ? ` · ${age.label}` : ''}
                   </span>
                 )}
                 {onVacation && (

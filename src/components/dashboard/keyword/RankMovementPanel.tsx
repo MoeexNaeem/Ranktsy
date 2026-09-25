@@ -10,8 +10,7 @@
  */
 import { memo, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Card, SectionTitle, MONO, EmptyState } from '../kit'
-import { Shimmer } from '../skeletons'
+import { Card, SectionTitle, MONO } from '../kit'
 import { C, D } from '@/utils'
 import type { ApiResponse } from '@/types'
 
@@ -59,18 +58,18 @@ interface Payload {
  */
 function SignalStrip({ s }: { s: PageSignals }) {
   const cells: { label: string; value: string | null; hint: string }[] = [
-    { label: 'Free shipping', value: s.freeShippingPct != null ? `${s.freeShippingPct}%` : null, hint: 'Share of ranking listings offering free shipping. A documented Etsy ranking factor that no API field reports.' },
+    { label: 'Free shipping', value: s.freeShippingPct != null ? `${s.freeShippingPct}%` : null, hint: 'Share of ranking listings offering free shipping, a documented Etsy ranking factor.' },
     { label: 'Has video', value: s.withVideoPct != null ? `${s.withVideoPct}%` : null, hint: 'Share with a listing video.' },
     { label: 'Etsy badge', value: s.badgePct != null ? `${s.badgePct}%` : null, hint: 'Share carrying any Etsy badge, such as Bestseller or Etsy’s Pick.' },
     { label: 'Star Seller', value: s.starSellerPct != null ? `${s.starSellerPct}%` : null, hint: 'Share sold by a Star Seller shop.' },
     { label: 'Median images', value: s.medianImages != null ? String(s.medianImages) : null, hint: 'Median gallery image count.' },
-    { label: 'Median in carts', value: s.inCartsMedian != null ? String(s.inCartsMedian) : null, hint: 'Median live "in N carts" counter. Etsy publishes nothing like it.' },
+    { label: 'Median in carts', value: s.inCartsMedian != null ? String(s.inCartsMedian) : null, hint: 'Median "in N carts" counter shown on these listings.' },
   ]
   return (
     <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${C.hair}` }}>
       <p style={{ fontSize: 12.5, color: C.graphite, margin: '0 0 10px', lineHeight: 1.55 }}>
-        What the ranking listings have in common, from <strong style={{ color: C.ink }}>{s.sample}</strong> we have observed.
-        None of this is in the Etsy API.
+        What the top-ranking listings for this keyword have in common
+        (<strong style={{ color: C.ink }}>{s.sample}</strong> listings).
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(122px, 1fr))', gap: 10 }}>
         {cells.map(c => (
@@ -88,6 +87,10 @@ function SignalStrip({ s }: { s: PageSignals }) {
     </div>
   )
 }
+
+/** True when at least one signal has a real value (an all-dash strip says nothing). */
+const hasSignals = (s: PageSignals | null | undefined): s is PageSignals =>
+  !!s && [s.freeShippingPct, s.withVideoPct, s.badgePct, s.starSellerPct, s.medianImages, s.inCartsMedian].some(v => v != null)
 
 const fmtDay = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
 
@@ -156,7 +159,7 @@ function Row({ m }: { m: RankMover }) {
       <span style={{ fontSize: 14, fontFamily: MONO, fontWeight: 700, color: C.ink }}>#{m.latest}</span>
       <Change value={m.change} />
       <Spark series={m.series} />
-      <span title={`${m.days} days captured, ${fmtDay(m.firstDay)} to ${fmtDay(m.latestDay)} · best #${m.best}, worst #${m.worst}`}
+      <span title={`Ranked on ${m.days} days, ${fmtDay(m.firstDay)} to ${fmtDay(m.latestDay)} · best #${m.best}, worst #${m.worst}`}
         style={{ fontSize: 11.5, fontFamily: MONO, color: C.stone }}>
         {m.days}d
       </span>
@@ -180,33 +183,21 @@ export const RankMovementPanel = memo(function RankMovementPanel({ query }: { qu
     retry: false,
   })
 
-  if (q.isPending) return <Card><SectionTitle>Rank Movement</SectionTitle><Shimmer h={220} r={8} /></Card>
-
+  // Only shown once there is real movement for this keyword: no loader, no empty state.
   const movers = q.data?.movers ?? []
   const cov = q.data?.coverage
-  const reason = q.data?.reason ?? 'none'
   // 'xx' means captured before we recorded the market, so claiming a country
   // would be a guess.
   const market = q.data?.country && q.data.country !== 'xx' ? q.data.country.toUpperCase() : null
+  const signals = hasSignals(q.data?.signals) ? q.data!.signals : null
 
   if (!movers.length) {
-    // 'ambiguous' is NOT "no data" - we hold captures but they do not agree on
-    // who sat where, so showing a number would invent precision we don't have.
-    const ambiguous = reason === 'ambiguous'
+    // No movement yet, but the shared traits of the top listings may already be known.
+    if (!signals) return null
     return (
       <Card>
-        <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: C.stone }}>measured</span>}>Rank Movement</SectionTitle>
-        <EmptyState
-          icon={ambiguous ? '🔍' : '📈'}
-          title={ambiguous ? 'Not enough agreement yet' : cov?.listings ? 'Tracking has started' : 'Not tracked yet'}
-          sub={ambiguous
-            ? 'Shoppers in different countries and on different pages see different result orders, so the captures for this keyword do not yet agree on a single ranking. Movement is shown only once they do.'
-            : cov?.listings
-              ? `We have ${cov.listings} listing${cov.listings === 1 ? '' : 's'} captured on ${cov.days} day${cov.days === 1 ? '' : 's'} for this keyword. Movement appears once a listing is seen on two different days.`
-              : 'Rank history is recorded as sellers browse Etsy with the Rankkw extension. Once this keyword has been seen on two days, climbers and fallers show up here.'}
-        />
-        {/* Movement needs two days; these need only one, so they show regardless. */}
-        {q.data?.signals && <SignalStrip s={q.data.signals} />}
+        <SectionTitle>What Top Listings Share</SectionTitle>
+        <SignalStrip s={signals} />
       </Card>
     )
   }
@@ -222,9 +213,8 @@ export const RankMovementPanel = memo(function RankMovementPanel({ query }: { qu
         </span>
       }>Rank Movement</SectionTitle>
       <p style={{ fontSize: 13, color: C.graphite, marginTop: -8, marginBottom: 12, lineHeight: 1.55 }}>
-        Where these listings actually ranked for <strong style={{ color: C.ink }}>{query}</strong>, day by day, over the last 30 days.
-        Etsy publishes no rank history, so this is measured from real captures{cov?.fromDay ? ` since ${fmtDay(cov.fromDay)}` : ''}.
-        Promoted placements are excluded, so this is organic position only{market ? `, as ordered for shoppers in ${market}` : ''}.
+        Where these listings ranked for <strong style={{ color: C.ink }}>{query}</strong>, day by day{cov?.fromDay ? ` since ${fmtDay(cov.fromDay)}` : ' over the last 30 days'}.
+        Organic positions only (ads excluded){market ? `, as ordered for shoppers in ${market}` : ''}.
       </p>
 
       <div className="rtable" style={{ border: `1px solid ${C.hair}`, borderRadius: 12, overflow: 'hidden' }}>
@@ -237,10 +227,9 @@ export const RankMovementPanel = memo(function RankMovementPanel({ query }: { qu
       </div>
 
       <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6, marginTop: 10 }}>
-        Position 1 is best, so a rising line means a listing climbed. Only listings captured on two or more
-        separate days appear; a single sighting is a position, not a movement.
+        Position 1 is best, so a rising line means a listing climbed.
       </p>
-      {q.data?.signals && <SignalStrip s={q.data.signals} />}
+      {signals && <SignalStrip s={signals} />}
     </Card>
   )
 })

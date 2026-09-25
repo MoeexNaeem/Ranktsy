@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react'
 import { C } from '@/utils'
 import { Card } from './kit'
+import { TabLink } from './TabLink'
 
 interface Step { id: string; label: string; done: boolean; tab: string }
 const KEY = 'rankkw_onboarding_dismissed_v1'
@@ -48,22 +49,31 @@ export function OnboardingChecklist({ onNavigate }: { onNavigate: (tab: string) 
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {steps.map(s => (
-          <button key={s.id} onClick={() => { if (!s.done) onNavigate(s.tab) }}
-            disabled={s.done}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left',
-              padding: '11px 13px', borderRadius: 10, border: `1px solid ${s.done ? 'transparent' : C.ash}`,
-              background: s.done ? C.canvas : C.paper, cursor: s.done ? 'default' : 'pointer', fontFamily: 'inherit',
-              transition: 'border-color 0.15s',
-            }}
-            onMouseEnter={e => { if (!s.done) e.currentTarget.style.borderColor = C.orange }}
-            onMouseLeave={e => { if (!s.done) e.currentTarget.style.borderColor = C.ash }}>
-            <span style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0, display: 'grid', placeItems: 'center', background: s.done ? '#1F8A4C' : 'transparent', border: s.done ? 'none' : `2px solid ${C.ash}`, color: '#fff', fontSize: 12 }}>{s.done ? '✓' : ''}</span>
-            <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: s.done ? C.graphite : C.ink, textDecoration: s.done ? 'line-through' : 'none' }}>{s.label}</span>
-            {!s.done && <span style={{ fontSize: 13, fontWeight: 600, color: C.orange }}>Start →</span>}
-          </button>
-        ))}
+        {steps.map(s => {
+          const rowStyle: React.CSSProperties = {
+            display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left', boxSizing: 'border-box',
+            padding: '11px 13px', borderRadius: 10, border: `1px solid ${s.done ? 'transparent' : C.ash}`,
+            background: s.done ? C.canvas : C.paper, cursor: s.done ? 'default' : 'pointer', fontFamily: 'inherit',
+            transition: 'border-color 0.15s',
+          }
+          const inner = (
+            <>
+              <span style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0, display: 'grid', placeItems: 'center', background: s.done ? '#1F8A4C' : 'transparent', border: s.done ? 'none' : `2px solid ${C.ash}`, color: '#fff', fontSize: 12 }}>{s.done ? '✓' : ''}</span>
+              <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: s.done ? C.graphite : C.ink, textDecoration: s.done ? 'line-through' : 'none' }}>{s.label}</span>
+              {!s.done && <span style={{ fontSize: 13, fontWeight: 600, color: C.orange }}>Start →</span>}
+            </>
+          )
+          // Open steps are real links, so they can be opened in a new tab too.
+          return s.done
+            ? <div key={s.id} style={rowStyle}>{inner}</div>
+            : (
+              <TabLink key={s.id} tab={s.tab} onOpen={() => onNavigate(s.tab)} style={rowStyle}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = C.orange }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = C.ash }}>
+                {inner}
+              </TabLink>
+            )
+        })}
       </div>
     </Card>
   )

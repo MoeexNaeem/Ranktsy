@@ -5,6 +5,7 @@ import { useTrendBuzz } from '@/hooks/useKeywords'
 import { Card, SectionTitle, Loading, MONO } from '../kit'
 import { C, ACCENT, withAlpha, formatNumber } from '@/utils'
 import { AnimIcon, DASH_ICON } from '@/components/ui/AnimIcon'
+import { TabLink } from '../TabLink'
 
 // Each launcher tile carries its destination tool's own accent hue, so the grid
 // reads as a colourful, scannable spectrum that matches the nav rail. Icons are
@@ -43,21 +44,21 @@ export function OverviewTab({ onNavigate }: { onNavigate?: (id: string) => void 
       {/* Quick launcher */}
       <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
         {LAUNCH.map(t => (
-          <button key={t.id} onClick={() => onNavigate?.(t.id)}
-            style={{ position: 'relative', textAlign: 'left', background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 16, padding: '18px 18px', cursor: 'pointer', fontFamily: 'inherit', transition: 'transform 0.15s, border-color 0.15s, box-shadow 0.15s', overflow: 'hidden' }}
+          <TabLink key={t.id} tab={t.id} onOpen={() => onNavigate?.(t.id)}
+            style={{ position: 'relative', display: 'block', textAlign: 'left', background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 16, padding: '18px 18px', cursor: 'pointer', fontFamily: 'inherit', transition: 'transform 0.15s, border-color 0.15s, box-shadow 0.15s', overflow: 'hidden' }}
             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.borderColor = t.color; e.currentTarget.style.boxShadow = `0 10px 24px ${withAlpha(t.color, 0.16)}` }}
             onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = C.ash; e.currentTarget.style.boxShadow = 'none' }}>
-            <span style={{ display: 'inline-flex', color: t.color, marginBottom: 14 }}><AnimIcon src={DASH_ICON[t.id]} size={32} color={t.color} target="button" /></span>
+            <span style={{ display: 'inline-flex', color: t.color, marginBottom: 14 }}><AnimIcon src={DASH_ICON[t.id]} size={32} color={t.color} target="a" /></span>
             <p style={{ fontSize: 15.5, fontWeight: 600, color: C.ink, marginBottom: 3 }}>{t.label}</p>
             <p style={{ fontSize: 13, color: C.graphite }}>{t.desc}</p>
-          </button>
+          </TabLink>
         ))}
       </div>
 
       {/* Buzzing right now */}
       <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1.25fr 1fr', gap: 16, alignItems: 'start' }}>
         <Card>
-          <SectionTitle right={<button onClick={() => onNavigate?.('buzz')} style={{ fontSize: 13, fontWeight: 500, fontFamily: MONO, color: C.orange, background: 'transparent', border: 'none', cursor: 'pointer' }}>See all →</button>}>
+          <SectionTitle right={<TabLink tab="buzz" onOpen={() => onNavigate?.('buzz')} style={{ fontSize: 13, fontWeight: 500, fontFamily: MONO, color: C.orange }}>See all →</TabLink>}>
             Buzzing on Etsy right now
           </SectionTitle>
           {isLoading ? <Loading label="Reading market signals…" /> : (

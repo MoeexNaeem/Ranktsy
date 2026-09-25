@@ -10,8 +10,7 @@
  */
 import { memo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Card, SectionTitle, MONO, EmptyState } from '../kit'
-import { Shimmer } from '../skeletons'
+import { Card, SectionTitle, MONO } from '../kit'
 import { C } from '@/utils'
 import type { ApiResponse } from '@/types'
 
@@ -40,21 +39,9 @@ export const EtsySuggestionsPanel = memo(function EtsySuggestionsPanel({
     retry: false,
   })
 
-  if (q.isPending) return <Card><SectionTitle>Etsy&rsquo;s Own Suggestions</SectionTitle><Shimmer h={150} r={8} /></Card>
-
+  // Only shown once we actually have phrases for this term: no loader, no empty state.
   const rows = q.data ?? []
-  if (!rows.length) {
-    return (
-      <Card>
-        <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: C.stone }}>Etsy</span>}>Etsy&rsquo;s Own Suggestions</SectionTitle>
-        <EmptyState
-          icon="🔤"
-          title="Nothing captured yet"
-          sub="These are the phrases Etsy shows on its own results pages. They are collected as sellers browse Etsy with the Rankkw extension, so this fills in once someone searches this term."
-        />
-      </Card>
-    )
-  }
+  if (!rows.length) return null
 
   // Seen often = Etsy shows it consistently, which is the strongest signal here.
   const strongest = Math.max(...rows.map(r => r.seenCount), 1)
@@ -65,8 +52,8 @@ export const EtsySuggestionsPanel = memo(function EtsySuggestionsPanel({
         Etsy&rsquo;s Own Suggestions
       </SectionTitle>
       <p style={{ fontSize: 13, color: C.graphite, marginTop: -8, marginBottom: 12, lineHeight: 1.55 }}>
-        What <strong style={{ color: C.ink }}>Etsy itself</strong> suggests to shoppers searching this term. No Etsy API
-        returns these, so they come from real results pages. A phrase Etsy shows repeatedly is a stronger signal than one seen once.
+        What <strong style={{ color: C.ink }}>Etsy itself</strong> suggests to shoppers searching this term. A phrase Etsy
+        shows repeatedly is a stronger signal than one seen once.
       </p>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
