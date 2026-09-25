@@ -29,7 +29,10 @@
  *  2. Only keywords missing from the cache are requested (batched, one request).
  *  3. A daily-quota 429 (rateScope DEVELOPER) locks Google calls app-wide until the
  *     retry time Google gives us, instead of hammering it. A per-second 429
- *     (rateScope ACCOUNT) waits the delay Google asks for, once.
+ *     (rateScope ACCOUNT) waits the delay Google asks for, once. Google's retry time
+ *     can be far longer than the real outage (a 22h lock was seen while the quota
+ *     was fine), so while locked one real request is let through every
+ *     QUOTA_PROBE_MS as a probe; if it succeeds the lock is cleared everywhere.
  *  4. When Google can't answer, the last stored numbers are served (stale beats blank),
  *     and callers get `meta.quota` / `meta.failed` so the UI can say WHY data is missing.
  *
@@ -142,40 +145,109 @@ export class GoogleAdsError extends Error {
 }
 
 // ─── Daily-quota lockout (shared across PM2 workers via Mongo) ────────────────
+// The Mongo row is the source of truth; each worker mirrors it for at most 60s, so
+// a lock set OR cleared by one worker reaches the others within a minute.
 let blockedUntil = 0
 let blockCheckedAt = 0
+let lastProbeAt = 0
 const QUOTA_KEY = '__quota__'
+/** While locked, let one real request through this often to see if Google recovered. */
+const QUOTA_PROBE_MS = 15 * 60_000
+
+interface QuotaLock { until: number; reason?: string | null; probedAt?: number }
+
+async function readQuotaLock(): Promise<QuotaLock | null> {
+  await connectDB()
+  const doc = await GoogleAdsCache.findOne({ key: QUOTA_KEY }).lean<{ data?: QuotaLock }>()
+  return doc?.data ?? null
+}
 
 async function quotaBlockedUntil(): Promise<number> {
   const now = Date.now()
-  if (blockedUntil > now) return blockedUntil
-  // Re-read the shared lock at most every 60s so other workers learn about it.
   if (now - blockCheckedAt > 60_000) {
     blockCheckedAt = now
     try {
-      await connectDB()
-      const doc = await GoogleAdsCache.findOne({ key: QUOTA_KEY }).lean<{ data?: { until?: number } }>()
-      const until = Number(doc?.data?.until ?? 0)
-      if (until > blockedUntil) blockedUntil = until
+      const lock = await readQuotaLock()
+      blockedUntil = Number(lock?.until ?? 0)
+      lastProbeAt = Math.max(lastProbeAt, Number(lock?.probedAt ?? 0))
     } catch { /* DB blip: rely on the in-process value */ }
   }
   return blockedUntil > now ? blockedUntil : 0
 }
 
-function setQuotaBlock(until: number) {
+function setQuotaBlock(until: number, reason: string | null) {
   if (until <= blockedUntil) return
   blockedUntil = until
-  console.warn(`[GoogleAds] daily operation quota exhausted - Google calls paused until ${new Date(until).toISOString()}`)
+  lastProbeAt = Date.now()
+  console.warn(`[GoogleAds] quota 429 (${reason ?? 'no reason given'}) - Google calls paused until ${new Date(until).toISOString()}, re-checking every ${QUOTA_PROBE_MS / 60_000} min`)
   connectDB()
-    .then(() => GoogleAdsCache.updateOne({ key: QUOTA_KEY }, { $set: { data: { until }, fetchedAt: new Date() } }, { upsert: true }))
+    .then(() => GoogleAdsCache.updateOne({ key: QUOTA_KEY }, { $set: { data: { until, reason, probedAt: Date.now() }, fetchedAt: new Date() } }, { upsert: true }))
     .catch(() => {})
 }
 
+/** Lift the lockout app-wide (a probe succeeded, or an admin re-check did). */
+export async function clearQuotaBlock(): Promise<void> {
+  if (blockedUntil > Date.now()) console.warn('[GoogleAds] quota re-check succeeded - Google calls resumed')
+  blockedUntil = 0
+  blockCheckedAt = Date.now()
+  try {
+    await connectDB()
+    await GoogleAdsCache.deleteOne({ key: QUOTA_KEY })
+  } catch { /* the next successful probe retries this */ }
+}
+
+/**
+ * While locked, returns true for at most one caller per QUOTA_PROBE_MS (across workers,
+ * via the shared row) so a real request can test whether Google has recovered.
+ */
+async function claimQuotaProbe(): Promise<boolean> {
+  const now = Date.now()
+  if (now - lastProbeAt < QUOTA_PROBE_MS) return false
+  lastProbeAt = now
+  try {
+    await connectDB()
+    // Atomic claim: only the worker that moves probedAt forward gets to probe.
+    const r = await GoogleAdsCache.updateOne(
+      { key: QUOTA_KEY, $or: [{ 'data.probedAt': { $exists: false } }, { 'data.probedAt': { $lt: now - QUOTA_PROBE_MS } }] },
+      { $set: { 'data.probedAt': now } },
+    )
+    return r.modifiedCount === 1
+  } catch { return true }
+}
+
 /** Current Google Ads availability, for the admin health view and UI notes. */
-export async function googleAdsStatus(): Promise<{ configured: boolean; quotaBlocked: boolean; retryAt: string | null }> {
-  if (!isGoogleAdsConfigured()) return { configured: false, quotaBlocked: false, retryAt: null }
+export async function googleAdsStatus(): Promise<{ configured: boolean; quotaBlocked: boolean; retryAt: string | null; reason: string | null; nextCheckAt: string | null }> {
+  const none = { quotaBlocked: false, retryAt: null, reason: null, nextCheckAt: null }
+  if (!isGoogleAdsConfigured()) return { configured: false, ...none }
   const until = await quotaBlockedUntil()
-  return { configured: true, quotaBlocked: until > 0, retryAt: until ? new Date(until).toISOString() : null }
+  if (!until) return { configured: true, ...none }
+  const lock = await readQuotaLock().catch(() => null)
+  const probedAt = Math.max(lastProbeAt, Number(lock?.probedAt ?? 0))
+  return {
+    configured: true, quotaBlocked: true, retryAt: new Date(until).toISOString(),
+    reason: lock?.reason ?? null,
+    nextCheckAt: new Date(Math.min(until, probedAt + QUOTA_PROBE_MS)).toISOString(),
+  }
+}
+
+/**
+ * Admin "Re-check now": one cheap real call (a 1-row customer query). Clears the lock
+ * on success; on another quota 429 the lock stays, with Google's latest reason.
+ */
+export async function recheckGoogleAdsQuota(): Promise<{ ok: boolean; message: string }> {
+  if (!isGoogleAdsConfigured()) return { ok: false, message: 'Google Ads is not configured.' }
+  try {
+    await adsApiCall({
+      token: await getAccessToken(),
+      path: `customers/${digits(process.env.GOOGLE_ADS_CUSTOMER_ID)}/googleAds:search`,
+      body: { query: 'SELECT customer.id FROM customer LIMIT 1' },
+      loginCustomerId: process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID,
+    }, { probe: true })
+    await clearQuotaBlock()
+    return { ok: true, message: 'Google Ads answered normally. Calls are resumed.' }
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : 'Google Ads re-check failed' }
+  }
 }
 
 // ─── Access token (module-cached ~55 min) ─────────────────────────────────────
@@ -209,15 +281,16 @@ let pacer: Promise<unknown> = Promise.resolve()
 const MIN_GAP_MS = 250
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
-function parseRetrySeconds(body: string): { scope: string | null; seconds: number | null } {
+function parseRetrySeconds(body: string): { scope: string | null; seconds: number | null; rateName: string | null } {
   try {
     const j = JSON.parse(body)
     const err = j?.error?.details?.[0]?.errors?.[0]
     const scope = err?.details?.quotaErrorDetails?.rateScope ?? null
+    const rateName = err?.details?.quotaErrorDetails?.rateName ?? err?.message ?? null
     const delay = String(err?.details?.quotaErrorDetails?.retryDelay ?? '')
     const m = delay.match(/(\d+(?:\.\d+)?)s/) ?? String(err?.message ?? '').match(/Retry in (\d+) seconds/)
-    return { scope, seconds: m ? Number(m[1]) : null }
-  } catch { return { scope: null, seconds: null } }
+    return { scope, seconds: m ? Number(m[1]) : null, rateName: rateName ? String(rateName).slice(0, 200) : null }
+  } catch { return { scope: null, seconds: null, rateName: null } }
 }
 
 // Plain-language next steps for Google Ads errors people actually hit.
@@ -295,9 +368,11 @@ export interface AdsCallOptions {
  * they all respect the same developer-token lockout: when Google says the daily
  * operation cap is hit, nothing else is sent until its retry time.
  */
-export async function adsApiCall<T>(o: AdsCallOptions): Promise<T> {
+export async function adsApiCall<T>(o: AdsCallOptions, opts: { probe?: boolean } = {}): Promise<T> {
+  // While locked, one request per re-check window is let through to test recovery.
   const until = await quotaBlockedUntil()
-  if (until) throw new GoogleAdsError('Google Ads daily quota exhausted', 'quota', until)
+  const probing = !!until && (opts.probe || await claimQuotaProbe())
+  if (until && !probing) throw new GoogleAdsError('Google Ads daily quota exhausted', 'quota', until)
 
   const headers: Record<string, string> = {
     'Authorization':   `Bearer ${o.token}`,
@@ -308,7 +383,7 @@ export async function adsApiCall<T>(o: AdsCallOptions): Promise<T> {
   if (loginId) headers['login-customer-id'] = loginId
 
   for (let attempt = 0; attempt < 2; attempt++) {
-    if (blockedUntil > Date.now()) throw new GoogleAdsError('Google Ads daily quota exhausted', 'quota', blockedUntil)
+    if (!probing && blockedUntil > Date.now()) throw new GoogleAdsError('Google Ads daily quota exhausted', 'quota', blockedUntil)
     recordGoogleCall()
     const res = await fetch(`https://googleads.googleapis.com/${V}/${o.path}`, {
       method: o.method ?? 'POST', headers,
@@ -316,17 +391,18 @@ export async function adsApiCall<T>(o: AdsCallOptions): Promise<T> {
       cache: 'no-store',
     })
     if (res.ok) {
+      if (probing) void clearQuotaBlock()
       const t = await res.text()
       return (t ? JSON.parse(t) : {}) as T
     }
 
     const text = await res.text().catch(() => '')
     if (res.status === 429) {
-      const { scope, seconds } = parseRetrySeconds(text)
+      const { scope, seconds, rateName } = parseRetrySeconds(text)
       // Daily operation cap (or any long wait): lock app-wide, never retry.
       if (scope === 'DEVELOPER' || (seconds != null && seconds > 60)) {
         const lockUntil = Date.now() + (seconds ?? 3600) * 1000
-        setQuotaBlock(lockUntil)
+        setQuotaBlock(lockUntil, [scope, rateName].filter(Boolean).join(': ') || null)
         throw new GoogleAdsError('Google Ads daily quota exhausted', 'quota', lockUntil)
       }
       // Short per-second limit: wait what Google asks (capped), retry once.
@@ -353,8 +429,6 @@ export async function adsApiCall<T>(o: AdsCallOptions): Promise<T> {
 // with a small gap so bursts (many users, 7-country Global lookups) don't trip the
 // per-second account limit.
 async function adsRequest<T>(path: string, body: unknown): Promise<T> {
-  const until = await quotaBlockedUntil()
-  if (until) throw new GoogleAdsError('Google Ads daily quota exhausted', 'quota', until)
   const run = async (): Promise<T> => adsApiCall<T>({
     token: await getAccessToken(),
     path: `customers/${digits(process.env.GOOGLE_ADS_CUSTOMER_ID)}${path}`,

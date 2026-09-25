@@ -5,7 +5,7 @@ import { isAdmin } from '@/lib/auth/roles'
 import { connectDB } from '@/lib/db'
 import { etsyKeyPoolSize, probeEtsyKeys, etsyEndpointUsage } from '@/lib/etsy'
 import { isGeminiConfigured, geminiKeyPoolSize } from '@/lib/gemini'
-import { isGoogleAdsConfigured, googleAdsStatus } from '@/lib/google-ads'
+import { isGoogleAdsConfigured, googleAdsStatus, recheckGoogleAdsQuota } from '@/lib/google-ads'
 import { isRecaptchaConfigured } from '@/lib/recaptcha'
 import type { FlowSystem } from '@/lib/codeflow/graph'
 import type { ApiResponse } from '@/types'
@@ -76,11 +76,13 @@ export async function GET(): Promise<NextResponse<ApiResponse<{ systems: Record<
   const lsOk = env('LS_API_KEY') && env('LS_WEBHOOK_SECRET')
   // Google Ads Basic Access = 15,000 ops/day for the whole app; when exhausted every
   // Google panel (volume, trends, countries, ideas) blanks until Google's retry time.
-  const gads = await googleAdsStatus().catch(() => ({ configured: isGoogleAdsConfigured(), quotaBlocked: false, retryAt: null as string | null }))
+  // While locked, the app re-checks Google itself every 15 min and resumes on success.
+  const gads = await googleAdsStatus().catch(() => ({ configured: isGoogleAdsConfigured(), quotaBlocked: false, retryAt: null as string | null, reason: null as string | null, nextCheckAt: null as string | null }))
+  const hhmm = (iso: string | null) => iso ? `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC` : '?'
   const googleHealth: SystemHealth = !gads.configured
     ? { status: 'off', required: false, detail: 'no key - search volume blank' }
     : gads.quotaBlocked
-      ? { status: 'down', required: false, detail: `daily Google Ads quota exhausted until ${gads.retryAt} - apply for Standard Access; cached data still served` }
+      ? { status: 'down', required: false, detail: `paused after a Google quota 429${gads.reason ? ` (${gads.reason})` : ''}. Next automatic re-check ${hhmm(gads.nextCheckAt)}, lock ends ${hhmm(gads.retryAt)}. Cached data is still served.` }
       : { status: 'ok', required: false, detail: 'configured (answers cached 30 days)' }
 
   const systems: Record<FlowSystem, SystemHealth> = {
@@ -99,4 +101,16 @@ export async function GET(): Promise<NextResponse<ApiResponse<{ systems: Record<
   }
 
   return NextResponse.json({ success: true, data: { systems, checkedAt: new Date().toISOString() } })
+}
+
+/**
+ * Admin "Re-check Google now": spends ONE Google Ads operation (a 1-row customer query)
+ * to see whether the quota lock is still real. Clears it on success.
+ */
+export async function POST(): Promise<NextResponse<ApiResponse<{ ok: boolean; message: string }>>> {
+  const auth = await getCurrentUser().catch(() => null)
+  if (!auth) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
+  if (!isAdmin(auth)) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+  const result = await recheckGoogleAdsQuota()
+  return NextResponse.json({ success: true, data: result })
 }

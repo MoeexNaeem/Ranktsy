@@ -115,6 +115,18 @@ function CodeFlowInner() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load() }, [load])
 
+  // Google Ads quota lock: one real call to see if Google still refuses, then refresh.
+  const [gRecheck, setGRecheck] = useState<{ busy: boolean; msg: string; ok?: boolean }>({ busy: false, msg: '' })
+  const recheckGoogle = useCallback(async () => {
+    setGRecheck({ busy: true, msg: '' })
+    try {
+      const r = await fetch('/api/admin/health-flow', { method: 'POST' })
+      const d = await r.json().catch(() => null)
+      setGRecheck({ busy: false, ok: !!d?.data?.ok, msg: d?.data?.message || d?.error || 'Re-check failed' })
+    } catch { setGRecheck({ busy: false, ok: false, msg: 'Re-check failed' }) }
+    void load()
+  }, [load])
+
   const nodes = useMemo<Node<NodeData>[]>(() => FLOW_NODES.map(n => ({
     id: n.id, type: 'flow', position: n.position, draggable: false,
     data: { label: n.label, kind: n.kind, state: nodeState(n, health), detail: n.detail },
@@ -210,6 +222,21 @@ function CodeFlowInner() {
           </span>
         ))}
       </div>
+
+      {(health?.google?.status === 'down' || gRecheck.msg) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '10px 14px', borderRadius: 12,
+          background: gRecheck.ok ? '#effaf2' : '#fdf1ef', border: `1px solid ${gRecheck.ok ? '#cfe9d6' : '#f3c6c0'}` }}>
+          <span style={{ flex: 1, minWidth: 240, fontSize: 12.5, color: '#3D3E3B', lineHeight: 1.5 }}>
+            <strong>Google Ads:</strong> {gRecheck.msg || health?.google?.detail}
+          </span>
+          {health?.google?.status === 'down' && (
+            <button onClick={() => void recheckGoogle()} disabled={gRecheck.busy}
+              style={{ background: '#3D3E3B', color: '#fff', border: 'none', borderRadius: 100, padding: '7px 14px', fontSize: 12.5, cursor: 'pointer', opacity: gRecheck.busy ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+              {gRecheck.busy ? 'Checking Google...' : 'Re-check Google now'}
+            </button>
+          )}
+        </div>
+      )}
 
       <div style={full
         ? { position: 'fixed', inset: 0, zIndex: 1000, background: '#f6f6ef' }
