@@ -77,13 +77,19 @@ export async function GET(): Promise<NextResponse<ApiResponse<{ systems: Record<
   // Google Ads Basic Access = 15,000 ops/day for the whole app; when exhausted every
   // Google panel (volume, trends, countries, ideas) blanks until Google's retry time.
   // While locked, the app re-checks Google itself every 15 min and resumes on success.
-  const gads = await googleAdsStatus().catch(() => ({ configured: isGoogleAdsConfigured(), quotaBlocked: false, retryAt: null as string | null, reason: null as string | null, nextCheckAt: null as string | null }))
+  // DOWN only when Google itself refused us for the daily limit (a real 429). The app
+  // re-checks every 15 min and resumes by itself as soon as Google answers again.
+  const gads = await googleAdsStatus().catch(() => ({
+    configured: isGoogleAdsConfigured(), quotaBlocked: false, retryAt: null as string | null, reason: null as string | null,
+    nextCheckAt: null as string | null, opsLast24h: 0,
+  }))
   const hhmm = (iso: string | null) => iso ? `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC` : '?'
+  const gUsage = `${gads.opsLast24h.toLocaleString('en-US')} Keyword Planner requests in the last 24h`
   const googleHealth: SystemHealth = !gads.configured
     ? { status: 'off', required: false, detail: 'no key - search volume blank' }
     : gads.quotaBlocked
-      ? { status: 'down', required: false, detail: `paused after a Google quota 429${gads.reason ? ` (${gads.reason})` : ''}. Next automatic re-check ${hhmm(gads.nextCheckAt)}, lock ends ${hhmm(gads.retryAt)}. Cached data is still served.` }
-      : { status: 'ok', required: false, detail: 'configured (answers cached 30 days)' }
+      ? { status: 'down', required: false, detail: `Google's daily API limit is used up${gads.reason ? ` (${gads.reason})` : ''}. Google says it resets ${hhmm(gads.retryAt)}; the app re-checks every 15 min (next ${hhmm(gads.nextCheckAt)}) and resumes by itself. Saved data is still shown. ${gUsage}.` }
+      : { status: 'ok', required: false, detail: `working. ${gUsage}.` }
 
   const systems: Record<FlowSystem, SystemHealth> = {
     mongo,

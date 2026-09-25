@@ -35,6 +35,12 @@
  *     QUOTA_PROBE_MS as a probe; if it succeeds the lock is cleared everywhere.
  *  4. When Google can't answer, the last stored numbers are served (stale beats blank),
  *     and callers get `meta.quota` / `meta.failed` so the UI can say WHY data is missing.
+ *  5. The Basic Access cap is on the Keyword Planner endpoints (generateKeyword*); plain
+ *     account reads keep working while it is exhausted. So the lock and the probe apply
+ *     to Planner calls only. Nothing is rationed before Google says the cap is hit:
+ *     users always get every panel; our own op count is shown to admins, never enforced.
+ *  6. Global volume is ONE request over all tracked countries (not 7 per-country ones),
+ *     and every keyword-ideas answer also seeds the per-country metrics cache.
  *
  * Real fix for scale: apply for STANDARD access on the developer token (no daily
  * operation cap): Google Ads UI → Tools → API Center → "Apply for Standard Access".
@@ -144,7 +150,11 @@ export class GoogleAdsError extends Error {
   }
 }
 
-// ─── Daily-quota lockout (shared across PM2 workers via Mongo) ────────────────
+// ─── Keyword Planner quota: lockout + daily budget (shared across PM2 workers) ─
+// Google's Basic Access cap ("Number of operations for basic access") is enforced on
+// the Keyword Planner endpoints; account reads/mutates keep working while it is spent.
+const isPlannerPath = (path: string) => /:generateKeyword/.test(path)
+
 // The Mongo row is the source of truth; each worker mirrors it for at most 60s, so
 // a lock set OR cleared by one worker reaches the others within a minute.
 let blockedUntil = 0
@@ -215,9 +225,48 @@ async function claimQuotaProbe(): Promise<boolean> {
   } catch { return true }
 }
 
+// Planner op counter (display only, never enforced): hourly buckets
+// (`__ops__|YYYY-MM-DDTHH`) so every worker sees the same rolling 24h total.
+const OPS_PREFIX = '__ops__|'
+const hourKey = (t: number) => OPS_PREFIX + new Date(t).toISOString().slice(0, 13)
+const opsMirror = { total: 0, at: 0 }
+let opsSinceMirror = 0
+
+async function plannerOpsLast24h(): Promise<number> {
+  const now = Date.now()
+  if (now - opsMirror.at > 60_000) {
+    opsMirror.at = now
+    try {
+      await connectDB()
+      const keys = Array.from({ length: 24 }, (_, i) => hourKey(now - i * 3600_000))
+      const docs = await GoogleAdsCache.find({ key: { $in: keys } }).lean<{ data?: { n?: number } | null }[]>()
+      opsMirror.total = docs.reduce((sum, d) => sum + Number(d.data?.n ?? 0), 0)
+      opsSinceMirror = 0
+    } catch { /* DB blip: keep the last mirror */ }
+  }
+  return opsMirror.total + opsSinceMirror
+}
+
+function countPlannerOp() {
+  opsSinceMirror++
+  // Raw collection: the model's `data: null` default would clash with $inc on data.n.
+  connectDB()
+    .then(() => GoogleAdsCache.collection.updateOne(
+      { key: hourKey(Date.now()) },
+      { $inc: { 'data.n': 1 }, $set: { fetchedAt: new Date() } },
+      { upsert: true },
+    ))
+    .catch(() => {})
+}
+
 /** Current Google Ads availability, for the admin health view and UI notes. */
-export async function googleAdsStatus(): Promise<{ configured: boolean; quotaBlocked: boolean; retryAt: string | null; reason: string | null; nextCheckAt: string | null }> {
-  const none = { quotaBlocked: false, retryAt: null, reason: null, nextCheckAt: null }
+export async function googleAdsStatus(): Promise<{
+  configured: boolean; quotaBlocked: boolean; retryAt: string | null; reason: string | null; nextCheckAt: string | null
+  opsLast24h: number
+}> {
+  const opsLast24h = isGoogleAdsConfigured() ? await plannerOpsLast24h().catch(() => 0) : 0
+  const usage = { opsLast24h }
+  const none = { quotaBlocked: false, retryAt: null, reason: null, nextCheckAt: null, ...usage }
   if (!isGoogleAdsConfigured()) return { configured: false, ...none }
   const until = await quotaBlockedUntil()
   if (!until) return { configured: true, ...none }
@@ -227,24 +276,26 @@ export async function googleAdsStatus(): Promise<{ configured: boolean; quotaBlo
     configured: true, quotaBlocked: true, retryAt: new Date(until).toISOString(),
     reason: lock?.reason ?? null,
     nextCheckAt: new Date(Math.min(until, probedAt + QUOTA_PROBE_MS)).toISOString(),
+    ...usage,
   }
 }
 
 /**
- * Admin "Re-check now": one cheap real call (a 1-row customer query). Clears the lock
- * on success; on another quota 429 the lock stays, with Google's latest reason.
+ * Admin "Re-check now": ONE Keyword Planner call (the capped endpoint; an account read
+ * would succeed even while Planner is exhausted). Clears the lock on success; on
+ * another quota 429 the lock stays, with Google's latest reason.
  */
 export async function recheckGoogleAdsQuota(): Promise<{ ok: boolean; message: string }> {
   if (!isGoogleAdsConfigured()) return { ok: false, message: 'Google Ads is not configured.' }
   try {
     await adsApiCall({
       token: await getAccessToken(),
-      path: `customers/${digits(process.env.GOOGLE_ADS_CUSTOMER_ID)}/googleAds:search`,
-      body: { query: 'SELECT customer.id FROM customer LIMIT 1' },
+      path: `customers/${digits(process.env.GOOGLE_ADS_CUSTOMER_ID)}:generateKeywordHistoricalMetrics`,
+      body: { keywords: ['etsy'], geoTargetConstants: ['geoTargetConstants/2840'], keywordPlanNetwork: 'GOOGLE_SEARCH', language: LANG_EN },
       loginCustomerId: process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID,
     }, { probe: true })
     await clearQuotaBlock()
-    return { ok: true, message: 'Google Ads answered normally. Calls are resumed.' }
+    return { ok: true, message: 'Keyword Planner answered normally. Google data is resumed.' }
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : 'Google Ads re-check failed' }
   }
@@ -364,13 +415,14 @@ export interface AdsCallOptions {
 
 /**
  * One quota-aware Google Ads API call. Every call made by the app (the shared
- * Keyword Planner lookups AND users' own connected accounts) goes through here, so
- * they all respect the same developer-token lockout: when Google says the daily
- * operation cap is hit, nothing else is sent until its retry time.
+ * Keyword Planner lookups AND users' own connected accounts) goes through here.
+ * The Planner lockout only gates Planner calls: users' own account management
+ * keeps working while the Planner cap is spent.
  */
 export async function adsApiCall<T>(o: AdsCallOptions, opts: { probe?: boolean } = {}): Promise<T> {
-  // While locked, one request per re-check window is let through to test recovery.
-  const until = await quotaBlockedUntil()
+  const planner = isPlannerPath(o.path)
+  // While locked, one Planner request per re-check window is let through to test recovery.
+  const until = planner ? await quotaBlockedUntil() : 0
   const probing = !!until && (opts.probe || await claimQuotaProbe())
   if (until && !probing) throw new GoogleAdsError('Google Ads daily quota exhausted', 'quota', until)
 
@@ -383,8 +435,9 @@ export async function adsApiCall<T>(o: AdsCallOptions, opts: { probe?: boolean }
   if (loginId) headers['login-customer-id'] = loginId
 
   for (let attempt = 0; attempt < 2; attempt++) {
-    if (!probing && blockedUntil > Date.now()) throw new GoogleAdsError('Google Ads daily quota exhausted', 'quota', blockedUntil)
+    if (planner && !probing && blockedUntil > Date.now()) throw new GoogleAdsError('Google Ads daily quota exhausted', 'quota', blockedUntil)
     recordGoogleCall()
+    if (planner) countPlannerOp()
     const res = await fetch(`https://googleads.googleapis.com/${V}/${o.path}`, {
       method: o.method ?? 'POST', headers,
       ...(o.method === 'GET' ? {} : { body: JSON.stringify(o.body ?? {}) }),
@@ -399,10 +452,10 @@ export async function adsApiCall<T>(o: AdsCallOptions, opts: { probe?: boolean }
     const text = await res.text().catch(() => '')
     if (res.status === 429) {
       const { scope, seconds, rateName } = parseRetrySeconds(text)
-      // Daily operation cap (or any long wait): lock app-wide, never retry.
+      // Daily operation cap (or any long wait): lock Planner calls app-wide, never retry.
       if (scope === 'DEVELOPER' || (seconds != null && seconds > 60)) {
         const lockUntil = Date.now() + (seconds ?? 3600) * 1000
-        setQuotaBlock(lockUntil, [scope, rateName].filter(Boolean).join(': ') || null)
+        if (planner) setQuotaBlock(lockUntil, [scope, rateName].filter(Boolean).join(': ') || null)
         throw new GoogleAdsError('Google Ads daily quota exhausted', 'quota', lockUntil)
       }
       // Short per-second limit: wait what Google asks (capped), retry once.
@@ -504,30 +557,31 @@ function noteFailure(meta: GoogleMetricsMeta | undefined, e: unknown) {
   }
 }
 
-/** Historical metrics for keywords in ONE country: cache first, then a single batched
+/** Historical metrics for keywords over a set of geo targets (one country, or all tracked
+ *  countries combined for Global), stored under `cacheGeo`: cache first, then ONE batched
  *  request for only the misses. On failure, stale stored rows are used. Never throws. */
-async function metricsForGeo(keywords: string[], geoId: string, meta?: GoogleMetricsMeta): Promise<Map<string, GoogleMetric>> {
+async function fetchMetrics(keywords: string[], geoIds: string[], cacheGeo: string, meta: GoogleMetricsMeta | undefined): Promise<Map<string, GoogleMetric>> {
   const out = new Map<string, GoogleMetric>()
   const kws = normKws(keywords).slice(0, 1000)
   if (!kws.length) return out
 
-  const stored = await readStored(kws.map(k => metricKey(geoId, k)))
+  const stored = await readStored(kws.map(k => metricKey(cacheGeo, k)))
   const misses: string[] = []
   for (const kw of kws) {
-    const s = stored.get(metricKey(geoId, kw))
+    const s = stored.get(metricKey(cacheGeo, kw))
     if (s && isFresh(s)) { if (s.m) out.set(kw, s.m) }
     else misses.push(kw)
   }
   if (!misses.length) return out
 
   // Coalesce identical concurrent lookups (several routes ask for the same keyword at once).
-  const flightKey = `gads-hist:${geoId}:${misses.join('')}`
+  const flightKey = `gads-hist:${cacheGeo}:${misses.join('')}`
   try {
     const fetched = await singleFlight(flightKey, async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const j = await adsRequest<{ results?: any[] }>(':generateKeywordHistoricalMetrics', {
         keywords: misses,
-        geoTargetConstants: [`geoTargetConstants/${geoId}`],
+        geoTargetConstants: geoIds.map(id => `geoTargetConstants/${id}`),
         keywordPlanNetwork: 'GOOGLE_SEARCH',
         language: LANG_EN,
       })
@@ -546,62 +600,95 @@ async function metricsForGeo(keywords: string[], geoId: string, meta?: GoogleMet
           monthly,
         })
       }
-      writeStored(misses.map(kw => ({ key: metricKey(geoId, kw), m: got.get(kw) ?? null })))
+      writeStored(misses.map(kw => ({ key: metricKey(cacheGeo, kw), m: got.get(kw) ?? null })))
       return got
     })
     for (const [k, v] of fetched) out.set(k, v)
   } catch (e) {
     // The lockout is logged once when it trips; don't repeat it for every country/keyword.
-    if (!(e instanceof GoogleAdsError && e.kind === 'quota')) console.error(`[GoogleAds] metrics (geo ${geoId}) failed:`, e instanceof Error ? e.message : e)
+    if (!(e instanceof GoogleAdsError && e.kind === 'quota')) console.error(`[GoogleAds] metrics (geo ${cacheGeo}) failed:`, e instanceof Error ? e.message : e)
     noteFailure(meta, e)
     // Stale beats blank: serve the last stored answer for anything Google couldn't refresh.
     for (const kw of misses) {
-      const s = stored.get(metricKey(geoId, kw))
+      const s = stored.get(metricKey(cacheGeo, kw))
       if (s?.m) { out.set(kw, s.m); if (meta) meta.stale = true }
     }
   }
   return out
 }
 
+/** Historical metrics in ONE country. */
+function metricsForGeo(keywords: string[], geoId: string, meta?: GoogleMetricsMeta): Promise<Map<string, GoogleMetric>> {
+  return fetchMetrics(keywords, [geoId], geoId, meta)
+}
+
+/** Add up per-country answers for one keyword (volume + monthly summed, bids averaged). */
+function sumMetrics(keyword: string, rows: GoogleMetric[]): GoogleMetric | null {
+  if (!rows.length) return null
+  const BAND_RANK: Record<string, number> = { UNSPECIFIED: 0, UNKNOWN: 0, LOW: 1, MEDIUM: 2, HIGH: 3 }
+  let searches = 0, compIdxSum = 0, compIdxCount = 0, cpcLowSum = 0, cpcLowCount = 0, cpcHighSum = 0, cpcHighCount = 0
+  const monthly: number[] = []
+  let bestBand = 'UNSPECIFIED'
+  for (const g of rows) {
+    searches += g.searches
+    for (let i = 0; i < g.monthly.length; i++) monthly[i] = (monthly[i] ?? 0) + g.monthly[i]
+    if (g.competitionIndex != null) { compIdxSum += g.competitionIndex; compIdxCount++ }
+    if (g.cpcLow != null) { cpcLowSum += g.cpcLow; cpcLowCount++ }
+    if (g.cpcHigh != null) { cpcHighSum += g.cpcHigh; cpcHighCount++ }
+    if ((BAND_RANK[g.competition] ?? 0) > (BAND_RANK[bestBand] ?? 0)) bestBand = g.competition
+  }
+  return {
+    keyword, searches, competition: bestBand,
+    competitionIndex: compIdxCount ? Math.round(compIdxSum / compIdxCount) : null,
+    cpcLow: cpcLowCount ? parseFloat((cpcLowSum / cpcLowCount).toFixed(2)) : null,
+    cpcHigh: cpcHighCount ? parseFloat((cpcHighSum / cpcHighCount).toFixed(2)) : null,
+    monthly,
+  }
+}
+
+/** Cache bucket for the combined all-tracked-countries answer. */
+const GLOBAL_CACHE_GEO = 'GLO7'
+const TRACKED_GEO_IDS = Object.values(GEO_TARGETS).map(g => g.id)
+
 /**
- * Global = the sum of the tracked countries (omitting geoTargetConstants returns
- * an EMPTY result for this endpoint in practice). Reads the same per-country rows
- * as the country chart, so after the first lookup it costs nothing.
+ * Global = volume across all tracked countries. If every country already has a fresh
+ * stored row (the country chart wrote them), their sum is free. Otherwise ONE request
+ * with all tracked countries as targets (Google combines them), instead of 7
+ * per-country requests. Omitting geoTargetConstants returns an EMPTY result for this
+ * endpoint in practice, which is why Global is "all tracked countries".
  */
 async function metricsGlobal(keywords: string[], meta?: GoogleMetricsMeta): Promise<Map<string, GoogleMetric>> {
-  const perGeo: Map<string, GoogleMetric>[] = []
-  for (const iso of Object.keys(GEO_TARGETS)) {
-    // Once the daily quota trips, the remaining countries still read the cache.
-    perGeo.push(await metricsForGeo(keywords, GEO_TARGETS[iso].id, meta))
-  }
-  const BAND_RANK: Record<string, number> = { UNSPECIFIED: 0, UNKNOWN: 0, LOW: 1, MEDIUM: 2, HIGH: 3 }
   const out = new Map<string, GoogleMetric>()
-  for (const raw of normKws(keywords)) {
-    let searches = 0, compIdxSum = 0, compIdxCount = 0, cpcLowSum = 0, cpcLowCount = 0, cpcHighSum = 0, cpcHighCount = 0
-    const monthly: number[] = []
-    let bestBand = 'UNSPECIFIED'
-    let found = false
-    for (const m of perGeo) {
-      const g = m.get(raw)
-      if (!g) continue
-      found = true
-      searches += g.searches
-      for (let i = 0; i < g.monthly.length; i++) monthly[i] = (monthly[i] ?? 0) + g.monthly[i]
-      if (g.competitionIndex != null) { compIdxSum += g.competitionIndex; compIdxCount++ }
-      if (g.cpcLow != null) { cpcLowSum += g.cpcLow; cpcLowCount++ }
-      if (g.cpcHigh != null) { cpcHighSum += g.cpcHigh; cpcHighCount++ }
-      if ((BAND_RANK[g.competition] ?? 0) > (BAND_RANK[bestBand] ?? 0)) bestBand = g.competition
-    }
-    if (!found) continue
-    out.set(raw, {
-      keyword: raw,
-      searches,
-      competition: bestBand,
-      competitionIndex: compIdxCount ? Math.round(compIdxSum / compIdxCount) : null,
-      cpcLow: cpcLowCount ? parseFloat((cpcLowSum / cpcLowCount).toFixed(2)) : null,
-      cpcHigh: cpcHighCount ? parseFloat((cpcHighSum / cpcHighCount).toFixed(2)) : null,
-      monthly,
-    })
+  const kws = normKws(keywords).slice(0, 1000)
+  if (!kws.length) return out
+
+  // A stored combined answer wins, so a keyword's Global number doesn't flip between
+  // the combined figure and the per-country sum as the country chart fills in rows.
+  const combinedStored = await readStored(kws.map(kw => metricKey(GLOBAL_CACHE_GEO, kw)))
+  const perGeo = await readStored(kws.flatMap(kw => TRACKED_GEO_IDS.map(id => metricKey(id, kw))))
+  const need: string[] = []
+  for (const kw of kws) {
+    const c = combinedStored.get(metricKey(GLOBAL_CACHE_GEO, kw))
+    if (c && isFresh(c)) { need.push(kw); continue }   // fetchMetrics serves it from cache at no cost
+    const rows = TRACKED_GEO_IDS.map(id => perGeo.get(metricKey(id, kw)))
+    if (rows.every(r => r && isFresh(r))) {
+      const sum = sumMetrics(kw, rows.map(r => r!.m).filter((m): m is GoogleMetric => !!m))
+      if (sum) out.set(kw, sum)
+    } else need.push(kw)
+  }
+  if (!need.length) return out
+
+  const local: GoogleMetricsMeta = {}
+  const combined = await fetchMetrics(need, TRACKED_GEO_IDS, GLOBAL_CACHE_GEO, local)
+  if (meta) Object.assign(meta, { ...local, failed: meta.failed || local.failed, quota: meta.quota || local.quota, stale: meta.stale || local.stale })
+  for (const kw of need) {
+    const m = combined.get(kw)
+    if (m) { out.set(kw, m); continue }
+    // Only when Google could not answer: fall back to whatever per-country rows exist.
+    if (!local.failed) continue
+    const partial = TRACKED_GEO_IDS.map(id => perGeo.get(metricKey(id, kw))?.m).filter((x): x is GoogleMetric => !!x)
+    const sum = sumMetrics(kw, partial)
+    if (sum) { out.set(kw, sum); if (meta) meta.stale = true }
   }
   return out
 }
@@ -745,6 +832,25 @@ export async function googleKeywordIdeas(seed: string, geoIso = 'US', limit = 40
           }
         })
         .filter(i => i.keyword)
+      // Each idea carries full metrics for that keyword in this country: store them as
+      // metrics rows too, so later volume lookups for these keywords cost nothing.
+      if (geoId) {
+        writeStored((j.results ?? []).filter(r => r?.text && r.keywordIdeaMetrics).map(r => {
+          const m = r.keywordIdeaMetrics
+          return {
+            key: metricKey(geoId, String(r.text).toLowerCase().trim()),
+            m: {
+              keyword: String(r.text),
+              searches: Number(m.avgMonthlySearches ?? 0),
+              competition: String(m.competition ?? 'UNSPECIFIED'),
+              competitionIndex: m.competitionIndex != null ? Number(m.competitionIndex) : null,
+              cpcLow: microsToCurrency(m.lowTopOfPageBidMicros),
+              cpcHigh: microsToCurrency(m.highTopOfPageBidMicros),
+              monthly: (m.monthlySearchVolumes ?? []).map((v: { monthlySearches?: string }) => Number(v.monthlySearches ?? 0)),
+            },
+          }
+        }))
+      }
       const at = new Date()
       memCache.set(`gads:${key}`, { ideas: list, at: at.getTime() }, 6 * 3600)
       connectDB().then(() => GoogleAdsCache.updateOne({ key }, { $set: { data: list, fetchedAt: at } }, { upsert: true })).catch(() => {})

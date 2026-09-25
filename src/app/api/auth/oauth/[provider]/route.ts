@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isOAuthProvider, providerEnabled, buildAuthorizeUrl } from '@/lib/auth/oauth'
 import { siteUrl } from '@/lib/seo/site'
+import { safeRedirectPath } from '@/lib/auth/safe-redirect'
 
 // Initiate social login: set a CSRF state cookie + the post-login redirect, then
 // bounce to the provider's consent screen.
@@ -18,8 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ prov
   }
 
   // Only allow a relative in-app redirect target (blocks open-redirect abuse).
-  const raw = req.nextUrl.searchParams.get('redirect') || '/dashboard'
-  const dest = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/dashboard'
+  const dest = safeRedirectPath(req.nextUrl.searchParams.get('redirect'))
 
   const state = globalThis.crypto.randomUUID()
   const res = NextResponse.redirect(buildAuthorizeUrl(provider, state))

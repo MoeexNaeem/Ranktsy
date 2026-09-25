@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { safeRedirectPath } from '@/lib/auth/safe-redirect'
 import { connectDB } from '@/lib/db'
 import { User } from '@/lib/models'
 import { hashPassword } from '@/lib/auth/password'
@@ -75,8 +76,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ prov
     }
     const [at, rt] = await Promise.all([signAccessToken(authUser), signRefreshToken(authUser.id)])
 
-    const rawDest = req.cookies.get('oauth_redirect')?.value || '/dashboard'
-    const dest = rawDest.startsWith('/') && !rawDest.startsWith('//') ? rawDest : '/dashboard'
+    // Re-checked here too: the cookie is ours, but never trust a redirect target blindly.
+    const dest = safeRedirectPath(req.cookies.get('oauth_redirect')?.value)
 
     const res = NextResponse.redirect(new URL(dest, base))
     setAuthCookiesOn(res, at, rt)

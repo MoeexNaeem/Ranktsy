@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { C } from '@/utils'
 import { PASSWORD_RULES, isAllowedEmailDomain, EMAIL_DOMAIN_MESSAGE } from '@/lib/auth/schemas'
+import { safeRedirectPath } from '@/lib/auth/safe-redirect'
 import { Recaptcha, RECAPTCHA_ENABLED } from '@/components/security/Recaptcha'
 import { toast, AUTH_TOAST_KEY } from '@/components/ui/toast'
 
@@ -152,7 +153,8 @@ type EmailStatus = 'idle' | 'invalid' | 'domain' | 'checking' | 'available' | 't
 function AuthFormInner({ type, email: initEmail, onNext, providers, cohort }: { type: FormType; email?: string; onNext?: (email: string) => void; providers?: { google?: boolean; microsoft?: boolean }; cohort?: string }) {
   const router       = useRouter()
   const searchParams = useSearchParams()
-  const redirect     = searchParams.get('redirect') ?? '/dashboard'
+  // Same-origin paths only, so a crafted ?redirect= can't send users off-site after login.
+  const redirect     = safeRedirectPath(searchParams.get('redirect'))
   const oauthMsg     = OAUTH_ERRORS[searchParams.get('error') ?? ''] ?? ''
   const showOAuth    = (type === 'login' || type === 'register') && Boolean(providers?.google || providers?.microsoft)
   // SEBT NEXT education cohort. Entered either via the clean path /register/sebtnext
