@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
-import { searchEtsyListingsPaged } from '@/lib/etsy'
-import { KEYWORD_VERSION } from '@/lib/keywords'
+import { attachImages } from '@/lib/etsy'
+import { KEYWORD_VERSION, keywordListings } from '@/lib/keywords'
 import { getCollectivePackage } from '@/lib/collective-read'
 import { withUsage } from '@/lib/track'
 import type { ApiResponse, EtsyListing } from '@/types'
@@ -36,7 +36,8 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Et
   }
 
   try {
-    const { listings } = await searchEtsyListingsPaged(query, 100, 0)
+    // The core already holds these listings; only the images need one batch call.
+    const listings = await attachImages(await keywordListings(query))
     memCache.set(key, listings, CACHE_TTL.KEYWORD)
     return NextResponse.json({ success: true, data: listings, cached: false })
   } catch (e) {

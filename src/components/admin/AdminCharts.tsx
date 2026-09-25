@@ -33,7 +33,8 @@ export function AnimatedNumber({ value, format = (n) => Math.round(n).toLocaleSt
 
 // ─── KPI card ─────────────────────────────────────────────────────────────────
 export function Kpi({ label, value, accent = C.ink, sub, format, delay = 0 }: {
-  label: string; value: number; accent?: string; sub?: string; format?: (n: number) => string; delay?: number
+  // null = not known yet (still being computed): shown as "-", never as a fake 0.
+  label: string; value: number | null; accent?: string; sub?: string; format?: (n: number) => string; delay?: number
 }) {
   const [shown, setShown] = useState(false)
   useEffect(() => { const t = setTimeout(() => setShown(true), delay); return () => clearTimeout(t) }, [delay])
@@ -46,7 +47,7 @@ export function Kpi({ label, value, accent = C.ink, sub, format, delay = 0 }: {
       <span style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: accent }} />
       <p style={{ fontSize: 11.5, fontFamily: MONO, fontWeight: 500, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>{label}</p>
       <p style={{ fontSize: 34, fontWeight: 700, color: accent, letterSpacing: '-0.03em', lineHeight: 1 }}>
-        <AnimatedNumber value={value} format={format} />
+        {value == null ? '-' : <AnimatedNumber value={value} format={format} />}
       </p>
       {sub && <p style={{ fontSize: 12.5, color: C.graphite, marginTop: 7 }}>{sub}</p>}
     </div>

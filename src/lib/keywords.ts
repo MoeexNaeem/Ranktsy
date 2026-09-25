@@ -20,11 +20,11 @@
 import { connectDB } from '@/lib/db'
 import { KeywordCache } from '@/lib/models'
 import { getCollectivePackage } from '@/lib/collective-read'
-import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
+import { memCache, cacheKey, CACHE_TTL, cachedFlight } from '@/lib/cache'
 import { singleFlight } from '@/lib/concurrency'
 import { searchEtsyListingsPaged, buildKeywordStats, buildSearchAnalysis, warmTaxonomy } from '@/lib/etsy'
 import { googleKeywordMetrics, googleAccountCurrency, isGoogleAdsConfigured, googleStatusOf, type GoogleMetricsMeta } from '@/lib/google-ads'
-import type { KeywordSearchResponse } from '@/types'
+import type { KeywordSearchResponse, EtsyListing } from '@/types'
 
 // v9: core/related now carry Google competition + CPC (account currency), not just
 // volume. Bump when the CORE shape changes.
@@ -57,13 +57,30 @@ function isStaleCore(d?: KeywordSearchResponse): boolean {
     d.stats.avgViews == null ||
     d.stats.favPerView == null ||
     d.related.some(r => r.listingsByMonth == null || r.avgViews === undefined) ||
-    (isGoogleAdsConfigured() && d.stats?.googleSearches == null) ||
+    // Missing Google volume means stale only if the lookup didn't succeed. When Google
+    // answered 'ok' with no data for this keyword, rebuilding returns the same blank,
+    // and used to rewrite a ~300 KB doc (plus Etsy + Google calls) on every search.
+    (isGoogleAdsConfigured() && d.stats?.googleSearches == null && d.stats?.googleStatus !== 'ok') ||
     // Pre-v9 docs carry Google volume but not competition/CPC/currency. The Mongo
     // cache keys on the keyword alone, so bumping KEYWORD_VERSION doesn't retire
     // them - this probe does. A fresh configured doc always SETS googleCurrency
     // (to the code or null), so `undefined` uniquely marks the old shape.
     (isGoogleAdsConfigured() && d.stats?.googleCurrency === undefined)
   )
+}
+
+/**
+ * The copy of a keyword package we cache, store and send. Listing descriptions and
+ * every image after the first are never shown on the keyword pages (they render
+ * images[0] only; the AI and compare tools fetch listings fresh), yet they were ~75%
+ * of each ~300 KB cached doc and the biggest source of database write volume.
+ * The analysis is already computed from the full listings before this runs.
+ */
+function slimForStorage(d: KeywordSearchResponse): KeywordSearchResponse {
+  return {
+    ...d,
+    listings: d.listings.map(l => ({ ...l, description: '', images: l.images?.slice(0, 1) ?? [] })),
+  }
 }
 
 /**
@@ -83,7 +100,26 @@ export async function getKeywordCore(query: string, geo = 'US'): Promise<Keyword
   // Otherwise collapse concurrent identical requests into ONE upstream fetch:
   // when a keyword trends, N users don't each fire ~3 Etsy + Google calls - the
   // first does the work and the rest await the same result.
-  return singleFlight(key, () => computeKeywordCore(query, geo, key))
+  const data = await singleFlight(key, () => computeKeywordCore(query, geo, key))
+  rememberKeywordListings(query, data.listings)
+  return data
+}
+
+// ─── One Etsy search per keyword, shared by every keyword panel ──────────────────
+// The trends, market-activity, keyword-gap and listings panels all need the same
+// top-100 relevance search the core already fetched, and each used to fetch it
+// again (4 extra Etsy calls per keyword). They now read it from here: the core's
+// own listings when present, otherwise one fetch, cached under Etsy's 6h limit.
+const kwListKey = (q: string) => cacheKey('kwlist', q.toLowerCase().trim())
+
+function rememberKeywordListings(query: string, listings?: EtsyListing[]) {
+  if (listings?.length) memCache.set(kwListKey(query), listings, CACHE_TTL.KEYWORD)
+}
+
+/** The keyword's top-100 Etsy listings (relevance order, no images). */
+export function keywordListings(query: string): Promise<EtsyListing[]> {
+  return cachedFlight(kwListKey(query), CACHE_TTL.KEYWORD, async () =>
+    (await searchEtsyListingsPaged(query, 100, 0, { skipImages: true })).listings)
 }
 
 // A failed lookup that still produced numbers (served from the stored Google cache)
@@ -151,7 +187,7 @@ async function computeKeywordCore(query: string, geo: string, key: string): Prom
   // only the Top Listings sub-tab renders them. /api/keywords/listings fetches
   // them on demand when that tab is opened.
   const { listings, count } = await searchEtsyListingsPaged(query, 100, 0, { skipImages: true })
-  const data = buildKeywordStats(query, listings, count)
+  let data = buildKeywordStats(query, listings, count)
 
   // Analysis is computed from listings we already have. `false` = don't block on
   // the 365KB taxonomy fetch just to name categories; it warms for next time.
@@ -177,6 +213,8 @@ async function computeKeywordCore(query: string, geo: string, key: string): Prom
     }
     data.stats.googleCurrency = currency
   }
+
+  data = slimForStorage(data)
 
   // If Google failed, cache only BRIEFLY (2 min) in memory and do NOT persist to
   // the DB - so the next request retries and can fill the real numbers, instead

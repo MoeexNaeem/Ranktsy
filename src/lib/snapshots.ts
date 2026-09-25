@@ -113,6 +113,23 @@ export function recordShopSnapshots(shops: ShopSnapshotInput[]): void {
   })()
 }
 
+// ─── Title / tag de-duplication ────────────────────────────────────────────────
+// A listing's title and 13 tags rarely change, yet they were ~68% of every daily
+// snapshot (the same text copied every day). They are now stored on a snapshot only
+// when they differ from the listing's last known value, which TrackedListing holds.
+// Absent means "unchanged": getListingChanges() carries the last stored value
+// forward, so the change log reads exactly as before. Views, favorites, reviews and
+// price are still stored every day.
+const tagsKey = (t?: string[] | null) => (t && t.length ? [...t].sort().join('\u0001') : '')
+
+async function knownTitleTags(ids: number[]): Promise<Map<number, { title: string; tagsKey: string }>> {
+  if (!ids.length) return new Map()
+  const rows = await TrackedListing.find({ listingId: { $in: ids } })
+    .select('listingId title tags')
+    .lean<{ listingId: number; title?: string; tags?: string[] }[]>()
+  return new Map(rows.map(r => [r.listingId, { title: r.title ?? '', tagsKey: tagsKey(r.tags) }]))
+}
+
 /** Record listing state for change-tracking. Fire-and-forget. */
 export function recordListingSnapshots(listings: EtsyListing[]): void {
   const rows = listings.filter(l => l.listing_id && l.shop_id)
@@ -121,28 +138,44 @@ export function recordListingSnapshots(listings: EtsyListing[]): void {
     try {
       await connectDB()
       const day = dayKey()
+      const known = await knownTitleTags(rows.map(l => l.listing_id))
+      const changedTracked: { listingId: number; title?: string; tags?: string[] }[] = []
       await ListingSnapshot.bulkWrite(
-        rows.map(l => ({
-          updateOne: {
-            filter: { listingId: l.listing_id, day },
-            update: {
-              $set: {
-                shopId:   l.shop_id,
-                title:    l.title,
-                tags:     l.tags ?? [],
-                price:    l.price.amount / (l.price.divisor || 100),
-                currency: l.price.currency_code,
-                views:    l.views ?? 0,
-                favorers: l.num_favorers ?? 0,
-                capturedAt: new Date(),
-              },
-              $setOnInsert: { listingId: l.listing_id, day },
+        rows.map(l => {
+          const set: Record<string, unknown> = {
+            shopId:   l.shop_id,
+            price:    l.price.amount / (l.price.divisor || 100),
+            currency: l.price.currency_code,
+            views:    l.views ?? 0,
+            favorers: l.num_favorers ?? 0,
+            capturedAt: new Date(),
+          }
+          const k = known.get(l.listing_id)
+          const change: { listingId: number; title?: string; tags?: string[] } = { listingId: l.listing_id }
+          if (l.title && l.title !== k?.title) { set.title = l.title; change.title = l.title }
+          if (l.tags?.length && tagsKey(l.tags) !== k?.tagsKey) { set.tags = l.tags; change.tags = l.tags }
+          if (k && (change.title || change.tags)) changedTracked.push(change)
+          return {
+            updateOne: {
+              filter: { listingId: l.listing_id, day },
+              update: { $set: set, $setOnInsert: { listingId: l.listing_id, day } },
+              upsert: true,
             },
-            upsert: true,
-          },
-        })),
+          }
+        }),
         { ordered: false },
       )
+      // Keep TrackedListing's title/tags = the latest seen value, so the next
+      // comparison is against what the snapshots actually hold. Existing rows only:
+      // this path must not add listings to the extension's watchlist.
+      if (changedTracked.length) {
+        await TrackedListing.bulkWrite(changedTracked.map(c => ({
+          updateOne: {
+            filter: { listingId: c.listingId },
+            update: { $set: { ...(c.title ? { title: c.title } : {}), ...(c.tags ? { tags: c.tags } : {}) } },
+          },
+        })), { ordered: false })
+      }
     } catch (e) {
       console.error('[Snapshots] listing capture failed:', e)
     }
@@ -230,19 +263,35 @@ export interface ListingChange {
 export async function getListingChanges(listingId: number, days = 90): Promise<ListingChange[]> {
   try {
     await connectDB()
-    const rows = await ListingSnapshot.find({ listingId, day: { $gte: daysAgoKey(days) } })
+    const since = daysAgoKey(days)
+    const rows = await ListingSnapshot.find({ listingId, day: { $gte: since } })
       .sort({ day: 1 })
       .select('day title tags price currency')
       .lean()
 
+    // Title/tags are stored only on days they changed (absent = unchanged), so each
+    // day's value is the last one stored on or before it, seeded from before the window.
+    const [titleSeed, tagsSeed] = await Promise.all([
+      ListingSnapshot.findOne({ listingId, day: { $lt: since }, title: { $nin: [null, ''] } })
+        .sort({ day: -1 }).select('title').lean<{ title?: string }>(),
+      ListingSnapshot.findOne({ listingId, day: { $lt: since }, 'tags.0': { $exists: true } })
+        .sort({ day: -1 }).select('tags').lean<{ tags?: string[] }>(),
+    ])
+    let title: string | undefined = titleSeed?.title
+    let tags: string | undefined = tagsSeed?.tags ? [...tagsSeed.tags].sort().join(', ') : undefined
+    const eff = rows.map(r => {
+      if (r.title) title = r.title
+      if (r.tags?.length) tags = [...r.tags].sort().join(', ')
+      return { title, tags }
+    })
+
     const out: ListingChange[] = []
     for (let i = 1; i < rows.length; i++) {
       const a = rows[i - 1], b = rows[i]
-      if (a.title !== b.title) out.push({ day: b.day, field: 'title', from: a.title, to: b.title })
+      const ea = eff[i - 1], eb = eff[i]
+      if (ea.title !== undefined && eb.title !== undefined && ea.title !== eb.title) out.push({ day: b.day, field: 'title', from: ea.title, to: eb.title })
       if (a.price !== b.price) out.push({ day: b.day, field: 'price', from: `${a.currency} ${a.price.toFixed(2)}`, to: `${b.currency} ${b.price.toFixed(2)}` })
-      const at = [...(a.tags ?? [])].sort().join(', ')
-      const bt = [...(b.tags ?? [])].sort().join(', ')
-      if (at !== bt) out.push({ day: b.day, field: 'tags', from: at, to: bt })
+      if (ea.tags !== undefined && eb.tags !== undefined && ea.tags !== eb.tags) out.push({ day: b.day, field: 'tags', from: ea.tags, to: eb.tags })
     }
     return out.reverse()
   } catch (e) {
@@ -308,13 +357,17 @@ export async function recordObservedListings(rows: ObservedListing[]): Promise<n
     await connectDB()
     const day = dayKey()
     const now = new Date()
+    const known = await knownTitleTags(valid.map(r => r.listingId))
 
     const snapOps = valid.map(r => {
       // Only fields actually observed are written, so a thin search-card
       // observation can never blank out what a listing page already told us.
       const set: Record<string, unknown> = { capturedAt: now, shopId: r.shopId }
-      if (r.title != null) set.title = r.title
-      if (r.tags != null) set.tags = r.tags
+      // Title/tags only when they changed (see knownTitleTags); the TrackedListing
+      // upsert below records them as the new known value.
+      const k = known.get(r.listingId)
+      if (r.title && r.title !== k?.title) set.title = r.title
+      if (r.tags?.length && tagsKey(r.tags) !== k?.tagsKey) set.tags = r.tags
       if (r.price != null) { set.price = r.price; if (r.currency) set.currency = r.currency }
       if (r.views != null) set.views = r.views
       if (r.favorers != null) set.favorers = r.favorers

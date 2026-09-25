@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
-import { searchEtsyListingsPaged, buildTrendData, buildListingSupplyByMonth, buildListingMarketStats } from '@/lib/etsy'
+import { buildTrendData, buildListingSupplyByMonth, buildListingMarketStats } from '@/lib/etsy'
+import { keywordListings } from '@/lib/keywords'
 import { googleKeywordMetrics, countriesForGeo, isGoogleAdsConfigured, normalizeGeo, googleStatusOf, type GoogleMetricsMeta } from '@/lib/google-ads'
 import { guardSearch } from '@/lib/searchGate'
 import { getCollectivePackage } from '@/lib/collective-read'
 import { withUsage } from '@/lib/track'
-import type { TrendData, TrendPoint, CountryData } from '@/types'
+import type { TrendData, TrendPoint, CountryData, EtsyListing } from '@/types'
 
 export const runtime = 'nodejs'
 export const GET = withUsage(getHandler)
@@ -51,10 +52,10 @@ async function getHandler(req: NextRequest) {
     // One unavailable source must not blank the panels fed by the other: if the
     // marketplace sample can't be fetched, the search-volume chart and the country
     // breakdown (both search-demand data) are still returned.
-    let listings: Awaited<ReturnType<typeof searchEtsyListingsPaged>>['listings'] = []
+    let listings: EtsyListing[] = []
     let marketplaceAvailable = true
     try {
-      listings = (await searchEtsyListingsPaged(query, 100, 0, { skipImages: true })).listings
+      listings = await keywordListings(query)   // shared with the core search, no extra Etsy call
     } catch (e) {
       marketplaceAvailable = false
       console.error('[Trends] marketplace sample unavailable:', e instanceof Error ? e.message : e)

@@ -508,8 +508,9 @@ export interface IListingSnapshot {
   listingId: number
   shopId: number
   day: string
-  title: string
-  tags: string[]
+  /** Stored only when changed from the listing's previous value; absent = unchanged. */
+  title?: string
+  tags?: string[]
   price: number
   currency: string
   views: number

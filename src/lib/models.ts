@@ -238,7 +238,7 @@ const SNAPSHOT_TTL_SECONDS = SNAPSHOT_RETENTION_DAYS * 24 * 60 * 60
 // is a day lost forever. Not TTL'd on a short window (that would defeat the
 // point) but genuinely capped at SNAPSHOT_RETENTION_DAYS via the index below.
 const ShopSnapshotSchema = new Schema<IShopSnapshot>({
-  shopId:         { type: Number, required: true, index: true },
+  shopId:         { type: Number, required: true },   // served by the { shopId, day } index
   shopName:       { type: String, required: true, trim: true },
   day:            { type: String, required: true },   // YYYY-MM-DD (UTC)
   sales:          { type: Number, default: null },
@@ -253,7 +253,6 @@ const ShopSnapshotSchema = new Schema<IShopSnapshot>({
 // Unique per shop per day - makes capture idempotent, so recording opportunistically
 // on every shop read can't produce duplicate rows.
 ShopSnapshotSchema.index({ shopId: 1, day: 1 }, { unique: true })
-ShopSnapshotSchema.index({ shopId: 1, capturedAt: -1 })
 // Enforces the retention bound in the database rather than in a comment.
 ShopSnapshotSchema.index({ capturedAt: 1 }, { expireAfterSeconds: SNAPSHOT_TTL_SECONDS })
 
@@ -261,11 +260,14 @@ ShopSnapshotSchema.index({ capturedAt: 1 }, { expireAfterSeconds: SNAPSHOT_TTL_S
 // Powers "Changes" - what a competitor edited (title/tags/price), which Etsy's
 // last_modified_timestamp flags but never describes.
 const ListingSnapshotSchema = new Schema<IListingSnapshot>({
-  listingId:  { type: Number, required: true, index: true },
-  shopId:     { type: Number, required: true, index: true },
+  listingId:  { type: Number, required: true },   // served by the { listingId, day } index
+  shopId:     { type: Number, required: true },
   day:        { type: String, required: true },
-  title:      { type: String, default: '' },
-  tags:       { type: [String], default: [] },
+  // Stored only on days they differ from the listing's previous value; absent means
+  // "unchanged" and readers carry the last stored value forward. No defaults, or
+  // every row would get '' / [] and look like a change.
+  title:      { type: String },
+  tags:       { type: [String], default: undefined },
   price:      { type: Number, default: 0 },
   currency:   { type: String, default: 'USD' },
   views:      { type: Number, default: 0 },
@@ -288,7 +290,6 @@ ListingSnapshotSchema.index({ listingId: 1, day: 1 }, { unique: true })
 // Same enforced retention bound as ShopSnapshot. This one holds actual Etsy
 // listing CONTENT (title/tags/price), so capping it matters more, not less.
 ListingSnapshotSchema.index({ capturedAt: 1 }, { expireAfterSeconds: SNAPSHOT_TTL_SECONDS })
-ListingSnapshotSchema.index({ listingId: 1, capturedAt: -1 })
 
 // ─── Tracked Shop ──────────────────────────────────────────────────────────────
 // Shops a user has starred for guaranteed daily capture by the cron route.
@@ -345,8 +346,6 @@ const TrackedListingSchema = new Schema<ITrackedListing>({
 }, { timestamps: true })
 
 TrackedListingSchema.index({ lastSeenAt: -1 })
-TrackedListingSchema.index({ shopId: 1, lastSeenAt: -1 })
-TrackedListingSchema.index({ observeCount: -1 })
 
 // ─── Search rank snapshot ──────────────────────────────────────────────────────
 // WHERE a listing ranked for a keyword on a given day.
@@ -376,7 +375,6 @@ const SearchRankSnapshotSchema = new Schema<ISearchRankSnapshot>({
 // see recordSearchRanks, which only lowers an existing position.
 SearchRankSnapshotSchema.index({ keyword: 1, listingId: 1, day: 1, country: 1 }, { unique: true })
 SearchRankSnapshotSchema.index({ keyword: 1, country: 1, day: -1, position: 1 })
-SearchRankSnapshotSchema.index({ listingId: 1, day: -1 })
 SearchRankSnapshotSchema.index({ capturedAt: 1 }, { expireAfterSeconds: SNAPSHOT_TTL_SECONDS })
 
 // ─── Keyword market snapshot ───────────────────────────────────────────────────

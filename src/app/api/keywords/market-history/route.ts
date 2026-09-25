@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { searchEtsyListingsPaged } from '@/lib/etsy'
+import { keywordListings } from '@/lib/keywords'
 import { getKeywordMarketHistory, type KeywordMarketHistory } from '@/lib/snapshots'
 import { cachedFlight, cacheKey, CACHE_TTL } from '@/lib/cache'
 import type { ApiResponse } from '@/types'
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
   if (!q || q.length < 2) return NextResponse.json({ success: false, error: 'Query must be at least 2 characters' }, { status: 400 })
   try {
     const data = await cachedFlight(cacheKey('kwmarket', 'v2', q), CACHE_TTL.SHOP, async () => {
-      const { listings } = await searchEtsyListingsPaged(q, 100, 0, { skipImages: true })
+      const listings = await keywordListings(q)   // shared with the core search, no extra Etsy call
       return getKeywordMarketHistory(listings.map(l => l.listing_id).filter(Boolean))
     })
     return NextResponse.json({ success: true, data })

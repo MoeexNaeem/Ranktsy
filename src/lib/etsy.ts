@@ -334,7 +334,7 @@ function mapListing(item: Record<string, any>): EtsyListing {
 // them in a single batch call to /listings/batch?includes=Images,Shop (up to 100
 // ids) and merge them back onto the listings by listing_id.
 
-async function attachImages(listings: EtsyListing[]): Promise<EtsyListing[]> {
+export async function attachImages(listings: EtsyListing[]): Promise<EtsyListing[]> {
   const ids = listings.map(l => l.listing_id).filter(Boolean)
   if (!ids.length) return listings
   try {

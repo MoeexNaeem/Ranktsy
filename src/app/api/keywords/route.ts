@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
-import { KeywordHistory, SavedKeyword } from '@/lib/models'
+import { KeywordHistory, SavedKeyword, ListingSnapshot } from '@/lib/models'
 import { getKeywordCore } from '@/lib/keywords'
 import { recordObservedListings } from '@/lib/snapshots'
 import { getListingReviewStats } from '@/lib/etsy'
@@ -12,6 +12,7 @@ import { canAfford, consumeCredits, recordCharge, CREDIT_COST } from '@/lib/cred
 import { PLAN_LABELS } from '@/lib/plans'
 import { withUsage } from '@/lib/track'
 import { recordSearch, recordCacheHit, recordApiHit, peekApiCalls } from '@/lib/usage'
+import { memCache } from '@/lib/cache'
 import { upstreamFailure } from '@/lib/upstream-errors'
 import type { ApiResponse, KeywordSearchResponse } from '@/types'
 
@@ -71,7 +72,12 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
     // snapshot set, so they start accruing history TODAY (not only when someone
     // happens to browse them). Fire-and-forget - never blocks or fails the search.
     // This is what makes Market Activity fill in faster the more the tool is used.
-    if (data.listings?.length) {
+    // Once per keyword per UTC day (per server process): a repeat search is served
+    // the same cached listings, so recording them again rewrote ~100 identical
+    // snapshot rows every call (the extension asks on every Etsy page view).
+    const seedKey = `kwseeded:${new Date().toISOString().slice(0, 10)}:${query.toLowerCase()}`
+    if (data.listings?.length && !memCache.get(seedKey)) {
+      memCache.set(seedKey, 1, 24 * 3600)
       void recordObservedListings(data.listings
         .filter(l => l.listing_id && l.shop_id)
         .map(l => ({
@@ -99,8 +105,16 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
     // today's snapshot (upsert on listingId+day) and its day-over-day growth then
     // drives real sales/reviews.
     if (wasLive && data.listings?.length) {
-      const top = data.listings.filter(l => l.listing_id && l.shop_id).slice(0, 10)
+      const top10 = data.listings.filter(l => l.listing_id && l.shop_id).slice(0, 10)
       void (async () => {
+        // Skip listings whose review count is already recorded today (another
+        // keyword or the extension got it); asking Etsy again returns the same number.
+        const today = new Date().toISOString().slice(0, 10)
+        const known = new Set((await ListingSnapshot.find(
+          { listingId: { $in: top10.map(l => l.listing_id) }, day: today, reviewCount: { $ne: null } },
+        ).select('listingId').lean<{ listingId: number }[]>().catch(() => [])).map(r => r.listingId))
+        const top = top10.filter(l => !known.has(l.listing_id))
+        if (!top.length) return
         const rows = await Promise.all(top.map(async l => {
           const rs = await getListingReviewStats(l.listing_id).catch(() => null)
           return rs?.count != null ? { listingId: l.listing_id, shopId: l.shop_id as number, reviewCount: rs.count } : null

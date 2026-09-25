@@ -39,13 +39,14 @@ interface TrackStats {
   listingSnapshots: number
   snapshotsToday: number
   shopSnapshots: number
-  measuredListings: number
+  measuredListings: number | null
   // Keyword rank history captured from the extension (no Etsy endpoint provides it).
   rankSnapshots?: number
   rankSnapshotsToday?: number
   keywordsTracked?: number
   keywordMarketDays?: number
-  measuredRankPairs?: number
+  measuredRankPairs?: number | null
+  measuredAt?: string | null
   recent: { listingId: number; title: string; observeCount: number; lastSeenAt: string }[]
 }
 interface UsageUser { userId: string; userEmail: string | null; etsyCalls: number; googleCalls: number; searches: number; cacheHits: number; apiHits: number; imageCalls: number; imageTokens: number; imageCostUsd: number; creditsSpent: number }
@@ -423,7 +424,7 @@ export function AdminDashboard() {
               {/* ─── Snapshot tracking (crowd-sourced listing history) ─────────── */}
               <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
                 <Kpi label="Listings tracked" value={track?.trackedListings ?? 0} accent={C.orange} delay={0} sub="on the watchlist" />
-                <Kpi label="Measured listings" value={track?.measuredListings ?? 0} accent="#0D9488" delay={60} sub="real sales velocity" />
+                <Kpi label="Measured listings" value={track ? track.measuredListings : 0} accent="#0D9488" delay={60} sub={track && track.measuredListings == null ? 'calculating, check back in a few minutes' : 'real sales velocity'} />
                 <Kpi label="Listing snapshots" value={track?.listingSnapshots ?? 0} accent={C.ink} delay={120} />
                 <Kpi label="Snapshots today" value={track?.snapshotsToday ?? 0} accent="#2563EB" delay={180} />
               </div>
@@ -433,7 +434,7 @@ export function AdminDashboard() {
                   because the extension recorded the live results order. */}
               <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
                 <Kpi label="Keywords tracked" value={track?.keywordsTracked ?? 0} accent={C.orange} delay={0} sub="with rank history" />
-                <Kpi label="Rank movement" value={track?.measuredRankPairs ?? 0} accent="#0D9488" delay={60} sub="listing + keyword pairs" />
+                <Kpi label="Rank movement" value={track ? (track.measuredRankPairs ?? null) : 0} accent="#0D9488" delay={60} sub={track && track.measuredRankPairs == null ? 'calculating, check back in a few minutes' : 'listing + keyword pairs'} />
                 <Kpi label="Rank snapshots" value={track?.rankSnapshots ?? 0} accent={C.ink} delay={120} />
                 <Kpi label="Ranks today" value={track?.rankSnapshotsToday ?? 0} accent="#2563EB" delay={180} />
               </div>
