@@ -303,6 +303,24 @@ export function ChatWidget() {
   const [sending, setSending] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  // Follow new messages only while the reader is at the bottom. The 10s refresh used to
+  // yank people back down while they were reading older messages.
+  const stickToBottom = useRef(true)
+  const lastMsgId = useRef<string | null>(null)
+  const [newBelow, setNewBelow] = useState(false)
+
+  const scrollToBottom = () => {
+    const el = scrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+    stickToBottom.current = true
+    setNewBelow(false)
+  }
+  const onScroll = () => {
+    const el = scrollRef.current
+    if (!el) return
+    stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    if (stickToBottom.current) setNewBelow(false)
+  }
 
   const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -325,7 +343,30 @@ export function ChatWidget() {
     const t = setInterval(loadChat, 10_000)
     return () => clearInterval(t)
   }, [open, loadChat])
-  useEffect(() => { if (open && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, [chatMessages, open])
+  // Opening the chat always starts at the latest message.
+  useEffect(() => {
+    if (!open) return
+    stickToBottom.current = true
+    lastMsgId.current = null
+  }, [open])
+  // On new data: follow it if the reader is at the bottom or just sent a message;
+  // otherwise leave the scroll alone and offer a "New messages" jump instead.
+  useEffect(() => {
+    if (!open) return
+    const last = chatMessages[chatMessages.length - 1]
+    const lastId = last?.id ?? null
+    const isNew = lastId !== lastMsgId.current
+    const firstPaint = lastMsgId.current === null
+    lastMsgId.current = lastId
+    const el = scrollRef.current
+    if (!el) return
+    if (stickToBottom.current || firstPaint || (isNew && last?.sender === 'user')) {
+      el.scrollTop = el.scrollHeight
+      stickToBottom.current = true
+    } else if (isNew) {
+      setNewBelow(true)
+    }
+  }, [chatMessages, open])
   // Clicking a "new reply" toast opens this widget.
   useEffect(() => {
     const openChat = () => setOpen(true)
@@ -355,7 +396,7 @@ export function ChatWidget() {
             </div>
             <button onClick={() => setOpen(false)} aria-label="Close chat" style={{ background: C.canvas, border: `1px solid ${C.ash}`, borderRadius: 8, width: 30, height: 30, cursor: 'pointer', fontSize: 15, color: C.ink, lineHeight: 1 }}>×</button>
           </div>
-          <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div ref={scrollRef} onScroll={onScroll} style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
             {chatMessages.length === 0 && <p style={{ fontSize: 13, color: C.graphite, textAlign: 'center', margin: 'auto 0' }}>Send us a message and we will get back to you here.</p>}
             {chatMessages.map(m => (
               <div key={m.id} style={{ alignSelf: m.sender === 'user' ? 'flex-end' : 'flex-start', maxWidth: '82%' }}>
@@ -374,6 +415,12 @@ export function ChatWidget() {
               </div>
             ))}
           </div>
+          {newBelow && (
+            <button onClick={scrollToBottom}
+              style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', bottom: 76, background: C.ink, color: '#fff', border: 'none', borderRadius: 100, padding: '7px 14px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 6px 18px rgba(20,18,14,0.25)' }}>
+              New messages ↓
+            </button>
+          )}
           <div style={{ padding: '12px 14px', borderTop: `1px solid ${C.ash}`, display: 'flex', gap: 8, alignItems: 'flex-end' }}>
             <input ref={fileRef} type="file" accept={CHAT_ACCEPT} onChange={onPickFile} style={{ display: 'none' }} />
             <button onClick={() => fileRef.current?.click()} disabled={sending} aria-label="Attach a file" title="Attach an image or document"
