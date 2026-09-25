@@ -1,4 +1,5 @@
 import mongoose from 'mongoose'
+import type { ServerDescriptionChangedEvent } from 'mongodb'
 import dns from 'node:dns'
 import dnsp from 'node:dns/promises'
 
@@ -61,7 +62,39 @@ declare global {
 const cached = global._mongooseCache ?? { conn: null, promise: null }
 global._mongooseCache = cached
 
+// A replica-set rebuild (e.g. an Atlas tier upgrade) can reset the set's election
+// counter. A long-lived driver still remembers the old, higher value and rejects the
+// new primary forever ("primary marked stale due to electionId/setVersion mismatch"),
+// so every query fails until the process restarts. Seen live after the Flex -> M10
+// upgrade on 2026-09-26. Detect it and reconnect with a fresh client instead.
+const STALE_PRIMARY = /primary marked stale/i
+const RESET_COOLDOWN_MS = 30_000
+let resetting: Promise<void> | null = null
+let lastResetAt = 0
+
+async function resetConnection(reason: string): Promise<void> {
+  if (resetting) return resetting
+  if (Date.now() - lastResetAt < RESET_COOLDOWN_MS) return
+  lastResetAt = Date.now()
+  console.warn(`[db] reconnecting to MongoDB with a fresh client: ${reason.slice(0, 200)}`)
+  cached.conn = null
+  cached.promise = null
+  resetting = mongoose.disconnect().catch(() => {}).finally(() => { resetting = null })
+  return resetting
+}
+
+function watchForStalePrimary(m: typeof mongoose) {
+  const client = m.connection.getClient() as ReturnType<typeof m.connection.getClient> & { _rkStaleWatch?: boolean }
+  if (client._rkStaleWatch) return
+  client._rkStaleWatch = true
+  client.on('serverDescriptionChanged', (ev: ServerDescriptionChangedEvent) => {
+    const msg = ev.newDescription?.error?.message ?? ''
+    if (STALE_PRIMARY.test(msg)) void resetConnection(msg)
+  })
+}
+
 export async function connectDB(): Promise<typeof mongoose> {
+  if (resetting) await resetting
   if (cached.conn) return cached.conn
 
   if (!cached.promise) {
@@ -87,6 +120,7 @@ export async function connectDB(): Promise<typeof mongoose> {
     throw err
   }
 
+  watchForStalePrimary(cached.conn)
   void reconcileTtlIndexes(cached.conn)
   void reconcileRankIndex(cached.conn)
   return cached.conn
