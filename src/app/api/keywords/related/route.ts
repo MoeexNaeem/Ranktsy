@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { memCache, CACHE_TTL } from '@/lib/cache'
 import { getKeywordCore, relatedKey } from '@/lib/keywords'
-import { enrichRelatedCompetition } from '@/lib/etsy'
+import { enrichRelatedCompetition, displayKdRows } from '@/lib/etsy'
 import { googleKeywordMetrics, isGoogleAdsConfigured, normalizeGeo, type GoogleMetricsMeta, type GoogleMetric } from '@/lib/google-ads'
 import { withUsage } from '@/lib/track'
 import type { ApiResponse, KeywordData } from '@/types'
@@ -26,7 +26,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
 
   const key = relatedKey(query, geo)
   const hit = memCache.get<KeywordData[]>(key)
-  if (hit) return NextResponse.json({ success: true, data: hit, cached: true })
+  if (hit) return NextResponse.json({ success: true, data: displayKdRows(hit), cached: true })
 
   try {
     const core = await getKeywordCore(query, geo)
@@ -56,7 +56,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
         rows = withGoogle(await googleKeywordMetrics(rows.map(r => r.keyword), geo, gmeta), rows)
       }
       memCache.set(key, rows, gmeta.failed ? 90 : CACHE_TTL.KEYWORD)
-      return NextResponse.json({ success: true, data: rows, cached: true })
+      return NextResponse.json({ success: true, data: displayKdRows(rows), cached: true })
     }
 
     let related = await enrichRelatedCompetition(core.related)
@@ -69,7 +69,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
     // Etsy competition is expensive to re-measure, so keep it; but a Google failure
     // must not pin "no data" for hours - expire soon so the volume fills in.
     memCache.set(key, related, gmeta.failed ? 90 : CACHE_TTL.KEYWORD)
-    return NextResponse.json({ success: true, data: related, cached: false })
+    return NextResponse.json({ success: true, data: displayKdRows(related), cached: false })
   } catch (e) {
     console.error('[Keywords/related] failed:', e)
     return NextResponse.json({ success: false, error: 'Could not measure related keywords.' }, { status: 502 })

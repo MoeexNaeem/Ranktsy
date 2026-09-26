@@ -1056,6 +1056,46 @@ export function levelForCount(count: number): 'Low' | 'Med' | 'High' {
 export { difficultyScore }
 
 /**
+ * KD AS SHOWN TO USERS: never above 50 (owner's product decision, 2026-09-27).
+ *
+ * difficultyScore() output (the "stored scale": raw up to 50, raw 51-100 squashed
+ * into 51-59) is what lives in every cache and saved package, so it is left alone
+ * and converted ONCE on the way out, in the API routes. Never store the result:
+ * converting an already-converted number would lower it again.
+ *
+ *   stored <= 40  -> shown as is (easy keywords keep their real number)
+ *   stored 41-59  -> spread evenly over 41-50 by the underlying raw score
+ *
+ * Monotonic: a harder keyword never shows a lower KD than an easier one.
+ */
+export const KD_DISPLAY_MAX = 50
+export function displayKd<T extends number | null | undefined>(v: T): T {
+  if (v == null || !Number.isFinite(v)) return v
+  const stored = v as number
+  const raw = stored <= KD_SOFT_FLOOR - 1 ? stored : KD_SOFT_FLOOR + (stored - KD_SOFT_FLOOR) * (100 - KD_SOFT_FLOOR) / (KD_SOFT_CEIL - KD_SOFT_FLOOR)
+  if (raw <= 40) return Math.round(raw) as T
+  return Math.min(KD_DISPLAY_MAX, 41 + Math.round((Math.min(raw, 100) - 41) * 9 / 59)) as T
+}
+
+const kdLabel = (d: number): 'Easy' | 'Medium' | 'Hard' => d < 34 ? 'Easy' : d < 67 ? 'Medium' : 'Hard'
+
+/** A copy of any rows with their `difficulty` converted for display. */
+export function displayKdRows<R extends { difficulty?: number | null }>(rows: R[]): R[] {
+  return rows.map(r => r.difficulty == null ? r : { ...r, difficulty: displayKd(r.difficulty) })
+}
+
+/** A copy of a keyword package with every KD converted for display (input untouched). */
+export function displayKdPackage(d: KeywordSearchResponse): KeywordSearchResponse {
+  const difficulty = displayKd(d.stats.difficulty)
+  return {
+    ...d,
+    stats: { ...d.stats, difficulty, difficultyLabel: kdLabel(difficulty) },
+    related: displayKdRows(d.related ?? []),
+    ...(d.nearMatches ? { nearMatches: displayKdRows(d.nearMatches) } : {}),
+  }
+}
+
+/**
  * Give each related keyword its OWN measured figures, from its own Etsy search.
  *
  * Everything set here is measured: `competition` is the real listing total,

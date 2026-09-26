@@ -3,6 +3,7 @@ import { connectDB } from '@/lib/db'
 import { TrackedKeyword } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
 import { fetchMetrics } from '@/lib/alerts'
+import { displayKd } from '@/lib/etsy'
 
 export const runtime = 'nodejs'
 
@@ -20,7 +21,7 @@ export async function GET() {
     country: r.country,
     volume: r.baseVolume ?? null,
     competition: r.baseCompetition ?? null,
-    difficulty: r.baseDifficulty ?? null,
+    difficulty: displayKd(r.baseDifficulty ?? null),
     lastCheckedAt: r.lastCheckedAt ?? null,
   }))
   return NextResponse.json({ success: true, data: { items, max: MAX_PER_USER } })

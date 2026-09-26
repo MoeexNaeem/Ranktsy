@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { memCache, CACHE_TTL } from '@/lib/cache'
 import { getKeywordCore, nearKey } from '@/lib/keywords'
-import { getNearMatches } from '@/lib/etsy'
+import { getNearMatches, displayKdRows } from '@/lib/etsy'
 import { getCollectivePackage } from '@/lib/collective-read'
 import { withUsage } from '@/lib/track'
 import type { ApiResponse, NearMatch } from '@/types'
@@ -23,7 +23,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Ne
 
   const key = nearKey(query)
   const hit = memCache.get<NearMatch[]>(key)
-  if (hit) return NextResponse.json({ success: true, data: hit, cached: true })
+  if (hit) return NextResponse.json({ success: true, data: displayKdRows(hit), cached: true })
 
   // Shared Collective store first - if the saved package carries near matches,
   // serve them with no Etsy calls. (Near matches are geo-independent; checked
@@ -31,7 +31,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Ne
   const shared = await getCollectivePackage(query, 'US')
   if (shared?.nearMatches?.length) {
     memCache.set(key, shared.nearMatches, CACHE_TTL.KEYWORD)
-    return NextResponse.json({ success: true, data: shared.nearMatches, cached: true })
+    return NextResponse.json({ success: true, data: displayKdRows(shared.nearMatches), cached: true })
   }
 
   try {
@@ -56,7 +56,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Ne
       : matches
 
     memCache.set(key, reconciled, CACHE_TTL.KEYWORD)
-    return NextResponse.json({ success: true, data: reconciled, cached: false })
+    return NextResponse.json({ success: true, data: displayKdRows(reconciled), cached: false })
   } catch (e) {
     console.error('[Keywords/near-matches] failed:', e)
     return NextResponse.json({ success: false, error: 'Could not measure near matches.' }, { status: 502 })

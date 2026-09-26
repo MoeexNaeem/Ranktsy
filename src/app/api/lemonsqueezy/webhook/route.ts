@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
 import { User, Payment } from '@/lib/models'
-import { verifyWebhookSignature } from '@/lib/lemonsqueezy'
+import { verifyWebhookSignature, subscriptionVariantId } from '@/lib/lemonsqueezy'
 import { planForVariant, PLAN_SLUGS, type PlanSlug } from '@/lib/plans'
 import { recordCommission, refundCommission } from '@/lib/affiliate'
 
@@ -29,7 +29,13 @@ export async function POST(req: NextRequest) {
   if (!event.startsWith('subscription')) return NextResponse.json({ received: true })
 
   const userId = custom.user_id ? String(custom.user_id) : undefined
-  const variantId = attrs.variant_id
+  // subscription_payment_* events describe an INVOICE: data.id is the invoice id,
+  // status is the invoice's ('paid'), and there is no variant. The subscription
+  // they belong to is attrs.subscription_id.
+  const isInvoice = event.startsWith('subscription_payment')
+  const lsSubId = isInvoice ? (attrs.subscription_id ? String(attrs.subscription_id) : undefined) : subId
+  let variantId = attrs.variant_id != null ? String(attrs.variant_id) : undefined
+  if (!variantId && isInvoice && lsSubId) variantId = (await subscriptionVariantId(lsSubId)) ?? undefined
   const planFromCustom = typeof custom.plan === 'string' && (PLAN_SLUGS as string[]).includes(custom.plan)
     ? custom.plan as PlanSlug : null
   const plan = planFromCustom ?? planForVariant(variantId)
@@ -44,10 +50,12 @@ export async function POST(req: NextRequest) {
 
     const status = String(attrs.status ?? '')
 
-    if (['subscription_created', 'subscription_updated', 'subscription_resumed', 'subscription_payment_success', 'subscription_unpaused'].includes(event)) {
+    if (['subscription_created', 'subscription_updated', 'subscription_resumed', 'subscription_payment_success', 'subscription_payment_recovered', 'subscription_unpaused'].includes(event)) {
       if (plan) user.plan = plan
-      user.subscriptionStatus = status || 'active'
-      if (subId) user.lsSubscriptionId = subId
+      // A paid invoice means the subscription is active; its own status ('paid')
+      // is not a subscription status and would read as "not active" elsewhere.
+      user.subscriptionStatus = isInvoice ? 'active' : (status || 'active')
+      if (lsSubId) user.lsSubscriptionId = lsSubId
       if (attrs.customer_id) user.lsCustomerId = String(attrs.customer_id)
       if (variantId) user.lsVariantId = String(variantId)
       if (attrs.renews_at) user.planRenewsAt = new Date(attrs.renews_at)
@@ -75,7 +83,7 @@ export async function POST(req: NextRequest) {
       await Payment.findOneAndUpdate(
         { invoiceId: subId },
         {
-          $set: { userId: user._id.toString(), userEmail: user.email, plan: user.plan, amountUsd,
+          $set: { userId: user._id.toString(), userEmail: user.email, plan: plan ?? user.plan, amountUsd,
             currency: attrs.currency ? String(attrs.currency) : 'USD',
             subscriptionId: attrs.subscription_id ? String(attrs.subscription_id) : subId,
             billingReason: attrs.billing_reason ? String(attrs.billing_reason) : '', status: 'paid', paidAt, month },

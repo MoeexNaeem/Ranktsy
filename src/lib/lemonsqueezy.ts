@@ -65,6 +65,28 @@ export async function createCheckoutUrl(a: CheckoutArgs): Promise<string | null>
   return j?.data?.attributes?.url ?? null
 }
 
+/**
+ * The variant a subscription is on, read from Lemon Squeezy. Invoice webhooks
+ * (subscription_payment_*) carry no variant, so this is how a payment that
+ * arrives before its subscription_created event still maps to the right plan.
+ */
+export async function subscriptionVariantId(subscriptionId: string): Promise<string | null> {
+  const key = process.env.LS_API_KEY
+  if (!key) return null
+  try {
+    const res = await fetch(`${API}/subscriptions/${encodeURIComponent(subscriptionId)}`, {
+      headers: { Authorization: `Bearer ${key}`, Accept: 'application/vnd.api+json' },
+      cache: 'no-store',
+    })
+    if (!res.ok) return null
+    const j = await res.json().catch(() => null) as { data?: { attributes?: { variant_id?: number | string } } } | null
+    const v = j?.data?.attributes?.variant_id
+    return v == null ? null : String(v)
+  } catch {
+    return null
+  }
+}
+
 /** Verify the `X-Signature` HMAC-SHA256 of the raw request body. */
 export function verifyWebhookSignature(rawBody: string, signature: string | null): boolean {
   const secret = process.env.LS_WEBHOOK_SECRET

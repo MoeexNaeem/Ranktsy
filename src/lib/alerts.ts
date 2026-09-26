@@ -1,4 +1,5 @@
 import { getKeywordCore } from '@/lib/keywords'
+import { displayKd } from '@/lib/etsy'
 
 // Metrics we watch for a tracked keyword. All come from the normal cache-first keyword
 // pipeline, so a re-check is usually free (served from cache) and only rarely spends API.
@@ -30,7 +31,7 @@ export function describeChange(base: Metrics, cur: Metrics): string[] {
   }
   if (base.difficulty != null && cur.difficulty != null) {
     const d = cur.difficulty - base.difficulty
-    if (Math.abs(d) >= 8) msgs.push(`Keyword difficulty ${d > 0 ? 'rose' : 'dropped'} ${Math.abs(d)} pts (${base.difficulty} to ${cur.difficulty})`)
+    if (Math.abs(d) >= 8) msgs.push(`Keyword difficulty ${d > 0 ? 'rose' : 'dropped'} (${displayKd(base.difficulty)} to ${displayKd(cur.difficulty)})`)
   }
   return msgs
 }
