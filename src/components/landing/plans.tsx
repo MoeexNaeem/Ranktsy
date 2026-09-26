@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { C } from '@/utils'
 import { CHECKOUT_PLANS } from '@/lib/plans'
 import { startCheckout } from '@/lib/checkout'
+import { LOCAL_PLANS, formatPkr } from '@/lib/local-payments'
 import { PLANS, GROUPS, priceOf, noteOf, type Plan, type Cell, type Currency } from './plans-data'
 // NOTE: Plan now also carries optional `expandableHeading` / `expandableFootnote`
 // fields alongside `expandable` - see plans-data.ts. No separate import needed,
@@ -215,6 +216,58 @@ export function PlanCard({ p, cur }: { p: Plan; cur: Currency }) {
   )
 }
 
+/* "Local Payment" card: pay any plan in PKR by bank transfer or JazzCash. Opens
+   /local-payment (login-gated; logged-out visitors log in and come straight back). */
+const LOCAL_ACCENT = '#16A34A'
+export function LocalPaymentCard() {
+  const cheapest = Math.min(...LOCAL_PLANS.map(p => p.pkr))
+  const points = [
+    'Bank transfer (Allied Bank) or JazzCash',
+    'Every plan, Starter to Enterprise, priced in PKR',
+    'Attach your payment screenshot, no card needed',
+    'Plan turns on as soon as we verify (within 24 hours)',
+  ]
+  return (
+    <div style={{
+      flex: '0 0 340px', width: 340, position: 'relative', display: 'flex', flexDirection: 'column',
+      background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 26, overflow: 'hidden',
+      boxShadow: '0 18px 40px -28px rgba(61,62,59,0.25)',
+    }}>
+      <div style={{ height: 6, background: LOCAL_ACCENT }} />
+      <div style={{ padding: '30px 30px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+        <span style={{ position: 'absolute', top: 16, right: 18, background: LOCAL_ACCENT, color: '#fff', fontSize: 10, fontWeight: 700, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '5px 11px', borderRadius: 100 }}>
+          Pakistan
+        </span>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: LOCAL_ACCENT }} />
+          <h3 style={{ fontSize: 13, fontWeight: 600, color: LOCAL_ACCENT, letterSpacing: '0.09em', textTransform: 'uppercase', fontFamily: MONO }}>Local Payment</h3>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '2px 6px', marginBottom: 8 }}>
+          <span style={{ fontSize: 15, color: C.graphite }}>from</span>
+          <span style={{ fontSize: 40, fontWeight: 600, color: C.ink, letterSpacing: '-0.035em', lineHeight: 1 }}>{formatPkr(cheapest)}</span>
+          <span style={{ fontSize: 14, color: C.graphite }}>/ month</span>
+        </div>
+        <p style={{ fontSize: 14.5, color: C.graphite, lineHeight: 1.5, marginBottom: 24, minHeight: 42 }}>
+          Card payment not working? Pay for any plan in Pakistani Rupees.
+        </p>
+        <Link href="/local-payment" style={{
+          display: 'block', width: '100%', boxSizing: 'border-box', textAlign: 'center', textDecoration: 'none',
+          padding: '13px 18px', borderRadius: 100, fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em',
+          marginBottom: 26, background: LOCAL_ACCENT, color: '#fff', border: `1px solid ${LOCAL_ACCENT}`,
+        }}>Pay locally</Link>
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 13 }}>
+          {points.map(f => (
+            <li key={f} style={{ display: 'flex', gap: 11, fontSize: 14.5, color: C.ink, lineHeight: 1.4 }}>
+              <Check color={LOCAL_ACCENT} />
+              <span>{f}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  )
+}
+
 /* Circular scroll arrow. */
 function Arrow({ dir, onClick, side }: { dir: 'prev' | 'next'; onClick: () => void; side: number }) {
   return (
@@ -272,6 +325,8 @@ export function PlanScroller({ fade }: { fade: string }) {
           whenever the Pro · 1-Year card's "bonus details" were expanded. */}
       <div ref={track} className="plan-track" style={{ display: 'flex', alignItems: 'flex-start' }}>
         {PLANS.map(p => <PlanCard key={p.name} p={p} cur={cur} />)}
+        {/* Last, so the row still opens centred on the popular plan. */}
+        <LocalPaymentCard />
       </div>
       <div className="plan-fade plan-fade-l" aria-hidden />
       <div className="plan-fade plan-fade-r" aria-hidden />

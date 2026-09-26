@@ -15,6 +15,7 @@ import { DashboardLoader } from './DashboardLoader'
 import { DashboardTour } from './DashboardTour'
 import { RealtimeProvider, NotificationBell, NotifNavBadge, ChatWidget } from './Realtime'
 import { OnboardingChecklist } from './OnboardingChecklist'
+import { PlanExpiredModal, type ExpiredPlan } from './PlanExpiredModal'
 import { TabLink } from './TabLink'
 
 const KeywordsTab      = dynamic(() => import('./tabs/KeywordsTab').then(m => ({ default: m.KeywordsTab })), { ssr: false })
@@ -189,8 +190,10 @@ export function DashboardLayout() {
   const credits = useCredits()
   // Current plan, read fresh from the DB (not the possibly-stale JWT).
   const [planInfo, setPlanInfo] = useState<{ plan: string; label: string; sebtStudent?: boolean } | null>(null)
+  // Set when a local-payment / admin-granted plan just ran out (one-time popup).
+  const [expiredPlan, setExpiredPlan] = useState<ExpiredPlan | null>(null)
   useEffect(() => {
-    fetch('/api/plan').then(r => (r.ok ? r.json() : null)).then(d => { if (d?.success) setPlanInfo({ plan: d.plan, label: d.label, sebtStudent: !!d.sebtStudent }) }).catch(() => {})
+    fetch('/api/plan').then(r => (r.ok ? r.json() : null)).then(d => { if (d?.success) { setPlanInfo({ plan: d.plan, label: d.label, sebtStudent: !!d.sebtStudent }); if (d.expired) setExpiredPlan(d.expired) } }).catch(() => {})
   }, [])
   const handleTab = useCallback((id: TabId) => { setActiveTab(id); setNavOpen(false); writeTabToUrl(id, 'push') }, [])
   // Google Ads management is gated (admins/beta until Google verifies the adwords scope).
@@ -440,6 +443,7 @@ export function DashboardLayout() {
         </div>
       </main>
       <UpgradeModalHost />
+      {expiredPlan && <PlanExpiredModal expired={expiredPlan} onClose={() => setExpiredPlan(null)} />}
       <DashboardTour />
       <ChatWidget />
     </div>

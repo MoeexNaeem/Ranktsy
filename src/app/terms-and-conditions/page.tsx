@@ -28,7 +28,7 @@ const sections: Section[] = [
     paras: [
       'This website is owned and operated by Rankkw (hereinafter and throughout this website referred to as “we”, “us” and “our”). Our registered office is at Leaving Dol Beauty Salone, College Road, Bahawalpur, Punjab, Pakistan. Our principal place of business is located at Leaving Dol Beauty Salone, College Road, Bahawalpur, Punjab, Pakistan.',
       'We offer this website, including all information, tools, products and services available from this website to you, the user, conditioned upon your acceptance of all terms, conditions, policies and notices stated here.',
-      'If you have any problems using our website, or require support after placing an order through our website, please contact us by phone at +92 329 7890000 or by email at support@rankkw.com.',
+      'If you have any problems using our website, or require support after placing an order through our website, please contact us by phone at +92 345 8181216 or by email at support@rankkw.com.',
     ],
   },
   {

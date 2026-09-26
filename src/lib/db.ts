@@ -2,6 +2,7 @@ import mongoose from 'mongoose'
 import type { ServerDescriptionChangedEvent } from 'mongodb'
 import dns from 'node:dns'
 import dnsp from 'node:dns/promises'
+import { SNAPSHOT_RETENTION_DAYS } from '@/utils'
 
 const MONGODB_URI = process.env.MONGODB_URI!
 
@@ -170,5 +171,25 @@ async function reconcileTtlIndexes(conn: typeof mongoose): Promise<void> {
     try {
       await db.command({ collMod: coll, index: { keyPattern: { createdAt: 1 }, expireAfterSeconds: seconds } })
     } catch { /* index/collection not present yet, or command unsupported - ignore */ }
+  }
+
+  // History retention (SNAPSHOT_RETENTION_DAYS). Same reason as above: Mongoose never
+  // alters an existing index, so a changed retention only reaches the database here.
+  // trackedlistings' lastSeenAt index was created without a TTL; collMod converts it.
+  const snapSeconds = SNAPSHOT_RETENTION_DAYS * 86400
+  const snapshotTtls: [string, Record<string, number>][] = [
+    ['listingsnapshots', { capturedAt: 1 }],
+    ['shopsnapshots', { capturedAt: 1 }],
+    ['searchranksnapshots', { capturedAt: 1 }],
+    ['keywordmarketsnapshots', { capturedAt: 1 }],
+    ['keywordsuggestions', { lastSeenAt: 1 }],
+    ['trackedlistings', { lastSeenAt: -1 }],
+  ]
+  for (const [coll, keyPattern] of snapshotTtls) {
+    try {
+      await db.command({ collMod: coll, index: { keyPattern, expireAfterSeconds: snapSeconds } })
+    } catch (e) {
+      console.warn(`[db] could not set ${SNAPSHOT_RETENTION_DAYS}-day retention on ${coll}:`, e instanceof Error ? e.message : e)
+    }
   }
 }

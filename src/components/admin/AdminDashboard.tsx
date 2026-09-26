@@ -14,6 +14,7 @@ import { AdminSavedKeywords } from './AdminSavedKeywords'
 import { AdminSebtSettings, ADMIN_STATS_REFRESH } from '@/components/admin/AdminSebtSettings'
 import { AdminSebtStudents } from './AdminSebtStudents'
 import { AdminEarnings } from './AdminEarnings'
+import { AdminLocalPayments } from './AdminLocalPayments'
 import { CodeFlow } from './CodeFlow'
 import { RealtimeProvider, NotificationBell } from '@/components/dashboard/Realtime'
 import { copyWithToast, toast } from '@/components/ui/toast'
@@ -108,12 +109,13 @@ const selectStyle: React.CSSProperties = {
   fontSize: 12.5, fontFamily: MONO, color: C.ink, outline: 'none', cursor: 'pointer', width: '100%', minWidth: 0,
 }
 
-type Section = 'overview' | 'users' | 'analytics' | 'earnings' | 'keywords' | 'sebt' | 'extension' | 'affiliates' | 'messages' | 'codeflow' | 'content' | 'settings'
+type Section = 'overview' | 'users' | 'analytics' | 'earnings' | 'localpayments' | 'keywords' | 'sebt' | 'extension' | 'affiliates' | 'messages' | 'codeflow' | 'content' | 'settings'
 const NAV: { id: Section; label: string; icon: string }[] = [
   { id: 'overview',  label: 'Overview',  icon: ICON.home },
   { id: 'users',     label: 'Users',     icon: ICON.account },
   { id: 'analytics', label: 'Analytics', icon: ICON.coins },
   { id: 'earnings',  label: 'Earnings',  icon: ICON.addCard },
+  { id: 'localpayments', label: 'Local Payments', icon: ICON.coins },
   { id: 'keywords',  label: 'Saved Keywords', icon: ICON.search },
   { id: 'sebt',      label: 'SEBT Students', icon: ICON.consult },
   { id: 'extension', label: 'Extension', icon: ICON.display },
@@ -139,6 +141,14 @@ export function AdminDashboard() {
   const [msgUnread, setMsgUnread] = useState(0)
   const [state, setState] = useState<'loading' | 'ok' | 'forbidden' | 'error'>('loading')
   const [section, setSection] = useState<Section>('overview')
+  const [localPending, setLocalPending] = useState(0)
+  // ?section=<id> opens a tab directly (e.g. the "new local payment" notification).
+  // Read after mount so the server and first client render agree.
+  useEffect(() => {
+    const s = new URLSearchParams(window.location.search).get('section')
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (s && NAV.some(n => n.id === s)) setSection(s as Section)
+  }, [])
   const [detailUserId, setDetailUserId] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState('')
@@ -227,6 +237,15 @@ export function AdminDashboard() {
     window.addEventListener(ADMIN_STATS_REFRESH, onRefresh)
     return () => window.removeEventListener(ADMIN_STATS_REFRESH, onRefresh)
   }, [load, loadUsers, usersPage, debouncedQuery])
+
+  // Local Payments nav badge: payments waiting for verification.
+  useEffect(() => {
+    let alive = true
+    const poll = () => fetch('/api/admin/local-payments?countsOnly=1').then(r => r.json()).then(d => { if (alive && d?.success) setLocalPending(d.data.counts.pending) }).catch(() => {})
+    poll()
+    const t = setInterval(poll, 60000)
+    return () => { alive = false; clearInterval(t) }
+  }, [section])
 
   // Keep the Messages nav badge current: poll the unread support-message count.
   useEffect(() => {
@@ -345,6 +364,9 @@ export function AdminDashboard() {
         onMouseLeave={e => { if (!on) e.currentTarget.style.background = 'transparent' }}>
         <AnimIcon src={item.icon} size={22} color={on ? C.orange : '#6E6E64'} active={on} />
         {item.label}
+        {item.id === 'localpayments' && localPending > 0 && (
+          <span style={{ marginLeft: 'auto', background: '#16A34A', color: '#fff', fontSize: 10.5, fontWeight: 700, fontFamily: MONO, borderRadius: 100, padding: '1px 7px', minWidth: 18, textAlign: 'center' }}>{localPending}</span>
+        )}
         {item.id === 'messages' && msgUnread > 0 && (
           <span style={{ marginLeft: 'auto', background: C.orange, color: '#fff', fontSize: 10.5, fontWeight: 700, fontFamily: MONO, borderRadius: 100, padding: '1px 7px', minWidth: 18, textAlign: 'center' }}>{msgUnread}</span>
         )}
@@ -665,6 +687,7 @@ export function AdminDashboard() {
           )}
 
           {section === 'earnings' && <AdminEarnings />}
+          {section === 'localpayments' && <AdminLocalPayments />}
           {section === 'keywords' && <AdminSavedKeywords />}
           {section === 'sebt' && <AdminSebtStudents />}
           {section === 'affiliates' && <AdminAffiliates />}

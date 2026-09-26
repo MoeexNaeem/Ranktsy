@@ -8,7 +8,7 @@ import { normalizeGeo } from '@/lib/google-ads'
 import { getCurrentUser } from '@/lib/auth/session'
 import { guardSearch } from '@/lib/searchGate'
 import { consumeDailySearch, peekDailySearch } from '@/lib/quota'
-import { canAfford, consumeCredits, recordCharge, CREDIT_COST } from '@/lib/credits'
+import { canAfford, consumeCredits, recordCharge, CREDIT_COST, alreadyPaidToday, claimPaidToday } from '@/lib/credits'
 import { PLAN_LABELS } from '@/lib/plans'
 import { withUsage } from '@/lib/track'
 import { recordSearch, recordCacheHit, recordApiHit, peekApiCalls } from '@/lib/usage'
@@ -44,7 +44,11 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
   // an upstream failure never costs the user anything: the per-plan searches/day
   // cap, and CREDIT_COST credits (same flat price as every other metered tool).
   const authUser = await getCurrentUser().catch(() => null)
-  if (authUser) {
+  // Paid once per keyword per day: the page re-runs the search whenever it opens or
+  // is refreshed, and that must not charge again (or be blocked by an empty balance).
+  const paidKey = `keywords|${geo}|${query}`
+  const paidAlready = authUser ? (await connectDB(), await alreadyPaidToday(authUser.id, paidKey)) : false
+  if (authUser && !paidAlready) {
     await connectDB()
     const q = await peekDailySearch(authUser.id)
     if (q && !q.allowed) {
@@ -146,13 +150,16 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
     // Charged here because this is the last point the server can be certain the
     // answer is good; if the client then fails to receive or render it, it calls
     // /api/credits/refund and recordCharge is what lets that be reversed.
-    const [counted, charged] = authUser && usable
+    // Only the first delivery of this keyword today is charged (claimPaidToday is
+    // atomic, so two identical requests racing cannot both charge).
+    const firstToday = authUser && usable && !paidAlready ? await claimPaidToday(authUser.id, paidKey) : false
+    const [counted, charged] = authUser && firstToday
       ? await Promise.all([
           consumeDailySearch(authUser.id).catch(() => null),
           consumeCredits(authUser.id, CREDIT_COST).catch(() => null),
         ])
       : [null, null]
-    if (authUser && usable) {
+    if (authUser && firstToday) {
       await recordCharge(authUser.id, 'keywords', charged?.allowed ? CREDIT_COST : 0, !!counted?.allowed)
     }
 

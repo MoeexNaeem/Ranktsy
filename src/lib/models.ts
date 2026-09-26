@@ -28,6 +28,11 @@ export interface IUserDoc extends Document {
   // purchase. On/after this date the user auto-reverts to 'free'. Null for
   // real paid subscriptions (those expire via the webhook + planRenewsAt).
   compExpiresAt?: Date | null
+  // Set when a comp/local-payment plan runs out and the user drops to 'free', so the
+  // dashboard can show a one-time "your plan expired" popup (cleared on dismiss).
+  lastExpiredPlan?: string | null
+  planExpiredAt?: Date | null
+  planExpiryNoticeSeen?: boolean
   // SEBT NEXT education cohort: set when a student signs up via the SEBT link
   // (?cohort=sebt). Grants the Agency plan free for 7 days (via compExpiresAt)
   // and drives the "SEBT Student" / "SEBT NEXT Agency Plan" labels in the UI.
@@ -82,6 +87,9 @@ const UserSchema = new Schema<IUserDoc>({
   subscriptionStatus:{ type: String },
   planRenewsAt:      { type: Date },
   compExpiresAt:     { type: Date, default: null },
+  lastExpiredPlan:   { type: String, default: null },
+  planExpiredAt:     { type: Date, default: null },
+  planExpiryNoticeSeen: { type: Boolean, default: true },
   sebtStudent:       { type: Boolean, default: false },
   lastCharge:        { type: new Schema({
     tool:          { type: String, required: true },
@@ -345,7 +353,9 @@ const TrackedListingSchema = new Schema<ITrackedListing>({
   firstSeenAt:  { type: Date, default: Date.now },
 }, { timestamps: true })
 
-TrackedListingSchema.index({ lastSeenAt: -1 })
+// Listings nobody has seen for the retention period drop off the watchlist; their
+// snapshots have expired by then too, so no screen could show anything for them.
+TrackedListingSchema.index({ lastSeenAt: -1 }, { expireAfterSeconds: SNAPSHOT_TTL_SECONDS })
 
 // ─── Search rank snapshot ──────────────────────────────────────────────────────
 // WHERE a listing ranked for a keyword on a given day.
@@ -744,6 +754,64 @@ const ChatAttachmentSchema = new Schema<IChatAttachmentDoc>({
   data:        { type: String, required: true },
 }, { timestamps: true })
 
+// ─── Paid lookups (charge a user once per keyword per day) ────────────────────
+// Keyword Search runs automatically when its page opens (and again after a refresh),
+// which used to charge 10 credits + 1 search every time for the same keyword. One row
+// per (user, tool key, UTC day) marks it paid; repeats that day are free. The unique
+// index makes the "first one pays" check atomic across PM2 workers.
+export interface IPaidLookupDoc extends Document { userId: string; key: string; day: string; createdAt: Date }
+const PaidLookupSchema = new Schema<IPaidLookupDoc>({
+  userId: { type: String, required: true },
+  key:    { type: String, required: true },
+  day:    { type: String, required: true },   // YYYY-MM-DD (UTC), the credits day
+}, { timestamps: { createdAt: true, updatedAt: false } })
+PaidLookupSchema.index({ userId: 1, key: 1, day: 1 }, { unique: true })
+PaidLookupSchema.index({ createdAt: 1 }, { expireAfterSeconds: 3 * 86400 })
+
+// ─── Local payment (bank / JazzCash, verified by an admin) ────────────────────
+// One row per payment a user submits from /local-payment. The proof screenshot is
+// stored inline (base64, <= 4 MB) and excluded from normal reads (select: false), so
+// admin lists stay light. See lib/local-payments.ts for prices and accounts.
+export interface ILocalPaymentDoc extends Document {
+  userId: string
+  userName: string
+  userEmail: string
+  plan: string
+  method: 'bank' | 'jazzcash'
+  amountPkr: number
+  reference?: string | null
+  proof?: { name: string; contentType: string; size: number; data: string } | null
+  hasProof: boolean
+  status: 'pending' | 'approved' | 'rejected'
+  adminNote?: string | null
+  grantedPlan?: string | null
+  grantedUntil?: Date | null
+  reviewedAt?: Date | null
+  reviewedBy?: string | null
+  createdAt: Date
+  updatedAt: Date
+}
+const LocalPaymentSchema = new Schema<ILocalPaymentDoc>({
+  userId:       { type: String, required: true, index: true },
+  userName:     { type: String, default: '' },
+  userEmail:    { type: String, required: true, lowercase: true, trim: true },
+  plan:         { type: String, required: true },
+  method:       { type: String, enum: ['bank', 'jazzcash'], required: true },
+  amountPkr:    { type: Number, required: true },
+  reference:    { type: String, default: null, maxlength: 200 },
+  proof:        { type: new Schema({
+    name: String, contentType: String, size: Number, data: String,
+  }, { _id: false }), default: null, select: false },
+  hasProof:     { type: Boolean, default: false },
+  status:       { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending', index: true },
+  adminNote:    { type: String, default: null, maxlength: 500 },
+  grantedPlan:  { type: String, default: null },
+  grantedUntil: { type: Date, default: null },
+  reviewedAt:   { type: Date, default: null },
+  reviewedBy:   { type: String, default: null },
+}, { timestamps: true })
+LocalPaymentSchema.index({ status: 1, createdAt: -1 })
+
 // ─── Keyword alerts ─────────────────────────────────────────────────────────────
 // A keyword a user is watching. We store the last-seen metrics as a baseline; a cron
 // re-checks periodically and raises a notification when they move enough.
@@ -901,6 +969,8 @@ export const GoogleAdsConnection = (models.GoogleAdsConnection as mongoose.Model
 export const EtsyCache = (models.EtsyCache as mongoose.Model<IEtsyCacheDoc>) ?? model<IEtsyCacheDoc>('EtsyCache', EtsyCacheSchema)
 export const GoogleAdsCache = (models.GoogleAdsCache as mongoose.Model<IGoogleAdsCacheDoc>) ?? model<IGoogleAdsCacheDoc>('GoogleAdsCache', GoogleAdsCacheSchema)
 export const AppSetting     = (models.AppSetting as mongoose.Model<IAppSetting>) ?? model<IAppSetting>('AppSetting', AppSettingSchema)
+export const PaidLookup     = (models.PaidLookup as mongoose.Model<IPaidLookupDoc>) ?? model<IPaidLookupDoc>('PaidLookup', PaidLookupSchema)
+export const LocalPayment   = (models.LocalPayment as mongoose.Model<ILocalPaymentDoc>) ?? model<ILocalPaymentDoc>('LocalPayment', LocalPaymentSchema)
 export const ShopSnapshot    = models.ShopSnapshot    ?? model<IShopSnapshot>('ShopSnapshot', ShopSnapshotSchema)
 export const ListingSnapshot = models.ListingSnapshot ?? model<IListingSnapshot>('ListingSnapshot', ListingSnapshotSchema)
 export const TrackedShop     = models.TrackedShop     ?? model<ITrackedShop>('TrackedShop', TrackedShopSchema)

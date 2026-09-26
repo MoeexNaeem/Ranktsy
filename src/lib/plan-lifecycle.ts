@@ -35,7 +35,14 @@ export async function reconcileUserPlan(user: IUserDoc): Promise<boolean> {
   let changed = false
 
   if (user.compExpiresAt && now > new Date(user.compExpiresAt).getTime() && !paidActive(status)) {
-    if (user.plan !== 'free') { user.plan = 'free'; changed = true }
+    if (user.plan !== 'free') {
+      // Remember what ran out, for the dashboard's one-time "plan expired" popup.
+      user.lastExpiredPlan = user.plan
+      user.planExpiredAt = user.compExpiresAt
+      user.planExpiryNoticeSeen = false
+      user.plan = 'free'
+      changed = true
+    }
     if (user.compExpiresAt != null) { user.compExpiresAt = null; changed = true }
   } else if (user.plan !== 'free' && !user.lsSubscriptionId && !user.compExpiresAt && !status) {
     // Non-free, no paid sub, no status, no expiry → an admin gift with no clock.
@@ -61,9 +68,17 @@ export async function backfillCompExpiries(): Promise<number> {
 /** Downgrade every comp grant whose expiry has passed (skips active paid subs). */
 export async function reconcileExpiredComps(): Promise<number> {
   await connectDB()
+  // Pipeline update so the expired plan and date are copied before being cleared
+  // (they drive the dashboard's one-time "plan expired" popup).
   const r = await User.updateMany(
     { compExpiresAt: { $ne: null, $lte: new Date() }, subscriptionStatus: { $nin: ['active', 'on_trial'] } },
-    { $set: { plan: 'free', compExpiresAt: null } },
+    [{ $set: {
+      lastExpiredPlan: { $cond: [{ $ne: ['$plan', 'free'] }, '$plan', '$lastExpiredPlan'] },
+      planExpiredAt: { $cond: [{ $ne: ['$plan', 'free'] }, '$compExpiresAt', '$planExpiredAt'] },
+      planExpiryNoticeSeen: { $cond: [{ $ne: ['$plan', 'free'] }, false, '$planExpiryNoticeSeen'] },
+      plan: 'free',
+      compExpiresAt: null,
+    } }],
   )
   return r.modifiedCount ?? 0
 }

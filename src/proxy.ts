@@ -6,7 +6,7 @@ import { ACCESS_TOKEN_NAME, REFRESH_TOKEN_NAME } from '@/lib/auth/cookies'
 // a request completes: it login-gates the API surface and redirects auth/protected
 // pages.
 
-const PROTECTED = ['/dashboard', '/profile', '/admin']
+const PROTECTED = ['/dashboard', '/profile', '/admin', '/local-payment']
 const AUTH_ONLY = ['/login', '/register', '/forgot-password', '/reset-password'] // redirect if already logged in
 
 /**
@@ -87,6 +87,7 @@ export const config = {
     '/dashboard/:path*',
     '/profile/:path*',
     '/admin/:path*',
+    '/local-payment/:path*',
     '/login',
     '/register',
     '/forgot-password',

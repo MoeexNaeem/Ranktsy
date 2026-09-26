@@ -60,7 +60,10 @@ export function buildAdsAuthorizeUrl(reqUrl: string, state: string): string {
     response_type: 'code',
     scope:         ADS_SCOPES.join(' '),
     access_type:   'offline',
-    prompt:        'consent',          // always return a refresh token
+    // select_account: always show Google's account chooser (otherwise Google silently
+    // uses whichever login the browser has, often not the one that owns the ads);
+    // consent: always return a refresh token.
+    prompt:        'select_account consent',
     include_granted_scopes: 'true',
     state,
   })

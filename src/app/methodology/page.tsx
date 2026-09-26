@@ -189,9 +189,9 @@ export default function MethodologyPage() {
               &ldquo;tracking started&rdquo; rather than a misleading zero.
             </p>
             <p style={{ fontSize: 15.5, color: C.graphite, lineHeight: 1.65 }}>
-              Snapshots are capped at <strong>{SNAPSHOT_RETENTION_DAYS} days</strong> (~13 months - a full year of
-              seasonality plus a same-month-last-year comparison) and are deleted automatically by the database after
-              that. Sellers can stop tracking a shop at any time.
+              Snapshots are capped at <strong>{SNAPSHOT_RETENTION_DAYS} days</strong> (about five months, longer than
+              any history window shown in Rankkw) and are deleted automatically by the database after that. Sellers
+              can stop tracking a shop at any time.
             </p>
           </Section>
 

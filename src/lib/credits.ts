@@ -1,4 +1,4 @@
-import { User } from './models'
+import { User, PaidLookup } from './models'
 import { effectivePlan, type PlanSlug } from './plans'
 
 /**
@@ -171,4 +171,31 @@ export async function consumeCredits(userId: string, cost = CREDIT_COST): Promis
   user.creditsUsedTotal = (user.creditsUsedTotal ?? 0) + cost
   await user.save()
   return { allowed: true, credits: limit - (used + cost), limit, usedToday: used + cost, plan }
+}
+
+// ─── Pay once per lookup per day ────────────────────────────────────────────────
+// Credits reset each UTC day; so does this. `key` identifies the result (e.g.
+// "keywords|GLO|silver necklace"): re-opening the same result that day is free.
+const paidDay = () => new Date().toISOString().slice(0, 10)
+
+/** Has this user already paid for `key` today? (Read-only.) */
+export async function alreadyPaidToday(userId: string, key: string): Promise<boolean> {
+  try {
+    return !!(await PaidLookup.exists({ userId, key, day: paidDay() }))
+  } catch { return false }
+}
+
+/**
+ * Record that the user is paying for `key` today. Returns true only for the FIRST
+ * call of the day (the caller should charge); false if it was already paid, which
+ * also covers two identical requests racing (the unique index lets only one win).
+ */
+export async function claimPaidToday(userId: string, key: string): Promise<boolean> {
+  try {
+    await PaidLookup.create({ userId, key, day: paidDay() })
+    return true
+  } catch (e) {
+    if ((e as { code?: number })?.code === 11000) return false
+    return true   // bookkeeping failed for another reason: charge as before
+  }
 }

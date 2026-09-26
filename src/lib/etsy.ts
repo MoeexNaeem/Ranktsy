@@ -13,7 +13,8 @@
 import { recordShopSnapshots, recordListingSnapshots, recordShopSnapshot, getKeywordTrendsBatch } from '@/lib/snapshots'
 import { recordEtsyCall } from '@/lib/usage'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
-import { etsyCacheGet, etsyCacheSetMany } from '@/lib/etsy-cache'
+import { etsyCacheGet, etsyCacheSet, etsyCacheSetMany } from '@/lib/etsy-cache'
+import { singleFlight } from '@/lib/concurrency'
 import type {
   EtsyListing, EtsyShop, KeywordData,
   KeywordSearchResponse, TrendData, CountryData,
@@ -1002,28 +1003,45 @@ export async function keywordCount(keyword: string): Promise<number | null> {
  * - and it's what lets related keywords carry their OWN measured views and
  * favourites instead of the parent query's numbers scaled by a made-up factor.
  */
-async function keywordFacts(keyword: string): Promise<{
+type KeywordFacts = {
   count: number; avgViews: number; avgFavorites: number; favPerView: number; byMonth: number[]; listingIds: number[]
-} | null> {
-  try {
-    const { listings, count } = await searchEtsyListingsPaged(keyword, 20, 0, { skipImages: true })
-    if (!listings.length) {
-      return { count, avgViews: 0, avgFavorites: 0, favPerView: 0, byMonth: [], listingIds: [] }
+}
+
+// Each keyword's facts are shared by every search that lists it as related: 79% of
+// related-keyword probes were for a keyword another search had just measured
+// (68,378 probes vs 14,505 distinct keywords in 24h). Cached in the shared Etsy
+// cache (all workers) for the keyword TTL, inside Etsy's 6h listing-cache limit.
+const factsKey = (keyword: string) => `kwfacts:v1:${keyword.toLowerCase().trim()}`
+
+async function keywordFacts(keyword: string): Promise<KeywordFacts | null> {
+  const key = factsKey(keyword)
+  const hit = await etsyCacheGet<KeywordFacts>(key)
+  if (hit) return hit
+  return singleFlight(key, async () => {
+    try {
+      const { listings, count } = await searchEtsyListingsPaged(keyword, 20, 0, { skipImages: true })
+      let facts: KeywordFacts
+      if (!listings.length) {
+        facts = { count, avgViews: 0, avgFavorites: 0, favPerView: 0, byMonth: [], listingIds: [] }
+      } else {
+        const v = listings.reduce((s, l) => s + (l.views ?? 0), 0)
+        const f = listings.reduce((s, l) => s + (l.num_favorers ?? 0), 0)
+        facts = {
+          count,
+          avgViews: Math.round(v / listings.length),
+          avgFavorites: Math.round(f / listings.length),
+          favPerView: parseFloat((f / Math.max(v, 1) * 100).toFixed(1)),
+          byMonth: listingsByMonth(listings),
+          listingIds: listings.map(l => l.listing_id).filter(Boolean),
+        }
+      }
+      etsyCacheSet(key, facts, CACHE_TTL.KEYWORD)
+      return facts
+    } catch (e) {
+      console.error(`[Etsy] facts probe "${keyword}" failed:`, e)
+      return null   // failures are never cached
     }
-    const v = listings.reduce((s, l) => s + (l.views ?? 0), 0)
-    const f = listings.reduce((s, l) => s + (l.num_favorers ?? 0), 0)
-    return {
-      count,
-      avgViews: Math.round(v / listings.length),
-      avgFavorites: Math.round(f / listings.length),
-      favPerView: parseFloat((f / Math.max(v, 1) * 100).toFixed(1)),
-      byMonth: listingsByMonth(listings),
-      listingIds: listings.map(l => l.listing_id).filter(Boolean),
-    }
-  } catch (e) {
-    console.error(`[Etsy] facts probe "${keyword}" failed:`, e)
-    return null
-  }
+  })
 }
 
 /**

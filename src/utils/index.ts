@@ -6,7 +6,10 @@
  * index in lib/models reads this, so the number the public page states and the
  * number the database enforces cannot drift apart.
  */
-export const SNAPSHOT_RETENTION_DAYS = 400
+// 150 = the longest window any screen reads (120 days: velocity batch; 90 for velocity,
+// change log, market activity, rank history) plus a 30-day margin. Set 2026-09-26
+// (was 400, which kept ~280 days no feature showed while the dataset grew ~6 GB/month).
+export const SNAPSHOT_RETENTION_DAYS = 150
 
 export const C = {
   // ── Brand palette - ONLY orange #FB5E09, dark #3D3E3B, parchment #F5F5EB ─
