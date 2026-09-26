@@ -268,6 +268,83 @@ export function LocalPaymentCard() {
   )
 }
 
+/* Wide "Pay locally" banner shown under the plan cards on the landing page: the same
+   PKR option as the Local Payment card, spelled out as three steps. */
+export function LocalPaymentBanner() {
+  const cheapest = Math.min(...LOCAL_PLANS.map(p => p.pkr))
+  const steps = [
+    { n: 1, title: 'Choose your plan', sub: 'Starter to Enterprise, priced in PKR' },
+    { n: 2, title: 'Send the payment', sub: 'Allied Bank transfer or JazzCash' },
+    { n: 3, title: 'Upload the screenshot', sub: 'Your plan is active within 24 hours' },
+  ]
+  return (
+    <div style={{
+      maxWidth: 1180, margin: '44px auto 0', background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 26,
+      overflow: 'hidden', boxShadow: '0 18px 40px -28px rgba(61,62,59,0.25)',
+    }}>
+      {/* Steps sit on one dashed line on wide screens and stack on phones. */}
+      <style>{`
+        .rk-lp-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 22px 40px; }
+        .rk-lp-steps { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+        .rk-lp-steps::before { content: ''; position: absolute; top: 18px; left: 16.6%; right: 16.6%; border-top: 2px dashed ${LOCAL_ACCENT}55; }
+        .rk-lp-step { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; }
+        @media (max-width: 720px) {
+          .rk-lp-steps { grid-template-columns: 1fr; gap: 14px; }
+          .rk-lp-steps::before { display: none; }
+          .rk-lp-step { flex-direction: row; align-items: flex-start; text-align: left; gap: 14px; }
+        }
+      `}</style>
+      <div style={{ height: 6, background: LOCAL_ACCENT }} />
+      <div style={{ padding: 'clamp(22px,3vw,34px) clamp(20px,3.4vw,42px)' }}>
+        {/* Top: who / what on the left, the action on the right */}
+        <div className="rk-lp-top">
+          <div style={{ flex: '1 1 420px', minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
+              <img src="/payments/jazzcash.png" alt="JazzCash" width={44} height={36} style={{ width: 44, height: 36, objectFit: 'contain' }} />
+              <img src="/payments/allied-bank.png" alt="Allied Bank" width={50} height={32} style={{ width: 50, height: 32, objectFit: 'contain' }} />
+              <span style={{ background: LOCAL_ACCENT, color: '#fff', fontSize: 10, fontWeight: 700, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '5px 11px', borderRadius: 100 }}>Pakistan</span>
+            </div>
+            <h3 style={{ fontSize: 'clamp(22px,2.4vw,30px)', fontWeight: 600, color: C.ink, letterSpacing: '-0.03em', lineHeight: 1.15, marginBottom: 8 }}>
+              Pay in Pakistani Rupees
+            </h3>
+            <p style={{ fontSize: 15.5, color: C.graphite, lineHeight: 1.55, maxWidth: 560 }}>
+              Card payment not working? Pay for any plan by bank transfer or JazzCash, from{' '}
+              <strong style={{ color: C.ink }}>{formatPkr(cheapest)} / month</strong>. No card needed.
+            </p>
+          </div>
+          <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <Link href="/local-payment" style={{
+              display: 'block', textAlign: 'center', textDecoration: 'none', padding: '15px 34px', borderRadius: 100,
+              fontSize: 16, fontWeight: 700, background: LOCAL_ACCENT, color: '#fff', border: `1px solid ${LOCAL_ACCENT}`,
+              boxShadow: `0 12px 26px -14px ${LOCAL_ACCENT}`,
+            }}>Pay locally →</Link>
+            <span style={{ fontSize: 12.5, color: C.stone }}>Bank transfer or JazzCash</span>
+          </div>
+        </div>
+
+        {/* Bottom: how it works, full width */}
+        <div style={{ borderTop: `1px solid ${C.hair}`, marginTop: 26, paddingTop: 26 }}>
+          <ol className="rk-lp-steps" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+            {steps.map(st => (
+              <li key={st.n} className="rk-lp-step">
+                <span style={{
+                  position: 'relative', zIndex: 1, width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
+                  background: C.paper, border: `2px solid ${LOCAL_ACCENT}`, color: LOCAL_ACCENT,
+                  fontSize: 15, fontWeight: 700, display: 'grid', placeItems: 'center',
+                }}>{st.n}</span>
+                <span style={{ display: 'block' }}>
+                  <span style={{ display: 'block', fontSize: 15.5, fontWeight: 600, color: C.ink, margin: '10px 0 3px' }}>{st.title}</span>
+                  <span style={{ display: 'block', fontSize: 13.5, color: C.graphite, lineHeight: 1.45 }}>{st.sub}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* Circular scroll arrow. */
 function Arrow({ dir, onClick, side }: { dir: 'prev' | 'next'; onClick: () => void; side: number }) {
   return (

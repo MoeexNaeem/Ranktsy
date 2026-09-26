@@ -5,7 +5,7 @@ import { C } from "@/utils";
 import { SocialRow } from "@/components/ui/Social";
 import { WhatsAppIcon, WHATSAPP_HREF, WHATSAPP_DISPLAY } from "@/components/ui/WhatsApp";
 import { Reveal, RevealGroup, RevealItem } from "./Reveal";
-import { PlanScroller, PriceNote } from "./plans";
+import { PlanScroller, PriceNote, LocalPaymentBanner } from "./plans";
 
 const SANS = "'General Sans',sans-serif";
 
@@ -462,6 +462,11 @@ export function Pricing() {
 
         <Reveal>
           <PlanScroller fade={C.paper} />
+        </Reveal>
+
+        {/* Pakistan: pay any plan locally (bank transfer / JazzCash). */}
+        <Reveal>
+          <LocalPaymentBanner />
         </Reveal>
 
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, marginTop: 40 }}>
