@@ -132,7 +132,7 @@ export function PlanCard({ p, cur }: { p: Plan; cur: Currency }) {
   const note = noteOf(p, cur)
 
   return (
-    <div style={{
+    <div data-plan={p.slug} data-popular={p.popular ? 'true' : undefined} style={{
       flex: '0 0 340px', width: 340,
       position: 'relative', display: 'flex', flexDirection: 'column',
       background: dark ? C.charcoal : C.paper,
@@ -294,10 +294,10 @@ export function PlanScroller({ fade }: { fade: string }) {
   useEffect(() => {
     const el = track.current
     if (!el) return
-    const i = PLANS.findIndex(p => p.popular)
     let tries = 0
     const center = () => {
-      const card = el.children[i] as HTMLElement | undefined
+      // Found by attribute, not index: the Local Payment card sits just before it.
+      const card = el.querySelector<HTMLElement>('[data-popular="true"]') ?? undefined
       if (card && el.clientWidth > 0 && el.scrollWidth > el.clientWidth) {
         const prev = el.style.scrollBehavior
         el.style.scrollBehavior = 'auto' // jump, don't animate, on first paint
@@ -324,9 +324,13 @@ export function PlanScroller({ fade }: { fade: string }) {
           which was forcing every card to grow to match the tallest card
           whenever the Pro · 1-Year card's "bonus details" were expanded. */}
       <div ref={track} className="plan-track" style={{ display: 'flex', alignItems: 'flex-start' }}>
-        {PLANS.map(p => <PlanCard key={p.name} p={p} cur={cur} />)}
-        {/* Last, so the row still opens centred on the popular plan. */}
-        <LocalPaymentCard />
+        {PLANS.map(p => (
+          <Fragment key={p.name}>
+            {/* Local Payment sits immediately left of the monthly Pro plan. */}
+            {p.slug === 'pro' && <LocalPaymentCard />}
+            <PlanCard p={p} cur={cur} />
+          </Fragment>
+        ))}
       </div>
       <div className="plan-fade plan-fade-l" aria-hidden />
       <div className="plan-fade plan-fade-r" aria-hidden />

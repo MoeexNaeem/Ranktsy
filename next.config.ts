@@ -2,6 +2,9 @@ import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // scripts/deploy.sh builds into a separate folder (NEXT_DIST_DIR=.next-build) while the
+  // live site keeps serving .next, then swaps them; `next start` always reads .next.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
 
   images: {
     formats: ['image/avif', 'image/webp'],

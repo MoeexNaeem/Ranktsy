@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# deploy.sh build folders
+/.next-build/
+/.next-old/
+/.next-bad/

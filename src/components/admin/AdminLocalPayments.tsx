@@ -56,6 +56,7 @@ export function AdminLocalPayments() {
   const [proof, setProof] = useState<Row | null>(null)
   const [approving, setApproving] = useState<Row | null>(null)
   const [rejecting, setRejecting] = useState<Row | null>(null)
+  const [deleting, setDeleting] = useState<Row | null>(null)
   const [plan, setPlan] = useState<string>('pro')
   const [months, setMonths] = useState(1)
   const [note, setNote] = useState('')
@@ -83,6 +84,18 @@ export function AdminLocalPayments() {
       void load()
       return true
     } catch { toast.error('Could not update', 'Network error.'); return false } finally { setBusy(false) }
+  }
+
+  const remove = async (row: Row) => {
+    setBusy(true)
+    try {
+      const r = await fetch(`/api/admin/local-payments/${row.id}`, { method: 'DELETE' })
+      const j = await r.json().catch(() => null)
+      if (!r.ok || !j?.success) { toast.error('Could not delete', j?.error || 'Please try again.'); return }
+      toast.success('Request deleted')
+      setDeleting(null)
+      void load()
+    } catch { toast.error('Could not delete', 'Network error.') } finally { setBusy(false) }
   }
 
   const openApprove = (row: Row) => {
@@ -157,6 +170,7 @@ export function AdminLocalPayments() {
                   {r.status === 'approved' && <button onClick={() => openApprove(r)} style={btn(C.paper, C.ink, C.ash)}>Change plan</button>}
                   {r.status !== 'rejected' && r.status !== 'expired' && <button onClick={() => { setNote(''); setRejecting(r) }} style={btn(C.paper, '#B91C1C', '#FCA5A5')}>Reject</button>}
                   {r.status !== 'pending' && r.status !== 'expired' && <button disabled={busy} onClick={() => void act(r, { action: 'pending' }, 'Moved back to pending')} style={btn(C.paper, C.graphite, C.ash)}>Set pending</button>}
+                  <button onClick={() => setDeleting(r)} style={btn(C.paper, C.stone, C.ash)} title="Delete this request">🗑 Delete</button>
                 </div>
               </div>
             )
@@ -199,6 +213,21 @@ export function AdminLocalPayments() {
             <button disabled={busy} onClick={() => void act(approving, { action: 'approve', plan, months, note }, `${PLAN_LABELS[plan as PlanSlug]} plan activated`)} style={btn('#16A34A', '#fff')}>
               {busy ? 'Saving…' : `Approve and give ${PLAN_LABELS[plan as PlanSlug]}`}
             </button>
+          </div>
+        </Modal>
+      )}
+
+      {deleting && (
+        <Modal onClose={() => setDeleting(null)}>
+          <p style={{ fontSize: 17, fontWeight: 600, color: C.ink, marginBottom: 6 }}>Delete this request?</p>
+          <p style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.55, marginBottom: 16 }}>
+            {deleting.userName || deleting.userEmail} · {localPlanFor(deleting.plan)?.label ?? planName(deleting.plan)} · {formatPkr(deleting.amountPkr)}.
+            The request and its screenshot are removed permanently.
+            {deleting.status === 'approved' && ' The plan it granted stays on the user until it expires; change it in Users if it should end now.'}
+          </p>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button onClick={() => setDeleting(null)} style={btn(C.paper, C.ink, C.ash)}>Cancel</button>
+            <button disabled={busy} onClick={() => void remove(deleting)} style={btn('#B91C1C', '#fff')}>{busy ? 'Deleting…' : 'Delete request'}</button>
           </div>
         </Modal>
       )}

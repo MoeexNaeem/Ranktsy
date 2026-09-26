@@ -15,6 +15,22 @@ import {
   type LocalMethod, type LocalPlan,
 } from '@/lib/local-payments'
 import { PLAN_LABELS, type PlanSlug } from '@/lib/plans'
+import { PLANS } from '@/components/landing/plans-data'
+
+// What each plan includes: the same lists as the pricing cards, so they never drift.
+const PLAN_INFO = new Map(PLANS.map(p => [p.slug, p]))
+const LOGO: Record<LocalMethod, { src: string; alt: string }> = {
+  bank: { src: '/payments/allied-bank.png', alt: 'Allied Bank' },
+  jazzcash: { src: '/payments/jazzcash.png', alt: 'JazzCash' },
+}
+
+function Tick({ color }: { color: string }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }} aria-hidden>
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  )
+}
 
 const MONO = "'General Sans',monospace"
 
@@ -150,8 +166,13 @@ export function LocalPaymentFlow() {
               <button key={m} onClick={() => pickMethod(m)}
                 style={{ textAlign: 'left', padding: '18px 18px', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit',
                   border: `2px solid ${active ? C.orange : C.ash}`, background: active ? C.orangeFaint : C.paper }}>
-                <p style={{ fontSize: 16, fontWeight: 600, color: C.ink, marginBottom: 4 }}>{m === 'bank' ? '🏦 Bank transfer' : '📱 JazzCash'}</p>
-                <p style={{ fontSize: 13, color: C.graphite }}>{m === 'bank' ? 'Allied Bank, any bank app or branch' : 'Send from your JazzCash wallet'}</p>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <img src={LOGO[m].src} alt={LOGO[m].alt} width={52} height={40} style={{ width: 52, height: 40, objectFit: 'contain', flexShrink: 0 }} />
+                  <span>
+                    <span style={{ display: 'block', fontSize: 16, fontWeight: 600, color: C.ink, marginBottom: 4 }}>{m === 'bank' ? 'Bank transfer' : 'JazzCash'}</span>
+                    <span style={{ display: 'block', fontSize: 13, color: C.graphite }}>{m === 'bank' ? 'Allied Bank, any bank app or branch' : 'Send from your JazzCash wallet'}</span>
+                  </span>
+                </span>
               </button>
             )
           })}
@@ -162,20 +183,49 @@ export function LocalPaymentFlow() {
       {method && (
         <section ref={planRef} style={card}>
           <StepTitle n={2} done={!!plan}>Choose your plan</StepTitle>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
             {LOCAL_PLANS.map(p => {
               const active = plan?.slug === p.slug
+              const info = PLAN_INFO.get(p.slug)
+              const accent = info?.accent ?? C.orange
               return (
                 <button key={p.slug} onClick={() => pickPlan(p)}
-                  style={{ textAlign: 'left', padding: '16px 16px', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit',
-                    border: `2px solid ${active ? C.orange : C.ash}`, background: active ? C.orangeFaint : C.paper }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.07em', color: active ? C.orange : C.graphite, marginBottom: 8 }}>{p.label}</p>
-                  <p style={{ fontSize: 24, fontWeight: 700, color: C.ink, letterSpacing: '-0.02em' }}>{formatPkr(p.pkr)}</p>
-                  <p style={{ fontSize: 12.5, color: C.stone, marginTop: 2 }}>{p.period} · {p.usd}</p>
+                  style={{ textAlign: 'left', padding: '16px 16px', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', flexDirection: 'column',
+                    border: `2px solid ${active ? accent : C.ash}`, background: active ? `${accent}14` : C.paper, position: 'relative', overflow: 'hidden' }}>
+                  <span style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: accent }} />
+                  <span style={{ fontSize: 12, fontWeight: 700, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.07em', color: accent, marginBottom: 8 }}>
+                    {p.label}{info?.popular ? ' · Popular' : ''}
+                  </span>
+                  <span style={{ fontSize: 24, fontWeight: 700, color: C.ink, letterSpacing: '-0.02em' }}>{formatPkr(p.pkr)}</span>
+                  <span style={{ fontSize: 12.5, color: C.stone, marginTop: 2, marginBottom: 10 }}>{p.period} · {p.usd}</span>
+                  {info && (
+                    <span style={{ display: 'flex', flexDirection: 'column', gap: 5, borderTop: `1px solid ${C.hair}`, paddingTop: 10 }}>
+                      {info.features.slice(0, 3).map(f => (
+                        <span key={f} style={{ display: 'flex', gap: 7, fontSize: 12.5, color: C.inkSoft, lineHeight: 1.35 }}><Tick color={accent} />{f}</span>
+                      ))}
+                      {info.features.length > 3 && <span style={{ fontSize: 12, color: C.stone, paddingLeft: 22 }}>+{info.features.length - 3} more</span>}
+                    </span>
+                  )}
                 </button>
               )
             })}
           </div>
+
+          {/* Everything the chosen plan includes. */}
+          {plan && PLAN_INFO.get(plan.slug) && (() => {
+            const info = PLAN_INFO.get(plan.slug)!
+            return (
+              <div style={{ marginTop: 16, border: `1px solid ${info.accent}55`, background: `${info.accent}0D`, borderRadius: 14, padding: '16px 18px' }}>
+                <p style={{ fontSize: 15, fontWeight: 600, color: C.ink, marginBottom: 4 }}>What you get with {plan.label}</p>
+                {info.blurb && <p style={{ fontSize: 13.5, color: C.graphite, marginBottom: 12 }}>{info.blurb}</p>}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '8px 18px' }}>
+                  {[...info.features, ...(info.expandable ?? [])].map(f => (
+                    <span key={f} style={{ display: 'flex', gap: 8, fontSize: 13.5, color: C.ink, lineHeight: 1.4 }}><Tick color={info.accent} />{f}</span>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
         </section>
       )}
 
@@ -206,7 +256,10 @@ export function LocalPaymentFlow() {
 
             {/* Where to send it */}
             <div style={{ background: C.canvas, borderRadius: 14, padding: 18 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.stone, marginBottom: 10 }}>Send to ({account.label})</p>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.stone }}>Send to ({account.label})</p>
+                <img src={LOGO[method].src} alt={LOGO[method].alt} width={36} height={28} style={{ width: 36, height: 28, objectFit: 'contain' }} />
+              </div>
               {account.rows.map(r => (
                 <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: `1px solid ${C.hair}` }}>
                   <div style={{ minWidth: 0 }}>

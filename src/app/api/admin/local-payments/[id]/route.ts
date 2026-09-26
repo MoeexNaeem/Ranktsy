@@ -87,3 +87,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   return NextResponse.json({ success: false, error: 'Unknown action.' }, { status: 400 })
 }
+
+/**
+ * Delete a local payment request (and its proof). Only the request is removed: a plan
+ * already granted by approving it stays on the user until it expires, so change the
+ * user's plan in Admin > Users if that should also end.
+ */
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await getCurrentUser().catch(() => null)
+  if (!auth) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
+  if (!isAdmin(auth)) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+  const { id } = await params
+  if (!isValidObjectId(id)) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
+  await connectDB()
+  const r = await LocalPayment.deleteOne({ _id: id })
+  if (!r.deletedCount) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
+  return NextResponse.json({ success: true })
+}
