@@ -47,7 +47,7 @@ function fmtCpcRange(low?: number | null, high?: number | null, cur?: string | n
 // ─── Country filter (like eRank's) - changes which country's Google volume,
 // CPC and competition are shown. Etsy metrics are marketplace-global. Keep in
 // sync with KEYWORD_GEOS in lib/google-ads.ts.
-const COUNTRIES = [
+export const COUNTRIES = [
   { code: 'US',  name: 'United States' },
   { code: 'GB',  name: 'United Kingdom' },
   { code: 'AU',  name: 'Australia' },
@@ -80,7 +80,7 @@ function FlagIcon({ code, w = 24 }: { code: string; w?: number }) {
   )
 }
 
-function CountrySelect({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+export function CountrySelect({ value, onChange }: { value: string; onChange: (c: string) => void }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {

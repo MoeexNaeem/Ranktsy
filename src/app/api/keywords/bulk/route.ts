@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
-import { searchEtsyListingsPaged, levelForCount, difficultyScore, dominantCurrencyPrices } from '@/lib/etsy'
-import { googleKeywordMetrics, isGoogleAdsConfigured } from '@/lib/google-ads'
+import { levelForCount } from '@/lib/etsy'
+import { googleKeywordMetrics, isGoogleAdsConfigured, normalizeGeo } from '@/lib/google-ads'
+import { getKeywordCore } from '@/lib/keywords'
 import { guardSearch } from '@/lib/searchGate'
 import type { ApiResponse, BulkKeywordRow } from '@/types'
 
@@ -12,75 +12,65 @@ const MAX_KEYWORDS = 25
 /**
  * Bulk keyword comparison against REAL Etsy figures.
  *
- * Each keyword gets its own live search, so every figure is measured from that
- * keyword's own listings - `count` is the true active-listing total, and views /
- * favourites come from the listings that actually rank for it. Competition
- * banding and KD use the same shared helpers as the Keyword Tool, so one keyword
- * can't read differently on two screens.
+ * Every row is read from the SAME keyword package the single Keyword Search
+ * shows (getKeywordCore: top-100 listing sample, shared cache, same country's
+ * Google numbers), so a keyword reads identically on both screens. It used to
+ * run its own top-20 search with US-only Google volume, which is why the two
+ * tools disagreed. A bonus: a keyword already searched on either screen costs
+ * no new API calls here.
  */
-async function analyzeOne(keyword: string): Promise<BulkKeywordRow> {
-  const key = cacheKey('bulk', 'v1', keyword)
-  const hit = memCache.get<BulkKeywordRow>(key)
-  if (hit) return hit
-
+async function analyzeOne(keyword: string, geo: string): Promise<BulkKeywordRow> {
+  const base = {
+    keyword,
+    charCount: keyword.length,
+    wordCount: keyword.split(/\s+/).filter(Boolean).length,
+  }
   try {
-    // 20 listings is enough to anchor engagement; `count` is the headline and
-    // costs nothing extra. No images - this table never renders one.
-    const { listings, count } = await searchEtsyListingsPaged(keyword, 20, 0, { skipImages: true })
-
-    const views = listings.reduce((s, l) => s + (l.views ?? 0), 0)
-    const faves = listings.reduce((s, l) => s + (l.num_favorers ?? 0), 0)
-    const avgViews = listings.length ? Math.round(views / listings.length) : 0
-    const avgFavs  = listings.length ? Math.round(faves / listings.length) : 0
-    const favPerView = parseFloat((faves / Math.max(views, 1) * 100).toFixed(1))
-
-    // Prices are scoped to one currency - a keyword search returns many, and
-    // Etsy publishes no FX rate.
-    const { currency, prices } = dominantCurrencyPrices(listings)
-    const medianPrice = prices.length ? parseFloat(prices[Math.floor((prices.length - 1) / 2)].toFixed(2)) : null
+    const { stats: s, listings } = await getKeywordCore(keyword, geo)
+    const count = s.totalResults ?? 0
 
     // Nothing sells here. Reporting KD 4 / "Low" would make a dead keyword the
     // most attractive row on the page, so difficulty is withheld instead.
-    const noMarket = count === 0 || listings.length === 0
+    const noMarket = count === 0 || !listings?.length
 
-    const row: BulkKeywordRow = {
-      keyword,
+    return {
+      ...base,
       competition: count,
       competitionLevel: noMarket ? null : levelForCount(count),
-      difficulty: noMarket ? null : difficultyScore(count, favPerView),
-      avgViews,
-      avgFavorites: avgFavs,
-      favPerView,
-      medianPrice,
-      currency,
-      charCount: keyword.length,
-      wordCount: keyword.split(/\s+/).filter(Boolean).length,
-      googleSearches: null,
+      difficulty: noMarket ? null : s.difficulty,
+      avgViews: s.avgViews,
+      avgFavorites: s.avgFavorites,
+      favPerView: s.favPerView,
+      // Keyword Search's price is the same median, scoped to one currency.
+      medianPrice: noMarket || !s.avgPrice ? null : s.avgPrice,
+      currency: s.currency ?? 'USD',
+      googleSearches: s.googleSearches ?? null,
+      googleCompetition: (s.googleCompetition ?? null) as BulkKeywordRow['googleCompetition'],
+      googleCpcLow: s.googleCpcLow ?? null,
+      googleCpcHigh: s.googleCpcHigh ?? null,
       error: false,
       noMarket,
     }
-    memCache.set(key, row, CACHE_TTL.KEYWORD)
-    return row
   } catch (e) {
     console.error(`[Bulk] "${keyword}" failed:`, e)
     // A failed row is reported as failed - never as zero competition, which
     // would read as a wide-open keyword.
     return {
-      keyword, competition: null, competitionLevel: null, difficulty: null,
+      ...base, competition: null, competitionLevel: null, difficulty: null,
       avgViews: null, avgFavorites: null, favPerView: null, medianPrice: null,
-      currency: 'USD', charCount: keyword.length,
-      wordCount: keyword.split(/\s+/).filter(Boolean).length,
-      googleSearches: null, error: true, noMarket: false,
+      currency: 'USD', googleSearches: null, error: true, noMarket: false,
     }
   }
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<BulkKeywordRow[]>>> {
-  const body = await req.json().catch(() => ({})) as { keywords?: string[] }
+  const body = await req.json().catch(() => ({})) as { keywords?: string[]; geo?: string }
   const keywords = [...new Set((body.keywords ?? [])
     .map(k => String(k).trim().toLowerCase())
     .filter(k => k.length >= 2))]
     .slice(0, MAX_KEYWORDS)
+  // Same country list and default (Global) as the single Keyword Search.
+  const geo = normalizeGeo(body.geo ?? 'GLO')
 
   if (!keywords.length) {
     return NextResponse.json({ success: false, error: 'Provide at least one keyword (2+ characters).' }, { status: 400 })
@@ -90,31 +80,22 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<B
   if (gate) return gate
 
   try {
-    // Concurrency 4: each keyword is its own Etsy search, and the shared rate
-    // gate in etsy.ts is what actually keeps us under the ~10/sec ceiling.
+    // One batched Google lookup first. Answers are stored per keyword, so each
+    // keyword package below reads its Google numbers from that store instead of
+    // spending a separate Google request per keyword.
+    if (isGoogleAdsConfigured()) await googleKeywordMetrics(keywords, geo).catch(() => null)
+
+    // Concurrency 4: each uncached keyword is one Etsy search, and the shared
+    // rate gate in etsy.ts is what actually keeps us under the ~10/sec ceiling.
     const rows: BulkKeywordRow[] = []
     const queue = [...keywords]
     await Promise.all(Array.from({ length: Math.min(4, queue.length) }, async () => {
       while (queue.length) {
         const kw = queue.shift()
         if (!kw) return
-        rows.push(await analyzeOne(kw))
+        rows.push(await analyzeOne(kw, geo))
       }
     }))
-
-    if (isGoogleAdsConfigured()) {
-      const metrics = await googleKeywordMetrics(keywords)
-      if (metrics.size) {
-        for (const r of rows) {
-          const g = metrics.get(r.keyword.toLowerCase())
-          if (!g) continue
-          r.googleSearches    = g.searches ?? null
-          r.googleCompetition = g.competition as BulkKeywordRow['googleCompetition']
-          r.googleCpcLow      = g.cpcLow
-          r.googleCpcHigh     = g.cpcHigh
-        }
-      }
-    }
 
     // Lowest real competition first - the actionable order.
     rows.sort((a, b) => {

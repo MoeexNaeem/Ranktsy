@@ -9,6 +9,7 @@ import { C, D, compColor, formatNumber } from '@/utils'
 import { chargeCredits } from '@/lib/credits-client'
 import { Card, SectionTitle, ErrorBox, Loading, EmptyState, tableCard, tableHead, th, tableRow, tdMono, tdTitle, primaryBtn, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
+import { CountrySelect } from './KeywordsTab'
 import type { ApiResponse, BulkKeywordRow, AiFact } from '@/types'
 
 const MAX = 25
@@ -69,11 +70,13 @@ export function BulkKeywordTab() {
   const [text, setText] = useState('silver necklace\nboho earrings\nhandmade candle\npersonalized gift\nmacrame wall hanging')
   const [sortKey, setSortKey] = useState<SortKey>('competition')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  // Same default as Keyword Search, so both screens show the same Google numbers.
+  const [country, setCountry] = useState('GLO')
   const { isFavorite, toggle } = useFavorites()
 
   const run = useMutation({
-    mutationFn: async (keywords: string[]) => {
-      const { data } = await axios.post<ApiResponse<BulkKeywordRow[]>>('/api/keywords/bulk', { keywords })
+    mutationFn: async ({ keywords, geo }: { keywords: string[]; geo: string }) => {
+      const { data } = await axios.post<ApiResponse<BulkKeywordRow[]>>('/api/keywords/bulk', { keywords, geo })
       if (!data.success || !data.data) throw new Error(data.error ?? 'Bulk analysis failed')
       return data.data
     },
@@ -86,8 +89,8 @@ export function BulkKeywordTab() {
   const go = useCallback(async () => {
     if (!parsed.length) return
     if (!(await chargeCredits('bulk'))) return
-    run.mutate(parsed.slice(0, MAX))
-  }, [parsed, run])
+    run.mutate({ keywords: parsed.slice(0, MAX), geo: country })
+  }, [parsed, run, country])
 
   const handleSort = useCallback((key: SortKey) => {
     setSortDir(p => (sortKey === key ? (p === 'asc' ? 'desc' : 'asc') : 'desc'))
@@ -159,9 +162,10 @@ export function BulkKeywordTab() {
             style={{ ...primaryBtn, opacity: run.isPending || !parsed.length ? 0.6 : 1 }}>
             {run.isPending ? 'Analyzing…' : 'Analyze keywords →'}
           </button>
-          <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.5 }}>
-            Each keyword gets its own live search - <strong style={{ color: C.ink }}>Competition</strong> is a
-            real listing total, not an estimate.
+          <CountrySelect value={country} onChange={setCountry} />
+          <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.5, flex: '1 1 260px' }}>
+            Same numbers as Keyword Search. <strong style={{ color: C.ink }}>Competition</strong> is a
+            real listing total, and Google volume is for the country you pick.
           </p>
         </div>
       </Card>
