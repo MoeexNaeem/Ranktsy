@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
-import { User } from '@/lib/models'
+import { User, LocalPayment } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin } from '@/lib/auth/roles'
 import { getSebtConfig, setSebtConfig, clampBatch, clampDays, type SebtConfig } from '@/lib/sebt'
@@ -56,6 +56,7 @@ export async function GET(): Promise<NextResponse<ApiResponse<ConfigPayload>>> {
  * Save settings, or run a bulk grant.
  *   { batch?, registrationOpen?, trialEnabled?, trialDays? }  → save
  *   { applyToAll: true, scope?: 'batch' | 'all' }             → (re)grant the trial
+ *   { endTrials: true }                                        → end every live trial now
  *
  * The bulk grant is deliberately a separate, explicit action rather than a side
  * effect of flipping the toggle: it rewrites the plan on live accounts, and an
@@ -66,6 +67,34 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<C
   const body = await req.json().catch(() => ({}))
 
   try {
+    // End every live SEBT trial now (instead of waiting for each one's own end date).
+    // Skips anyone who paid: a real Lemon Squeezy subscription, or an approved local
+    // payment that is still running. Ended students see the one-time "plan expired"
+    // popup, exactly as if the trial had run out on its own.
+    if (body?.endTrials) {
+      await connectDB()
+      const now = new Date()
+      const paidLocally = await LocalPayment.distinct('userId', { status: 'approved', grantedUntil: { $gt: now } }) as string[]
+      const r = await User.updateMany(
+        {
+          sebtStudent: true,
+          plan: { $ne: 'free' },
+          compExpiresAt: { $gt: now },
+          lsSubscriptionId: null,
+          subscriptionStatus: { $nin: ['active', 'on_trial'] },
+          _id: { $nin: paidLocally },
+        },
+        [{ $set: {
+          lastExpiredPlan: '$plan',
+          planExpiredAt: '$$NOW',
+          planExpiryNoticeSeen: false,
+          plan: 'free',
+          compExpiresAt: null,
+        } }],
+      )
+      return NextResponse.json({ success: true, data: { ...(await payload()), affected: r.modifiedCount ?? 0 } })
+    }
+
     if (body?.applyToAll) {
       const cfg = await getSebtConfig()
       if (!cfg.trialEnabled) {

@@ -79,6 +79,7 @@ export function AdminSebtSettings() {
   const [batchDraft, setBatchDraft] = useState(1)
   const [daysDraft, setDaysDraft]   = useState(7)
   const [confirmGrant, setConfirmGrant] = useState<'batch' | 'all' | null>(null)
+  const [confirmEnd, setConfirmEnd] = useState(false)
 
   const apply = useCallback((d: Config) => {
     setCfg(d); setBatchDraft(d.batch); setDaysDraft(d.trialDays); setState('ok')
@@ -128,6 +129,19 @@ export function AdminSebtSettings() {
       )
     }
   }, [save])
+
+  const runEnd = async () => {
+    setConfirmEnd(false)
+    const d = await save({ endTrials: true })
+    if (d) {
+      const n = d.affected ?? 0
+      if (n) window.dispatchEvent(new Event(ADMIN_STATS_REFRESH))
+      toast.success(
+        n ? `${n.toLocaleString()} trial${n === 1 ? '' : 's'} ended` : 'No live trials to end',
+        n ? 'Those students are on the Free plan now.' : 'Everyone left is on a paid plan.',
+      )
+    }
+  }
 
   if (state === 'loading') return <div style={{ ...cardStyle, padding: 24, fontSize: 13.5, color: C.graphite }}>Loading SEBT settings…</div>
   if (state === 'error' || !cfg) {
@@ -276,9 +290,40 @@ export function AdminSebtSettings() {
               </div>
               {!cfg.trialEnabled && <p style={{ fontSize: 12, color: C.stone, marginTop: 10 }}>Turn the trial on to use these.</p>}
             </div>
+
+            {/* End live trials now: turning the trial off only affects NEW signups. */}
+            <div style={{ borderTop: `1px solid ${C.hair}`, paddingTop: 18, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 240 }}>
+                <p style={{ fontSize: 13, fontWeight: 600, color: C.ink, margin: '0 0 4px' }}>End all live trials now</p>
+                <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.6, margin: 0 }}>
+                  Moves every student still on the free trial to the Free plan today, instead of waiting for each trial&apos;s own end date.
+                  Students who paid (card or local payment) are skipped.
+                </p>
+              </div>
+              <button onClick={() => setConfirmEnd(true)} disabled={busy || !cfg.activeTrials}
+                style={{ ...BTN, background: cfg.activeTrials ? '#B91C1C' : undefined, color: cfg.activeTrials ? '#fff' : undefined, borderColor: cfg.activeTrials ? '#B91C1C' : undefined, opacity: busy || !cfg.activeTrials ? 0.5 : 1 }}>
+                End {cfg.activeTrials.toLocaleString()} trial{cfg.activeTrials === 1 ? '' : 's'}
+              </button>
+            </div>
           </div>
         )}
       </div>
+
+      {confirmEnd && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,18,14,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: 20 }} onClick={() => setConfirmEnd(false)}>
+          <div style={{ background: C.paper, borderRadius: 16, padding: '26px 28px', maxWidth: 440, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 18, fontWeight: 600, color: C.ink, marginBottom: 10 }}>End {cfg.activeTrials.toLocaleString()} live trials now?</h3>
+            <p style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.6, marginBottom: 22 }}>
+              These SEBT students move from Enterprise to the <strong style={{ color: C.ink }}>Free</strong> plan immediately and see a
+              &ldquo;plan expired, upgrade&rdquo; popup next time they open the dashboard. Students who paid are not touched.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button onClick={() => setConfirmEnd(false)} style={{ background: 'transparent', border: `1px solid ${C.hairInk}`, color: C.ink, borderRadius: 100, padding: '9px 18px', fontSize: 13.5, fontFamily: 'inherit', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => void runEnd()} style={{ background: '#B91C1C', border: 'none', color: '#fff', borderRadius: 100, padding: '9px 18px', fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>End trials now</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirmGrant && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,18,14,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: 20 }} onClick={() => setConfirmGrant(null)}>
