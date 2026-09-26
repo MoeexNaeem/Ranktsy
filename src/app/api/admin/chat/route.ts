@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
-import { ChatMessage, User } from '@/lib/models'
+import { ChatMessage, User, Notification } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin } from '@/lib/auth/roles'
 
@@ -49,4 +49,19 @@ export async function GET() {
 
   const totalUnread = data.reduce((s, t) => s + t.unread, 0)
   return NextResponse.json({ success: true, data: { threads: data, totalUnread } })
+}
+
+// "Mark all read": every unread user message in every thread, plus this admin's
+// matching "New message from ..." bell notifications.
+export async function POST() {
+  const user = await getCurrentUser()
+  if (!user) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
+  if (!isAdmin(user)) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+
+  await connectDB()
+  const [msgs] = await Promise.all([
+    ChatMessage.updateMany({ sender: 'user', readByAdmin: false }, { $set: { readByAdmin: true } }),
+    Notification.updateMany({ audience: 'admin', type: 'chat', readBy: { $ne: user.id } }, { $addToSet: { readBy: user.id } }),
+  ])
+  return NextResponse.json({ success: true, data: { marked: msgs.modifiedCount ?? 0 } })
 }

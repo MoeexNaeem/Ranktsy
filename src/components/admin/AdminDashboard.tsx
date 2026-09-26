@@ -253,7 +253,9 @@ export function AdminDashboard() {
     const poll = () => fetch('/api/admin/chat').then(r => r.json()).then(d => { if (alive && d?.success) setMsgUnread(d.data.totalUnread) }).catch(() => {})
     poll()
     const t = setInterval(poll, 15000)
-    return () => { alive = false; clearInterval(t) }
+    // "Mark all read" in Messages: refresh the sidebar badge right away.
+    window.addEventListener('rk-admin-chat-read', poll)
+    return () => { alive = false; clearInterval(t); window.removeEventListener('rk-admin-chat-read', poll) }
   }, [])
 
   const patchUser = useCallback(async (id: string, patch: Partial<AUser>) => {

@@ -38,9 +38,9 @@ export function creditLimitFor(plan: PlanSlug | undefined): number {
  * Tools that consume credits - the dashboard tab ids that charge CREDIT_COST.
  *
  * `keywords` carries BOTH meters on purpose: a keyword search costs credits and
- * counts against the plan's searches/day cap. Since credits run out first on
- * every paid plan (e.g. Enterprise: 2,500 credits = 250 searches, well under its
- * 2,000 cap), credits are the limit users will actually hit.
+ * counts against the plan's searches/day cap. The cap is set to exactly
+ * credits / CREDIT_COST (planLimits.ts), e.g. Enterprise 2,500 credits = 250
+ * searches, so the two meters always agree when only searching.
  *
  * DELIBERATELY EXCLUDED (already limit-gated, so never charged): competitors
  * (competitors monitored), listingpro (Listing Pro images/mo), audit

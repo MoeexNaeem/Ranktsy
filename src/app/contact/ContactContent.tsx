@@ -75,8 +75,8 @@ const FAQS = [
     a: "No. Rankkw is an independent analytics tool. The term 'Etsy' is a trademark of Etsy, Inc. We are not endorsed, certified, or affiliated with Etsy, Inc. in any way.",
   },
   {
-    q: 'Do you offer a free trial?',
-    a: "Yes! Our Sprout plan is forever free with 5 keyword searches per day. Paid plans include a 14-day free trial - no credit card required to start.",
+    q: 'Is there a free plan?',
+    a: "Yes! Our Free plan is free forever with 50 credits and up to 5 keyword searches per day. Paid plans start at $0.99 / month, and in Pakistan you can also pay in PKR by bank transfer or JazzCash.",
   },
   {
     q: 'Can I request a feature?',

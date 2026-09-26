@@ -70,6 +70,8 @@ export function AdminMessages() {
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
   const [search, setSearch] = useState('')
+  // Read filter for the conversation list: all, only threads with unread user messages, or only read ones.
+  const [readFilter, setReadFilter] = useState<'all' | 'unread' | 'read'>('all')
   // Edit/delete of the admin's own messages.
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
@@ -275,10 +277,29 @@ export function AdminMessages() {
   }, [])
 
   const q = search.trim().toLowerCase()
-  const filtered = q ? threads.filter(t => t.name.toLowerCase().includes(q) || t.email.toLowerCase().includes(q)) : threads
+  const unreadThreads = threads.filter(t => (t.unread || 0) > 0).length
+  const filtered = threads.filter(t =>
+    (!q || t.name.toLowerCase().includes(q) || t.email.toLowerCase().includes(q)) &&
+    (readFilter === 'all' || (readFilter === 'unread' ? (t.unread || 0) > 0 : !(t.unread || 0))),
+  )
   const selThread = threads.find(t => t.userId === sel)
   const selEmail = selThread?.email ?? ''
   const totalUnread = threads.reduce((n, t) => n + (t.unread || 0), 0)
+  const [markingAll, setMarkingAll] = useState(false)
+  const markAllRead = async () => {
+    if (markingAll) return
+    setMarkingAll(true)
+    // Clear the badges immediately; the server call makes it stick.
+    setThreads(ts => ts.map(t => ({ ...t, unread: 0 })))
+    try {
+      const r = await fetch('/api/admin/chat', { method: 'POST' })
+      const j = await r.json().catch(() => null)
+      if (!r.ok || !j?.success) { toast.error('Could not mark as read', j?.error || 'Please try again.'); loadThreads(); return }
+      toast.success(j.data.marked ? `${j.data.marked} message${j.data.marked === 1 ? '' : 's'} marked as read` : 'Everything was already read')
+      window.dispatchEvent(new Event('rk-admin-chat-read'))
+      loadThreads()
+    } catch { toast.error('Could not mark as read', 'Network error.'); loadThreads() } finally { setMarkingAll(false) }
+  }
   // Index of the LAST admin message, so we show the read receipt only under it.
   let lastAdminIdx = -1
   for (let i = messages.length - 1; i >= 0; i--) { if (messages[i].sender === 'admin') { lastAdminIdx = i; break } }
@@ -345,17 +366,47 @@ export function AdminMessages() {
           <div style={{ padding: '14px 16px 12px', borderBottom: `1px solid ${C.ash}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>Conversations</span>
-              {totalUnread > 0 && <span style={{ background: C.orange, color: '#fff', fontSize: 11, fontWeight: 700, fontFamily: MONO, borderRadius: 100, padding: '2px 9px' }}>{totalUnread} new</span>}
+              {totalUnread > 0 && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ background: C.orange, color: '#fff', fontSize: 11, fontWeight: 700, fontFamily: MONO, borderRadius: 100, padding: '2px 9px' }}>{totalUnread} new</span>
+                  <button onClick={() => void markAllRead()} disabled={markingAll}
+                    style={{ background: 'none', border: 'none', padding: 0, color: C.orange, fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit', cursor: markingAll ? 'default' : 'pointer', opacity: markingAll ? 0.6 : 1 }}>
+                    {markingAll ? 'Marking…' : 'Mark all read'}
+                  </button>
+                </span>
+              )}
             </div>
             <div style={{ position: 'relative' }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.stone} strokeWidth="2" strokeLinecap="round" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)' }}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name or email…"
                 style={{ ...field, padding: '8px 12px 8px 32px', fontSize: 13 }} />
             </div>
+            <div role="tablist" aria-label="Filter conversations" style={{ display: 'flex', gap: 6 }}>
+              {([
+                ['all', 'All', threads.length],
+                ['unread', 'Unread', unreadThreads],
+                ['read', 'Read', threads.length - unreadThreads],
+              ] as ['all' | 'unread' | 'read', string, number][]).map(([id, label, n]) => {
+                const on = readFilter === id
+                return (
+                  <button key={id} role="tab" aria-selected={on} onClick={() => setReadFilter(id)}
+                    style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '6px 8px', borderRadius: 100, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600,
+                      border: `1px solid ${on ? (id === 'unread' ? C.orange : C.ink) : C.ash}`,
+                      background: on ? (id === 'unread' ? C.orange : C.ink) : C.paper,
+                      color: on ? '#fff' : C.inkSoft }}>
+                    {label}
+                    <span style={{ fontSize: 11, fontFamily: MONO, opacity: 0.8 }}>{n}</span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
           <div style={{ overflowY: 'auto' }}>
             {filtered.length === 0 ? (
-              <p style={{ fontSize: 13, color: C.graphite, padding: '22px 18px' }}>{threads.length === 0 ? 'No messages from users yet.' : 'No conversations match your search.'}</p>
+              <p style={{ fontSize: 13, color: C.graphite, padding: '22px 18px' }}>{threads.length === 0 ? 'No messages from users yet.'
+                : readFilter === 'unread' && !q ? 'No unread conversations. You are all caught up.'
+                : readFilter === 'read' && !q ? 'No read conversations yet.'
+                : 'No conversations match your search.'}</p>
             ) : filtered.map(t => (
               <button key={t.userId} onClick={() => openThread(t.userId, t.name)}
                 style={{ display: 'flex', gap: 11, alignItems: 'center', width: '100%', textAlign: 'left', padding: '12px 16px', border: 'none', borderBottom: `1px solid ${C.hair}`, cursor: 'pointer', background: sel === t.userId ? C.orangeFaint : 'transparent', fontFamily: 'inherit' }}>

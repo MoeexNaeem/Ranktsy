@@ -34,7 +34,7 @@ The **Pro · 1-Year** plan gives you everything in Rankkw Pro for twelve months 
 ## Everything in Pro, all year
 
 - **1,000 credits every day** for the tools - plenty of room to research, generate and optimize.
-- **200 keyword searches / day** with real search volume, competition and CTR.
+- **Up to 100 keyword searches / day** with real search volume, competition and CTR.
 - **Etsy Listing Pro - 20 AI listing images per month** (four times the monthly Pro allowance).
 - Trends, product research, competitor & rank tracking.
 - AI title, tag and description generators grounded in real data.
@@ -44,11 +44,11 @@ The **Pro · 1-Year** plan gives you everything in Rankkw Pro for twelve months 
 
 New for 1-Year members - a one-time bonus pack to get products live fast:
 
-- **100 digital products** ready to list
-- **100 SEO-optimized product titles**
-- **100 SEO-optimized product descriptions**
-- **100 professional product listing images**
-- A **30-minute one-on-one consultation** to map out your next quarter
+- **25 digital products** ready to list
+- **25 SEO-optimized product titles**
+- **25 SEO-optimized product descriptions**
+- **25 professional product listing images**
+- A **15-minute one-on-one consultation** to map out your next quarter
 
 ## Why a yearly plan
 
@@ -60,7 +60,7 @@ If you're serious about growing on Etsy, a year of consistent, data-backed optim
       $setOnInsert: {
         title: 'Pro · 1-Year - Best Value',
         slug: 'pro-1-year-plan',
-        summary: 'A full year of Rankkw Pro at ~$7.50/mo, 20 AI listing images a month, plus a one-time bonus pack of 100 ready-to-list products, titles, descriptions and images.',
+        summary: 'A full year of Rankkw Pro at ~$7.50/mo, 20 AI listing images a month, plus a one-time bonus pack of 25 ready-to-list products, titles, descriptions and images.',
         content,
         badge: 'Best value',
         ctaLabel: 'Get 1-Year Plan',

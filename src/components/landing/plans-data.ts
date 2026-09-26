@@ -26,27 +26,27 @@ export const PLANS: Plan[] = [
   {
     name: 'Free', slug: 'free', price: '$0', period: 'forever', accent: '#2E7D46',
     blurb: 'Explore the tools, free forever.',
-    features: ['50 credits / day', '5 keyword searches / day', '1 shop · 50 listings', '5 listing audits / day', 'Etsy Listing Pro - 1 image / mo', 'Basic keyword metrics'],
+    features: ['50 credits / day (10 per use)', 'Up to 5 keyword searches / day', '1 shop · 50 listings', '5 listing audits / day', 'Etsy Listing Pro - 1 image / mo', 'Basic keyword metrics'],
     cta: 'Start for free', href: '/register',
   },
   {
     name: 'Starter', slug: 'starter', price: '$0.99', period: 'per month', accent: '#2563EB',
     blurb: 'A little more room to research.',
-    features: ['100 credits / day', '25 keyword searches / day', '2 competitors monitored', '20 listing audits / day', 'Etsy Listing Pro - 2 images / mo', 'Tag generator'],
+    features: ['100 credits / day (10 per use)', 'Up to 10 keyword searches / day', '2 competitors monitored', '20 listing audits / day', 'Etsy Listing Pro - 2 images / mo', 'Tag generator'],
     cta: 'Choose Starter', href: '/register?plan=starter',
   },
   {
     name: 'Basic', slug: 'basic', price: '$2.99', period: 'per month', accent: '#0EA5E9',
     blurb: 'For sellers getting serious about SEO.',
-    features: ['200 credits / day', '100 keyword searches / day', '5 competitors monitored', '200 connected shop listings', '50 listing audits / day', 'Etsy Listing Pro - 3 images / mo'],
+    features: ['200 credits / day (10 per use)', 'Up to 20 keyword searches / day', '5 competitors monitored', '200 connected shop listings', '50 listing audits / day', 'Etsy Listing Pro - 3 images / mo'],
     cta: 'Choose Basic', href: '/register?plan=basic',
   },
   {
     name: 'Pro', slug: 'pro', price: '$6.99', period: 'per month', accent: '#FB5E09', popular: true,
     blurb: 'Everything to grow - includes Etsy Listing Pro.',
     features: [
-      '400 credits / day',
-      '200 keyword searches / day',
+      '400 credits / day (10 per use)',
+      'Up to 40 keyword searches / day',
       '50 competitors monitored',
       'Etsy Listing Pro - 5 images / mo',
       'Trends, product research & rank tracking',
@@ -60,10 +60,10 @@ export const PLANS: Plan[] = [
     note: '≈ $7.50 / mo · best value',
     blurb: 'All of Pro for a year - with more images.',
     features: [
-      '1,000 credits / day',
+      '1,000 credits / day (10 per use)',
       'Everything in Pro',
       'Etsy Listing Pro - 20 images / mo',
-      '200 keyword searches / day',
+      'Up to 100 keyword searches / day',
       'Priority support',
       'Locked-in 1-year price',
     ],
@@ -80,8 +80,8 @@ export const PLANS: Plan[] = [
     name: 'Business', slug: 'business', price: '$19.99', period: 'per month', accent: '#0D9488',
     blurb: 'For growing shops that need more images.',
     features: [
-      '1,000 credits / day',
-      '500 keyword searches / day',
+      '1,000 credits / day (10 per use)',
+      'Up to 100 keyword searches / day',
       'Etsy Listing Pro - 15 images / mo',
       '3 shops · 10,000 listings',
       '100 competitors monitored',
@@ -93,8 +93,8 @@ export const PLANS: Plan[] = [
     name: 'Agency', slug: 'agency', price: '$39.99', period: 'per month', accent: '#7C3AED',
     blurb: 'Multiple shops & clients, white-labeled.',
     features: [
-      '2,000 credits / day',
-      '1,000 keyword searches / day',
+      '2,000 credits / day (10 per use)',
+      'Up to 200 keyword searches / day',
       'Etsy Listing Pro - 30 images / mo',
       '10 shops · white-label reports',
       '200 competitors monitored',
@@ -106,8 +106,8 @@ export const PLANS: Plan[] = [
     name: 'Enterprise', slug: 'enterprise', price: '$49.99', period: 'per month', accent: '#4F46E5',
     blurb: 'Maximum scale and dedicated support.',
     features: [
-      '2,500 credits / day',
-      '2,000 keyword searches / day',
+      '2,500 credits / day (10 per use)',
+      'Up to 250 keyword searches / day',
       'Etsy Listing Pro - 50 images / mo',
       'Unlimited shops',
       '500 competitors monitored',
@@ -119,7 +119,7 @@ export const PLANS: Plan[] = [
     name: 'Custom', slug: 'custom', price: 'from $49.99', period: 'per month', accent: '#5B6472',
     blurb: 'Tailored limits and images for your team.',
     features: [
-      '2,500 credits / day',
+      '2,500 credits / day (10 per use)',
       'Everything in Enterprise',
       'Etsy Listing Pro - 50 images / mo (+$10 per extra 20)',
       'Custom searches & limits',
@@ -132,11 +132,11 @@ export const PLANS: Plan[] = [
 export type Cell = boolean | string
 
 // Each row's `cells` MUST stay aligned to PLANS order (9 wide):
-// [Free, Starter, Basic, Pro, Pro·2-Year, Business, Agency, Enterprise, Custom]
+// [Free, Starter, Basic, Pro, Pro·1-Year, Business, Agency, Enterprise, Custom]
 export const GROUPS: { group: string; rows: { label: string; cells: Cell[] }[] }[] = [
   { group: 'Keywords & research', rows: [
-    { label: 'Daily credits (other tools)', cells: ['50', '100', '200', '400', '1,000', '1,000', '2,000', '2,500', '2,500'] },
-    { label: 'Keyword searches / day', cells: ['5', '25', '100', '200', '200', '500', '1,000', '2,000', 'Custom'] },
+    { label: 'Daily credits (10 per search or tool use)', cells: ['50', '100', '200', '400', '1,000', '1,000', '2,000', '2,500', '2,500'] },
+    { label: 'Keyword searches / day (max)', cells: ['5', '10', '20', '40', '100', '100', '200', '250', 'Custom'] },
     { label: 'Keyword metrics (volume, KD, competition)', cells: ['Basic', true, true, true, true, true, true, true, true] },
     { label: 'Competitors monitored', cells: [false, '2', '5', '50', '50', '100', '200', '500', 'Custom'] },
     { label: 'Connected shop listings', cells: ['50', '100', '200', '4,000', '4,000', '10,000', '25,000', '50,000', 'Custom'] },

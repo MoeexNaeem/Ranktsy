@@ -79,6 +79,7 @@ export async function reconcileExpiredComps(): Promise<number> {
       plan: 'free',
       compExpiresAt: null,
     } }],
+    { updatePipeline: true },   // Mongoose 9 rejects update pipelines without this
   )
   return r.modifiedCount ?? 0
 }

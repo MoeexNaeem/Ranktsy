@@ -91,6 +91,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<C
           plan: 'free',
           compExpiresAt: null,
         } }],
+        { updatePipeline: true },   // Mongoose 9 rejects update pipelines without this
       )
       return NextResponse.json({ success: true, data: { ...(await payload()), affected: r.modifiedCount ?? 0 } })
     }
