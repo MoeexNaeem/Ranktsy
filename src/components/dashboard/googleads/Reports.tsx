@@ -100,7 +100,8 @@ function ReportTable({ cols, rows, empty, initialSort }: { cols: Col[]; rows: Ro
     })
   }, [rows, cols, sortKey, desc])
 
-  if (!rows.length) return <Card><EmptyState icon="📊" title={empty.title} sub={empty.sub} /></Card>
+  // No rows still shows the column headers: users (and Google's API reviewers)
+  // should see every metric the report tracks, not just an empty-state card.
   const grid = cols.map(c => c.width).join(' ')
   return (
     <div style={{ background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 16, overflowX: 'auto' }}>
@@ -113,6 +114,7 @@ function ReportTable({ cols, rows, empty, initialSort }: { cols: Col[]; rows: Ro
             </button>
           ))}
         </div>
+        {!rows.length && <EmptyState icon="📊" title={empty.title} sub={empty.sub} />}
         {sorted.map((r, i) => (
           <div key={i} style={{ display: 'grid', gridTemplateColumns: grid, gap: 12, padding: '12px 18px', alignItems: 'center', borderBottom: `1px solid ${C.hair}`, background: i % 2 ? C.canvas : 'transparent' }}>
             {cols.map(c => (
@@ -209,7 +211,9 @@ export function ReportsPanel({ account, initialSection = 'overview' }: { account
                 { key: 'dailyBudget', label: 'Budget/day', num: true, width: '0.9fr', render: r => money(r.dailyBudget) },
                 { key: 'bidding', label: 'Bidding', width: '1fr', render: r => <span style={{ fontSize: 12.5, color: C.graphite }}>{pretty(r.bidding)}</span> },
                 ...metricCols(money, { allConv: true }),
-                { key: 'actions', label: '', width: '1.35fr', sort: () => 0, render: r => (
+                // Room for three buttons (Edit, Pause/Enable, Remove); narrower, they
+                // spilled over the All conv. column and hid its numbers.
+                { key: 'actions', label: '', width: 'minmax(240px,1.6fr)', sort: () => 0, render: r => (
                   <RowActions kind="campaign" label={`campaign “${r.name}”`} status={r.status} item={{ campaignId: r.id }} onDone={refresh}
                     extra={<button onClick={() => setEditing(r.id)} style={actBtn}>Edit</button>} />) },
               ]} />

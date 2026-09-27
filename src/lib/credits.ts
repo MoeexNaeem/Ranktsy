@@ -107,10 +107,10 @@ export const REFUND_WINDOW_MS = 2 * 60 * 1000
  * reported failure is deliberate: the opposite default (wait for the client to
  * confirm before charging) hands free usage to any client that simply stays quiet.
  */
-export async function recordCharge(userId: string, tool: string, credits: number, searchCounted: boolean): Promise<void> {
+export async function recordCharge(userId: string, tool: string, credits: number, searchCounted: boolean, key?: string | null): Promise<void> {
   await User.updateOne(
     { _id: userId },
-    { $set: { lastCharge: { tool, credits, searchCounted, at: new Date(), refunded: false } } },
+    { $set: { lastCharge: { tool, key: key ?? null, credits, searchCounted, at: new Date(), refunded: false } } },
   ).catch(() => {})
 }
 
@@ -141,10 +141,15 @@ export async function refundLastCharge(userId: string, tool: string): Promise<Cr
         'lastCharge.refunded': true,
       },
     }],
-    { new: true },
-  ).catch(() => null)
+    // Mongoose 9 rejects an update pipeline without this flag. Before it was set,
+    // every refund threw here and was swallowed, so no refund ever happened.
+    { returnDocument: 'after', updatePipeline: true },
+  ).catch(e => { console.error('[credits] refund failed:', e); return null })
 
   if (!user) return null
+  // The search was refunded, so it is no longer "paid today": searching it again
+  // is a fresh, charged search rather than a free repeat.
+  if (user.lastCharge?.key) await unclaimPaidToday(userId, user.lastCharge.key)
   const plan = effectivePlan(user)
   const limit = creditLimitFor(plan)
   const used = user.creditsUsedToday ?? 0
@@ -177,6 +182,11 @@ export async function consumeCredits(userId: string, cost = CREDIT_COST): Promis
 // Credits reset each UTC day; so does this. `key` identifies the result (e.g.
 // "keywords|GLO|silver necklace"): re-opening the same result that day is free.
 const paidDay = () => new Date().toISOString().slice(0, 10)
+
+/** Undo claimPaidToday (a refund, or a charge that could not go through). */
+export async function unclaimPaidToday(userId: string, key: string): Promise<void> {
+  await PaidLookup.deleteOne({ userId, key, day: paidDay() }).catch(() => {})
+}
 
 /** Has this user already paid for `key` today? (Read-only.) */
 export async function alreadyPaidToday(userId: string, key: string): Promise<boolean> {

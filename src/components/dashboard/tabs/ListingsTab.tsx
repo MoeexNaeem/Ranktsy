@@ -3,7 +3,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import axios from 'axios'
 import { C, D, formatNumber } from '@/utils'
-import { chargeCredits } from '@/lib/credits-client'
+import { chargeCredits, useRefundOnError } from '@/lib/credits-client'
 import { SearchBar, ErrorBox, EmptyState, Pagination, StatCard, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import { TopListingsTable } from '../keyword/TopListingsTable'
@@ -51,9 +51,11 @@ export function ListingsTab() {
 
   const go = useCallback(async () => {
     const v = search.trim(); if (v.length < 2) return
-    if (!(await chargeCredits('listings'))) return
+    // Sort and paging are free views of the same search, so they are not part of the key.
+    if (!(await chargeCredits('listings', JSON.stringify({ q: v, minP, maxP, cat })))) return
     setPage(1); setApplied({ q: v, min: minP, max: maxP, sort, cat })
   }, [search, minP, maxP, sort, cat])
+  useRefundOnError('listings', isError)
 
   const onSort = useCallback((s: SortKey) => {
     setSort(s); setPage(1); setApplied(a => ({ ...a, sort: s }))

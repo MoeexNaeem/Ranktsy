@@ -12,7 +12,7 @@ import axios from 'axios'
 import { useListingReviews } from '@/hooks/useListingReviews'
 import { estimateListingSales } from '@/lib/salesEstimate'
 import { C, D, ACCENT, withAlpha, formatNumber } from '@/utils'
-import { chargeCredits } from '@/lib/credits-client'
+import { chargeCredits, useRefundOnError } from '@/lib/credits-client'
 import { SearchBar, Card, SectionTitle, ErrorBox, Loading, EmptyState, MONO } from '../kit'
 import { HotProductDetail } from '../hot/HotProductDetail'
 import type { HotProduct, HotProductsResponse, ApiResponse } from '@/types'
@@ -113,10 +113,13 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
 
   const apply = useCallback(async () => {
     const q = input.trim(); if (q.length < 2) return
-    if (!(await chargeCredits('hotproducts'))) return
+    // Sort is a free re-order of the same search, so it is not part of the key.
+    if (!(await chargeCredits('hotproducts', JSON.stringify({ q, cat, minP, maxP, minFav, release })))) return
     setSelected(null)
     setApplied({ q, sort, cat, minP, maxP, minFav, release })
   }, [input, sort, cat, minP, maxP, minFav, release])
+
+  useRefundOnError('hotproducts', isError)
 
   // Sort/release are instant re-applies (cheap for the user).
   const setSortNow = useCallback((s: string) => { setSort(s); setApplied(a => ({ ...a, sort: s })) }, [])

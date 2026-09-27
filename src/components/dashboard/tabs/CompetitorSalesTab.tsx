@@ -8,7 +8,7 @@ import { ctrlBtn } from '../controls'
 import { Card, SearchBar, SectionTitle, ErrorBox, EmptyState, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import { C, D, flag, formatNumber } from '@/utils'
-import { chargeCredits } from '@/lib/credits-client'
+import { chargeCredits, useRefundOnError } from '@/lib/credits-client'
 import type { ApiResponse, EtsyShop, AiFact } from '@/types'
 import { toast } from '@/components/ui/toast'
 
@@ -84,9 +84,10 @@ export function CompetitorSalesTab() {
   const go = useCallback(async () => {
     const v = input.trim()
     if (v.length < 2) return
-    if (!(await chargeCredits('compsales'))) return
+    if (!(await chargeCredits('compsales', v))) return
     setActive(v)
   }, [input])
+  useRefundOnError('compsales', isError)
 
   const isTracked = !!(shop && tracked?.some(t => t.shopId === shop.shop_id))
 

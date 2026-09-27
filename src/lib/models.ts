@@ -39,7 +39,7 @@ export interface IUserDoc extends Document {
   sebtStudent?: boolean
   /** The most recent metered charge, kept briefly so the client can have it
    *  reversed when a result never reached the user. See credits.ts refundLastCharge. */
-  lastCharge?: { tool: string; credits: number; searchCounted: boolean; at: Date; refunded: boolean } | null
+  lastCharge?: { tool: string; key?: string | null; credits: number; searchCounted: boolean; at: Date; refunded: boolean } | null
   // Which SEBT batch the student signed up in, copied from the live batch number
   // at signup. Lets an admin tell batch 1 from batch 2 long after both have closed.
   sebtBatch?: number | null
@@ -93,6 +93,7 @@ const UserSchema = new Schema<IUserDoc>({
   sebtStudent:       { type: Boolean, default: false },
   lastCharge:        { type: new Schema({
     tool:          { type: String, required: true },
+    key:           { type: String, default: null },   // the PaidLookup key this charge paid for
     credits:       { type: Number, default: 0 },
     searchCounted: { type: Boolean, default: false },
     at:            { type: Date, required: true },

@@ -5,7 +5,7 @@ import axios from 'axios'
 import { Card, SearchBar, SectionTitle, ErrorBox, Loading, EmptyState, MONO } from '../kit'
 import { ExportBtn, toCsv, downloadCsv, slugify } from '../controls'
 import { C, D, formatNumber } from '@/utils'
-import { chargeCredits } from '@/lib/credits-client'
+import { chargeCredits, useRefundOnError } from '@/lib/credits-client'
 import type { ApiResponse, KeywordGap, GapTag } from '@/types'
 import { copyWithToast } from '@/components/ui/toast'
 
@@ -60,12 +60,13 @@ export function KeywordGapTab() {
   const run = useCallback(async () => {
     const val = input.trim()
     if (val.length < 2) return
-    if (!(await chargeCredits('gap'))) return
+    if (!(await chargeCredits('gap', val))) return
     // One field, two modes: a listing URL/ID analyses that listing (its keyword is
     // derived from it server-side); anything else is treated as a keyword.
     if (LISTING_RE.test(val)) { setListing(val); setQ('') }
     else { setQ(val); setListing('') }
   }, [input])
+  useRefundOnError('gap', isError)
 
   const exportCsv = useCallback(() => {
     if (!data) return

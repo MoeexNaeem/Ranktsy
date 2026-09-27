@@ -6,7 +6,7 @@ import axios from 'axios'
 import { Star, ExportBtn, HeatPill, toCsv, downloadCsv } from '../controls'
 import { useFavorites } from '@/hooks/useFavorites'
 import { C, D, compColor, formatNumber } from '@/utils'
-import { chargeCredits } from '@/lib/credits-client'
+import { chargeCredits, useRefundOnError } from '@/lib/credits-client'
 import { Card, SectionTitle, ErrorBox, Loading, EmptyState, tableCard, tableHead, th, tableRow, tdMono, tdTitle, primaryBtn, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import { CountrySelect } from './KeywordsTab'
@@ -82,14 +82,17 @@ export function BulkKeywordTab() {
     },
   })
 
+  useRefundOnError('bulk', run.isError)
+
   const parsed = useMemo(
     () => [...new Set(text.split('\n').map(s => s.trim().toLowerCase()).filter(Boolean))],
     [text])
 
   const go = useCallback(async () => {
     if (!parsed.length) return
-    if (!(await chargeCredits('bulk'))) return
-    run.mutate({ keywords: parsed.slice(0, MAX), geo: country })
+    const kws = parsed.slice(0, MAX)
+    if (!(await chargeCredits('bulk', [...kws].sort().join(',')))) return
+    run.mutate({ keywords: kws, geo: country })
   }, [parsed, run, country])
 
   const handleSort = useCallback((key: SortKey) => {

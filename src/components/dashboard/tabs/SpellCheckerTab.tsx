@@ -74,7 +74,7 @@ export function SpellCheckerTab() {
         <textarea value={text} onChange={e => setText(e.target.value)} rows={6}
           placeholder="One tag per line (or comma-separated)…"
           style={{ width: '100%', background: C.canvas, border: `1px solid ${C.hair}`, borderRadius: 8, padding: '12px 14px', fontSize: 13.5, fontFamily: MONO, color: '#1a1a1a', outline: 'none', resize: 'vertical', boxSizing: 'border-box', lineHeight: 1.6 }} />
-        <button onClick={async () => { if (!(await chargeCredits('spell'))) return; setChecked(parseTags(text)) }} style={{ ...primaryBtn, marginTop: 12 }}>Check spelling →</button>
+        <button onClick={async () => { const tags = parseTags(text); if (!(await chargeCredits('spell', [...tags].sort().join(',')))) return; setChecked(tags) }} style={{ ...primaryBtn, marginTop: 12 }}>Check spelling →</button>
       </Card>
 
       {err && <ErrorBox>{err}</ErrorBox>}

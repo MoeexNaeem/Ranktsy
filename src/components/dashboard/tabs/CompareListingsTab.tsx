@@ -3,7 +3,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { C, formatNumber } from '@/utils'
-import { chargeCredits } from '@/lib/credits-client'
+import { chargeCredits, useRefundOnError } from '@/lib/credits-client'
 import { Card, SectionTitle, ErrorBox, Loading, EmptyState, primaryBtn, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import type { EtsyListing, AiFact } from '@/types'
@@ -42,9 +42,10 @@ export function CompareListingsTab() {
   const go = useCallback(async () => {
     const a = extractId(aIn.trim()), b = extractId(bIn.trim())
     if (!a || !b) { setErr('Paste two Etsy listing URLs or IDs.'); return }
-    if (!(await chargeCredits('compare'))) return
+    if (!(await chargeCredits('compare', `${a}|${b}`))) return
     setErr(''); setIds({ a, b })
   }, [aIn, bIn])
+  useRefundOnError('compare', isError)
 
   const rows = useMemo(() => {
     if (!data) return []

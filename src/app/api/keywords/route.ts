@@ -162,7 +162,7 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
         ])
       : [null, null]
     if (authUser && firstToday) {
-      await recordCharge(authUser.id, 'keywords', charged?.allowed ? CREDIT_COST : 0, !!counted?.allowed)
+      await recordCharge(authUser.id, 'keywords', charged?.allowed ? CREDIT_COST : 0, !!counted?.allowed, paidKey)
     }
 
     return NextResponse.json({

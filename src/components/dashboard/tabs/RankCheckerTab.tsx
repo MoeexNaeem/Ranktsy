@@ -30,7 +30,7 @@ export function RankCheckerTab() {
   const go = useCallback(async () => {
     const kws = kwText.split('\n').map(s => s.trim()).filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).slice(0, MAX)
     if (!shop.trim() || kws.length === 0) { setErr('Enter a shop and at least one keyword.'); return }
-    if (!(await chargeCredits('rank'))) return
+    if (!(await chargeCredits('rank', `${shop.trim()}|${[...kws].sort().join(',')}`))) return
     setLoading(true); setErr(''); setRows(null)
 
     const run = async (kw: string, shopParam: string): Promise<RankRow & { shopId: number }> => {

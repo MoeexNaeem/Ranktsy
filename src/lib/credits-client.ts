@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { useEffect } from 'react'
 import { triggerUpgrade } from './upgrade'
 
 /**
@@ -44,15 +45,23 @@ export function broadcastCredits(state: CreditState | undefined | null) {
 // Backwards-compatible local alias.
 const broadcast = broadcastCredits
 
+// When each tool last ACTUALLY charged (not a free repeat), so a failed search
+// refunds only a charge it really caused.
+const chargedAt: Record<string, number> = {}
+const REFUND_WINDOW_MS = 2 * 60 * 1000
+
 /**
- * Charge one use of `tool`. Returns true when the action may proceed, false when
+ * Charge one use of `tool` for the search `key` (what the user searched). The
+ * same search is paid once per day: pressing the button again, or repeating it
+ * later that day, is free. Returns true when the action may proceed, false when
  * the user is out of credits (upgrade modal shown). Network/unexpected errors
  * fail OPEN (return true) so a transient hiccup never blocks a paying user.
  */
-export async function chargeCredits(tool: string): Promise<boolean> {
+export async function chargeCredits(tool: string, key?: string): Promise<boolean> {
   try {
-    const { data } = await axios.post('/api/credits/charge', { tool })
+    const { data } = await axios.post('/api/credits/charge', { tool, key })
     broadcast(data?.state)
+    if (data?.charged) chargedAt[tool] = Date.now()
     return true
   } catch (e) {
     if (axios.isAxiosError(e) && e.response?.status === 402 && e.response.data?.code === 'credit_limit') {
@@ -67,4 +76,19 @@ export async function chargeCredits(tool: string): Promise<boolean> {
     }
     return true
   }
+}
+
+/**
+ * Give the credits back when the search a tool just paid for fails to load.
+ * Pass the tool id and its query's error flag; a charge is refunded at most once,
+ * and only if this tool really charged in the last two minutes.
+ */
+export function useRefundOnError(tool: string, failed: boolean) {
+  useEffect(() => {
+    if (!failed) return
+    const at = chargedAt[tool]
+    if (!at || Date.now() - at > REFUND_WINDOW_MS) return
+    delete chargedAt[tool]
+    void refundLastCharge(tool)
+  }, [failed, tool])
 }
