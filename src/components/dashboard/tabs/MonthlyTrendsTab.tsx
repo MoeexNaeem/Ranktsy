@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useTrends } from '@/hooks/useKeywords'
 import { BarChart } from '@/components/charts/BarChart'
 import { AiInsights } from '../AiInsights'
-import { Card, SearchBar, SectionTitle, ErrorBox, Loading, StatCard, MONO } from '../kit'
+import { Card, SearchBar, SectionTitle, ErrorBox, Loading, EmptyState, StatCard, MONO } from '../kit'
 import { C, D, formatNumber } from '@/utils'
 import { chargeCredits } from '@/lib/credits-client'
 import type { TrendData, TrendPoint, ListingMarketStats, AiFact } from '@/types'
@@ -29,8 +29,8 @@ function prepMonth(peak?: string): string {
  * exist (Etsy publishes no search volume), the tab says so.
  */
 export function MonthlyTrendsTab() {
-  const [input, setInput] = useState('christmas ornament')
-  const [query, setQuery] = useState('christmas ornament')
+  const [input, setInput] = useState('')
+  const [query, setQuery] = useState('')
   const { data: tr, isLoading, isError } = useTrends(query)
 
   const go = useCallback(async () => { const v = input.trim(); if (v.length < 2) return; if (!(await chargeCredits('monthly'))) return; setQuery(v) }, [input])
@@ -102,6 +102,7 @@ export function MonthlyTrendsTab() {
           placeholder="Analyze a keyword's season & market… e.g. christmas ornament" button="Analyze →" />
       </div>
 
+      {!query && <Card><EmptyState title="Search a keyword to see its season and market" sub="Nothing loads until you search, so no credits are used until you do." /></Card>}
       {isLoading && <Loading label="Mapping the season & market…" />}
       {isError && <ErrorBox>Couldn&apos;t load data for this keyword. Please try again.</ErrorBox>}
 

@@ -67,7 +67,7 @@ function CompCell({ row }: { row: BulkKeywordRow }) {
 }
 
 export function BulkKeywordTab() {
-  const [text, setText] = useState('silver necklace\nboho earrings\nhandmade candle\npersonalized gift\nmacrame wall hanging')
+  const [text, setText] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('competition')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   // Same default as Keyword Search, so both screens show the same Google numbers.
@@ -155,7 +155,7 @@ export function BulkKeywordTab() {
           </span>
         }>Compare up to {MAX} keywords</SectionTitle>
         <textarea value={text} onChange={e => setText(e.target.value)} rows={6}
-          placeholder="One keyword per line…"
+          placeholder={'One keyword per line, e.g.\nsilver necklace\nboho earrings\nhandmade candle'}
           style={{ width: '100%', background: C.canvas, border: `1px solid ${C.hair}`, borderRadius: 10, padding: '12px 14px', fontSize: 13.5, fontFamily: MONO, color: C.ink, outline: 'none', resize: 'vertical', boxSizing: 'border-box', lineHeight: 1.7 }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
           <button onClick={go} disabled={run.isPending || !parsed.length}

@@ -5,14 +5,14 @@ import { useTrends } from '@/hooks/useKeywords'
 import { TrendChart }    from '@/components/charts/TrendChart'
 import { CountryChart }  from '@/components/charts/CountryChart'
 import { PlatformToggle } from '../PlatformToggle'
-import { Card, SearchBar, SectionTitle, ErrorBox, MONO } from '../kit'
+import { Card, SearchBar, SectionTitle, ErrorBox, EmptyState, MONO } from '../kit'
 import { C } from '@/utils'
 import { chargeCredits } from '@/lib/credits-client'
 import type { TrendPlatform, TrendData, TrendPoint } from '@/types'
 
 export function TrendsTab() {
-  const [input, setInput]  = useState('handmade candles')
-  const [query, setQuery]  = useState('handmade candles')
+  const [input, setInput]  = useState('')
+  const [query, setQuery]  = useState('')
   const [plats, setPlats]  = useState<TrendPlatform[]>(['etsy', 'google'])
 
   const { data: tr, isLoading, isError } = useTrends(query)
@@ -50,6 +50,7 @@ export function TrendsTab() {
         </div>
       )}
 
+      {!query && <Card><EmptyState title="Search a keyword to track its trend" sub="Nothing loads until you search, so no credits are used until you do." /></Card>}
       {isLoading && <div className="shimmer" style={{ height: 200, borderRadius: 10, background: '#e8e7e2' }} />}
       {isError && <ErrorBox>Failed to load trend data live. Please try again.</ErrorBox>}
 

@@ -67,6 +67,11 @@ export function useKeywordSearch(query: string, geo = 'US') {
       }
     },
     enabled:     query.trim().length >= 2, // don't fetch on empty input
+    // This request is a CHARGED search. Only the user starts one: never re-run it
+    // on its own when the tab regains focus or the connection comes back (after
+    // the daily reset that would have cost credits for a search nobody made).
+    refetchOnWindowFocus: false,
+    refetchOnReconnect:   false,
     // 30 min - keyword data is stable; 1 min when Google couldn't answer, so volume fills in.
     staleTime:   q => (googleGap((q.state.data as { stats?: unknown } | undefined)?.stats) ? 60_000 : 1000 * 60 * 30),
     gcTime:      1000 * 60 * 60,           // 1 hour in React Query cache

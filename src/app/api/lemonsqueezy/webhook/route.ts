@@ -51,6 +51,9 @@ export async function POST(req: NextRequest) {
     const status = String(attrs.status ?? '')
 
     if (['subscription_created', 'subscription_updated', 'subscription_resumed', 'subscription_payment_success', 'subscription_payment_recovered', 'subscription_unpaused'].includes(event)) {
+      // A new plan starts with its FULL daily allowance: credits and searches used
+      // earlier today (on Free or a trial) must not eat into what they just bought.
+      if (plan && plan !== user.plan) { user.creditsUsedToday = 0; user.searchCount = 0 }
       if (plan) user.plan = plan
       // A paid invoice means the subscription is active; its own status ('paid')
       // is not a subscription status and would read as "not active" elsewhere.

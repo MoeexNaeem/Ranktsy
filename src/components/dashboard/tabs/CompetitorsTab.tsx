@@ -3,7 +3,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { C, D, formatNumber } from '@/utils'
-import { SearchBar, Card, StatCard, SectionTitle, ErrorBox, Pagination, tableCard, tableHead, th, tableRow, tdMono, tdTitle, TagPill, MONO } from '../kit'
+import { SearchBar, Card, StatCard, SectionTitle, ErrorBox, EmptyState, Pagination, tableCard, tableHead, th, tableRow, tdMono, tdTitle, TagPill, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import { BubbleChart } from '@/components/charts/InsightCharts'
 import { BarChart } from '@/components/charts/BarChart'
@@ -22,8 +22,8 @@ function priceStr(l: EtsyListing) {
 }
 
 export function CompetitorsTab() {
-  const [search, setSearch] = useState('silver necklace')
-  const [query,  setQuery]  = useState('silver necklace')
+  const [search, setSearch] = useState('')
+  const [query,  setQuery]  = useState('')
   const [page,   setPage]   = useState(1)
 
   const { data: listings, isLoading, isError } = useQuery({
@@ -32,6 +32,7 @@ export function CompetitorsTab() {
       const { data } = await axios.get(`/api/etsy/search?q=${encodeURIComponent(query)}&limit=${FETCH}`)
       return (data.data ?? []) as EtsyListing[]
     },
+    enabled: query.trim().length >= 2,
     staleTime: 1000 * 60 * 30,
   })
 
@@ -87,7 +88,9 @@ export function CompetitorsTab() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <SearchBar value={search} onChange={setSearch} onSubmit={go} placeholder="Analyze competition for any keyword…" button="Analyze →" />
+      <SearchBar value={search} onChange={setSearch} onSubmit={go} placeholder="Analyze competition for any keyword, e.g. silver necklace" button="Analyze →" />
+
+      {!query && <Card><EmptyState title="Search a keyword to see its competitors" sub="Nothing loads until you search, so no credits are used until you do." /></Card>}
 
       {isLoading && <div className="shimmer" style={{ height: 400, borderRadius: 8, background: '#e8e7e2' }} />}
       {isError && <ErrorBox>Failed to load competitor data live. Please try again.</ErrorBox>}

@@ -25,8 +25,10 @@ function Skel({ h=72 }: { h?: number }) {
 }
 
 export function Dashboard() {
-  const [input,  setInput]  = useState('silver necklace')
-  const [query,  setQuery]  = useState('silver necklace')
+  // Starts empty: for a logged-in visitor this is a real, charged keyword search,
+  // so it only runs when they type one.
+  const [input,  setInput]  = useState('')
+  const [query,  setQuery]  = useState('')
   const [tab,    setTab]    = useState<Tab>('Keywords')
   const [plats,  setPlats]  = useState<TrendPlatform[]>(['etsy','google'])
   const addR = useAppStore(s=>s.addRecentSearch)
@@ -74,7 +76,7 @@ export function Dashboard() {
           {/* Top bar */}
           <div style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderBottom:'1px solid rgba(0,0,0,0.06)', flexShrink:0 }}>
             <div style={{ display:'flex', background:C.warmGray, borderRadius:8, overflow:'hidden', border:'1px solid rgba(0,0,0,0.08)', flex:1, maxWidth:340 }}>
-              <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&search()} placeholder="Search any keyword..."
+              <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&search()} placeholder="Try a keyword, e.g. silver necklace"
                 style={{ background:'transparent', border:'none', padding:'7px 11px', fontSize:12.5, fontFamily:'inherit', outline:'none', flex:1, color:'#1a1a1a' }} />
               <button onClick={search} style={{ background:C.charcoal, border:'none', color:C.snow, padding:'0 13px', fontSize:11.5, fontWeight:500, cursor:'pointer', fontFamily:'inherit' }}>Search</button>
             </div>
@@ -136,6 +138,7 @@ export function Dashboard() {
                   {[0,1,2].map(i=><span key={i} className="shimmer" style={{ width:6,height:6,borderRadius:'50%',background:C.charcoal,display:'inline-block',animationDelay:`${i*0.15}s` }}/>)} Analyzing...
                 </div>}
                 {isError && <p style={{ color:'#c00', textAlign:'center', fontSize:13, padding:'18px 0' }}>Failed. Please retry.</p>}
+                {!query && <p style={{ textAlign:'center', fontSize:13, color:C.charcoal, padding:'18px 0' }}>Type a keyword above and press Enter to see live Etsy data.</p>}
                 {kw && <div>
                   <p style={{ fontSize:11.5, fontWeight:500, color:C.charcoal, marginBottom:7 }}>Keywords related to &ldquo;{kw.query}&rdquo;</p>
                   <KeywordTable rows={kw.related} />

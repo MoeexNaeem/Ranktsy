@@ -41,7 +41,7 @@ type SortKey = 'sales' | 'reviewCount' | 'reviewAverage' | 'yearOpened' | 'activ
 export function TopSellersTab() {
   // Seeded from the store so "See Best Sellers" on the Keyword Tool lands here
   // already scoped to the keyword the user was researching.
-  const seed = useAppStore.getState().activeKeyword || 'personalized jewelry'
+  const seed = useAppStore.getState().activeKeyword || ''
   const [input, setInput] = useState(seed)
   const [query, setQuery] = useState(seed)
   const [activeOnly, setActiveOnly] = useState(false)
@@ -182,6 +182,7 @@ export function TopSellersTab() {
           placeholder="Which niche's top shops? e.g. macrame wall hanging" button="Rank shops →" />
       </div>
 
+      {!query && <Card><EmptyState icon="🏆" title="Search a niche to rank its top shops" sub="Nothing loads until you search, so no credits are used until you do." /></Card>}
       {isLoading && <Loading label="Ranking shops by real sales…" />}
       {isError && <ErrorBox>Couldn&apos;t load top sellers live. Please try again.</ErrorBox>}
       {data && !isLoading && data.length === 0 && <EmptyState icon="🏆" title="No shops found" sub="Try a broader keyword." />}

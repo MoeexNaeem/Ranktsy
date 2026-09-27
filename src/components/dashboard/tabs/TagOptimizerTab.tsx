@@ -13,8 +13,8 @@ import { copyWithToast } from '@/components/ui/toast'
 const GRID = '2fr 0.6fr 0.9fr 0.8fr 2fr'
 
 export function TagOptimizerTab() {
-  const [input, setInput] = useState('boho earrings')
-  const [query, setQuery] = useState('boho earrings')
+  const [input, setInput] = useState('')
+  const [query, setQuery] = useState('')
 
   const { data: listings, isLoading } = useQuery({
     queryKey: ['tag-optimizer', query],
@@ -22,6 +22,7 @@ export function TagOptimizerTab() {
       const { data } = await axios.get(`/api/etsy/search?q=${encodeURIComponent(query)}&limit=50`)
       return (data.data ?? []) as EtsyListing[]
     },
+    enabled: query.trim().length >= 2,
     staleTime: 1000 * 60 * 30,
   })
 

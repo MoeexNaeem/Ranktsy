@@ -17,8 +17,8 @@ const CUR: Record<string, string> = { USD: '$', GBP: '£', EUR: '€', CAD: 'C$'
 const symOf = (c?: string) => CUR[c ?? 'USD'] ?? ((c ?? '') + ' ')
 
 export function CategoryReportTab() {
-  const [input, setInput] = useState('macrame wall hanging')
-  const [query, setQuery] = useState('macrame wall hanging')
+  const [input, setInput] = useState('')
+  const [query, setQuery] = useState('')
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['category-report', query.toLowerCase()],
@@ -108,6 +108,7 @@ export function CategoryReportTab() {
         </p>
       </div>
 
+      {!query && <Card><EmptyState icon="🗂️" title="Search a category or niche to get started" sub="Nothing loads until you search, so no credits are used until you do." /></Card>}
       {isLoading && <Loading label="Analyzing the category…" />}
       {isError && <ErrorBox>Couldn&apos;t load category data live. Please try again.</ErrorBox>}
       {data && !isLoading && !report && <EmptyState icon="🗂️" title="No listings found" sub="Try a broader term." />}

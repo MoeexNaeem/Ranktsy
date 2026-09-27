@@ -39,8 +39,8 @@ function TagRow({ t }: { t: GapTag }) {
 const LISTING_RE = /etsy\.com\/listing\/\d+|\/listing\/\d+|^\s*\d{6,}\s*$/i
 
 export function KeywordGapTab() {
-  const [input, setInput] = useState('ceramic mug')
-  const [q, setQ] = useState('ceramic mug')
+  const [input, setInput] = useState('')
+  const [q, setQ] = useState('')
   const [listing, setListing] = useState('')
 
   const { data, isLoading, isError } = useQuery({

@@ -4,7 +4,7 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import axios from 'axios'
 import { C, D, formatNumber } from '@/utils'
 import { chargeCredits } from '@/lib/credits-client'
-import { SearchBar, ErrorBox, Pagination, StatCard, MONO } from '../kit'
+import { SearchBar, ErrorBox, EmptyState, Pagination, StatCard, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import { TopListingsTable } from '../keyword/TopListingsTable'
 import type { EtsyListing, AiFact } from '@/types'
@@ -15,12 +15,12 @@ type SortKey = 'score' | 'price' | 'created' | 'updated'
 const SORT_LABEL: Record<SortKey, string> = { score: 'Relevance', price: 'Price', created: 'Newest', updated: 'Recently updated' }
 
 export function ListingsTab() {
-  const [search, setSearch] = useState('handmade jewelry')
+  const [search, setSearch] = useState('')
   const [minP, setMinP] = useState('')
   const [maxP, setMaxP] = useState('')
   const [sort, setSort] = useState<SortKey>('score')
   const [cat, setCat] = useState('')
-  const [applied, setApplied] = useState({ q: 'handmade jewelry', min: '', max: '', sort: 'score' as SortKey, cat: '' })
+  const [applied, setApplied] = useState({ q: '', min: '', max: '', sort: 'score' as SortKey, cat: '' })
   const [page, setPage] = useState(1)
 
   // Etsy seller taxonomy - the "browse by category" picker (top 2 levels).
@@ -44,6 +44,7 @@ export function ListingsTab() {
       const { data } = await axios.get(`/api/etsy/search?${p.toString()}`)
       return data as { data: EtsyListing[]; count: number }
     },
+    enabled: applied.q.trim().length >= 2,
     placeholderData: keepPreviousData,
     staleTime: 1000 * 60 * 30,
   })
@@ -99,7 +100,7 @@ export function ListingsTab() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <SearchBar value={search} onChange={setSearch} onSubmit={go} placeholder="Search Etsy listings…" />
+      <SearchBar value={search} onChange={setSearch} onSubmit={go} placeholder="Search Etsy listings, e.g. handmade jewelry" />
 
       {/* Advanced filters */}
       <div className="rwrap-sm" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -124,7 +125,8 @@ export function ListingsTab() {
         </div>
       )}
       {isError && <ErrorBox>Failed to load listings live. Please try again.</ErrorBox>}
-      {!isLoading && !isError && (
+      {!applied.q && <EmptyState title="Search Etsy listings to get started" sub="Nothing loads until you search, so no credits are used until you do." />}
+      {applied.q && !isLoading && !isError && (
         <>
           <p style={{ fontSize: 13.5, color: C.graphite, fontFamily: MONO }}>
             {formatNumber(total)} results for &ldquo;{applied.q}&rdquo; · page {page} of {formatNumber(pageCount)}

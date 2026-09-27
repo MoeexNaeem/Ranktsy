@@ -42,6 +42,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const user = await User.findById(pay.userId)
     if (!user) return NextResponse.json({ success: false, error: 'That user no longer exists.' }, { status: 404 })
+    // A new plan starts with its FULL daily allowance: credits and searches used
+    // earlier today (on Free or a trial) must not eat into what they just paid for.
+    if (user.plan !== plan) { user.creditsUsedToday = 0; user.searchCount = 0 }
     user.plan = plan
     user.compExpiresAt = until
     // A fresh grant clears any old "plan expired" popup.

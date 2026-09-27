@@ -74,7 +74,7 @@ function HotBar({ score }: { score: number }) {
 }
 
 export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => void }) {
-  const [input, setInput] = useState('sticker')
+  const [input, setInput] = useState('')
   const [sort, setSort] = useState('hot')
   const [cat, setCat] = useState('')
   const [minP, setMinP] = useState('')
@@ -83,7 +83,7 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
   const [release, setRelease] = useState('')
   const [view, setView] = useState<'list' | 'grid'>('list')
   const [selected, setSelected] = useState<HotProduct | null>(null)
-  const [applied, setApplied] = useState({ q: 'sticker', sort: 'hot', cat: '', minP: '', maxP: '', minFav: '', release: '' })
+  const [applied, setApplied] = useState({ q: '', sort: 'hot', cat: '', minP: '', maxP: '', minFav: '', release: '' })
 
   const { data: taxo } = useQuery({
     queryKey: ['taxonomy'],
@@ -105,6 +105,7 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
       if (!data.success || !data.data) throw new Error(data.error ?? 'Failed')
       return data.data
     },
+    enabled: applied.q.trim().length >= 2,
     placeholderData: keepPreviousData,
     staleTime: 1000 * 60 * 20,
     retry: false,
@@ -180,6 +181,7 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
       </Card>
 
       {isError && <ErrorBox>Couldn&apos;t load products live. Try a different search or loosen the filters.</ErrorBox>}
+      {!applied.q && <Card><EmptyState icon="🔥" title="Search a product, tag or niche to find hot products" sub="Nothing loads until you search, so no credits are used until you do." /></Card>}
       {isLoading && <Loading label="Scanning Etsy for hot products…" />}
 
       {data && !isLoading && (

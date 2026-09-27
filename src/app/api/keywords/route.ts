@@ -46,7 +46,9 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
   const authUser = await getCurrentUser().catch(() => null)
   // Paid once per keyword per day: the page re-runs the search whenever it opens or
   // is refreshed, and that must not charge again (or be blocked by an empty balance).
-  const paidKey = `keywords|${geo}|${query}`
+  // Not per country: switching the country on the same keyword only changes which
+  // Google numbers are shown, so it is the same search and is not charged twice.
+  const paidKey = `keywords|${query}`
   const paidAlready = authUser ? (await connectDB(), await alreadyPaidToday(authUser.id, paidKey)) : false
   if (authUser && !paidAlready) {
     await connectDB()

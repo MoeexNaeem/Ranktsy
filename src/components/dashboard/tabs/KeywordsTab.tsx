@@ -425,8 +425,9 @@ function SubTabs({ active, onChange, counts }: {
 // ─── Main ────────────────────────────────────────────────────────────────────
 export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void }) {
   // Seed from the store so a tag clicked in Hot Products (or elsewhere) lands
-  // here already researched, instead of on a fixed default.
-  const seed = useAppStore.getState().activeKeyword || 'silver necklace'
+  // here already researched. NO fixed default: every keyword search costs
+  // credits, so the tool must never search something the user did not ask for.
+  const seed = useAppStore.getState().activeKeyword || ''
   const [input, setInput] = useState(seed)
   const [query, setQuery] = useState(seed)
   const [country, setCountry] = useState('GLO')
@@ -550,6 +551,22 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
   ], [kw, isFetching, isError, related.data, related.isFetching, related.isError, near.data, near.isFetching, near.isError])
 
   const allDone = stages.every(s => s.done || s.failed)
+
+  if (!query) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <KeywordGuide />
+        <div data-tour="kw-search">
+          <SearchBar value={input} onChange={setInput} onSubmit={search} placeholder="Search any Etsy keyword, e.g. silver necklace"
+            control={<CountrySelect value={country} onChange={setCountry} />} />
+        </div>
+        <Card>
+          <EmptyState title="Search a keyword to get started"
+            sub="Type any Etsy keyword above to see its competition, difficulty, search volume and related keywords. Nothing loads until you search, so no credits are used until you do." />
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
