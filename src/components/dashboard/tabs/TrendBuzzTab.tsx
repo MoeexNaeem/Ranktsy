@@ -9,7 +9,7 @@ import {
 } from '../kit'
 import { AiInsights } from '../AiInsights'
 import { C, D, formatNumber } from '@/utils'
-import { chargeCredits, useRefundOnError } from '@/lib/credits-client'
+import { ensureCredits, useChargeOnSuccess } from '@/lib/credits-client'
 import type { BuzzItem } from '@/lib/etsy'
 import type { AiFact } from '@/types'
 
@@ -18,10 +18,12 @@ const GRID = '2fr 0.7fr 0.8fr 0.8fr 1fr 0.7fr 0.9fr'
 export function TrendBuzzTab() {
   const [input, setInput] = useState('')
   const [query, setQuery] = useState('')
-  const { data, isLoading, isFetching, isError } = useTrendBuzz(query)
+  // Key of the search the user started (the default view on open is free).
+  const [searched, setSearched] = useState('')
+  const { data, isLoading, isFetching, isError, isSuccess, isPlaceholderData } = useTrendBuzz(query)
 
-  const go = useCallback(async () => { const v = input.trim(); if (!(await chargeCredits('buzz', v || '(all)'))) return; setQuery(v) }, [input])
-  useRefundOnError('buzz', isError)
+  const go = useCallback(async () => { const v = input.trim(); if (!(await ensureCredits('buzz', v || '(all)'))) return; setSearched(v || '(all)'); setQuery(v) }, [input])
+  useChargeOnSuccess('buzz', searched, (query || '(all)') === searched && isSuccess && !isPlaceholderData && (data?.length ?? 0) > 0)
 
   const top12 = useMemo(() => (data ?? []).slice(0, 12), [data])
 

@@ -3,9 +3,10 @@ import { effectivePlan, type PlanSlug } from './plans'
 
 /**
  * Credit system for the "other tools" - every dashboard feature that ISN'T
- * already governed by a hard per-plan limit (keyword searches, competitors
- * monitored, Etsy Listing Pro images, listing audits). Each such tool use costs
- * a flat CREDIT_COST. The daily allowance comes from the plan and resets on a UTC
+ * already governed by a hard per-plan limit (competitors monitored, Etsy
+ * Listing Pro images, listing audits). Each search costs a flat CREDIT_COST (1),
+ * and it is charged only once the search has actually delivered a result: a
+ * failed search, an empty result or a server error never costs anything. The daily allowance comes from the plan and resets on a UTC
  * day rollover; the balance is derived as `limit − creditsUsedToday`, so a plan
  * change or admin grant is reflected immediately with no stored-balance drift.
  *
@@ -14,20 +15,23 @@ import { effectivePlan, type PlanSlug } from './plans'
  * applies before the JWT refreshes - same pattern as lib/quota.ts.
  */
 
-/** Flat cost charged for one use of a credit-metered tool. */
-export const CREDIT_COST = 10
+/** Flat cost charged for one search / use of a credit-metered tool. */
+export const CREDIT_COST = 1
 
-/** Daily credit allowance per plan (resets 00:00 UTC). */
+/**
+ * Daily credit allowance per plan (resets 00:00 UTC). One credit = one search,
+ * so these are also the plan's searches per day (planLimits.ts must match).
+ */
 export const CREDITS_PER_DAY: Record<PlanSlug, number> = {
-  free:        50,
-  starter:     100,   // the $0.99 plan
-  basic:       200,
-  pro:         400,
-  'pro-1yr':   1000,  // the 1-Year plan
-  business:    1000,
-  agency:      2000,
-  enterprise:  2500,
-  custom:      2500,
+  free:        5,
+  starter:     20,    // the $0.99 plan
+  basic:       60,
+  pro:         120,
+  'pro-1yr':   150,   // the 1-Year plan
+  business:    500,
+  agency:      1000,
+  enterprise:  2000,
+  custom:      2000,
 }
 
 export function creditLimitFor(plan: PlanSlug | undefined): number {
@@ -39,7 +43,7 @@ export function creditLimitFor(plan: PlanSlug | undefined): number {
  *
  * `keywords` carries BOTH meters on purpose: a keyword search costs credits and
  * counts against the plan's searches/day cap. The cap is set to exactly
- * credits / CREDIT_COST (planLimits.ts), e.g. Enterprise 2,500 credits = 250
+ * credits / CREDIT_COST (planLimits.ts), e.g. Enterprise 2,000 credits = 2,000
  * searches, so the two meters always agree when only searching.
  *
  * DELIBERATELY EXCLUDED (already limit-gated, so never charged): competitors
@@ -156,10 +160,16 @@ export async function refundLastCharge(userId: string, tool: string): Promise<Cr
   return { credits: Math.max(0, limit - used), limit, usedToday: used, plan }
 }
 
+const utcDayStart = (d = new Date()) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+
 /**
- * Charge `cost` credits for one tool use. Resets the daily counter on a UTC-day
- * rollover, then either records the spend or (when the balance is too low)
- * returns allowed:false without charging.
+ * Charge `cost` credits for one tool use, or return allowed:false without
+ * charging when the balance is too low.
+ *
+ * Atomic on purpose. The old read-modify-save let two searches finishing at the
+ * same moment both read "used = 4" and both write 5, and let a charge slip past
+ * the limit. Now the day rollover and the charge are each a single conditional
+ * update, so concurrent charges can neither be lost nor overspend the allowance.
  */
 export async function consumeCredits(userId: string, cost = CREDIT_COST): Promise<ConsumeResult | null> {
   const user = await User.findById(userId)
@@ -167,21 +177,43 @@ export async function consumeCredits(userId: string, cost = CREDIT_COST): Promis
   const plan = effectivePlan(user)
   const limit = creditLimitFor(plan)
   const now = new Date()
-  if (!sameUTCDay(user.creditsResetAt, now)) { user.creditsUsedToday = 0; user.creditsResetAt = now }
-  const used = user.creditsUsedToday ?? 0
-  if (used + cost > limit) {
+
+  // 1) Lazy UTC-day reset. Matches only a stale counter, so of several requests
+  //    racing across midnight exactly one resets it.
+  await User.updateOne(
+    { _id: userId, $or: [{ creditsResetAt: { $lt: utcDayStart(now) } }, { creditsResetAt: null }] },
+    { $set: { creditsUsedToday: 0, creditsResetAt: now } },
+  )
+
+  // 2) Charge only if it still fits under today's limit.
+  const after = await User.findOneAndUpdate(
+    { _id: userId, $or: [{ creditsUsedToday: { $lte: limit - cost } }, { creditsUsedToday: null }] },
+    [{ $set: {
+      creditsUsedToday: { $add: [{ $ifNull: ['$creditsUsedToday', 0] }, cost] },
+      creditsUsedTotal: { $add: [{ $ifNull: ['$creditsUsedTotal', 0] }, cost] },
+    } }],
+    { returnDocument: 'after', updatePipeline: true },
+  ).select('creditsUsedToday').lean<{ creditsUsedToday?: number }>()
+
+  if (!after) {
+    const s = await getCreditState(userId)
+    const used = s?.usedToday ?? limit
     return { allowed: false, credits: Math.max(0, limit - used), limit, usedToday: used, plan }
   }
-  user.creditsUsedToday = used + cost
-  user.creditsUsedTotal = (user.creditsUsedTotal ?? 0) + cost
-  await user.save()
-  return { allowed: true, credits: limit - (used + cost), limit, usedToday: used + cost, plan }
+  const used = after.creditsUsedToday ?? cost
+  return { allowed: true, credits: Math.max(0, limit - used), limit, usedToday: used, plan }
 }
 
 // ─── Pay once per lookup per day ────────────────────────────────────────────────
 // Credits reset each UTC day; so does this. `key` identifies the result (e.g.
 // "keywords|GLO|silver necklace"): re-opening the same result that day is free.
 const paidDay = () => new Date().toISOString().slice(0, 10)
+
+/** Normalised "paid today" key for a tool search, or '' when there is no key. */
+export function paidKeyFor(tool: string, rawKey: unknown): string {
+  const key = typeof rawKey === 'string' ? rawKey.trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 500) : ''
+  return key ? `${tool}|${key}` : ''
+}
 
 /** Undo claimPaidToday (a refund, or a charge that could not go through). */
 export async function unclaimPaidToday(userId: string, key: string): Promise<void> {

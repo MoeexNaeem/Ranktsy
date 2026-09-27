@@ -3,7 +3,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { C, formatNumber } from '@/utils'
-import { chargeCredits, useRefundOnError } from '@/lib/credits-client'
+import { ensureCredits, useChargeOnSuccess } from '@/lib/credits-client'
 import { Card, SectionTitle, ErrorBox, Loading, EmptyState, primaryBtn, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import type { EtsyListing, AiFact } from '@/types'
@@ -30,7 +30,7 @@ export function CompareListingsTab() {
   const [ids, setIds] = useState<{ a: number; b: number } | null>(null)
   const [err, setErr] = useState('')
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, isSuccess } = useQuery({
     queryKey: ['compare', ids],
     queryFn: async () => {
       const [ra, rb] = await Promise.all([axios.get(`/api/etsy/listing?id=${ids!.a}`), axios.get(`/api/etsy/listing?id=${ids!.b}`)])
@@ -42,10 +42,10 @@ export function CompareListingsTab() {
   const go = useCallback(async () => {
     const a = extractId(aIn.trim()), b = extractId(bIn.trim())
     if (!a || !b) { setErr('Paste two Etsy listing URLs or IDs.'); return }
-    if (!(await chargeCredits('compare', `${a}|${b}`))) return
+    if (!(await ensureCredits('compare', `${a}|${b}`))) return
     setErr(''); setIds({ a, b })
   }, [aIn, bIn])
-  useRefundOnError('compare', isError)
+  useChargeOnSuccess('compare', ids ? `${ids.a}|${ids.b}` : '', isSuccess && !!data?.a && !!data?.b)
 
   const rows = useMemo(() => {
     if (!data) return []

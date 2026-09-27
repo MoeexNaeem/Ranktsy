@@ -43,7 +43,7 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
 
   // Two meters, both CHECKED here and only COUNTED once a result is delivered, so
   // an upstream failure never costs the user anything: the per-plan searches/day
-  // cap, and CREDIT_COST credits (same flat price as every other metered tool).
+  // cap, and CREDIT_COST (1) credit, the same flat price as every other metered tool.
   const authUser = await getCurrentUser().catch(() => null)
   // Paid once per keyword per day: the page re-runs the search whenever it opens or
   // is refreshed, and that must not charge again (or be blocked by an empty balance).
@@ -51,12 +51,12 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
   // Google numbers are shown, so it is the same search and is not charged twice.
   const paidKey = `keywords|${query}`
   // The browser extension looks up every Etsy search page the user merely browses,
-  // with no click on our side, so those lookups are free: credits and the daily
-  // search cap are only spent on searches made inside rankkw.com. The hourly
-  // search gate above still applies.
-  const fromExtension = detectExtension(req).isExt
-  const paidAlready = authUser && !fromExtension ? (await connectDB(), await alreadyPaidToday(authUser.id, paidKey)) : false
-  if (authUser && !paidAlready && !fromExtension) {
+  // with no click on our side, so those passive lookups are free. A search the
+  // user TYPES (or taps) in the extension sends intent=search and is charged like
+  // one made on rankkw.com. The hourly search gate above applies to both.
+  const passive = detectExtension(req).isExt && searchParams.get('intent') !== 'search'
+  const paidAlready = authUser && !passive ? (await connectDB(), await alreadyPaidToday(authUser.id, paidKey)) : false
+  if (authUser && !paidAlready && !passive) {
     await connectDB()
     const q = await peekDailySearch(authUser.id)
     if (q && !q.allowed) {
@@ -160,7 +160,7 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
     // /api/credits/refund and recordCharge is what lets that be reversed.
     // Only the first delivery of this keyword today is charged (claimPaidToday is
     // atomic, so two identical requests racing cannot both charge).
-    const firstToday = authUser && usable && !paidAlready && !fromExtension ? await claimPaidToday(authUser.id, paidKey) : false
+    const firstToday = authUser && usable && !paidAlready && !passive ? await claimPaidToday(authUser.id, paidKey) : false
     const [counted, charged] = authUser && firstToday
       ? await Promise.all([
           consumeDailySearch(authUser.id).catch(() => null),

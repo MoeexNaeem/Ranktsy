@@ -853,7 +853,7 @@ export interface IApiUsage {
   imageCalls?: number         // Gemini images generated
   imageTokens?: number        // tokens burnt on image generation
   imageCostUsd?: number       // USD spent on image generation
-  creditsSpent?: number       // credits spent on credit-metered tools (10 per use)
+  creditsSpent?: number       // credits spent on credit-metered tools (1 per search)
   createdAt?: Date
   updatedAt?: Date
 }

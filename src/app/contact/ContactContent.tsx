@@ -76,7 +76,7 @@ const FAQS = [
   },
   {
     q: 'Is there a free plan?',
-    a: "Yes! Our Free plan is free forever with 50 credits and up to 5 keyword searches per day. Paid plans start at $0.99 / month, and in Pakistan you can also pay in PKR by bank transfer or JazzCash.",
+    a: "Yes! Our Free plan is free forever with 5 credits (5 searches) per day. Paid plans start at $0.99 / month, and in Pakistan you can also pay in PKR by bank transfer or JazzCash.",
   },
   {
     q: 'Can I request a feature?',

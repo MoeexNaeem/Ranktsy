@@ -3,7 +3,7 @@ import { Icon } from '@/components/ui/Icon'
 import { useState, useCallback, useMemo } from 'react'
 import { useTopSellers } from '@/hooks/useKeywords'
 import { useAppStore } from '@/store/app'
-import { chargeCredits, useRefundOnError } from '@/lib/credits-client'
+import { ensureCredits, useChargeOnSuccess } from '@/lib/credits-client'
 import { BarChart } from '@/components/charts/BarChart'
 import { BubbleChart } from '@/components/charts/InsightCharts'
 import { Star, Toggle, ExportBtn, Popover, PopItem, toCsv, downloadCsv, slugify, ctrlBtn } from '../controls'
@@ -44,17 +44,19 @@ export function TopSellersTab() {
   const seed = useAppStore.getState().activeKeyword || ''
   const [input, setInput] = useState(seed)
   const [query, setQuery] = useState(seed)
+  // Only a search the user starts here is charged; the seeded hand-off from Keyword Search is free.
+  const [searched, setSearched] = useState('')
   const [activeOnly, setActiveOnly] = useState(false)
   const [filter, setFilter] = useState('')
   const [hidden, setHidden] = useState<Set<string>>(new Set(DEFAULT_HIDDEN))
   const [sortKey, setSortKey] = useState<SortKey>('sales')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
-  const { data, isLoading, isFetching, isError } = useTopSellers(query)
+  const { data, isLoading, isFetching, isError, isSuccess, isPlaceholderData } = useTopSellers(query)
   const { isFavorite, toggle } = useFavorites()
 
-  const go = useCallback(async () => { const v = input.trim(); if (v.length < 2) return; if (!(await chargeCredits('topsellers', v))) return; setQuery(v) }, [input])
-  useRefundOnError('topsellers', isError)
+  const go = useCallback(async () => { const v = input.trim(); if (v.length < 2) return; if (!(await ensureCredits('topsellers', v))) return; setSearched(v); setQuery(v) }, [input])
+  useChargeOnSuccess('topsellers', searched, query === searched && isSuccess && !isPlaceholderData && (data?.length ?? 0) > 0)
 
   const cols = useMemo(() => ALL_COLS.filter(c => !hidden.has(c.id)), [hidden])
   const grid = useMemo(() => `28px ${cols.map(c => c.width).join(' ')}`, [cols])

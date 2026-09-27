@@ -14,6 +14,14 @@
 import { memo } from 'react'
 import { C } from '@/utils'
 import type { CreditState } from '@/lib/credits-client'
+import { PLANS } from '@/components/landing/plans-data'
+
+/**
+ * The card wears the user's plan colour: the same accent that plan has on the
+ * pricing page, so Free reads green, Pro orange, Enterprise indigo, and so on.
+ */
+const PLAN_ACCENT: Record<string, string> = Object.fromEntries(PLANS.map(p => [p.slug, p.accent]))
+const PLAN_NAME: Record<string, string> = Object.fromEntries(PLANS.map(p => [p.slug, p.name]))
 
 const SANS = "'General Sans',sans-serif"
 
@@ -70,21 +78,23 @@ export const UsageMeters = memo(function UsageMeters({ credits }: { credits: Cre
   const sLimit = s ? s.limit : null
   const sUnlimited = !s || sLimit == null || !Number.isFinite(sLimit)
   const sLeft = s && !sUnlimited ? Math.max(0, (sLimit as number) - s.used) : 0
+  const accent = PLAN_ACCENT[credits.plan] ?? C.orange
+  const planName = PLAN_NAME[credits.plan] ?? 'your'
 
   return (
     <span className="rdash-badge" data-tour="credits"
-      style={{ display: 'inline-flex', alignItems: 'stretch', background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 14, overflow: 'hidden', whiteSpace: 'nowrap' }}>
+      style={{ display: 'inline-flex', alignItems: 'stretch', background: `linear-gradient(0deg, ${accent}12, ${accent}12), ${C.paper}`, border: `1.5px solid ${accent}66`, borderRadius: 14, overflow: 'hidden', whiteSpace: 'nowrap' }}>
       <Meter
         icon={BoltIcon}
         left={credits.credits}
         limit={credits.limit}
         label="credits"
-        accent={C.orange}
-        title={`${credits.credits.toLocaleString('en-US')} of ${credits.limit.toLocaleString('en-US')} daily credits left · 10 per tool use, including each keyword search · resets midnight UTC`}
+        accent={accent}
+        title={`${credits.credits.toLocaleString('en-US')} of ${credits.limit.toLocaleString('en-US')} daily credits left on the ${planName} plan · 1 credit per search, charged only when it succeeds · resets midnight UTC`}
       />
       {s && (
         <>
-          <span aria-hidden style={{ width: 1, background: C.hair, flexShrink: 0 }} />
+          <span aria-hidden style={{ width: 1, background: `${accent}40`, flexShrink: 0 }} />
           <Meter
             icon={SearchIcon}
             left={sUnlimited ? s.used : sLeft}

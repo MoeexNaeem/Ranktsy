@@ -35,19 +35,30 @@ export async function peekDailySearch(userId: string): Promise<QuotaResult | nul
   return { allowed: limit === Infinity || used < limit, used, limit, plan }
 }
 
-/** Count one keyword search against the user's daily plan limit. */
+/**
+ * Count one keyword search against the user's daily plan limit. Atomic (same
+ * pattern as credits.ts consumeCredits) so two searches finishing together can
+ * neither lose a count nor pass the cap.
+ */
 export async function consumeDailySearch(userId: string): Promise<QuotaResult | null> {
   const user = await User.findById(userId)
   if (!user) return null
   const plan = effectivePlan(user)
   const limit = limitsFor(plan).searchesPerDay
   const now = new Date()
-  if (!sameUTCDay(user.lastSearchReset, now)) { user.searchCount = 0; user.lastSearchReset = now }
-  const used = user.searchCount ?? 0
-  if (limit !== Infinity && used >= limit) return { allowed: false, used, limit, plan }
-  user.searchCount = used + 1
-  await user.save()
-  return { allowed: true, used: used + 1, limit, plan }
+  const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  await User.updateOne(
+    { _id: userId, $or: [{ lastSearchReset: { $lt: dayStart } }, { lastSearchReset: null }] },
+    { $set: { searchCount: 0, lastSearchReset: now } },
+  )
+  const cap = limit === Infinity ? {} : { $or: [{ searchCount: { $lt: limit } }, { searchCount: null }] }
+  const after = await User.findOneAndUpdate(
+    { _id: userId, ...cap },
+    [{ $set: { searchCount: { $add: [{ $ifNull: ['$searchCount', 0] }, 1] } } }],
+    { returnDocument: 'after', updatePipeline: true },
+  ).select('searchCount').lean<{ searchCount?: number }>()
+  if (!after) return { allowed: false, used: limit, limit, plan }
+  return { allowed: true, used: after.searchCount ?? 1, limit, plan }
 }
 
 /** Count one Etsy Listing Pro image against the user's monthly plan allowance. */

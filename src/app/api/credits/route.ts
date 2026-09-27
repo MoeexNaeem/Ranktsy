@@ -5,9 +5,9 @@ import { getCreditState } from '@/lib/credits'
 import { peekDailySearch } from '@/lib/quota'
 
 // The signed-in user's daily allowances, read fresh from the DB (so a just-bought
-// upgrade or a midnight reset shows at once). Powers both top-bar pills: credits
-// for the metered tools, and the separate per-plan keyword-search limit. They are
-// deliberately different meters - Keyword Search never costs credits.
+// upgrade or a midnight reset shows at once). Powers both top-bar meters: credits
+// (1 per search in any metered tool, Keyword Search included) and the per-plan
+// keyword-search count.
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 

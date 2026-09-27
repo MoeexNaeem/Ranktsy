@@ -15,7 +15,7 @@ const STEPS = [
   { element: '[data-tour="tool-search"]', popover: { title: 'Find any tool fast', description: 'Type part of a tool’s name to jump straight to it. Rankkw has 30+ tools.' } },
   { element: '[data-tour="nav"]',         popover: { title: 'Your toolkit', description: 'Every tool, grouped by what it does: Research, Shop Insights, Optimize and Tools.' } },
   { element: '[data-tour="tool-keywords"]', popover: { title: 'Start with Keywords', description: 'Real Google search volume and Etsy signals for any keyword, in any country.' } },
-  { element: '[data-tour="credits"]',     popover: { title: 'Your daily credits', description: 'The heavier tools spend credits (10 per use). Your balance resets every day.' } },
+  { element: '[data-tour="credits"]',     popover: { title: 'Your daily credits', description: 'Each search costs 1 credit, and only when it succeeds: a failed search is free. Your balance resets every day.' } },
   { element: '[data-tour="upgrade"]',     popover: { title: 'Unlock more', description: 'Upgrade any time for higher limits, AI listing images and the full toolkit.' } },
   { element: '[data-tour="content"]',     popover: { title: 'Your workspace', description: 'Whatever tool you pick opens right here. That is the whole tour, enjoy Rankkw.' } },
 ]

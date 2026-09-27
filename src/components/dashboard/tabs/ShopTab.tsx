@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { C, D, flag, formatNumber, shopAge } from '@/utils'
-import { chargeCredits, useRefundOnError } from '@/lib/credits-client'
+import { ensureCredits, useChargeOnSuccess } from '@/lib/credits-client'
 import { Card, SearchBar, StatCard, SectionTitle, ErrorBox, EmptyState, tableCard, tableHead, th, tableRow, tdMono, tdTitle, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import { BarChart } from '@/components/charts/BarChart'
@@ -49,7 +49,7 @@ export function ShopTab() {
   const [shopInput, setShopInput] = useState('')
   const [shopId,    setShopId]    = useState('')
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, isSuccess } = useQuery({
     queryKey: ['shop', shopId],
     queryFn: async () => {
       const [shopRes, revRes, secRes] = await Promise.all([
@@ -68,10 +68,10 @@ export function ShopTab() {
   const go = useCallback(async () => {
     const v = extractShop(shopInput)
     if (v.length < 2) return
-    if (!(await chargeCredits('shop', v))) return
+    if (!(await ensureCredits('shop', v))) return
     setShopId(v)
   }, [shopInput])
-  useRefundOnError('shop', isError)
+  useChargeOnSuccess('shop', shopId, isSuccess && !!data?.shop)
 
   const shop = (data?.shop ?? {}) as Record<string, unknown>
   const reviewAvg   = Number(shop.review_average ?? 0)

@@ -33,8 +33,8 @@ The **Pro · 1-Year** plan gives you everything in Rankkw Pro for twelve months 
 
 ## Everything in Pro, all year
 
-- **1,000 credits every day** for the tools - plenty of room to research, generate and optimize.
-- **Up to 100 keyword searches / day** with real search volume, competition and CTR.
+- **150 credits every day** (1 per search) - plenty of room to research, generate and optimize.
+- **Up to 150 keyword searches / day** with real search volume, competition and CTR.
 - **Etsy Listing Pro - 20 AI listing images per month** (four times the monthly Pro allowance).
 - Trends, product research, competitor & rank tracking.
 - AI title, tag and description generators grounded in real data.

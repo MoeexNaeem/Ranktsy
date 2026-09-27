@@ -3,7 +3,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { C, formatNumber } from '@/utils'
-import { chargeCredits, useRefundOnError } from '@/lib/credits-client'
+import { ensureCredits, useChargeOnSuccess } from '@/lib/credits-client'
 import { SearchBar, SectionTitle, ErrorBox, EmptyState, Card, tableCard, tableHead, th, tableRow, tdMono, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import type { EtsyListing, AiFact } from '@/types'
@@ -14,7 +14,7 @@ export function CompetitorTagsTab() {
   const [input, setInput] = useState('')
   const [shop, setShop] = useState('')
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, isSuccess } = useQuery({
     queryKey: ['competitor-tags', shop],
     queryFn: async () => {
       const { data } = await axios.get(`/api/etsy/shop?id=${encodeURIComponent(shop)}`)
@@ -23,8 +23,8 @@ export function CompetitorTagsTab() {
     enabled: shop.length > 1, staleTime: 1000 * 60 * 15, retry: false,
   })
 
-  const go = useCallback(async () => { const v = input.trim(); if (v.length < 2) return; if (!(await chargeCredits('ctags', v))) return; setShop(v) }, [input])
-  useRefundOnError('ctags', isError)
+  const go = useCallback(async () => { const v = input.trim(); if (v.length < 2) return; if (!(await ensureCredits('ctags', v))) return; setShop(v) }, [input])
+  useChargeOnSuccess('ctags', shop, isSuccess && !!data?.shop)
 
   const tags = useMemo(() => {
     if (!data?.listings?.length) return []

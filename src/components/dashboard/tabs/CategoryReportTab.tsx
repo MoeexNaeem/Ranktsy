@@ -6,7 +6,7 @@ import { BarChart } from '@/components/charts/BarChart'
 import { SearchBar, Card, StatCard, SectionTitle, ErrorBox, Loading, EmptyState, CompBadge, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import { C, D, formatNumber } from '@/utils'
-import { chargeCredits, useRefundOnError } from '@/lib/credits-client'
+import { ensureCredits, useChargeOnSuccess } from '@/lib/credits-client'
 import type { EtsyListing, AiFact } from '@/types'
 
 function money(l: EtsyListing): number {
@@ -20,7 +20,7 @@ export function CategoryReportTab() {
   const [input, setInput] = useState('')
   const [query, setQuery] = useState('')
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, isSuccess, isPlaceholderData } = useQuery({
     queryKey: ['category-report', query.toLowerCase()],
     queryFn: async () => {
       const { data } = await axios.get(`/api/etsy/search?q=${encodeURIComponent(query)}&limit=100`)
@@ -31,8 +31,9 @@ export function CategoryReportTab() {
     placeholderData: prev => prev,
   })
 
-  const go = useCallback(async () => { const v = input.trim(); if (v.length < 2) return; if (!(await chargeCredits('catreport', v))) return; setQuery(v) }, [input])
-  useRefundOnError('catreport', isError)
+  const go = useCallback(async () => { const v = input.trim(); if (v.length < 2) return; if (!(await ensureCredits('catreport', v))) return; setQuery(v) }, [input])
+  // 1 credit, charged only once real listings came back (never for an error or empty result).
+  useChargeOnSuccess('catreport', query, isSuccess && !isPlaceholderData && (data?.listings.length ?? 0) > 0)
 
   const report = useMemo(() => {
     const listings = data?.listings ?? []

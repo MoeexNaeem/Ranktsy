@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { C } from '@/utils'
-import { chargeCredits, useRefundOnError } from '@/lib/credits-client'
+import { ensureCredits, useChargeOnSuccess } from '@/lib/credits-client'
 import { Card, SearchBar, SectionTitle, EmptyState, tableCard, tableHead, th, tableRow, tdMono, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import type { EtsyListing, AiFact } from '@/types'
@@ -16,7 +16,7 @@ export function TagOptimizerTab() {
   const [input, setInput] = useState('')
   const [query, setQuery] = useState('')
 
-  const { data: listings, isLoading, isError } = useQuery({
+  const { data: listings, isLoading, isSuccess } = useQuery({
     queryKey: ['tag-optimizer', query],
     queryFn: async () => {
       const { data } = await axios.get(`/api/etsy/search?q=${encodeURIComponent(query)}&limit=50`)
@@ -28,10 +28,10 @@ export function TagOptimizerTab() {
 
   const go = useCallback(async () => {
     const v = input.trim(); if (v.length < 2) return
-    if (!(await chargeCredits('tags', v))) return
+    if (!(await ensureCredits('tags', v))) return
     setQuery(v)
   }, [input])
-  useRefundOnError('tags', isError)
+  useChargeOnSuccess('tags', query, isSuccess && (listings?.length ?? 0) > 0)
 
   const tagAnalysis = useMemo(() => {
     if (!listings?.length) return []

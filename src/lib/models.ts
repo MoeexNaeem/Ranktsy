@@ -59,7 +59,7 @@ export interface IUserDoc extends Document {
   lastSearchReset: Date
   listingImageCount?: number   // Etsy Listing Pro images used this month
   listingImageReset?: Date
-  // Credit system - powers the "other tools" (no hard limit) at 10 credits/use.
+  // Credit system - 1 credit per search, charged only when the search succeeds.
   // Daily allowance comes from the plan (see lib/credits.ts); balance = limit −
   // creditsUsedToday. Resets on a UTC day rollover. creditsUsedTotal is lifetime
   // spend, kept for the admin analytics.
@@ -171,7 +171,7 @@ const ApiUsageSchema = new Schema<IApiUsage>({
   imageCalls:   { type: Number, default: 0 },
   imageTokens:  { type: Number, default: 0 },
   imageCostUsd: { type: Number, default: 0 },
-  // Credits spent today by this user on credit-metered tools (10 per use).
+  // Credits spent today by this user on credit-metered tools (1 per search).
   creditsSpent: { type: Number, default: 0 },
 }, { timestamps: true })
 ApiUsageSchema.index({ day: 1, userId: 1 }, { unique: true })

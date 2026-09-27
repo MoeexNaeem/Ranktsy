@@ -8,7 +8,7 @@ import { ctrlBtn } from '../controls'
 import { Card, SearchBar, SectionTitle, ErrorBox, EmptyState, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import { C, D, flag, formatNumber } from '@/utils'
-import { chargeCredits, useRefundOnError } from '@/lib/credits-client'
+import { ensureCredits, useChargeOnSuccess } from '@/lib/credits-client'
 import type { ApiResponse, EtsyShop, AiFact } from '@/types'
 import { toast } from '@/components/ui/toast'
 
@@ -51,6 +51,8 @@ function useShop(shop: string) {
 export function CompetitorSalesTab() {
   const [input, setInput] = useState('')
   const [picked, setPicked] = useState('')
+  // The shop the user SEARCHED (charged); opening a tracked shop from the list is free.
+  const [searched, setSearched] = useState('')
   const qc = useQueryClient()
 
   const { data: tracked, isError: trackedError } = useTracked()
@@ -61,7 +63,7 @@ export function CompetitorSalesTab() {
   const active = picked || (tracked?.[0] ? String(tracked[0].shopId) : '')
   const setActive = setPicked
 
-  const { data: shop, isLoading, isError } = useShop(active)
+  const { data: shop, isLoading, isError, isSuccess } = useShop(active)
 
   const track = useMutation({
     mutationFn: async (shopName: string) => {
@@ -84,10 +86,10 @@ export function CompetitorSalesTab() {
   const go = useCallback(async () => {
     const v = input.trim()
     if (v.length < 2) return
-    if (!(await chargeCredits('compsales', v))) return
-    setActive(v)
+    if (!(await ensureCredits('compsales', v))) return
+    setSearched(v); setActive(v)
   }, [input])
-  useRefundOnError('compsales', isError)
+  useChargeOnSuccess('compsales', searched, active === searched && isSuccess && !!shop?.shop_id)
 
   const isTracked = !!(shop && tracked?.some(t => t.shopId === shop.shop_id))
 

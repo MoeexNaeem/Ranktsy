@@ -6,7 +6,7 @@ import axios from 'axios'
 import { Star, ExportBtn, HeatPill, toCsv, downloadCsv } from '../controls'
 import { useFavorites } from '@/hooks/useFavorites'
 import { C, D, compColor, formatNumber } from '@/utils'
-import { chargeCredits, useRefundOnError } from '@/lib/credits-client'
+import { ensureCredits, commitCredits } from '@/lib/credits-client'
 import { Card, SectionTitle, ErrorBox, Loading, EmptyState, tableCard, tableHead, th, tableRow, tdMono, tdTitle, primaryBtn, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import { CountrySelect } from './KeywordsTab'
@@ -80,9 +80,9 @@ export function BulkKeywordTab() {
       if (!data.success || !data.data) throw new Error(data.error ?? 'Bulk analysis failed')
       return data.data
     },
+    // 1 credit per bulk run, charged only once the rows actually came back.
+    onSuccess: (rows, { keywords }) => { if (rows.length) void commitCredits('bulk', [...keywords].sort().join(',')) },
   })
-
-  useRefundOnError('bulk', run.isError)
 
   const parsed = useMemo(
     () => [...new Set(text.split('\n').map(s => s.trim().toLowerCase()).filter(Boolean))],
@@ -91,7 +91,7 @@ export function BulkKeywordTab() {
   const go = useCallback(async () => {
     if (!parsed.length) return
     const kws = parsed.slice(0, MAX)
-    if (!(await chargeCredits('bulk', [...kws].sort().join(',')))) return
+    if (!(await ensureCredits('bulk', [...kws].sort().join(',')))) return
     run.mutate({ keywords: kws, geo: country })
   }, [parsed, run, country])
 

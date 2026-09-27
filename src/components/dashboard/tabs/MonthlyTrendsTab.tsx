@@ -6,7 +6,7 @@ import { BarChart } from '@/components/charts/BarChart'
 import { AiInsights } from '../AiInsights'
 import { Card, SearchBar, SectionTitle, ErrorBox, Loading, EmptyState, StatCard, MONO } from '../kit'
 import { C, D, formatNumber } from '@/utils'
-import { chargeCredits, useRefundOnError } from '@/lib/credits-client'
+import { ensureCredits, useChargeOnSuccess } from '@/lib/credits-client'
 import type { TrendData, TrendPoint, ListingMarketStats, AiFact } from '@/types'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -31,10 +31,10 @@ function prepMonth(peak?: string): string {
 export function MonthlyTrendsTab() {
   const [input, setInput] = useState('')
   const [query, setQuery] = useState('')
-  const { data: tr, isLoading, isError } = useTrends(query)
+  const { data: tr, isLoading, isError, isSuccess } = useTrends(query)
 
-  const go = useCallback(async () => { const v = input.trim(); if (v.length < 2) return; if (!(await chargeCredits('monthly', v))) return; setQuery(v) }, [input])
-  useRefundOnError('monthly', isError)
+  const go = useCallback(async () => { const v = input.trim(); if (v.length < 2) return; if (!(await ensureCredits('monthly', v))) return; setQuery(v) }, [input])
+  useChargeOnSuccess('monthly', query, isSuccess && !!tr)
 
   const google = useMemo<TrendPoint[]>(() => {
     const g = tr?.trends?.find((t: TrendData) => t.platform === 'google')

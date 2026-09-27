@@ -2,7 +2,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import axios from 'axios'
 import { C, formatNumber } from '@/utils'
-import { chargeCredits } from '@/lib/credits-client'
+import { ensureCredits, commitCredits } from '@/lib/credits-client'
 import { Card, SectionTitle, ErrorBox, Loading, EmptyState, tableCard, tableHead, th, tableRow, tdMono, tdTitle, primaryBtn, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import type { AiFact } from '@/types'
@@ -30,7 +30,8 @@ export function RankCheckerTab() {
   const go = useCallback(async () => {
     const kws = kwText.split('\n').map(s => s.trim()).filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).slice(0, MAX)
     if (!shop.trim() || kws.length === 0) { setErr('Enter a shop and at least one keyword.'); return }
-    if (!(await chargeCredits('rank', `${shop.trim()}|${[...kws].sort().join(',')}`))) return
+    const chargeKey = `${shop.trim()}|${[...kws].sort().join(',')}`
+    if (!(await ensureCredits('rank', chargeKey))) return
     setLoading(true); setErr(''); setRows(null)
 
     const run = async (kw: string, shopParam: string): Promise<RankRow & { shopId: number }> => {
@@ -54,6 +55,8 @@ export function RankCheckerTab() {
       }
       out.sort((a, b) => (a.best ?? 999) - (b.best ?? 999))
       setRows(out)
+      // 1 credit per check, only now that it produced results (a failed check costs nothing).
+      void commitCredits('rank', chargeKey)
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Shop not found or rank check failed.')
     } finally { setLoading(false) }

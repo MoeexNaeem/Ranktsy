@@ -9,8 +9,8 @@ const SANS = "'General Sans',sans-serif"
 
 // Two sensible upgrade targets surfaced in the modal; "See all plans" covers the rest.
 const SUGGESTED = [
-  { slug: 'pro', name: 'Pro', price: '$6.99 / mo', accent: '#FB5E09', desc: '400 credits/day · up to 40 searches/day · trends & rank tracking' },
-  { slug: 'business', name: 'Business', price: '$19.99 / mo', accent: '#0D9488', desc: '1,000 credits/day · up to 100 searches/day · 15 images/mo' },
+  { slug: 'pro', name: 'Pro', price: '$6.99 / mo', accent: '#FB5E09', desc: '120 credits/day · up to 120 searches/day · trends & rank tracking' },
+  { slug: 'business', name: 'Business', price: '$19.99 / mo', accent: '#0D9488', desc: '500 credits/day · up to 500 searches/day · 15 images/mo' },
 ]
 
 /** Single global host for the upgrade modal - mount once (in the dashboard). */

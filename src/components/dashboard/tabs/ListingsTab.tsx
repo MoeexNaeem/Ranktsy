@@ -3,7 +3,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import axios from 'axios'
 import { C, D, formatNumber } from '@/utils'
-import { chargeCredits, useRefundOnError } from '@/lib/credits-client'
+import { ensureCredits, useChargeOnSuccess } from '@/lib/credits-client'
 import { SearchBar, ErrorBox, EmptyState, Pagination, StatCard, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import { TopListingsTable } from '../keyword/TopListingsTable'
@@ -34,7 +34,7 @@ export function ListingsTab() {
   })
   const categories = (taxo ?? []).filter(t => t.level <= 2).sort((a, b) => a.fullPath.localeCompare(b.fullPath))
 
-  const { data, isLoading, isError, isFetching } = useQuery({
+  const { data, isLoading, isError, isFetching, isSuccess, isPlaceholderData } = useQuery({
     queryKey: ['listings', applied, page],
     queryFn: async () => {
       const p = new URLSearchParams({ q: applied.q, limit: String(PAGE_SIZE), offset: String((page - 1) * PAGE_SIZE), sort: applied.sort })
@@ -52,10 +52,12 @@ export function ListingsTab() {
   const go = useCallback(async () => {
     const v = search.trim(); if (v.length < 2) return
     // Sort and paging are free views of the same search, so they are not part of the key.
-    if (!(await chargeCredits('listings', JSON.stringify({ q: v, minP, maxP, cat })))) return
+    if (!(await ensureCredits('listings', JSON.stringify({ q: v, minP, maxP, cat })))) return
     setPage(1); setApplied({ q: v, min: minP, max: maxP, sort, cat })
   }, [search, minP, maxP, sort, cat])
-  useRefundOnError('listings', isError)
+  // Charged once per search when its listings arrive; sort and paging stay free (same key).
+  const chargeKey = applied.q ? JSON.stringify({ q: applied.q, minP: applied.min, maxP: applied.max, cat: applied.cat }) : ''
+  useChargeOnSuccess('listings', chargeKey, isSuccess && !isPlaceholderData && (data?.data?.length ?? 0) > 0)
 
   const onSort = useCallback((s: SortKey) => {
     setSort(s); setPage(1); setApplied(a => ({ ...a, sort: s }))
