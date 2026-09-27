@@ -5,6 +5,7 @@ import { getKeywordCore } from '@/lib/keywords'
 import { recordObservedListings } from '@/lib/snapshots'
 import { getListingReviewStats, displayKdPackage } from '@/lib/etsy'
 import { normalizeGeo } from '@/lib/google-ads'
+import { detectExtension } from '@/lib/extension'
 import { getCurrentUser } from '@/lib/auth/session'
 import { guardSearch } from '@/lib/searchGate'
 import { consumeDailySearch, peekDailySearch } from '@/lib/quota'
@@ -49,8 +50,13 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
   // Not per country: switching the country on the same keyword only changes which
   // Google numbers are shown, so it is the same search and is not charged twice.
   const paidKey = `keywords|${query}`
-  const paidAlready = authUser ? (await connectDB(), await alreadyPaidToday(authUser.id, paidKey)) : false
-  if (authUser && !paidAlready) {
+  // The browser extension looks up every Etsy search page the user merely browses,
+  // with no click on our side, so those lookups are free: credits and the daily
+  // search cap are only spent on searches made inside rankkw.com. The hourly
+  // search gate above still applies.
+  const fromExtension = detectExtension(req).isExt
+  const paidAlready = authUser && !fromExtension ? (await connectDB(), await alreadyPaidToday(authUser.id, paidKey)) : false
+  if (authUser && !paidAlready && !fromExtension) {
     await connectDB()
     const q = await peekDailySearch(authUser.id)
     if (q && !q.allowed) {
@@ -154,7 +160,7 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
     // /api/credits/refund and recordCharge is what lets that be reversed.
     // Only the first delivery of this keyword today is charged (claimPaidToday is
     // atomic, so two identical requests racing cannot both charge).
-    const firstToday = authUser && usable && !paidAlready ? await claimPaidToday(authUser.id, paidKey) : false
+    const firstToday = authUser && usable && !paidAlready && !fromExtension ? await claimPaidToday(authUser.id, paidKey) : false
     const [counted, charged] = authUser && firstToday
       ? await Promise.all([
           consumeDailySearch(authUser.id).catch(() => null),
