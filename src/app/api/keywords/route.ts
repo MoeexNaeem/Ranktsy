@@ -9,7 +9,7 @@ import { detectExtension } from '@/lib/extension'
 import { getCurrentUser } from '@/lib/auth/session'
 import { guardSearch } from '@/lib/searchGate'
 import { consumeDailySearch, peekDailySearch } from '@/lib/quota'
-import { canAfford, consumeCredits, recordCharge, CREDIT_COST, alreadyPaidToday, claimPaidToday } from '@/lib/credits'
+import { canAfford, consumeCredits, recordCharge, CREDIT_COST, alreadyPaidToday, claimPaidToday, publicState } from '@/lib/credits'
 import { PLAN_LABELS } from '@/lib/plans'
 import { withUsage } from '@/lib/track'
 import { recordSearch, recordCacheHit, recordApiHit, peekApiCalls } from '@/lib/usage'
@@ -71,7 +71,7 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
       return NextResponse.json({
         success: false, code: 'credit_limit', plan: afford.plan,
         error: `You've used all ${afford.limit} of today's credits on the ${PLAN_LABELS[afford.plan]} plan. Upgrade for a higher daily allowance, or come back tomorrow.`,
-        state: { credits: afford.credits, limit: afford.limit, usedToday: afford.usedToday, plan: afford.plan },
+        state: publicState(afford),
       }, { status: 402 })
     }
   }
@@ -168,13 +168,13 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
         ])
       : [null, null]
     if (authUser && firstToday) {
-      await recordCharge(authUser.id, 'keywords', charged?.allowed ? CREDIT_COST : 0, !!counted?.allowed, paidKey)
+      await recordCharge(authUser.id, 'keywords', charged?.allowed ? CREDIT_COST : 0, !!counted?.allowed, paidKey, !!charged?.fromBonus)
     }
 
     return NextResponse.json({
       success: true, data: displayKdPackage(data), cached: !!data.cachedAt,
       searches: counted ? { used: counted.used, limit: Number.isFinite(counted.limit) ? counted.limit : null } : undefined,
-      state: charged ? { credits: charged.credits, limit: charged.limit, usedToday: charged.usedToday, plan: charged.plan } : undefined,
+      state: charged ? publicState(charged) : undefined,
     })
   } catch (err) {
     // Uncounted: the user asked for a result and did not get one.

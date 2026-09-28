@@ -15,6 +15,7 @@ import { AdminSebtSettings, ADMIN_STATS_REFRESH } from '@/components/admin/Admin
 import { AdminSebtStudents } from './AdminSebtStudents'
 import { AdminEarnings } from './AdminEarnings'
 import { AdminLocalPayments } from './AdminLocalPayments'
+import { AddCreditsModal, daysLeft, type BonusInfo } from './AddCreditsModal'
 import { CodeFlow } from './CodeFlow'
 import { RealtimeProvider, NotificationBell } from '@/components/dashboard/Realtime'
 import { copyWithToast, toast } from '@/components/ui/toast'
@@ -25,6 +26,7 @@ interface AUser {
   subscriptionStatus: string | null; imagesThisMonth: number; restricted: boolean; paidViaLemonSqueezy: boolean
   compExpiresAt: string | null
   creditsUsedToday: number; creditsLimit: number; creditsRemaining: number; creditsUsedTotal: number
+  bonus?: BonusInfo | null   // admin-granted bonus pool, only while still valid
 }
 type ConfirmAction = { user: AUser; kind: 'delete' | 'restrict' | 'unrestrict' }
 const isRealPaid = (u: AUser) => u.paidViaLemonSqueezy && u.plan !== 'free'
@@ -162,6 +164,7 @@ export function AdminDashboard() {
   const [userQuery, setUserQuery] = useState('')
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
+  const [creditsFor, setCreditsFor] = useState<AUser | null>(null)   // "Add Credits" dialog target
   const [promoOn, setPromoOn] = useState(false)
   const [promoBusy, setPromoBusy] = useState(false)
   const [promoMsg, setPromoMsg] = useState('')
@@ -554,8 +557,18 @@ export function AdminDashboard() {
                       <div style={{ fontFamily: MONO, minWidth: 0, lineHeight: 1.6 }} title={`${exact(u.creditsUsedTotal)} credits spent lifetime`}>
                         <div style={{ fontSize: 13.5, color: u.creditsRemaining <= 0 ? C.danger : C.ink, fontWeight: 600 }}>{exact(u.creditsUsedToday)} <span style={{ color: '#8a8a82', fontWeight: 500 }}>/ {exact(u.creditsLimit)}</span></div>
                         <div style={{ fontSize: 12, color: '#8a8a82', marginTop: 2 }}>{exact(u.creditsUsedTotal)} lifetime</div>
+                        {u.bonus && (
+                          <div title={`Admin bonus: ${exact(u.bonus.remaining)} of ${exact(u.bonus.granted)} left, expires ${fmtDate(u.bonus.expiresAt)}`}
+                            style={{ fontSize: 11.5, color: '#1F6B3A', fontWeight: 600, marginTop: 2, whiteSpace: 'nowrap' }}>
+                            +{exact(u.bonus.remaining)} bonus · {daysLeft(u.bonus.expiresAt)}d left
+                          </div>
+                        )}
                       </div>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button onClick={() => setCreditsFor(u)} title="Give this user extra credits for a number of days"
+                          style={{ background: 'rgba(46,125,70,0.10)', border: '1px solid #2E7D46', color: '#1F6B3A', borderRadius: 100, padding: '8px 14px', fontSize: 12.5, fontWeight: 500, fontFamily: MONO, cursor: 'pointer', width: 'fit-content', whiteSpace: 'nowrap' }}>
+                          + Add Credits
+                        </button>
                         <button onClick={() => setConfirmAction({ user: u, kind: u.restricted ? 'unrestrict' : 'restrict' })} title={u.restricted ? 'Lift restriction' : 'Restrict this user'}
                           style={{ background: u.restricted ? 'rgba(31,138,76,0.10)' : 'rgba(194,129,17,0.12)', border: `1px solid ${u.restricted ? '#1F8A4C' : '#C28111'}`, color: u.restricted ? '#1F8A4C' : '#C28111', borderRadius: 100, padding: '8px 14px', fontSize: 12.5, fontWeight: 500, fontFamily: MONO, cursor: 'pointer', width: 'fit-content' }}>
                           {u.restricted ? 'Unrestrict' : 'Restrict'}
@@ -741,6 +754,10 @@ export function AdminDashboard() {
 
       {/* User detail drawer */}
       <UserDetailPanel userId={detailUserId} onClose={() => setDetailUserId(null)} />
+
+      {creditsFor && (
+        <AddCreditsModal user={creditsFor} onClose={() => setCreditsFor(null)} onSaved={() => { void loadUsers(usersPage, debouncedQuery) }} />
+      )}
 
       {/* Confirm modal */}
       {confirmAction && (

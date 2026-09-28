@@ -1,6 +1,7 @@
 import { User } from './models'
 import { limitsFor } from './planLimits'
 import { effectivePlan, type PlanSlug } from './plans'
+import { activeBonus } from './credits'
 
 /**
  * Per-plan quota metering. Counters live on the User doc (daily searches reuse the
@@ -23,13 +24,15 @@ export interface QuotaResult { allowed: boolean; used: number; limit: number; pl
  * cap is a fair-use limit, not a ledger.
  */
 export async function peekDailySearch(userId: string): Promise<QuotaResult | null> {
-  const user = await User.findById(userId).select('plan compExpiresAt subscriptionStatus planRenewsAt lsSubscriptionId searchCount lastSearchReset').lean<{
-    searchCount?: number; lastSearchReset?: Date | null
+  const user = await User.findById(userId).select('plan compExpiresAt subscriptionStatus planRenewsAt lsSubscriptionId searchCount lastSearchReset bonusCredits bonusCreditsGranted bonusExpiresAt').lean<{
+    searchCount?: number; lastSearchReset?: Date | null; bonusCredits?: number; bonusCreditsGranted?: number; bonusExpiresAt?: Date | null
   } & Record<string, unknown>>()
   if (!user) return null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const plan = effectivePlan(user as any)
-  const limit = limitsFor(plan).searchesPerDay
+  // A valid admin bonus pool lifts the cap by its GRANTED size; the credit balance
+  // (plan + bonus remaining) is what actually limits the searches.
+  const limit = limitsFor(plan).searchesPerDay + (activeBonus(user)?.granted ?? 0)
   // A stale counter from a previous UTC day reads as zero; consume resets it.
   const used = sameUTCDay(user.lastSearchReset, new Date()) ? (user.searchCount ?? 0) : 0
   return { allowed: limit === Infinity || used < limit, used, limit, plan }
@@ -44,8 +47,8 @@ export async function consumeDailySearch(userId: string): Promise<QuotaResult | 
   const user = await User.findById(userId)
   if (!user) return null
   const plan = effectivePlan(user)
-  const limit = limitsFor(plan).searchesPerDay
   const now = new Date()
+  const limit = limitsFor(plan).searchesPerDay + (activeBonus(user, now)?.granted ?? 0)
   const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
   await User.updateOne(
     { _id: userId, $or: [{ lastSearchReset: { $lt: dayStart } }, { lastSearchReset: null }] },

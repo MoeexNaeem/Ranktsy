@@ -14,7 +14,7 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { runWithUsageContext } from '@/lib/usage'
 import { recordExtensionUsage } from '@/lib/extension'
 import { rateLimit, clientIp, tooManyResponse } from '@/lib/auth/rateLimit'
-import { canAfford, consumeCredits, isCreditTool, CREDIT_COST } from '@/lib/credits'
+import { canAfford, consumeCredits, isCreditTool, CREDIT_COST, publicState } from '@/lib/credits'
 import { PLAN_LABELS } from '@/lib/plans'
 
 type Handler<C> = (req: NextRequest, ctx: C) => Promise<Response> | Response
@@ -62,7 +62,7 @@ export function withApiGuard<C = unknown>(handler: Handler<C>, opts: GuardOpts =
         return NextResponse.json({
           success: false, code: 'credit_limit', plan: afford.plan,
           error: `You've used all ${afford.limit} of today's credits on the ${PLAN_LABELS[afford.plan]} plan. Upgrade for a higher daily allowance, or come back tomorrow.`,
-          state: { credits: afford.credits, limit: afford.limit, usedToday: afford.usedToday, plan: afford.plan },
+          state: publicState(afford),
         }, { status: 402 })
       }
     }
@@ -75,7 +75,7 @@ export function withApiGuard<C = unknown>(handler: Handler<C>, opts: GuardOpts =
       const body = await res.clone().json().catch(() => null)
       if (body?.success) {
         const c = await consumeCredits(user.id, CREDIT_COST)
-        const state = c ? { credits: c.credits, limit: c.limit, usedToday: c.usedToday, plan: c.plan } : undefined
+        const state = c ? publicState(c) : undefined
         return NextResponse.json({ ...body, state }, { status: res.status })
       }
     }

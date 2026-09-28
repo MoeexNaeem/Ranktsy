@@ -66,21 +66,47 @@ export function isCreditTool(tool: string | null | undefined): boolean {
 const sameUTCDay = (a?: Date | null, b?: Date | null) =>
   !!a && !!b && a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth() && a.getUTCDate() === b.getUTCDate()
 
-export interface CreditState {
-  credits: number      // remaining today (limit − usedToday)
-  limit: number        // daily allowance for the current plan
-  usedToday: number
-  plan: PlanSlug
+/** An admin-granted bonus pool, only while it is still valid. */
+export interface BonusState {
+  remaining: number
+  granted: number
+  expiresAt: string   // ISO
 }
 
-export interface ConsumeResult extends CreditState { allowed: boolean }
+export interface CreditState {
+  credits: number      // spendable right now: today's plan credits left + bonus left
+  limit: number        // daily allowance for the current plan
+  usedToday: number    // plan credits used today (bonus spend is not counted here)
+  plan: PlanSlug
+  bonus?: BonusState | null
+}
+
+export interface ConsumeResult extends CreditState { allowed: boolean; fromBonus?: boolean }
 export interface AffordResult extends CreditState { ok: boolean }
+
+/** The fields a client may see (strips ok/allowed/usedTotal etc). */
+export function publicState(s: CreditState): CreditState {
+  return { credits: s.credits, limit: s.limit, usedToday: s.usedToday, plan: s.plan, bonus: s.bonus ?? null }
+}
+
+type BonusFields = { bonusCredits?: number; bonusCreditsGranted?: number; bonusExpiresAt?: Date | null }
+
+/**
+ * The user's bonus pool if it is still usable, else null. Expiry is lazy: once
+ * bonusExpiresAt passes the pool simply stops counting, so nothing needs a cron
+ * to take it away and the user is back on the plan allowance alone.
+ */
+export function activeBonus(u: BonusFields, now = new Date()): BonusState | null {
+  const remaining = u.bonusCredits ?? 0
+  if (remaining <= 0 || !u.bonusExpiresAt || u.bonusExpiresAt <= now) return null
+  return { remaining, granted: Math.max(remaining, u.bonusCreditsGranted ?? remaining), expiresAt: u.bonusExpiresAt.toISOString() }
+}
 
 /** Can the user afford `cost` right now? A read-only peek - it never charges. */
 export async function canAfford(userId: string, cost = CREDIT_COST): Promise<AffordResult | null> {
   const s = await getCreditState(userId)
   if (!s) return null
-  return { credits: s.credits, limit: s.limit, usedToday: s.usedToday, plan: s.plan, ok: s.credits >= cost }
+  return { ...publicState(s), ok: s.credits >= cost }
 }
 
 /** Current credit balance for a user (with a lazy UTC-day reset applied to the read). */
@@ -91,7 +117,8 @@ export async function getCreditState(userId: string): Promise<(CreditState & { u
   const limit = creditLimitFor(plan)
   const now = new Date()
   const used = sameUTCDay(user.creditsResetAt, now) ? (user.creditsUsedToday ?? 0) : 0
-  return { credits: Math.max(0, limit - used), limit, usedToday: used, plan, usedTotal: user.creditsUsedTotal ?? 0 }
+  const bonus = activeBonus(user, now)
+  return { credits: Math.max(0, limit - used) + (bonus?.remaining ?? 0), limit, usedToday: used, plan, bonus, usedTotal: user.creditsUsedTotal ?? 0 }
 }
 
 /**
@@ -111,10 +138,10 @@ export const REFUND_WINDOW_MS = 2 * 60 * 1000
  * reported failure is deliberate: the opposite default (wait for the client to
  * confirm before charging) hands free usage to any client that simply stays quiet.
  */
-export async function recordCharge(userId: string, tool: string, credits: number, searchCounted: boolean, key?: string | null): Promise<void> {
+export async function recordCharge(userId: string, tool: string, credits: number, searchCounted: boolean, key?: string | null, fromBonus = false): Promise<void> {
   await User.updateOne(
     { _id: userId },
-    { $set: { lastCharge: { tool, key: key ?? null, credits, searchCounted, at: new Date(), refunded: false } } },
+    { $set: { lastCharge: { tool, key: key ?? null, credits, searchCounted, fromBonus, at: new Date(), refunded: false } } },
   ).catch(() => {})
 }
 
@@ -135,9 +162,17 @@ export async function refundLastCharge(userId: string, tool: string): Promise<Cr
     },
     [{
       $set: {
-        // Guard against a day rollover between charge and refund: never push the
-        // counters below zero, or a user would gain allowance they never had.
-        creditsUsedToday: { $max: [0, { $subtract: ['$creditsUsedToday', '$lastCharge.credits'] }] },
+        // A bonus-paid charge goes back into the bonus pool, a plan-paid one back
+        // into today's allowance. Guard against a day rollover between charge and
+        // refund: never push a counter below zero (that would mint allowance).
+        creditsUsedToday: {
+          $cond: [{ $eq: ['$lastCharge.fromBonus', true] }, '$creditsUsedToday',
+            { $max: [0, { $subtract: ['$creditsUsedToday', '$lastCharge.credits'] }] }],
+        },
+        bonusCredits: {
+          $cond: [{ $eq: ['$lastCharge.fromBonus', true] },
+            { $add: [{ $ifNull: ['$bonusCredits', 0] }, '$lastCharge.credits'] }, { $ifNull: ['$bonusCredits', 0] }],
+        },
         creditsUsedTotal: { $max: [0, { $subtract: ['$creditsUsedTotal', '$lastCharge.credits'] }] },
         searchCount: {
           $cond: ['$lastCharge.searchCounted', { $max: [0, { $subtract: ['$searchCount', 1] }] }, '$searchCount'],
@@ -154,10 +189,8 @@ export async function refundLastCharge(userId: string, tool: string): Promise<Cr
   // The search was refunded, so it is no longer "paid today": searching it again
   // is a fresh, charged search rather than a free repeat.
   if (user.lastCharge?.key) await unclaimPaidToday(userId, user.lastCharge.key)
-  const plan = effectivePlan(user)
-  const limit = creditLimitFor(plan)
-  const used = user.creditsUsedToday ?? 0
-  return { credits: Math.max(0, limit - used), limit, usedToday: used, plan }
+  const s = await getCreditState(userId)
+  return s ? publicState(s) : null
 }
 
 const utcDayStart = (d = new Date()) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
@@ -166,10 +199,14 @@ const utcDayStart = (d = new Date()) => new Date(Date.UTC(d.getUTCFullYear(), d.
  * Charge `cost` credits for one tool use, or return allowed:false without
  * charging when the balance is too low.
  *
+ * Today's PLAN credits are spent first (they reset at midnight anyway); only when
+ * those are gone does it dip into an admin-granted bonus pool, which does not
+ * reset and so is worth saving.
+ *
  * Atomic on purpose. The old read-modify-save let two searches finishing at the
  * same moment both read "used = 4" and both write 5, and let a charge slip past
- * the limit. Now the day rollover and the charge are each a single conditional
- * update, so concurrent charges can neither be lost nor overspend the allowance.
+ * the limit. Now the day rollover and each charge are single conditional
+ * updates, so concurrent charges can neither be lost nor overspend.
  */
 export async function consumeCredits(userId: string, cost = CREDIT_COST): Promise<ConsumeResult | null> {
   const user = await User.findById(userId)
@@ -185,7 +222,7 @@ export async function consumeCredits(userId: string, cost = CREDIT_COST): Promis
     { $set: { creditsUsedToday: 0, creditsResetAt: now } },
   )
 
-  // 2) Charge only if it still fits under today's limit.
+  // 2) Charge today's plan allowance if it still fits.
   const after = await User.findOneAndUpdate(
     { _id: userId, $or: [{ creditsUsedToday: { $lte: limit - cost } }, { creditsUsedToday: null }] },
     [{ $set: {
@@ -193,15 +230,29 @@ export async function consumeCredits(userId: string, cost = CREDIT_COST): Promis
       creditsUsedTotal: { $add: [{ $ifNull: ['$creditsUsedTotal', 0] }, cost] },
     } }],
     { returnDocument: 'after', updatePipeline: true },
-  ).select('creditsUsedToday').lean<{ creditsUsedToday?: number }>()
+  ).select('creditsUsedToday bonusCredits bonusCreditsGranted bonusExpiresAt').lean<{ creditsUsedToday?: number } & BonusFields>()
 
-  if (!after) {
-    const s = await getCreditState(userId)
-    const used = s?.usedToday ?? limit
-    return { allowed: false, credits: Math.max(0, limit - used), limit, usedToday: used, plan }
+  if (after) {
+    const used = after.creditsUsedToday ?? cost
+    const bonus = activeBonus(after, now)
+    return { allowed: true, fromBonus: false, credits: Math.max(0, limit - used) + (bonus?.remaining ?? 0), limit, usedToday: used, plan, bonus }
   }
-  const used = after.creditsUsedToday ?? cost
-  return { allowed: true, credits: Math.max(0, limit - used), limit, usedToday: used, plan }
+
+  // 3) Plan credits are gone: pay from a still-valid bonus pool, if any.
+  const fromBonus = await User.findOneAndUpdate(
+    { _id: userId, bonusCredits: { $gte: cost }, bonusExpiresAt: { $gt: now } },
+    { $inc: { bonusCredits: -cost, creditsUsedTotal: cost } },
+    { returnDocument: 'after' },
+  ).select('creditsUsedToday bonusCredits bonusCreditsGranted bonusExpiresAt').lean<{ creditsUsedToday?: number } & BonusFields>()
+
+  if (fromBonus) {
+    const used = fromBonus.creditsUsedToday ?? limit
+    const bonus = activeBonus(fromBonus, now)
+    return { allowed: true, fromBonus: true, credits: Math.max(0, limit - used) + (bonus?.remaining ?? 0), limit, usedToday: used, plan, bonus }
+  }
+
+  const s = await getCreditState(userId)
+  return s ? { allowed: false, ...publicState(s) } : { allowed: false, credits: 0, limit, usedToday: limit, plan, bonus: null }
 }
 
 // ─── Pay once per lookup per day ────────────────────────────────────────────────

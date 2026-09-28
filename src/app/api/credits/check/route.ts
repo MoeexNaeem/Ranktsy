@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/session'
 import { connectDB } from '@/lib/db'
-import { canAfford, getCreditState, isCreditTool, CREDIT_COST, alreadyPaidToday, paidKeyFor } from '@/lib/credits'
+import { canAfford, getCreditState, isCreditTool, CREDIT_COST, alreadyPaidToday, paidKeyFor, publicState } from '@/lib/credits'
 import { PLAN_LABELS } from '@/lib/plans'
 
 /**
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
   const a = await canAfford(auth.id, CREDIT_COST)
   if (!a) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
-  const state = { credits: a.credits, limit: a.limit, usedToday: a.usedToday, plan: a.plan }
+  const state = publicState(a)
   if (!a.ok) {
     return NextResponse.json({
       success: false, code: 'credit_limit', plan: a.plan, state,

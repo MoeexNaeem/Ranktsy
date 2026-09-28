@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/session'
 import { connectDB } from '@/lib/db'
-import { consumeCredits, getCreditState, isCreditTool, CREDIT_COST, alreadyPaidToday, claimPaidToday, unclaimPaidToday, paidKeyFor } from '@/lib/credits'
+import { consumeCredits, getCreditState, isCreditTool, CREDIT_COST, alreadyPaidToday, claimPaidToday, unclaimPaidToday, paidKeyFor, publicState } from '@/lib/credits'
 import { withUsage } from '@/lib/track'
 import { recordCredits } from '@/lib/usage'
 import { PLAN_LABELS } from '@/lib/plans'
@@ -54,7 +54,7 @@ export const POST = withUsage(async (req: NextRequest) => {
         code: 'credit_limit',
         plan: res.plan,
         error: `You've used all ${res.limit} of today's credits on the ${PLAN_LABELS[res.plan]} plan. Upgrade for a higher daily allowance, or come back tomorrow.`,
-        state: { credits: res.credits, limit: res.limit, usedToday: res.usedToday, plan: res.plan },
+        state: publicState(res),
       },
       { status: 402 },
     )
@@ -64,6 +64,6 @@ export const POST = withUsage(async (req: NextRequest) => {
   return NextResponse.json({
     success: true,
     charged: true,
-    state: { credits: res.credits, limit: res.limit, usedToday: res.usedToday, plan: res.plan },
+    state: publicState(res),
   })
 })

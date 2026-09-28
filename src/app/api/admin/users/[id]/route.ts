@@ -5,7 +5,7 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin, resolveRole } from '@/lib/auth/roles'
 import { PLAN_SLUGS, effectivePlan } from '@/lib/plans'
 import { addOneMonth, reconcileUserPlan } from '@/lib/plan-lifecycle'
-import { creditLimitFor } from '@/lib/credits'
+import { creditLimitFor, activeBonus } from '@/lib/credits'
 import type { IApiUsage } from '@/types'
 
 export const runtime = 'nodejs'
@@ -65,7 +65,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     lsCustomerId: u.lsCustomerId ?? null, planRenewsAt: u.planRenewsAt ?? null,
     compExpiresAt: u.compExpiresAt ?? null,
     createdAt: u.createdAt ?? null,
-    credits: { usedToday: creditsUsedToday, limit: creditsLimit, remaining: Math.max(0, creditsLimit - creditsUsedToday), usedTotal: u.creditsUsedTotal ?? 0 },
+    credits: { usedToday: creditsUsedToday, limit: creditsLimit, remaining: Math.max(0, creditsLimit - creditsUsedToday), usedTotal: u.creditsUsedTotal ?? 0, bonus: activeBonus(u) },
     imagesThisMonth: u.listingImageCount ?? 0,
     savedKeywords: (u.savedKeywords ?? []).length,
     searchTotal,

@@ -19,7 +19,10 @@ import { triggerUpgrade } from './upgrade'
 /** `limit: null` means unlimited - JSON has no Infinity, so the API sends null. */
 export interface SearchUsage { used: number; limit: number | null }
 export interface CreditState {
+  /** Spendable now: today's plan credits left + any admin bonus left. */
   credits: number; limit: number; usedToday: number; plan: string
+  /** Admin-granted one-time bonus pool, only while it is still valid. */
+  bonus?: { remaining: number; granted: number; expiresAt: string } | null
   /** Keyword searches used today against the plan's own daily cap. */
   searches?: SearchUsage
 }

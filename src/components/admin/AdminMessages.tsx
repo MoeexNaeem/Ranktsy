@@ -65,6 +65,13 @@ function Avatar({ name, email, seed, size = 38 }: { name: string; email?: string
 export function AdminMessages() {
   const [threads, setThreads] = useState<Thread[]>([])
   const [sel, setSel] = useState<string | null>(null)
+  // The thread selected RIGHT NOW. Every async response checks it before touching the
+  // view: a slow fetch for the previous thread used to land after a switch and show
+  // user A's conversation under user B's name, so a reply written for A went to B.
+  const selRef = useRef<string | null>(null)
+  // Unsent reply text per thread, so a half-typed answer never follows you into
+  // another user's conversation.
+  const drafts = useRef<Record<string, string>>({})
   const [selName, setSelName] = useState('')
   const [messages, setMessages] = useState<Msg[]>([])
   const [reply, setReply] = useState('')
@@ -106,10 +113,13 @@ export function AdminMessages() {
   }, [])
 
   const openThread = useCallback(async (userId: string, name: string) => {
+    selRef.current = userId
     setSel(userId); setSelName(name); setMessages([]); stickToBottom.current = true
+    setReply(drafts.current[userId] ?? '')
     try {
       const r = await fetch(`/api/admin/chat/${userId}`)
       const j = await r.json()
+      if (selRef.current !== userId) return   // switched away meanwhile: drop it
       if (j?.success) { setMessages(j.data.messages); if (j.data.user?.name) setSelName(j.data.user.name) }
     } catch { /* ignore */ }
     loadThreads()
@@ -118,13 +128,16 @@ export function AdminMessages() {
   const sendReply = useCallback(async () => {
     const b = reply.trim()
     if (!b || !sel || sending) return
-    setSending(true); setReply('')
+    const to = sel
+    setSending(true); setReply(''); delete drafts.current[to]
+    // On failure the text goes back into THAT thread's draft, never the one now open.
+    const restore = () => { drafts.current[to] = b; if (selRef.current === to) setReply(b) }
     try {
-      const r = await fetch(`/api/admin/chat/${sel}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: b }) })
+      const r = await fetch(`/api/admin/chat/${to}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: b }) })
       const j = await r.json()
-      if (j?.success) { stickToBottom.current = true; setMessages(m => [...m, j.data.message]); loadThreads() }
-      else { setReply(b); errorToast('Reply not sent', j?.error || 'Please try again.') }
-    } catch { setReply(b); errorToast('Reply not sent', 'Network error. Please try again.') }
+      if (j?.success) { if (selRef.current === to) { stickToBottom.current = true; setMessages(m => [...m, j.data.message]) } loadThreads() }
+      else { restore(); errorToast('Reply not sent', j?.error || 'Please try again.') }
+    } catch { restore(); errorToast('Reply not sent', 'Network error. Please try again.') }
     finally { setSending(false) }
   }, [reply, sel, sending, loadThreads])
 
@@ -179,7 +192,7 @@ export function AdminMessages() {
       const fd = new FormData(); fd.append('file', file)
       const r = await fetch(`/api/admin/chat/${sel}/upload`, { method: 'POST', body: fd })
       const j = await r.json().catch(() => null)
-      if (r.ok && j?.success) { stickToBottom.current = true; setMessages(m => [...m, j.data.message]); loadThreads(); toast.success('File sent', file.name) }
+      if (r.ok && j?.success) { if (selRef.current === sel) { stickToBottom.current = true; setMessages(m => [...m, j.data.message]) } loadThreads(); toast.success('File sent', file.name) }
       else errorToast('Upload failed', j?.error || 'Please try again.')
     } finally { setSending(false) }
   }, [sel, loadThreads])
@@ -192,7 +205,8 @@ export function AdminMessages() {
       const r = await fetch(`/api/admin/chat/${id}`, { method: 'DELETE' })
       if (!r.ok) throw new Error()
       setThreads(ts => ts.filter(t => t.userId !== id))
-      setSel(null); setMessages([])
+      selRef.current = null; delete drafts.current[id]
+      setSel(null); setMessages([]); setReply('')
       toast.success('Conversation deleted')
     } catch { errorToast('Could not delete conversation', 'Please try again.') }
   }, [sel])
@@ -258,6 +272,7 @@ export function AdminMessages() {
       try {
         const r = await fetch(`/api/admin/chat/${sel}`)
         const j = await r.json()
+        if (selRef.current !== sel) return   // a poll for the previous thread finishing late
         if (j?.success) setMessages(prev => (sameMessages(prev, j.data.messages) ? prev : j.data.messages))
       } catch { /* ignore */ }
     }, 5000)
@@ -507,7 +522,7 @@ export function AdminMessages() {
                   style={{ display: 'grid', placeItems: 'center', width: 42, height: 42, background: C.snow, color: C.graphite, border: `1px solid ${C.hair}`, borderRadius: '50%', cursor: sending ? 'default' : 'pointer', flexShrink: 0 }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                 </button>
-                <textarea value={reply} onChange={e => setReply(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply() } }}
+                <textarea value={reply} onChange={e => { setReply(e.target.value); if (sel) drafts.current[sel] = e.target.value }} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply() } }}
                   placeholder="Write a reply…  (Enter to send, Shift+Enter for a new line)" rows={1} maxLength={4000}
                   style={{ flex: 1, resize: 'none', border: `1px solid ${C.hair}`, borderRadius: 22, background: C.snow, color: C.ink, fontSize: 13.5, fontFamily: 'inherit', padding: '11px 16px', outline: 'none', maxHeight: 120, lineHeight: 1.4 }} />
                 <button onClick={sendReply} disabled={!reply.trim() || sending} title="Send reply"

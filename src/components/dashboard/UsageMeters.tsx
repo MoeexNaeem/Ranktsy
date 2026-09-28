@@ -43,9 +43,11 @@ interface MeterProps {
   label: string
   accent: string
   title: string
+  /** Small extra tag after the label, e.g. "+100 bonus". */
+  badge?: string
 }
 
-function Meter({ icon: Icon, left, limit, label, accent, title }: MeterProps) {
+function Meter({ icon: Icon, left, limit, label, accent, title, badge }: MeterProps) {
   const unlimited = limit == null || !Number.isFinite(limit)
   const out = !unlimited && left <= 0
   const low = !unlimited && !out && left <= limit * 0.2
@@ -61,6 +63,7 @@ function Meter({ icon: Icon, left, limit, label, accent, title }: MeterProps) {
           {left.toLocaleString('en-US')}
         </strong>
         <span style={{ fontSize: 12, color: C.graphite, fontFamily: SANS, fontWeight: 500 }}>{label}</span>
+        {badge && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#fff', background: accent, borderRadius: 100, padding: '2px 7px', fontFamily: SANS }}>{badge}</span>}
       </span>
       {/* Proportion at a glance, so the denominator need not be spelled out. An
           unlimited meter counts up with no ceiling, so it gets no bar at all -
@@ -80,6 +83,8 @@ export const UsageMeters = memo(function UsageMeters({ credits }: { credits: Cre
   const sLeft = s && !sUnlimited ? Math.max(0, (sLimit as number) - s.used) : 0
   const accent = PLAN_ACCENT[credits.plan] ?? C.orange
   const planName = PLAN_NAME[credits.plan] ?? 'your'
+  const bonus = credits.bonus ?? null
+  const bonusUntil = bonus ? new Date(bonus.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
 
   return (
     <span className="rdash-badge" data-tour="credits"
@@ -87,10 +92,12 @@ export const UsageMeters = memo(function UsageMeters({ credits }: { credits: Cre
       <Meter
         icon={BoltIcon}
         left={credits.credits}
-        limit={credits.limit}
+        // The bar tracks everything spendable today, so a bonus pool counts toward it.
+        limit={credits.limit + (bonus?.remaining ?? 0)}
         label="credits"
         accent={accent}
-        title={`${credits.credits.toLocaleString('en-US')} of ${credits.limit.toLocaleString('en-US')} daily credits left on the ${planName} plan · 1 credit per search, charged only when it succeeds · resets midnight UTC`}
+        badge={bonus ? `+${bonus.remaining.toLocaleString('en-US')} bonus` : undefined}
+        title={`${Math.max(0, credits.credits - (bonus?.remaining ?? 0)).toLocaleString('en-US')} of ${credits.limit.toLocaleString('en-US')} daily credits left on the ${planName} plan${bonus ? ` + ${bonus.remaining.toLocaleString('en-US')} bonus credits (valid until ${bonusUntil}, used after the daily credits)` : ''} · 1 credit per search, charged only when it succeeds · daily credits reset midnight UTC`}
       />
       {s && (
         <>

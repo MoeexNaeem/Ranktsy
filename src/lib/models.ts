@@ -39,7 +39,7 @@ export interface IUserDoc extends Document {
   sebtStudent?: boolean
   /** The most recent metered charge, kept briefly so the client can have it
    *  reversed when a result never reached the user. See credits.ts refundLastCharge. */
-  lastCharge?: { tool: string; key?: string | null; credits: number; searchCounted: boolean; at: Date; refunded: boolean } | null
+  lastCharge?: { tool: string; key?: string | null; credits: number; searchCounted: boolean; fromBonus?: boolean; at: Date; refunded: boolean } | null
   // Which SEBT batch the student signed up in, copied from the live batch number
   // at signup. Lets an admin tell batch 1 from batch 2 long after both have closed.
   sebtBatch?: number | null
@@ -66,6 +66,13 @@ export interface IUserDoc extends Document {
   creditsUsedToday?: number
   creditsResetAt?: Date
   creditsUsedTotal?: number
+  // Admin-granted bonus credits: a ONE-TIME pool on top of the plan's daily
+  // allowance. Never resets daily; spent only after the day's plan credits run
+  // out; worthless once bonusExpiresAt passes (checked lazily, no cron needed).
+  bonusCredits?: number           // remaining in the pool
+  bonusCreditsGranted?: number    // total granted in the current pool (for "x of y left")
+  bonusGrantedAt?: Date | null
+  bonusExpiresAt?: Date | null
   // Affiliate attribution - set once at signup if the visitor arrived through an
   // affiliate's ?ref link. `referredBy` is the affiliate code; the id is kept too
   // for integrity. Never changes after signup (first-touch at registration).
@@ -96,6 +103,7 @@ const UserSchema = new Schema<IUserDoc>({
     key:           { type: String, default: null },   // the PaidLookup key this charge paid for
     credits:       { type: Number, default: 0 },
     searchCounted: { type: Boolean, default: false },
+    fromBonus:     { type: Boolean, default: false },  // paid from the admin bonus pool
     at:            { type: Date, required: true },
     refunded:      { type: Boolean, default: false },
   }, { _id: false }), default: null },
@@ -113,6 +121,10 @@ const UserSchema = new Schema<IUserDoc>({
   creditsUsedToday: { type: Number, default: 0 },
   creditsResetAt:   { type: Date, default: Date.now },
   creditsUsedTotal: { type: Number, default: 0 },
+  bonusCredits:        { type: Number, default: 0 },
+  bonusCreditsGranted: { type: Number, default: 0 },
+  bonusGrantedAt:      { type: Date, default: null },
+  bonusExpiresAt:      { type: Date, default: null },
   referredBy:            { type: String, default: null, index: true },
   referredByAffiliateId: { type: String, default: null },
 }, { timestamps: true })

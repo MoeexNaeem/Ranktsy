@@ -15,7 +15,7 @@ interface Detail {
   isVerified: boolean; restricted: boolean; paidViaLemonSqueezy: boolean
   subscriptionStatus: string | null; lsCustomerId: string | null; planRenewsAt: string | null; compExpiresAt: string | null
   createdAt: string | null
-  credits: { usedToday: number; limit: number; remaining: number; usedTotal: number }
+  credits: { usedToday: number; limit: number; remaining: number; usedTotal: number; bonus?: { remaining: number; granted: number; expiresAt: string } | null }
   imagesThisMonth: number; savedKeywords: number; searchTotal: number
   shops: { shopName: string; shopId: string }[]
   recentSearches: { keyword: string; at: string | null }[]
@@ -176,6 +176,7 @@ export function UserDetailPanel({ userId, onClose }: { userId: string | null; on
                 <Field label="Today">{exact(d.credits.usedToday)} / {exact(d.credits.limit)}</Field>
                 <Field label="Remaining">{exact(d.credits.remaining)}</Field>
                 <Field label="Lifetime spent">{exact(d.credits.usedTotal)}</Field>
+                <Field label="Admin bonus">{d.credits.bonus ? `${exact(d.credits.bonus.remaining)} of ${exact(d.credits.bonus.granted)} left · until ${new Date(d.credits.bonus.expiresAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}` : 'None'}</Field>
               </Group>
 
               <Group title="Activity">
