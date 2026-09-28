@@ -75,7 +75,9 @@ async function fxToUsd(currency: string): Promise<number | null> {
   const from = currency.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3)
   if (!from || from.length !== 3) return null
   if (from === 'USD') return 1
-  const key = cacheKey('fx', 'v1', from)
+  // Own key: /api/fx caches an {from,to,rate} object under 'fx:v1', this caches a bare
+  // number, and the in-memory cache is shared by every route in the process.
+  const key = cacheKey('fx-rate', 'v1', from)
   const hit = memCache.get<number | null>(key)
   if (hit !== null) return hit
   try {

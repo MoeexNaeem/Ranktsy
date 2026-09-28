@@ -10,7 +10,11 @@
 // hammering the upstream (Etsy/Google/DB). Classic "thundering herd" guard for
 // viral keywords. The entry is removed as soon as the promise settles, so this
 // never caches results - it only collapses *in-flight* duplicates.
-const inflight = new Map<string, Promise<unknown>>()
+// Pinned on globalThis: Next bundles this module into many route chunks, and a plain
+// module-level Map gave each chunk its own, so two routes (e.g. two tools refreshing
+// the same Etsy token) never saw each other's in-flight call.
+const g = globalThis as typeof globalThis & { __rkInflight?: Map<string, Promise<unknown>> }
+const inflight: Map<string, Promise<unknown>> = g.__rkInflight ??= new Map()
 
 export function singleFlight<T>(key: string, fn: () => Promise<T>): Promise<T> {
   const existing = inflight.get(key)

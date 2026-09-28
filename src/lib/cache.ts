@@ -8,58 +8,103 @@ import { singleFlight } from '@/lib/concurrency'
 interface CacheEntry<T> {
   data: T
   expiresAt: number
+  bytes: number   // approximate size, so the cache can be capped by memory, not count
 }
 
+/** Rough in-memory size of a value (JSON length ≈ bytes of payload). */
+function approxBytes(v: unknown): number {
+  if (typeof v === 'string') return v.length * 2
+  try { return (JSON.stringify(v)?.length ?? 0) * 2 + 64 } catch { return 1024 }
+}
+
+/**
+ * Per-process LRU cache capped by BOTH entry count and approximate bytes.
+ *
+ * It used to be capped by count alone (5,000). Entries include whole keyword
+ * packages of a few hundred KB, so a worker's cache could grow past PM2's 700 MB
+ * max_memory_restart: workers were killed and restarted over and over (14 in one
+ * sitting), and every restart threw away the cache and made the next requests slow
+ * and CPU-heavy. A byte budget keeps each worker well under that limit.
+ */
 class InMemoryCache {
   private store = new Map<string, CacheEntry<unknown>>()
-  private readonly maxSize: number
+  private bytes = 0
 
-  constructor(maxSize = 500) {
-    this.maxSize = maxSize
-  }
+  constructor(private readonly maxSize: number, private readonly maxBytes: number) {}
 
   get<T>(key: string): T | null {
     const entry = this.store.get(key)
     if (!entry) return null
     if (Date.now() > entry.expiresAt) {
-      this.store.delete(key)
+      this.drop(key)
       return null
     }
+    // True LRU: a hit moves the entry to the newest end.
+    this.store.delete(key)
+    this.store.set(key, entry)
     return entry.data as T
   }
 
   set<T>(key: string, data: T, ttlSeconds: number): void {
-    // Evict oldest entry if at capacity
-    if (this.store.size >= this.maxSize) {
-      const firstKey = this.store.keys().next().value
-      if (firstKey) this.store.delete(firstKey)
+    const bytes = approxBytes(data)
+    // One value bigger than a quarter of the budget would evict everything else: skip it.
+    if (bytes > this.maxBytes / 4) return
+    this.drop(key)
+    this.store.set(key, { data, expiresAt: Date.now() + ttlSeconds * 1000, bytes })
+    this.bytes += bytes
+    if (this.store.size > this.maxSize || this.bytes > this.maxBytes) this.evict()
+  }
+
+  /** Expired entries first, then least-recently-used, until back under both caps. */
+  private evict(): void {
+    const now = Date.now()
+    for (const [k, e] of this.store) if (now > e.expiresAt) this.drop(k)
+    for (const k of this.store.keys()) {
+      if (this.store.size <= this.maxSize && this.bytes <= this.maxBytes) break
+      this.drop(k)
     }
-    this.store.set(key, { data, expiresAt: Date.now() + ttlSeconds * 1000 })
+  }
+
+  private drop(key: string): void {
+    const e = this.store.get(key)
+    if (!e) return
+    this.bytes -= e.bytes
+    this.store.delete(key)
   }
 
   delete(key: string): void {
-    this.store.delete(key)
+    this.drop(key)
   }
 
   /** Drop every entry whose key starts with `prefix` (e.g. one user's reports after an edit). */
   deletePrefix(prefix: string): void {
-    for (const k of [...this.store.keys()]) if (k.startsWith(prefix)) this.store.delete(k)
+    for (const k of [...this.store.keys()]) if (k.startsWith(prefix)) this.drop(k)
   }
 
   clear(): void {
     this.store.clear()
+    this.bytes = 0
   }
 
   size(): number {
     return this.store.size
   }
+
+  /** Approximate bytes held (for diagnostics). */
+  sizeBytes(): number {
+    return this.bytes
+  }
 }
 
-// Singleton cache instance (shared across API route invocations in the same process).
-// Sized generously: each entry is small, and a bigger cache means fewer repeat
-// Etsy/Google calls when many users research overlapping keywords under load.
-// Tunable via MEMCACHE_MAX_ENTRIES.
-export const memCache = new InMemoryCache(Number(process.env.MEMCACHE_MAX_ENTRIES ?? 5000))
+// ONE cache per process. Next bundles this module into many route chunks, and a
+// plain module-level `new` gave every chunk its own private cache (each with the
+// full budget); pinning it on globalThis makes them all share one.
+// Tunable: MEMCACHE_MAX_ENTRIES (default 5000) and MEMCACHE_MAX_MB (default 150).
+const g = globalThis as typeof globalThis & { __rkMemCache?: InMemoryCache }
+export const memCache: InMemoryCache = g.__rkMemCache ??= new InMemoryCache(
+  Number(process.env.MEMCACHE_MAX_ENTRIES ?? 5000),
+  Number(process.env.MEMCACHE_MAX_MB ?? 150) * 1024 * 1024,
+)
 
 // Cache TTLs (seconds)
 //
