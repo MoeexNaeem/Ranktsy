@@ -454,7 +454,13 @@ export async function adsApiCall<T>(o: AdsCallOptions, opts: { probe?: boolean }
       const { scope, seconds, rateName } = parseRetrySeconds(text)
       // Daily operation cap (or any long wait): lock Planner calls app-wide, never retry.
       if (scope === 'DEVELOPER' || (seconds != null && seconds > 60)) {
-        const lockUntil = Date.now() + (seconds ?? 3600) * 1000
+        // The project has Standard Access (unlimited daily operations, approved
+        // 2026-09-28), so a "basic access" cap can only come from a Google server
+        // that has not picked up the upgrade yet. Pause briefly instead of for
+        // Google's full retry window, so one stale server can't blank Google data
+        // for an hour.
+        const staleBasic = /basic access/i.test(rateName ?? '')
+        const lockUntil = Date.now() + (staleBasic ? 120 : (seconds ?? 3600)) * 1000
         if (planner) setQuotaBlock(lockUntil, [scope, rateName].filter(Boolean).join(': ') || null)
         throw new GoogleAdsError('Google Ads daily quota exhausted', 'quota', lockUntil)
       }

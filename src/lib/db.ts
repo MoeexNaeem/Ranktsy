@@ -101,12 +101,15 @@ export async function connectDB(): Promise<typeof mongoose> {
   if (!cached.promise) {
     cached.promise = connectableUri().then(uri => mongoose.connect(uri, {
       bufferCommands: false,
-      // Pool sizing matters at scale: on serverless each instance keeps its own
-      // pool, so a burst of instances × maxPoolSize can exhaust Atlas's
-      // connection cap. Keep the per-instance pool modest and release idle
-      // sockets so scaled-down instances free their connections. Tune via env.
-      maxPoolSize: Number(process.env.MONGO_MAX_POOL_SIZE ?? 10),
-      minPoolSize: Number(process.env.MONGO_MIN_POOL_SIZE ?? 0),
+      // Pool sizing. We run a FIXED set of PM2 workers (4) against a dedicated
+      // M10 cluster (~1,500 connection cap), not serverless. The old pool of 10
+      // was a Flex-era limit: once 10 queries were in flight, EVERY other request
+      // in that worker (admin messages, user search, even the /api/health ping)
+      // queued behind them for 10+ seconds. 40 × 4 workers = 160 connections max.
+      // A few are kept warm so a request never pays the TLS handshake to Atlas.
+      // Tune via env.
+      maxPoolSize: Number(process.env.MONGO_MAX_POOL_SIZE ?? 40),
+      minPoolSize: Number(process.env.MONGO_MIN_POOL_SIZE ?? 3),
       maxIdleTimeMS: Number(process.env.MONGO_MAX_IDLE_MS ?? 30_000), // close idle conns after 30s
       serverSelectionTimeoutMS: 8000,
       socketTimeoutMS: 45000,
