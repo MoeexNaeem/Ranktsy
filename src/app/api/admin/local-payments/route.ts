@@ -9,7 +9,8 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 /**
- * Admin list of local payments. ?status=pending|approved|rejected|expired|all.
+ * Admin list of local payments. ?status=pending|approved|rejected|expired|all,
+ * paginated with ?page=1&limit=20 (limit 5..100); the response carries the total.
  * "expired" = approved whose granted period has ended (the user is back on free).
  * Each row carries the user's CURRENT plan and expiry so the admin sees the effect.
  */
@@ -34,8 +35,13 @@ export async function GET(req: NextRequest) {
     : status === 'approved' ? { status: 'approved', $or: [{ grantedUntil: null }, { grantedUntil: { $gt: now } }] }
     : { status }
 
+  const limit = Math.min(100, Math.max(5, Number(req.nextUrl.searchParams.get('limit')) || 20))
+  const total = await LocalPayment.countDocuments(filter)
+  const pages = Math.max(1, Math.ceil(total / limit))
+  const page = Math.min(pages, Math.max(1, Number(req.nextUrl.searchParams.get('page')) || 1))
+
   const [rows, pending, approvedActive, expired, rejected] = await Promise.all([
-    LocalPayment.find(filter).sort({ createdAt: -1 }).limit(200).lean(),
+    LocalPayment.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
     LocalPayment.countDocuments({ status: 'pending' }),
     LocalPayment.countDocuments({ status: 'approved', $or: [{ grantedUntil: null }, { grantedUntil: { $gt: now } }] }),
     LocalPayment.countDocuments({ status: 'approved', grantedUntil: { $lte: now } }),
@@ -50,6 +56,7 @@ export async function GET(req: NextRequest) {
     success: true,
     data: {
       counts: { pending, approved: approvedActive, expired, rejected },
+      page, pages, total, limit,
       rows: rows.map(r => {
         const u = byId.get(r.userId)
         const expiredNow = r.status === 'approved' && r.grantedUntil != null && new Date(r.grantedUntil) <= now

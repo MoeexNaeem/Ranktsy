@@ -7,7 +7,8 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { C } from '@/utils'
-import { cardStyle, EmptyState, MONO } from '@/components/dashboard/kit'
+import { cardStyle, EmptyState, MONO, Pagination, SectionTitle, tableCard, tableHead, th, tableRow } from '@/components/dashboard/kit'
+import type { RevenueReport } from '@/lib/revenue-report'
 import { toast } from '@/components/ui/toast'
 import { PLAN_LABELS, PLAN_SLUGS, type PlanSlug } from '@/lib/plans'
 import { formatPkr, localPlanFor, METHOD_LABELS, type LocalMethod } from '@/lib/local-payments'
@@ -29,6 +30,7 @@ const STATUS: Record<Row['status'], { label: string; bg: string; fg: string }> =
   rejected: { label: 'Rejected', bg: '#FEE2E2', fg: '#991B1B' },
 }
 const PAID_PLANS = PLAN_SLUGS.filter(p => p !== 'free')
+const PAGE_SIZE = 20
 const fmt = (d: string | null) => d ? new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'
 const fmtDay = (d: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'
 const planName = (s: string | null) => s ? (PLAN_LABELS[s as PlanSlug] ?? s) : '-'
@@ -51,6 +53,8 @@ function Modal({ onClose, children, width = 460 }: { onClose: () => void; childr
 
 export function AdminLocalPayments() {
   const [filter, setFilter] = useState<Filter>('pending')
+  const [page, setPage] = useState(1)
+  const [paging, setPaging] = useState<{ pages: number; total: number; limit: number }>({ pages: 1, total: 0, limit: PAGE_SIZE })
   const [rows, setRows] = useState<Row[] | null>(null)
   const [counts, setCounts] = useState<Counts | null>(null)
   const [proof, setProof] = useState<Row | null>(null)
@@ -64,12 +68,17 @@ export function AdminLocalPayments() {
 
   const load = useCallback(async () => {
     try {
-      const r = await fetch(`/api/admin/local-payments?status=${filter}`, { cache: 'no-store' })
+      const r = await fetch(`/api/admin/local-payments?status=${filter}&page=${page}&limit=${PAGE_SIZE}`, { cache: 'no-store' })
       const j = await r.json()
-      if (j?.success) { setRows(j.data.rows); setCounts(j.data.counts) }
+      if (j?.success) {
+        setRows(j.data.rows); setCounts(j.data.counts)
+        setPaging({ pages: j.data.pages ?? 1, total: j.data.total ?? j.data.rows.length, limit: j.data.limit ?? PAGE_SIZE })
+        // The server clamps an out-of-range page (e.g. after deleting the last row on it).
+        if (j.data.page && j.data.page !== page) setPage(j.data.page)
+      }
       else setRows([])
     } catch { setRows([]) }
-  }, [filter])
+  }, [filter, page])
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setRows(null); void load() }, [load])
 
@@ -125,13 +134,19 @@ export function AdminLocalPayments() {
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {pills.map(p => (
-          <button key={p.id} onClick={() => setFilter(p.id)}
+          <button key={p.id} onClick={() => { setFilter(p.id); setPage(1) }}
             style={{ ...btn(filter === p.id ? C.ink : C.paper, filter === p.id ? '#fff' : C.ink, filter === p.id ? C.ink : C.ash), borderRadius: 100, padding: '7px 14px' }}>
             {p.label}{p.n != null ? ` (${p.n})` : ''}
           </button>
         ))}
         <button onClick={() => void load()} style={{ ...btn(C.paper, C.graphite, C.ash), borderRadius: 100, marginLeft: 'auto' }}>Refresh</button>
       </div>
+
+      {rows != null && paging.total > 0 && (
+        <p style={{ fontSize: 12.5, color: C.stone, fontFamily: MONO, margin: 0 }}>
+          Showing {(page - 1) * paging.limit + 1}-{Math.min(page * paging.limit, paging.total)} of {paging.total}
+        </p>
+      )}
 
       {rows == null ? (
         <p style={{ fontSize: 13, color: C.graphite }}>Loading…</p>
@@ -177,6 +192,10 @@ export function AdminLocalPayments() {
           })}
         </div>
       )}
+
+      <Pagination page={page} pageCount={paging.pages} onChange={p => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }) }} loading={rows == null} />
+
+      <LocalMonthlyEarnings />
 
       {proof && (
         <Modal onClose={() => setProof(null)} width={760}>
@@ -247,3 +266,47 @@ export function AdminLocalPayments() {
     </div>
   )
 }
+
+/** Local (bank / JazzCash) earnings per month, from the same report as Admin Earnings. */
+const LM_GRID = '1.4fr 0.8fr 1.1fr 0.7fr 0.8fr 0.9fr'
+function LocalMonthlyEarnings() {
+  const [report, setReport] = useState<RevenueReport | null>(null)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    fetch('/api/admin/earnings/report', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(j => { if (j?.success) setReport(j.data); else setFailed(true) })
+      .catch(() => setFailed(true))
+  }, [])
+  const months = (report?.months ?? []).filter(m => m.local.payments || m.local.notRenewed)
+  const monthName = (m: string) => { const [y, mo] = m.split('-').map(Number); return new Date(y, mo - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) }
+  const total = months.reduce((n, m) => n + m.local.revenuePkr, 0)
+  return (
+    <div style={{ marginTop: 18 }}>
+      <SectionTitle right={<span style={{ fontSize: 12, fontFamily: MONO, color: C.stone }}>approved payments · {formatPkr(total)} total</span>}>Local earnings by month</SectionTitle>
+      {failed ? <p style={{ fontSize: 13, color: C.graphite }}>Could not load the monthly record.</p>
+      : !report ? <p style={{ fontSize: 13, color: C.graphite }}>Loading…</p>
+      : months.length === 0 ? <p style={{ fontSize: 13, color: C.graphite }}>No approved local payments yet.</p>
+      : (
+        <div className="rtable" style={{ ...tableCard, overflowX: 'auto' }}>
+          <div style={{ minWidth: 620 }}>
+            <div style={tableHead(LM_GRID)}>
+              {['Month', 'Payments', 'Earned', 'New', 'Renewed', 'Not renewed'].map((h, i) => <span key={h} style={{ ...th, textAlign: i ? 'right' : 'left' }}>{h}</span>)}
+            </div>
+            {months.map((m, i) => (
+              <div key={m.month} style={{ ...tableRow(LM_GRID), background: i % 2 ? C.canvas : 'transparent' }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{monthName(m.month)}</span>
+                <span style={{ fontSize: 13, fontFamily: MONO, textAlign: 'right' }}>{m.local.payments}</span>
+                <span style={{ fontSize: 13, fontFamily: MONO, textAlign: 'right', color: '#1F7A44', fontWeight: 600 }}>{formatPkr(m.local.revenuePkr)}</span>
+                <span style={{ fontSize: 13, fontFamily: MONO, textAlign: 'right' }}>{m.local.newCustomers}</span>
+                <span style={{ fontSize: 13, fontFamily: MONO, textAlign: 'right', color: '#7C3AED' }}>{m.local.renewals}</span>
+                <span style={{ fontSize: 13, fontFamily: MONO, textAlign: 'right', color: m.local.notRenewed ? '#B91C1C' : C.ink }}>{m.local.notRenewed}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+

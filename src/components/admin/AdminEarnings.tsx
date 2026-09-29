@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { C } from '@/utils'
 import { MONO, SectionTitle, StatCard, EmptyState, cardStyle, tableCard, tableHead, th, tableRow } from '@/components/dashboard/kit'
 import { Bars } from './AdminCharts'
+import { AdminEarningsRecord } from './AdminEarningsRecord'
 
 interface MonthRow { month: string; total: number; count: number }
 interface BuyerRow { userId: string; email: string; plan: string; amount: number; payments: number; renewed: boolean; firstPaidAt: string | null; lastPaidAt: string | null; joinedAt: string | null; recorded: boolean }
@@ -56,6 +57,12 @@ export function AdminEarnings() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+      {/* Full record: card (Lemon Squeezy history) + local payments, by year and month */}
+      <AdminEarningsRecord />
+
+      <div style={{ borderTop: `1px solid ${C.ash}`, paddingTop: 18 }}>
+        <SectionTitle>Paying customers (card)</SectionTitle>
+      </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 14 }}>
         <StatCard label="Total earned" value={usd(data?.totalEarned ?? 0)} accent="#1F7A44" />
         <StatCard label="Paying customers" value={(data?.payingCustomers ?? 0).toLocaleString()} accent="#2563EB" />
