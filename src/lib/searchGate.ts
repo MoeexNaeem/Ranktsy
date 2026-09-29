@@ -10,7 +10,7 @@ import type { ApiResponse } from '@/types'
  *
  *   const gate = await guardSearch(req); if (gate) return gate
  *
- * Every HUMAN_CHECK_EVERY (10) NEW searches, the next new search returns 429
+ * Every HUMAN_CHECK_EVERY (25) NEW searches, the next new search returns 429
  * `{ captchaRequired: true }`. The client shows a reCAPTCHA, posts the token to
  * /api/captcha/verify (verified with Google server-side, which resets the count),
  * then retries. A search is identified by `fingerprint` (default: the route path

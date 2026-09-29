@@ -171,7 +171,7 @@ export async function resetSearches(key: string): Promise<void> {
 // Stored in MongoDB so every server process sees the same count.
 
 /** New searches allowed between two captchas. */
-export const HUMAN_CHECK_EVERY = envLimit('HUMAN_CHECK_EVERY', 10)
+export const HUMAN_CHECK_EVERY = envLimit('HUMAN_CHECK_EVERY', 25)
 const HUMAN_TTL_MS = 7 * 24 * 60 * 60 * 1000
 
 interface HumanDoc { _id: string; n: number; seen: string[]; expiresAt: Date }

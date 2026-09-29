@@ -2,7 +2,7 @@
 /**
  * Bridges the search gate to a reCAPTCHA prompt.
  *
- * When a gated search API returns 429 `{ captchaRequired: true }` (every 10 new
+ * When a gated search API returns 429 `{ captchaRequired: true }` (every 25 new
  * searches), the axios interceptor asks for ONE human check: the global
  * <CaptchaModal> opens, the solved token is verified once by /api/captcha/verify
  * (which resets the account's count on the server), and then every request that

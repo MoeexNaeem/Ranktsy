@@ -1,6 +1,6 @@
 'use client'
 /**
- * Global "I'm not a robot" check, shown every 10 new searches. Mounted once (in
+ * Global "I'm not a robot" check, shown every 25 new searches. Mounted once (in
  * Providers); driven by the captchaController. The solved token is verified by
  * the server before the modal closes, then the waiting searches continue.
  */
@@ -59,7 +59,7 @@ export function CaptchaModal() {
       <div onClick={e => e.stopPropagation()} style={{ background: C.paper, borderRadius: 16, padding: '28px 26px', maxWidth: 400, width: '100%', border: `1px solid ${C.ash}`, boxShadow: '0 20px 60px rgba(17,24,39,0.25)' }}>
         <h3 style={{ fontSize: 18, fontWeight: 600, color: C.ink, marginBottom: 8 }}>Quick check to continue</h3>
         <p style={{ fontSize: 14, color: C.graphite, lineHeight: 1.5, marginBottom: 20 }}>
-          Every 10 searches we ask you to confirm you&apos;re human. Your search continues as soon as you do.
+          Every 25 searches we ask you to confirm you&apos;re human. Your search continues as soon as you do.
         </p>
         <Recaptcha key={key} onVerify={token => { void onVerify(token) }} />
         {busy && <p style={{ fontSize: 13, color: C.graphite, marginTop: 12 }}>Checking…</p>}

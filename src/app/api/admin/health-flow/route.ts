@@ -26,7 +26,7 @@ export const dynamic = 'force-dynamic'
  * pinged for real since a dead DB is the one that silently breaks everything.
  */
 type Status = 'ok' | 'down' | 'off'
-interface SystemHealth { status: Status; required: boolean; detail: string }
+interface SystemHealth { status: Status; required: boolean; detail: string; label?: string }
 
 const env = (k: string) => (process.env[k] ?? '').trim().length > 0
 
@@ -74,7 +74,10 @@ export async function GET(): Promise<NextResponse<ApiResponse<{ systems: Record<
   const etsyHealth: SystemHealth =
     etsyKeys === 0 ? { status: 'down', required: true, detail: 'no Etsy key configured' }
     : quotaKeys.length && quotaKeys.length === badKeys.length
-      ? { status: goodKeys === 0 ? 'down' : 'off', required: true, detail: goodKeys === 0 ? `all keys out of quota: ${quotaNote}` : `${goodKeys}/${etsyKeys} keys ok; ${quotaNote}` }
+      ? goodKeys === 0
+        ? { status: 'down', required: true, detail: `all keys out of quota: ${quotaNote}` }
+        // Some keys resting, the rest still serving: amber, labelled with how many work.
+        : { status: 'off', required: true, label: `${goodKeys}/${etsyKeys} keys`, detail: `${goodKeys}/${etsyKeys} keys working, the others are resting (out of daily calls); searches still work. ${quotaNote}` }
     : probes.length === 0 ? { status: 'ok', required: true, detail: `${etsyKeys} key${etsyKeys === 1 ? '' : 's'} (probe skipped)` }
     : goodKeys === 0 ? { status: 'down', required: true, detail: `all ${etsyKeys} keys failing (${badKeys.map(b => `#${b.index}:${b.status ?? 'err'}`).join(', ')})` }
     : badKeys.length > 0 ? { status: 'down', required: true, detail: `key ${badKeys.map(b => `#${b.index} (${b.status ?? 'err'})`).join(', ')} failing - fix or remove it; ${goodKeys}/${etsyKeys} ok` }

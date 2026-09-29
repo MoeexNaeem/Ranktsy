@@ -25,7 +25,7 @@ import 'reactflow/dist/style.css'
 import { FLOW_NODES, FLOW_EDGES, SYSTEM_LABEL, type FlowNodeDef, type FlowSystem, type FlowNodeKind } from '@/lib/codeflow/graph'
 
 type Status = 'ok' | 'down' | 'off'
-interface SystemHealth { status: Status; required: boolean; detail: string }
+interface SystemHealth { status: Status; required: boolean; detail: string; label?: string }
 type HealthMap = Record<FlowSystem, SystemHealth>
 
 type NodeState = 'ok' | 'down' | 'off' | 'code'
@@ -278,7 +278,7 @@ function CodeFlowInner() {
             border: `2px solid ${l.status === 'down' ? DOT.down : l.status === 'off' ? '#ecd29a' : '#cfe9d6'}` }}>
             <span style={{ width: 10, height: 10, borderRadius: 999, background: DOT[l.status], boxShadow: l.status === 'down' ? `0 0 6px ${DOT.down}` : 'none' }} />
             <span style={{ fontSize: 13, fontWeight: 600, color: '#3D3E3B' }}>{SYSTEM_LABEL[l.sys]}</span>
-            <span style={{ fontSize: 11, color: l.status === 'down' ? DOT.down : '#919183', fontFamily: 'ui-monospace, monospace', fontWeight: 700 }}>{l.status === 'ok' ? 'ok' : l.status === 'down' ? 'DOWN' : 'off'}</span>
+            <span style={{ fontSize: 11, color: l.status === 'down' ? DOT.down : '#919183', fontFamily: 'ui-monospace, monospace', fontWeight: 700 }}>{l.label ?? (l.status === 'ok' ? 'ok' : l.status === 'down' ? 'DOWN' : 'off')}</span>
           </span>
         ))}
         <span style={{ flex: 1 }} />
