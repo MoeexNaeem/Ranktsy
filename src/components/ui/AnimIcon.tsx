@@ -107,7 +107,7 @@ export const ICON = {
 
 // Dashboard tab id → animated icon. One place to retune any tab's icon.
 export const DASH_ICON: Record<string, string> = {
-  overview: ICON.home, myshop: ICON.shopping, hotproducts: ICON.demand,
+  guide: ICON.book, overview: ICON.home, myshop: ICON.shopping, hotproducts: ICON.demand,
   keywords: ICON.search, gap: ICON.target, listings: ICON.display,
   competitors: ICON.account, compsales: ICON.coins, trends: ICON.trending,
   buzz: ICON.demand, monthly: ICON.barChart, topsellers: ICON.celebration,

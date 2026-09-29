@@ -17,6 +17,7 @@ import { RealtimeProvider, NotificationBell, NotifNavBadge, ChatWidget } from '.
 import { OnboardingChecklist } from './OnboardingChecklist'
 import { PlanExpiredModal, type ExpiredPlan } from './PlanExpiredModal'
 import { TabLink } from './TabLink'
+import { GuideTab } from './tabs/GuideTab'
 
 const KeywordsTab      = dynamic(() => import('./tabs/KeywordsTab').then(m => ({ default: m.KeywordsTab })), { ssr: false })
 const ListingsTab      = dynamic(() => import('./tabs/ListingsTab').then(m => ({ default: m.ListingsTab })), { ssr: false })
@@ -56,9 +57,11 @@ const AlertsTab            = dynamic(() => import('./tabs/AlertsTab').then(m => 
 const AffiliateTab         = dynamic(() => import('./tabs/AffiliateTab').then(m => ({ default: m.AffiliateTab })), { ssr: false })
 const NotificationsTab     = dynamic(() => import('./tabs/NotificationsTab').then(m => ({ default: m.NotificationsTab })), { ssr: false })
 
-type TabId = 'overview' | 'myshop' | 'hotproducts' | 'keywords' | 'gap' | 'listings' | 'competitors' | 'compsales' | 'trends' | 'buzz' | 'monthly' | 'topsellers' | 'catreport' | 'bulk' | 'rank' | 'shop' | 'salesmap' | 'delivery' | 'tags' | 'aihelper' | 'listingpro' | 'ctags' | 'titlegen' | 'taggen' | 'descgen' | 'audit' | 'compare' | 'spell' | 'fees' | 'adsroi' | 'category' | 'calendar' | 'lists' | 'alerts' | 'affiliate' | 'googleads' | 'notifications'
+type TabId = 'guide' | 'overview' | 'myshop' | 'hotproducts' | 'keywords' | 'gap' | 'listings' | 'competitors' | 'compsales' | 'trends' | 'buzz' | 'monthly' | 'topsellers' | 'catreport' | 'bulk' | 'rank' | 'shop' | 'salesmap' | 'delivery' | 'tags' | 'aihelper' | 'listingpro' | 'ctags' | 'titlegen' | 'taggen' | 'descgen' | 'audit' | 'compare' | 'spell' | 'fees' | 'adsroi' | 'category' | 'calendar' | 'lists' | 'alerts' | 'affiliate' | 'googleads' | 'notifications'
 
 const TABS: { id: TabId; label: string; description: string; group: string; accent: AccentName }[] = [
+  // Pinned above every group (its own animated item), not listed under GROUPS.
+  { id: 'guide',       label: 'Rankkw Guide',  group: 'Guide',       accent: 'orange',  description: 'Step-by-step guide to every tool, with screenshots' },
   { id: 'overview',    label: 'Overview',      group: 'Home',        accent: 'indigo',  description: 'Your Etsy SEO command center' },
   { id: 'myshop',      label: 'My Shop',       group: 'Home',        accent: 'orange',  description: 'Your connected shop\'s sales & insights' },
   { id: 'notifications', label: 'Notifications', group: 'Home',      accent: 'orange',  description: 'Replies, alerts, deals and updates in one place' },
@@ -106,6 +109,7 @@ const GROUPS = ['Home', 'Research', 'Shop Insights', 'Optimize', 'Tools', 'Adver
 
 function TabContent({ active, onNavigate }: { active: TabId; onNavigate: (id: TabId) => void }) {
   const map: Record<TabId, React.ReactNode> = {
+    guide:       <GuideTab />,
     overview:    <OverviewTab onNavigate={(id) => onNavigate(id as TabId)} />,
     myshop:      <MyShopTab />,
     hotproducts: <HotProductsTab onNavigate={(id) => onNavigate(id as TabId)} />,
@@ -279,6 +283,27 @@ export function DashboardLayout() {
               )}
             </div>
           </div>
+          {/* Rankkw Guide: pinned above HOME with a moving border so it gets noticed. */}
+          {(() => {
+            const fq = navFilter.trim().toLowerCase()
+            const g = TABS[0]
+            if (fq && !g.label.toLowerCase().includes(fq) && !g.description.toLowerCase().includes(fq)) return null
+            const active = activeTab === 'guide'
+            return (
+              <div className="rk-guide-border" style={{ marginBottom: 14 }}>
+                <TabLink tab="guide" onOpen={() => handleTab('guide')} aria-current={active ? 'page' : undefined}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12, padding: '9px 12px', borderRadius: 10,
+                    background: active ? '#FFF1E8' : C.paper, color: C.ink, cursor: 'pointer',
+                  }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 9, flexShrink: 0, background: withAlpha(C.orange, 0.12) }}>
+                    <AnimIcon src={DASH_ICON.guide} size={25} color={C.orange} active={active} target="a" />
+                  </span>
+                  <span className="rlabel" style={{ fontSize: 14, fontWeight: 600, color: C.ink, letterSpacing: '-0.01em' }}>{g.label}</span>
+                </TabLink>
+              </div>
+            )
+          })()}
           {GROUPS.map(group => {
             const fq = navFilter.trim().toLowerCase()
             const groupTabs = TABS.filter(t => t.group === group && tabVisible(t.id) && (!fq || t.label.toLowerCase().includes(fq) || t.description.toLowerCase().includes(fq)))

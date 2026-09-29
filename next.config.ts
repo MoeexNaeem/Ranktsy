@@ -59,6 +59,16 @@ const nextConfig: NextConfig = {
           { key: 'Cache-Control', value: 'no-store' },
         ],
       },
+      // The Rankkw Guide PDF is shown inside the dashboard, so it (and only it) may
+      // be framed by our own pages. Later rules override the site-wide ones above.
+      {
+        source: '/guide/:path*',
+        headers: [
+          { key: 'X-Frame-Options',         value: 'SAMEORIGIN' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" },
+          { key: 'Cache-Control',           value: 'public, max-age=86400' },
+        ],
+      },
     ]
   },
 
