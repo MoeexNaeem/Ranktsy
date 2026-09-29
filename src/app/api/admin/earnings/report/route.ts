@@ -33,7 +33,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       })
     }
 
-    return NextResponse.json({ success: true, data: report })
+    // Customers are served paged by /api/admin/earnings; keep this payload small.
+    return NextResponse.json({ success: true, data: { ...report, customers: [] } })
   } catch (e) {
     console.error('[Admin] earnings report:', e)
     return NextResponse.json({ success: false, error: 'Could not build the earnings record.' }, { status: 500 })

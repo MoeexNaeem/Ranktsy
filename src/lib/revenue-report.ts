@@ -33,6 +33,21 @@ export interface LocalMonth {
   notRenewed: number      // paid period ended this month and the user never paid again
 }
 export interface ReportMonth { month: string; card: CardMonth; local: LocalMonth }
+/** One paying customer, from real payments (card and local listed separately). */
+export interface Customer {
+  key: string
+  name: string
+  email: string
+  method: 'card' | 'local'
+  plan: string
+  amount: number          // total paid: USD for card, PKR for local
+  currency: 'USD' | 'PKR'
+  payments: number
+  renewals: number
+  status: 'active' | 'cancelled' | 'ended'   // cancelled = still active, will not renew
+  firstPaidAt: string
+  lastPaidAt: string
+}
 export interface ReportYear { year: string; card: CardMonth; local: LocalMonth }
 export interface RevenueReport {
   generatedAt: string
@@ -41,9 +56,14 @@ export interface RevenueReport {
   months: ReportMonth[]            // newest first, every month from the first payment to now
   years: ReportYear[]              // newest first
   current: { activeCardSubs: number; cancelledEndingLater: number; activeLocal: number }
+  customers: Customer[]            // newest payment first
 }
 
 const LS_API = 'https://api.lemonsqueezy.com/v1'
+const PLAN_NAME: Record<string, string> = {
+  starter: 'Starter', basic: 'Basic', pro: 'Pro', 'pro-1yr': 'Pro 1-Year', business: 'Business',
+  agency: 'Agency', enterprise: 'Enterprise', custom: 'Custom',
+}
 const round2 = (n: number) => Math.round(n * 100) / 100
 const pkMonth = (d: Date | string) =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi', year: 'numeric', month: '2-digit' }).format(new Date(d))
@@ -51,8 +71,8 @@ const pkMonth = (d: Date | string) =>
 const emptyCard = (): CardMonth => ({ revenueUsd: 0, payments: 0, newSubs: 0, renewals: 0, planChanges: 0, refunds: 0, refundedUsd: 0, notRenewed: 0 })
 const emptyLocal = (): LocalMonth => ({ revenuePkr: 0, payments: 0, newCustomers: 0, renewals: 0, notRenewed: 0 })
 
-interface LsInvoice { billing_reason: string; status: string; total_usd: number; refunded: boolean; refunded_amount_usd: number; created_at: string; test_mode: boolean }
-interface LsSub { status: string; renews_at: string | null; ends_at: string | null; test_mode: boolean }
+interface LsInvoice { billing_reason: string; status: string; total_usd: number; refunded: boolean; refunded_amount_usd: number; created_at: string; test_mode: boolean; customer_id: number; user_email: string; user_name: string; subscription_id: number }
+interface LsSub { status: string; renews_at: string | null; ends_at: string | null; test_mode: boolean; customer_id: number; product_name: string; user_email: string }
 
 /** Every page of a Lemon Squeezy list endpoint for this store. */
 async function lsAll<T>(path: string): Promise<T[]> {
@@ -94,6 +114,7 @@ async function build(): Promise<RevenueReport> {
   // ── Card (Lemon Squeezy) ────────────────────────────────────────────────
   let cardSource: RevenueReport['cardSource'] = 'lemonsqueezy'
   let activeCardSubs = 0, cancelledEndingLater = 0
+  const customers: Customer[] = []
   try {
     const [invoices, subs] = await Promise.all([
       lsAll<LsInvoice>('/subscription-invoices'),
@@ -122,6 +143,37 @@ async function build(): Promise<RevenueReport> {
       if (new Date(due) <= now) at(pkMonth(due)).card.notRenewed++
       else if (s.status === 'cancelled') cancelledEndingLater++
     }
+
+    // One row per Lemon Squeezy customer: what they really paid, and their
+    // subscription's state now.
+    const subByCustomer = new Map<number, LsSub>()
+    for (const s of subs) if (!s.test_mode) {
+      const prev = subByCustomer.get(s.customer_id)
+      if (!prev || prev.status !== 'active') subByCustomer.set(s.customer_id, s)
+    }
+    const byCust = new Map<number, Customer>()
+    for (const inv of invoices) {
+      if (inv.test_mode || !['paid', 'refunded', 'partial_refund'].includes(inv.status)) continue
+      const c = byCust.get(inv.customer_id) ?? {
+        key: `card:${inv.customer_id}`, name: inv.user_name ?? '', email: inv.user_email ?? '', method: 'card' as const,
+        plan: '', amount: 0, currency: 'USD' as const, payments: 0, renewals: 0, status: 'ended' as const,
+        firstPaidAt: inv.created_at, lastPaidAt: inv.created_at,
+      }
+      c.amount += ((inv.total_usd ?? 0) - (inv.refunded_amount_usd ?? 0)) / 100
+      c.payments++
+      if (inv.billing_reason === 'renewal') c.renewals++
+      if (inv.created_at < c.firstPaidAt) c.firstPaidAt = inv.created_at
+      if (inv.created_at > c.lastPaidAt) c.lastPaidAt = inv.created_at
+      byCust.set(inv.customer_id, c)
+    }
+    for (const [id, c] of byCust) {
+      const sub = subByCustomer.get(id)
+      c.plan = (sub?.product_name ?? '').replace(/^Rankkw\s+/i, '')
+      c.status = sub?.status === 'active' || sub?.status === 'on_trial' ? 'active'
+        : sub?.status === 'cancelled' && sub.ends_at && new Date(sub.ends_at) > now ? 'cancelled' : 'ended'
+      c.amount = round2(c.amount)
+      customers.push(c)
+    }
   } catch (e) {
     console.error('[revenue-report] Lemon Squeezy:', e)
     cardSource = 'unavailable'
@@ -130,8 +182,8 @@ async function build(): Promise<RevenueReport> {
   // ── Local (bank / JazzCash) ─────────────────────────────────────────────
   await connectDB()
   const local = await LocalPayment.find({ status: 'approved' })
-    .select('userId amountPkr createdAt grantedUntil').sort({ createdAt: 1 })
-    .lean<{ userId: string; amountPkr: number; createdAt: Date; grantedUntil?: Date | null }[]>()
+    .select('userId userName userEmail plan grantedPlan amountPkr createdAt grantedUntil').sort({ createdAt: 1 })
+    .lean<{ userId: string; userName?: string; userEmail?: string; plan: string; grantedPlan?: string | null; amountPkr: number; createdAt: Date; grantedUntil?: Date | null }[]>()
   const byUser = new Map<string, typeof local>()
   for (const p of local) byUser.set(p.userId, [...(byUser.get(p.userId) ?? []), p])
   let activeLocal = 0
@@ -145,10 +197,18 @@ async function build(): Promise<RevenueReport> {
     // Only the user's LATEST paid period can be "not renewed": any earlier one was
     // followed by another payment.
     const last = list[list.length - 1]
+    const active = !!last.grantedUntil && new Date(last.grantedUntil) > now
     if (last.grantedUntil) {
-      if (new Date(last.grantedUntil) <= now) at(pkMonth(last.grantedUntil)).local.notRenewed++
+      if (!active) at(pkMonth(last.grantedUntil)).local.notRenewed++
       else activeLocal++
     }
+    customers.push({
+      key: `local:${last.userId}`, name: last.userName ?? '', email: last.userEmail ?? '', method: 'local',
+      plan: PLAN_NAME[last.grantedPlan ?? last.plan] ?? (last.grantedPlan ?? last.plan),
+      amount: list.reduce((n, p) => n + (p.amountPkr ?? 0), 0), currency: 'PKR',
+      payments: list.length, renewals: list.length - 1, status: active ? 'active' : 'ended',
+      firstPaidAt: new Date(list[0].createdAt).toISOString(), lastPaidAt: new Date(last.createdAt).toISOString(),
+    })
   }
 
   // Every month from the first recorded one to now, so quiet months show as 0.
@@ -185,12 +245,13 @@ async function build(): Promise<RevenueReport> {
     months: monthRows,
     years: yearRows,
     current: { activeCardSubs, cancelledEndingLater, activeLocal },
+    customers: customers.sort((a, b) => b.lastPaidAt.localeCompare(a.lastPaidAt)),
   }
 }
 
 /** Cached for 5 minutes (Lemon Squeezy is paged; the admin page polls). `fresh` rebuilds. */
 export async function revenueReport(fresh = false): Promise<RevenueReport> {
-  const KEY = 'admin:revenue-report:v1'
+  const KEY = 'admin:revenue-report:v2'
   if (!fresh) {
     const hit = memCache.get<RevenueReport>(KEY)
     if (hit) return hit
