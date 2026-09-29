@@ -1,7 +1,7 @@
 'use client'
 import { Icon } from '@/components/ui/Icon'
 import { useState, useCallback, useMemo } from 'react'
-import { useTrends } from '@/hooks/useKeywords'
+import { useTrends, useTrendCountries } from '@/hooks/useKeywords'
 import { TrendChart }    from '@/components/charts/TrendChart'
 import { CountryChart }  from '@/components/charts/CountryChart'
 import { PlatformToggle } from '../PlatformToggle'
@@ -16,6 +16,7 @@ export function TrendsTab() {
   const [plats, setPlats]  = useState<TrendPlatform[]>(['etsy', 'google'])
 
   const { data: tr, isLoading, isError, isSuccess } = useTrends(query)
+  const cq = useTrendCountries(query)
 
   const go = useCallback(async () => {
     const v = input.trim(); if (v.length < 2) return
@@ -81,7 +82,10 @@ export function TrendsTab() {
           <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <Card>
               <SectionTitle>Buyers by Country</SectionTitle>
-              <CountryChart data={tr.countries} />
+              {(tr.countries?.length ? tr.countries : cq.data?.countries)?.length
+                ? <CountryChart data={tr.countries?.length ? tr.countries : cq.data!.countries} />
+                : cq.isPending || cq.isFetching ? <div className="shimmer" style={{ height: 200, borderRadius: 8, background: '#e8e7e2' }} />
+                : <p style={{ fontSize: 13, color: '#6B6B63' }}>Google reports too little search volume for this keyword to split by country.</p>}
             </Card>
             <Card>
               <SectionTitle>Platform Breakdown</SectionTitle>

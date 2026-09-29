@@ -723,6 +723,10 @@ export async function googleKeywordMetrics(
 export async function googleCountryBreakdown(keyword: string, meta?: GoogleMetricsMeta): Promise<{ country: string; percentage: number; color: string }[]> {
   if (!isGoogleAdsConfigured()) return []
   const kw = keyword.toLowerCase().trim()
+  // One country at a time ON PURPOSE: Keyword Planner rate-limits per second even on
+  // Standard Access; asking for several at once was measured at 27-41 s (throttled
+  // retries) vs ~10 s sequential. The graphs no longer wait for this (see
+  // /api/trends/countries), and each country is cached for 30 days.
   const results: { iso: string; searches: number }[] = []
   for (const iso of Object.keys(GEO_TARGETS)) {
     const m = await metricsForGeo([kw], GEO_TARGETS[iso].id, meta)

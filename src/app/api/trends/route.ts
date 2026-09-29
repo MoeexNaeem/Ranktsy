@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { buildTrendData, buildListingSupplyByMonth, buildListingMarketStats } from '@/lib/etsy'
 import { keywordListings } from '@/lib/keywords'
-import { googleKeywordMetrics, countriesForGeo, isGoogleAdsConfigured, normalizeGeo, googleStatusOf, type GoogleMetricsMeta } from '@/lib/google-ads'
+import { googleKeywordMetrics, isGoogleAdsConfigured, normalizeGeo, googleStatusOf, type GoogleMetricsMeta } from '@/lib/google-ads'
 import { guardSearch } from '@/lib/searchGate'
 import { getCollectivePackage } from '@/lib/collective-read'
 import { withUsage } from '@/lib/track'
@@ -32,7 +32,9 @@ async function getHandler(req: NextRequest) {
 
   // v4: rate-limit fix (sequential Google calls) - retire v3 docs that cached an
   // empty/partial Google result when the concurrent calls were being throttled.
-  const key    = cacheKey('trends', 'v4', geo, query)
+  // v5: countries moved to /api/trends/countries (they took ~10 s and held up the
+  // graphs); this response now carries only the monthly series and market data.
+  const key    = cacheKey('trends', 'v5', geo, query)
   const cached = memCache.get(key)
   if (cached) return NextResponse.json({ success: true, data: cached, cached: true })
 
@@ -52,41 +54,38 @@ async function getHandler(req: NextRequest) {
     // One unavailable source must not blank the panels fed by the other: if the
     // marketplace sample can't be fetched, the search-volume chart and the country
     // breakdown (both search-demand data) are still returned.
-    let listings: EtsyListing[] = []
+    // Independent sources, fetched at the same time. Searchers-by-Country is NOT
+    // here any more: the client loads it from /api/trends/countries in parallel,
+    // so the graphs show as soon as the monthly volume is ready.
+    const gmeta: GoogleMetricsMeta = {}
     let marketplaceAvailable = true
-    try {
-      listings = await keywordListings(query)   // shared with the core search, no extra Etsy call
-    } catch (e) {
-      marketplaceAvailable = false
-      console.error('[Trends] marketplace sample unavailable:', e instanceof Error ? e.message : e)
-    }
+    const countries: CountryData[] = []
+    const [listings, metrics] = await Promise.all([
+      keywordListings(query).catch(e => {   // shared with the core search, no extra Etsy call
+        marketplaceAvailable = false
+        console.error('[Trends] marketplace sample unavailable:', e instanceof Error ? e.message : e)
+        return [] as EtsyListing[]
+      }),
+      isGoogleAdsConfigured() ? googleKeywordMetrics([query], geo, gmeta) : Promise.resolve(null),
+    ])
     const trends: TrendData[] = buildTrendData()
     const supplyByMonth = marketplaceAvailable ? buildListingSupplyByMonth(listings) : []
     // Real market detail measured from the same 100-listing sample.
     const market = marketplaceAvailable ? buildListingMarketStats(listings) : null
 
-    // Searchers by Country - always the full breakdown (like eRank), with the
-    // selected country flagged so the UI can highlight it and scale the Etsy-search
-    // estimate to that country's real share of Google demand.
-    const gmeta: GoogleMetricsMeta = {}
-    const countries: CountryData[] = await countriesForGeo(query, geo, gmeta)
-
     let googleAvailable = false
-    if (isGoogleAdsConfigured()) {
-      const metrics = await googleKeywordMetrics([query], geo, gmeta)
-      const monthly = metrics.get(query)?.monthly ?? []
-      if (monthly.length) {
-        // Google returns the trailing 12 months oldest→newest; label them as
-        // rolling months ending with the current one.
-        const nowMonth = new Date().getMonth()
-        const last12 = monthly.slice(-12)
-        const points: TrendPoint[] = last12.map((value, i) => ({
-          month: MONTHS[(nowMonth - last12.length + 1 + i + 24) % 12],
-          value,
-        }))
-        trends.push({ platform: 'google', points })
-        googleAvailable = true
-      }
+    const monthly = metrics?.get(query)?.monthly ?? []
+    if (monthly.length) {
+      // Google returns the trailing 12 months oldest→newest; label them as
+      // rolling months ending with the current one.
+      const nowMonth = new Date().getMonth()
+      const last12 = monthly.slice(-12)
+      const points: TrendPoint[] = last12.map((value, i) => ({
+        month: MONTHS[(nowMonth - last12.length + 1 + i + 24) % 12],
+        value,
+      }))
+      trends.push({ platform: 'google', points })
+      googleAvailable = true
     }
 
     const data = {

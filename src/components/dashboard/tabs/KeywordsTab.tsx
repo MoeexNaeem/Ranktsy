@@ -1,6 +1,6 @@
 'use client'
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
-import { useKeywordSearch, useRelatedKeywords, useNearMatches, useKeywordListings, useTrends, useKeywordIdeas } from '@/hooks/useKeywords'
+import { useKeywordSearch, useRelatedKeywords, useNearMatches, useKeywordListings, useTrends, useKeywordIdeas, useTrendCountries } from '@/hooks/useKeywords'
 import { useGoogleAdsEnabled, startGoogleAdsCampaign } from '@/hooks/useGoogleAds'
 import { useAppStore }     from '@/store/app'
 import { useFavorites }    from '@/hooks/useFavorites'
@@ -461,6 +461,11 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
   const deckImages = listingImgs.data?.length && !listingImgs.isPlaceholderData ? listingImgs.data : null
   const deckListings = deckImages ?? kw?.listings ?? []
   const { data: tr } = useTrends(query, country)
+  // Loaded after the graphs and related keywords, not inside them: it needs one Google
+  // request per country (7), and Google rate-limits these, so it must not compete with
+  // the requests the rest of the page is waiting on.
+  const cq = useTrendCountries(query, country, !!tr && !related.isFetching)
+  const countryData = tr?.countries?.length ? tr.countries : cq.data?.countries
   // Google-suggested keywords (generateKeywordIdeas) - real discovery beyond Etsy tags.
   const ideas = useKeywordIdeas(query, country)
 
@@ -657,12 +662,12 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
 
         <Card>
           <SectionTitle>Searchers by Country</SectionTitle>
-          {!tr ? <Shimmer h={200} r={8} />
-            : tr.countries && tr.countries.length > 0
-              ? <CountryChart data={tr.countries} />
-              : googleGapNote(tr.googleStatus, tr.googleRetryAt)
-                ? <EmptyState icon="🌍" title="Country data paused" sub={googleGapNote(tr.googleStatus, tr.googleRetryAt)!} />
-                : <EmptyState icon="🌍" title="No country data" sub="Google reports too little search volume for this keyword to split by country." />}
+          {countryData && countryData.length > 0
+            ? <CountryChart data={countryData} />
+            : cq.isPending || (cq.isFetching && !cq.data) ? <Shimmer h={200} r={8} />
+            : googleGapNote(cq.data?.googleStatus, cq.data?.googleRetryAt)
+              ? <EmptyState icon="🌍" title="Country data paused" sub={googleGapNote(cq.data?.googleStatus, cq.data?.googleRetryAt)!} />
+              : <EmptyState icon="🌍" title="No country data" sub="Google reports too little search volume for this keyword to split by country." />}
         </Card>
       </div>
 

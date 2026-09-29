@@ -182,6 +182,26 @@ export function useTrends(query: string, geo = 'US') {
   })
 }
 
+// ─── useTrendCountries - Searchers by Country, loaded beside the graphs ───────
+export interface TrendCountries {
+  countries: { country: string; percentage: number; color: string; selected?: boolean }[]
+  googleStatus?: string
+  googleRetryAt?: string | null
+}
+export function useTrendCountries(query: string, geo = 'US', enabled = true) {
+  return useQuery({
+    queryKey:  ['trend-countries', query.toLowerCase().trim(), geo] as const,
+    queryFn:   async ({ signal }) => {
+      const { data } = await api.get(`/trends/countries?q=${encodeURIComponent(query)}&geo=${geo}`, { signal })
+      if (!data.success) throw new Error(data.error)
+      return data.data as TrendCountries
+    },
+    enabled:   enabled && query.trim().length >= 2,
+    staleTime: q => (googleGap(q.state.data) ? 60_000 : 1000 * 60 * 60),
+    retry: dontRetry4xx,
+  })
+}
+
 // ─── useTopSellers ────────────────────────────────────────────────────────────
 import type { TopSeller, BuzzItem } from '@/lib/etsy'
 
