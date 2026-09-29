@@ -3,8 +3,8 @@
  * Market Activity (measured) - eHunt-style monthly Views / Favorites / Sales /
  * Reviews for a keyword, computed from OUR snapshot history (not search volume,
  * which we cannot observe). Each metric shows this-month, the window total, and a
- * real monthly sparkline. Honest about coverage via a sample badge, and gracefully
- * says "still gathering" until enough snapshots have accrued.
+ * real monthly sparkline. Until enough snapshots have accrued it shows only the
+ * live sampled stats (no placeholder copy), and hides entirely if there is nothing.
  */
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
@@ -39,6 +39,12 @@ export function MarketActivityPanel({ query, analysis }: { query: string; analys
 
   const spark = (k: MetricKey): SparkPoint[] => (data?.daily ?? []).slice(-30).map(d => ({ label: fmtDay(d.day), value: d[k] }))
 
+  // No tracked history yet: show only the live sampled stats, with no filler text.
+  // Nothing at all to show: hide the card rather than leave it empty.
+  const hasMeasured = !isError && !!data && data.measuredListings > 0
+  const hasSampled = !!analysis && analysis.listingsAnalyzed > 0
+  if (!isLoading && !hasMeasured && !hasSampled) return null
+
   return (
     <Card>
       <SectionTitle right={<span style={{ fontSize: 10, fontFamily: MONO, color: C.stone }}>REAL · from our tracking</span>}>
@@ -48,15 +54,6 @@ export function MarketActivityPanel({ query, analysis }: { query: string; analys
       {isLoading && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
           {METRICS.map(m => <div key={m.key} style={{ height: 118, borderRadius: 12, background: C.canvas }} />)}
-        </div>
-      )}
-
-      {!isLoading && (isError || !data || data.measuredListings === 0) && (
-        <div style={{ padding: '22px 4px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <p style={{ fontSize: 13.5, color: C.ink, fontWeight: 600 }}>Still gathering data for this keyword</p>
-          <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.6, maxWidth: 620 }}>
-            Measured monthly views, favorites, sales and reviews appear here as our tracking accrues for the listings that rank for &ldquo;{query}&rdquo;. The more they are seen, the richer this gets, and it is real data, never an estimate of search volume.
-          </p>
         </div>
       )}
 

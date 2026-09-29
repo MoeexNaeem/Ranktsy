@@ -85,10 +85,77 @@ const nodeTypes = { flow: FlowNode }
 
 const DOT: Record<Status, string> = { ok: '#22c55e', down: '#ef4444', off: '#d99a2b' }
 
+// ─── Etsy API quota, exactly as Etsy reports it ──────────────────────────────
+// Figures come from Etsy's own x-limit-per-day / x-remaining-today headers (read
+// on every call and on Re-check), not from our internal call counter, which is
+// per-worker and drifts. "Left" is Etsy's rolling 24-hour window.
+interface EtsyQuotaRow {
+  index: number; last4: string
+  limitPerDay: number | null; remainingToday: number | null; limitPerSec: number | null
+  seenAt: string | null; lockedUntil: string | null
+}
+const fmtN = (n: number | null) => n == null ? '-' : n.toLocaleString('en-US')
+function ago(iso: string | null, now: number): string {
+  if (!iso) return 'not seen yet'
+  const s = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000))
+  return s < 60 ? `${s}s ago` : s < 3600 ? `${Math.round(s / 60)}m ago` : `${Math.round(s / 3600)}h ago`
+}
+
+/** `now` = when the server built this report, so ages/locks read as of that check. */
+function EtsyQuotaPanel({ rows, now }: { rows: EtsyQuotaRow[]; now: number }) {
+  const limit = rows.reduce((s, r) => s + (r.limitPerDay ?? 0), 0)
+  const left = rows.reduce((s, r) => s + (r.remainingToday ?? 0), 0)
+  const pctLeft = limit ? left / limit : null
+  const tone = (p: number | null) => p == null ? '#919183' : p < 0.05 ? '#CF463A' : p < 0.2 ? '#C28111' : '#1F8A4C'
+  const cell: React.CSSProperties = { fontSize: 12.5, color: '#3D3E3B', fontFamily: 'ui-monospace, monospace', whiteSpace: 'nowrap' }
+  const head: React.CSSProperties = { fontSize: 11, color: '#919183', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }
+  return (
+    <div style={{ background: '#fff', border: '1px solid #E4E4DA', borderRadius: 14, padding: '14px 16px' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+        <strong style={{ fontSize: 14, color: '#3D3E3B' }}>Etsy API quota (live from Etsy)</strong>
+        <span style={{ fontSize: 13, fontWeight: 700, color: tone(pctLeft), fontFamily: 'ui-monospace, monospace' }}>
+          {fmtN(left)} / {fmtN(limit)} calls left{pctLeft != null ? ` (${Math.round(pctLeft * 100)}%)` : ''}
+        </span>
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '60px 90px minmax(160px,1fr) 110px 110px 90px 120px 150px', gap: '8px 14px', alignItems: 'center', minWidth: 900 }}>
+          {['Key', 'Ends with', 'Used today', 'Left', 'Daily limit', 'Per sec', 'Reported', 'Status'].map(h => <span key={h} style={head}>{h}</span>)}
+          {rows.map(r => {
+            const p = r.limitPerDay && r.remainingToday != null ? r.remainingToday / r.limitPerDay : null
+            const usedPct = p == null ? null : Math.max(0, Math.min(1, 1 - p))
+            const locked = r.lockedUntil && new Date(r.lockedUntil).getTime() > now
+            return [
+              <span key={`i${r.index}`} style={cell}>#{r.index}</span>,
+              <span key={`k${r.index}`} style={cell}>...{r.last4}</span>,
+              <span key={`b${r.index}`} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ flex: 1, height: 8, background: '#EEEEE6', borderRadius: 4, overflow: 'hidden' }}>
+                  <span style={{ display: 'block', height: '100%', width: `${(usedPct ?? 0) * 100}%`, background: tone(p) }} />
+                </span>
+                <span style={{ ...cell, fontSize: 11.5, color: '#6E6E64' }}>{usedPct == null ? '-' : `${Math.round(usedPct * 100)}%`}</span>
+              </span>,
+              <span key={`l${r.index}`} style={{ ...cell, fontWeight: 700, color: tone(p) }}>{fmtN(r.remainingToday)}</span>,
+              <span key={`d${r.index}`} style={cell}>{fmtN(r.limitPerDay)}</span>,
+              <span key={`s${r.index}`} style={cell}>{fmtN(r.limitPerSec)}</span>,
+              <span key={`t${r.index}`} style={{ ...cell, color: '#919183' }}>{ago(r.seenAt, now)}</span>,
+              <span key={`st${r.index}`} style={{ ...cell, fontWeight: 700, color: locked ? '#CF463A' : '#1F8A4C' }}>
+                {locked ? `resting until ${new Date(r.lockedUntil!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'in use'}
+              </span>,
+            ]
+          })}
+        </div>
+      </div>
+      <p style={{ margin: '10px 0 0', fontSize: 11.5, color: '#919183', lineHeight: 1.5 }}>
+        Etsy&apos;s own figures from its response headers. The daily limit is a rolling 24-hour window, so calls free up gradually rather than at one reset time. Click Re-check for fresh numbers.
+      </p>
+    </div>
+  )
+}
+
 function CodeFlowInner() {
   const storeApi = useStoreApi()
   const [health, setHealth] = useState<HealthMap | null>(null)
   const [checkedAt, setCheckedAt] = useState<string | null>(null)
+  const [etsyQuota, setEtsyQuota] = useState<EtsyQuotaRow[]>([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
   // Fullscreen: the canvas takes over the whole viewport (Esc to exit).
@@ -107,7 +174,7 @@ function CodeFlowInner() {
     try {
       const r = await fetch('/api/admin/health-flow', { cache: 'no-store' })
       const d = await r.json().catch(() => null)
-      if (r.ok && d?.success) { setHealth(d.data.systems); setCheckedAt(d.data.checkedAt) }
+      if (r.ok && d?.success) { setHealth(d.data.systems); setCheckedAt(d.data.checkedAt); setEtsyQuota(d.data.etsyQuota ?? []) }
       else setErr(d?.error || 'Failed to load health')
     } catch { setErr('Failed to load health') }
     setLoading(false)
@@ -222,6 +289,8 @@ function CodeFlowInner() {
           </span>
         ))}
       </div>
+
+      {etsyQuota.length > 0 && <EtsyQuotaPanel rows={etsyQuota} now={checkedAt ? Date.parse(checkedAt) : 0} />}
 
       {(health?.google?.status === 'down' || gRecheck.msg) && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '10px 14px', borderRadius: 12,

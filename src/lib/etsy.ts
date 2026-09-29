@@ -10,6 +10,7 @@
  *   GET /v3/application/shops/{shop_id}  → shop info
  *   GET /v3/application/shops/{shop_id}/listings/active → shop listings
  */
+import { cpus } from 'node:os'
 import { recordShopSnapshots, recordListingSnapshots, recordShopSnapshot, getKeywordTrendsBatch } from '@/lib/snapshots'
 import { recordEtsyCall } from '@/lib/usage'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
@@ -46,19 +47,20 @@ if (!ETSY_API_KEY && process.env.NODE_ENV === 'production') {
 }
 
 // ─── Key pool (public calls only) ─────────────────────────────────────────────
-// Etsy's default quota is ~10 requests/second AND ~10,000 requests/DAY, PER app
-// key. One key cannot serve thousands of users: the daily cap drains early in the
-// day and every call after that comes back 429 - which reaches users as "keyword
-// search is slow / shows no results" and the analytics tools "taking too long and
-// never loading". Each ADDITIONAL Etsy app key (register a separate Etsy app,
-// ideally under a separate Etsy account) multiplies BOTH ceilings, and we fail
-// over to the next key the moment one is throttled or exhausted.
+// Each Etsy app key has its own per-second and per-DAY quota (our commercial keys
+// report 150/sec and 100,000-200,000/day in the x-limit-* headers; the admin Code
+// Flow page shows the live figures). When one key is throttled or exhausted we
+// fail over to the next.
 //
 // Configure extra keys with ETSY_API_KEYS: comma-separated, each entry
 // "keystring:sharedsecret" (or just "keystring" if that app has no shared secret):
 //   ETSY_API_KEYS="keyB:secretB,keyC:secretC"
 // The primary ETSY_API_KEY is always first. Blanks and duplicates are dropped.
-interface EtsyKey { header: string; lastCallAt: number; gate: Promise<void>; blockedUntil: number }
+interface EtsyKey {
+  header: string; lastCallAt: number; gate: Promise<void>; blockedUntil: number
+  /** Etsy's OWN quota figures, read from the headers of every response (free). */
+  limitPerDay: number | null; remainingToday: number | null; limitPerSec: number | null; seenAt: number
+}
 
 function buildKeyPool(): EtsyKey[] {
   const seen = new Set<string>()
@@ -90,24 +92,111 @@ function buildKeyPool(): EtsyKey[] {
     const sec = idx === -1 ? ''    : entry.slice(idx + 1)
     if (ks.trim()) add(keyHeader(ks, sec))
   }
-  return headers.map(header => ({ header, lastCallAt: 0, gate: Promise.resolve(), blockedUntil: 0 }))
+  return headers.map(header => ({
+    header, lastCallAt: 0, gate: Promise.resolve(), blockedUntil: 0,
+    limitPerDay: null, remainingToday: null, limitPerSec: null, seenAt: 0,
+  }))
 }
 
-const KEY_POOL: EtsyKey[] = buildKeyPool()
+// ONE pool per process, pinned on globalThis. Next bundles this module into many
+// route chunks; a plain module-level pool gave each chunk its OWN copy, so each had
+// its own rate gate (Etsy saw chunks × the intended rate) and its own quota locks
+// (a key could be "locked" in one route and hammered by another).
+const gPool = globalThis as typeof globalThis & { __rkEtsyKeyPool?: EtsyKey[] }
+const KEY_POOL: EtsyKey[] = gPool.__rkEtsyKeyPool ??= buildKeyPool()
 if (KEY_POOL.length > 1) console.log(`[Etsy] key pool: ${KEY_POOL.length} keys (public throughput ~${KEY_POOL.length}× one key).`)
 
 // ─── Daily quota lockout + usage by endpoint ──────────────────────────────────
-// Each Etsy key allows ~10,000 requests/DAY. When Etsy answers 429 "Exceeded daily
-// rate limit" (Retry-After is hours), that key is locked until its reset instead of
-// being retried. Retrying it (and sleeping the multi-hour Retry-After inside a user
-// request) turned one exhausted key into a retry storm of 250k+ calls/day and
-// requests that hung for hours.
+// When Etsy answers 429 "Exceeded daily rate limit", that key rests for a few
+// minutes (quotaLockUntil) instead of being retried in a tight loop. Retrying it
+// immediately (or sleeping the multi-hour Retry-After inside a user request)
+// once turned one exhausted key into a retry storm and requests that hung for hours.
 export class EtsyQuotaError extends Error {
   constructor(readonly retryAt: number) {
     // User-facing: no provider or quota wording. The real reason is in the logs.
     super(`Marketplace data is temporarily unavailable. It should be back around ${new Date(retryAt).toISOString().slice(11, 16)} UTC.`)
     this.name = 'EtsyQuotaError'
   }
+}
+
+// A daily-limit 429 locks a key for at most this long, then it is tried again.
+// Etsy's daily quota is a rolling 24h window: calls free up continuously, so the
+// old "lock for Etsy's whole Retry-After (hours)" kept keys unused while Etsy
+// already had quota again (the admin showed DOWN while Etsy answered 200 with
+// thousands of calls left). Cost of the short lock: one extra 429 per key per window.
+const MAX_QUOTA_LOCK_MS = 5 * 60 * 1000
+const quotaLockUntil = (retryAfterSec: number) =>
+  Date.now() + Math.min((Number.isFinite(retryAfterSec) && retryAfterSec > 0 ? retryAfterSec : 3600) * 1000, MAX_QUOTA_LOCK_MS)
+
+/** Record Etsy's own quota headers for a key (sent on every response). */
+function noteQuota(k: EtsyKey, res: Response): void {
+  const num = (h: string) => { const v = res.headers.get(h); const n = v == null ? NaN : Number(v); return Number.isFinite(n) ? n : null }
+  const remaining = num('x-remaining-today')
+  if (remaining == null) return
+  // Many calls are served from Next's 30-min fetch cache, whose stored headers are
+  // OLD. Etsy's Date header says when the numbers were true: keep only newer ones.
+  const at = Date.parse(res.headers.get('date') ?? '') || Date.now()
+  if (at <= k.seenAt) return
+  k.remainingToday = remaining
+  k.limitPerDay = num('x-limit-per-day') ?? k.limitPerDay
+  k.limitPerSec = num('x-limit-per-second') ?? k.limitPerSec
+  k.seenAt = at
+  // Etsy says, just now, that there is quota again: any lock is stale.
+  if (remaining > 0 && res.ok && Date.now() - at < 60_000) k.blockedUntil = 0
+  void persistQuota()
+}
+
+export interface EtsyKeyQuota {
+  index: number            // 1-based, same numbering as the logs
+  last4: string            // last 4 chars of the keystring, to tell keys apart
+  limitPerDay: number | null
+  remainingToday: number | null
+  limitPerSec: number | null
+  seenAt: string | null    // when Etsy last reported these numbers
+  lockedUntil: string | null
+}
+
+const QUOTA_KEY = 'etsy-quota-v1'
+let lastPersist = 0
+/** Share this worker's latest readings (throttled) so the admin sees them whichever worker answers. */
+async function persistQuota(): Promise<void> {
+  if (Date.now() - lastPersist < 20_000) return
+  lastPersist = Date.now()
+  try {
+    const { AppSetting } = await import('@/lib/models')
+    await AppSetting.updateOne({ key: QUOTA_KEY }, { $set: { str: JSON.stringify(localQuota()) } }, { upsert: true })
+  } catch { /* diagnostics only */ }
+}
+
+function localQuota(): EtsyKeyQuota[] {
+  const now = Date.now()
+  return KEY_POOL.map((k, i) => ({
+    index: i + 1,
+    last4: k.header.split(':')[0].slice(-4),
+    limitPerDay: k.limitPerDay,
+    remainingToday: k.remainingToday,
+    limitPerSec: k.limitPerSec,
+    seenAt: k.seenAt ? new Date(k.seenAt).toISOString() : null,
+    lockedUntil: k.blockedUntil > now ? new Date(k.blockedUntil).toISOString() : null,
+  }))
+}
+
+/**
+ * Per-key quota exactly as Etsy reports it (limit per day, calls left), merged
+ * across workers: for each key, the most recent reading any worker saw wins.
+ */
+export async function etsyKeyQuota(): Promise<EtsyKeyQuota[]> {
+  const mine = localQuota()
+  let shared: EtsyKeyQuota[] = []
+  try {
+    const { AppSetting } = await import('@/lib/models')
+    const doc = await AppSetting.findOne({ key: QUOTA_KEY }).lean<{ str?: string }>()
+    shared = doc?.str ? JSON.parse(doc.str) : []
+  } catch { /* fall back to this worker's view */ }
+  return mine.map(m => {
+    const s = shared.find(x => x.index === m.index && x.last4 === m.last4)
+    return s && (s.seenAt ?? '') > (m.seenAt ?? '') ? { ...s, lockedUntil: m.lockedUntil } : m
+  })
 }
 
 /** Keys currently locked out for the day (index is 1-based), for the admin health view. */
@@ -138,13 +227,15 @@ export function etsyKeyPoolSize(): number { return KEY_POOL.length }
 export async function probeEtsyKeys(): Promise<{ index: number; ok: boolean; status: number | null; retryAt?: string | null }[]> {
   const url = `${ETSY_BASE}/listings/active?limit=1`
   return Promise.all(KEY_POOL.map(async (k, i) => {
-    // A key already locked for the day needs no probe (it would only fail again).
-    if (k.blockedUntil > Date.now()) return { index: i + 1, ok: false, status: 429, retryAt: new Date(k.blockedUntil).toISOString() }
+    // Probe even a LOCKED key: this is what "Re-check" is for. It used to report a
+    // locked key as 429 straight from memory, so the admin showed DOWN while Etsy
+    // itself had quota again. A 200 here clears the lock (see noteQuota).
     try {
       const res = await fetch(url, { headers: { 'x-api-key': k.header, Accept: 'application/json' }, cache: 'no-store' })
+      noteQuota(k, res)
       const ra = Number(res.headers.get('retry-after'))
-      if (res.status === 429 && Number.isFinite(ra) && ra > 60) k.blockedUntil = Date.now() + ra * 1000
-      return { index: i + 1, ok: res.ok, status: res.status, retryAt: res.status === 429 && ra > 0 ? new Date(Date.now() + ra * 1000).toISOString() : null }
+      if (res.status === 429 && Number.isFinite(ra) && ra > 60) k.blockedUntil = quotaLockUntil(ra)
+      return { index: i + 1, ok: res.ok, status: res.status, retryAt: res.status === 429 ? new Date(k.blockedUntil || Date.now()).toISOString() : null }
     } catch {
       return { index: i + 1, ok: false, status: null }
     }
@@ -153,12 +244,18 @@ export async function probeEtsyKeys(): Promise<{ index: number; ok: boolean; sta
 
 // ─── Core fetcher ─────────────────────────────────────────────────────────────
 
-// Etsy allows roughly 10 requests/second PER KEY. A single keyword search fans
-// out into dozens of calls (the search, image batches, per-keyword competition
-// probes, near-match variants), which sails past that ceiling and comes back 429.
-// So each key has its OWN gate: N keys give N independent budgets, and a burst is
-// spread across all of them instead of queueing behind one.
-const RATE_LIMIT_PER_SEC = Number(process.env.ETSY_RATE_PER_SEC ?? 8)   // per key; headroom under Etsy's ~10/sec
+// Etsy's per-second limit is PER KEY (our commercial keys report 150/sec in the
+// x-limit-per-second header). A single keyword search fans out into dozens of
+// calls, so each key has its OWN gate: N keys give N independent budgets.
+//
+// The gate lives in each PM2 worker and every worker shares the same keys, so
+// Etsy sees (workers x this rate). The old default of 8/sec/worker was sized for a
+// ~10/sec key and capped a 150/sec key at 32/sec total, queueing searches at peak.
+// Default now: ~120/sec per key split across the workers (30 each on 4 cores),
+// under Etsy's 150 with headroom. Only speed changes: the DAILY quota is spent per
+// call, not per second. ETSY_RATE_PER_SEC (per worker) still overrides.
+const WORKERS = Math.max(1, Number(process.env.PM2_INSTANCES) || cpus().length || 1)
+const RATE_LIMIT_PER_SEC = Number(process.env.ETSY_RATE_PER_SEC ?? Math.max(8, Math.floor(120 / WORKERS)))
 const MIN_GAP_MS = 1000 / Math.max(1, RATE_LIMIT_PER_SEC)
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
@@ -217,17 +314,19 @@ async function etsyFetch<T = unknown>(path: string, params?: Record<string, stri
       ...(opts?.noStore ? { cache: 'no-store' as const } : { next: { revalidate: 1800 } }),
     })
 
+    if (key) noteQuota(key, res)
     if (res.ok) return res.json() as Promise<T>
 
     const text = await res.text().catch(() => res.statusText)
     lastErr = new Error(`Etsy API error ${res.status}: ${text}`)
     const retryAfterSec = Number(res.headers.get('retry-after'))
 
-    // Daily quota exhausted on THIS key: lock it until Etsy's reset and move on.
+    // Daily quota exhausted on THIS key: rest it briefly (quotaLockUntil caps at a
+    // few minutes because the window is rolling) and move on to the next key.
     if (res.status === 429 && key && (/daily/i.test(text) || (Number.isFinite(retryAfterSec) && retryAfterSec > 60))) {
-      const until = Date.now() + (Number.isFinite(retryAfterSec) && retryAfterSec > 0 ? retryAfterSec : 3600) * 1000
+      const until = quotaLockUntil(retryAfterSec)
       if (key.blockedUntil < Date.now()) {
-        console.warn(`[Etsy] key #${pool.indexOf(key) + 1}/${n} hit the DAILY rate limit - locked until ${new Date(until).toISOString()}`)
+        console.warn(`[Etsy] key #${pool.indexOf(key) + 1}/${n} hit the DAILY rate limit - resting until ${new Date(until).toISOString()} (Etsy retry-after ${retryAfterSec}s)`)
       }
       key.blockedUntil = until
       if (pool.every(k => k.blockedUntil > Date.now())) throw new EtsyQuotaError(Math.min(...pool.map(k => k.blockedUntil)))

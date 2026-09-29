@@ -3,7 +3,7 @@ import mongoose from 'mongoose'
 import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin } from '@/lib/auth/roles'
 import { connectDB } from '@/lib/db'
-import { etsyKeyPoolSize, probeEtsyKeys, etsyEndpointUsage } from '@/lib/etsy'
+import { etsyKeyPoolSize, probeEtsyKeys, etsyEndpointUsage, etsyKeyQuota, type EtsyKeyQuota } from '@/lib/etsy'
 import { isGeminiConfigured, geminiKeyPoolSize } from '@/lib/gemini'
 import { isGoogleAdsConfigured, googleAdsStatus, recheckGoogleAdsQuota } from '@/lib/google-ads'
 import { isRecaptchaConfigured } from '@/lib/recaptcha'
@@ -20,7 +20,8 @@ export const dynamic = 'force-dynamic'
  *   status 'down' → red     (REQUIRED system missing or unreachable → things break)
  *   status 'off'  → amber   (OPTIONAL system not configured → that feature is dormant)
  *
- * Cheap and side-effect-free: it never spends an Etsy/Google/Gemini call. External
+ * Cheap: one Etsy probe call per key (which also refreshes Etsy's own quota figures
+ * and clears a stale lock), no Google/Gemini calls. External
  * providers are reported as configured-or-not (a key exists), except Mongo which is
  * pinged for real since a dead DB is the one that silently breaks everything.
  */
@@ -43,7 +44,7 @@ async function pingMongo(): Promise<SystemHealth> {
   }
 }
 
-export async function GET(): Promise<NextResponse<ApiResponse<{ systems: Record<FlowSystem, SystemHealth>; checkedAt: string }>>> {
+export async function GET(): Promise<NextResponse<ApiResponse<{ systems: Record<FlowSystem, SystemHealth>; checkedAt: string; etsyQuota: EtsyKeyQuota[] }>>> {
   const auth = await getCurrentUser().catch(() => null)
   if (!auth) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
   if (!isAdmin(auth)) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
@@ -57,7 +58,13 @@ export async function GET(): Promise<NextResponse<ApiResponse<{ systems: Record<
   const probes = etsyKeys > 0 ? await probeEtsyKeys().catch(() => []) : []
   const goodKeys = probes.filter(p => p.ok).length
   const badKeys = probes.filter(p => !p.ok)
-  // A 429 is Etsy's DAILY quota (10k/day per key), not a broken key: say so plainly.
+  // Etsy's own per-key figures (limit/day, calls left), read from the probe above and
+  // from the headers of every normal call. This is the source of truth for usage.
+  const etsyQuota = await etsyKeyQuota().catch(() => [] as EtsyKeyQuota[])
+  const left = etsyQuota.reduce((s, q) => s + (q.remainingToday ?? 0), 0)
+  const limit = etsyQuota.reduce((s, q) => s + (q.limitPerDay ?? 0), 0)
+  const quotaSummary = limit ? `${left.toLocaleString('en-US')} of ${limit.toLocaleString('en-US')} daily calls left across ${etsyQuota.length} keys` : ''
+  // A 429 is Etsy's DAILY quota for that key, not a broken key: say so plainly.
   const quotaKeys = badKeys.filter(b => b.status === 429)
   const reset = probes.map(p => p.retryAt).filter((x): x is string => !!x).sort()[0]
   const usage = etsyEndpointUsage(4).map(u => `${u.endpoint} ${u.calls}`).join(', ')
@@ -71,7 +78,7 @@ export async function GET(): Promise<NextResponse<ApiResponse<{ systems: Record<
     : probes.length === 0 ? { status: 'ok', required: true, detail: `${etsyKeys} key${etsyKeys === 1 ? '' : 's'} (probe skipped)` }
     : goodKeys === 0 ? { status: 'down', required: true, detail: `all ${etsyKeys} keys failing (${badKeys.map(b => `#${b.index}:${b.status ?? 'err'}`).join(', ')})` }
     : badKeys.length > 0 ? { status: 'down', required: true, detail: `key ${badKeys.map(b => `#${b.index} (${b.status ?? 'err'})`).join(', ')} failing - fix or remove it; ${goodKeys}/${etsyKeys} ok` }
-    : { status: 'ok', required: true, detail: `${goodKeys}/${etsyKeys} keys ok` }
+    : { status: 'ok', required: true, detail: `${goodKeys}/${etsyKeys} keys ok${quotaSummary ? `; ${quotaSummary}` : ''}` }
 
   const lsOk = env('LS_API_KEY') && env('LS_WEBHOOK_SECRET')
   // Google Ads Basic Access = 15,000 ops/day for the whole app; when exhausted every
@@ -106,7 +113,7 @@ export async function GET(): Promise<NextResponse<ApiResponse<{ systems: Record<
                     detail: env('UPSTASH_REDIS_REST_URL') && env('UPSTASH_REDIS_REST_TOKEN') ? 'configured' : 'per-worker cache only' },
   }
 
-  return NextResponse.json({ success: true, data: { systems, checkedAt: new Date().toISOString() } })
+  return NextResponse.json({ success: true, data: { systems, checkedAt: new Date().toISOString(), etsyQuota } })
 }
 
 /**
