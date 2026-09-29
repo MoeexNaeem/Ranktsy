@@ -1,11 +1,13 @@
 'use client'
 /**
- * Bridges the search rate gate to a reCAPTCHA prompt.
+ * Bridges the search gate to a reCAPTCHA prompt.
  *
- * When a gated search API returns 429 `{ captchaRequired: true }`, the axios
- * interceptor (attachCaptchaInterceptor) calls requestCaptcha(), which opens the
- * global <CaptchaModal>. Once the user solves it, the promise resolves with the
- * token and the original request is retried with an `x-captcha-token` header.
+ * When a gated search API returns 429 `{ captchaRequired: true }` (every 10 new
+ * searches), the axios interceptor asks for ONE human check: the global
+ * <CaptchaModal> opens, the solved token is verified once by /api/captcha/verify
+ * (which resets the account's count on the server), and then every request that
+ * was waiting retries. A search fires several requests at once, so they all
+ * share the same pending check instead of each opening its own.
  */
 import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 
@@ -23,20 +25,43 @@ export function requestCaptcha(): Promise<string> {
   })
 }
 
-type RetriableConfig = InternalAxiosRequestConfig & { __captchaRetried?: boolean }
+/** Send a solved token to the server. Throws with a readable message on failure. */
+export async function submitCaptcha(token: string): Promise<void> {
+  const res = await fetch('/api/captcha/verify', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }),
+  })
+  const j = await res.json().catch(() => null) as { success?: boolean; error?: string } | null
+  if (!res.ok || !j?.success) throw new Error(j?.error || 'Verification failed. Please try again.')
+}
 
-/** Attach the "429 → prompt captcha → retry" behaviour to an axios instance. */
+// One human check at a time, shared by every request that needs it.
+let pending: Promise<void> | null = null
+function ensureHuman(): Promise<void> {
+  pending ??= requestCaptcha()          // the modal verifies the token itself
+    .then(() => undefined)
+    .finally(() => { pending = null })
+  return pending
+}
+
+type RetriableConfig = InternalAxiosRequestConfig & { __captchaRounds?: number }
+
+const attached = new WeakSet<AxiosInstance>()
+
+/** Attach the "429 → human check → retry" behaviour to an axios instance. */
 export function attachCaptchaInterceptor(instance: AxiosInstance) {
+  if (attached.has(instance)) return
+  attached.add(instance)
   instance.interceptors.response.use(
     r => r,
     async (error: { response?: { status?: number; data?: { captchaRequired?: boolean } }; config?: RetriableConfig }) => {
       const cfg = error.config
       const needsCaptcha = error.response?.status === 429 && error.response?.data?.captchaRequired
-      if (needsCaptcha && cfg && !cfg.__captchaRetried) {
+      // Two rounds at most: a second prompt covers the rare case where another tab
+      // used up the fresh allowance in between.
+      if (needsCaptcha && cfg && (cfg.__captchaRounds ?? 0) < 2) {
         try {
-          const token = await requestCaptcha()
-          cfg.__captchaRetried = true
-          cfg.headers.set('x-captcha-token', token)
+          await ensureHuman()
+          cfg.__captchaRounds = (cfg.__captchaRounds ?? 0) + 1
           return instance.request(cfg)
         } catch {
           // user cancelled - fall through to reject

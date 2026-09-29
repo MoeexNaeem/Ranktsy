@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
 import { TrackedShop, ShopSnapshot, TrackedListing, ListingSnapshot } from '@/lib/models'
-import { getEtsyShop, getListingById, getListingReviewStats, topCategoryForTaxonomy } from '@/lib/etsy'
+import { getEtsyShop, getListingById, getListingReviewStats, topCategoryForTaxonomy, etsyQuotaLow } from '@/lib/etsy'
 import { dayKey, recordObservedListings } from '@/lib/snapshots'
 import type { ApiResponse } from '@/types'
 
@@ -58,6 +58,9 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<un
     // Sequential on purpose: getEtsyShop already goes through the shared rate
     // gate, and a nightly job has no reason to contend with live user requests.
     for (const t of todo) {
+      // Background history only: stop while Etsy's daily calls are running low so
+      // they go to users' searches. The rest is picked up on the next run.
+      if (etsyQuotaLow()) break
       try {
         await getEtsyShop(t.shopId)   // records the snapshot as a side-effect
         captured++
@@ -82,6 +85,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<un
       const todoL = hot.filter(h => !doneLIds.has(h.listingId))
 
       for (const l of todoL) {
+        if (etsyQuotaLow()) break
         try {
           const listing = await getListingById(l.listingId)
           if (!listing) continue // inactive/removed - leave its history as-is

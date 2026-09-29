@@ -33,7 +33,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
   const cached = memCache.get<KeywordIdeasResponse>(key)
   if (cached) return NextResponse.json({ success: true, data: cached, cached: true })
 
-  const gate = await guardSearch<KeywordIdeasResponse>(req)
+  const gate = await guardSearch<KeywordIdeasResponse>(req, `keyword|${query}`)
   if (gate) return gate
 
   try {

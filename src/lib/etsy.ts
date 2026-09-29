@@ -199,6 +199,22 @@ export async function etsyKeyQuota(): Promise<EtsyKeyQuota[]> {
   })
 }
 
+/**
+ * True when the Etsy pool's remaining daily calls (Etsy's own header figures) are
+ * below `fraction` of its daily limit. BACKGROUND work (review-count history,
+ * nightly snapshots) checks this and skips, so the calls left go to the searches
+ * users are waiting on. Keys with no figures yet count as "not low".
+ */
+export function etsyQuotaLow(fraction = 0.3): boolean {
+  let remaining = 0, limit = 0
+  for (const k of KEY_POOL) {
+    if (k.remainingToday == null || k.limitPerDay == null) return false
+    remaining += Math.max(0, k.remainingToday)
+    limit += k.limitPerDay
+  }
+  return limit > 0 && remaining / limit < fraction
+}
+
 /** Keys currently locked out for the day (index is 1-based), for the admin health view. */
 export function etsyKeyLocks(): { index: number; blockedUntil: string }[] {
   const now = Date.now()

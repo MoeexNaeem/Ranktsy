@@ -76,7 +76,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<B
     return NextResponse.json({ success: false, error: 'Provide at least one keyword (2+ characters).' }, { status: 400 })
   }
 
-  const gate = await guardSearch<BulkKeywordRow[]>(req)
+  const gate = await guardSearch<BulkKeywordRow[]>(req, `bulk|${[...keywords].sort().join(',')}`)
   if (gate) return gate
 
   try {

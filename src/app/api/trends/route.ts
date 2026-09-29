@@ -27,7 +27,7 @@ async function getHandler(req: NextRequest) {
   const geo = normalizeGeo(searchParams.get('geo'))
   if (!query) return NextResponse.json({ success: false, error: 'Missing query' }, { status: 400 })
 
-  const gate = await guardSearch(req)
+  const gate = await guardSearch(req, `keyword|${query}`)
   if (gate) return gate
 
   // v4: rate-limit fix (sequential Google calls) - retire v3 docs that cached an

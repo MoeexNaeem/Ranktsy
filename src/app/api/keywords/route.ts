@@ -3,7 +3,7 @@ import { connectDB } from '@/lib/db'
 import { KeywordHistory, SavedKeyword, ListingSnapshot } from '@/lib/models'
 import { getKeywordCore } from '@/lib/keywords'
 import { recordObservedListings } from '@/lib/snapshots'
-import { getListingReviewStats, displayKdPackage } from '@/lib/etsy'
+import { getListingReviewStats, displayKdPackage, etsyQuotaLow } from '@/lib/etsy'
 import { normalizeGeo } from '@/lib/google-ads'
 import { detectExtension } from '@/lib/extension'
 import { getCurrentUser } from '@/lib/auth/session'
@@ -38,7 +38,7 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
   }
 
   // Rate gate: 25 searches/hour per user, then a reCAPTCHA to continue.
-  const gate = await guardSearch<KeywordSearchResponse>(req)
+  const gate = await guardSearch<KeywordSearchResponse>(req, `keyword|${query}`)
   if (gate) return gate
 
   // Two meters, both CHECKED here and only COUNTED once a result is delivered, so
@@ -116,7 +116,9 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
     // only, so the extra Etsy-call cost stays bounded; reviewCount merges into
     // today's snapshot (upsert on listingId+day) and its day-over-day growth then
     // drives real sales/reviews.
-    if (wasLive && data.listings?.length) {
+    // Background history work: skipped while Etsy's daily calls are running low,
+    // so they go to the searches users are actually waiting on.
+    if (wasLive && data.listings?.length && !etsyQuotaLow()) {
       const top10 = data.listings.filter(l => l.listing_id && l.shop_id).slice(0, 10)
       void (async () => {
         // Skip listings whose review count is already recorded today (another
