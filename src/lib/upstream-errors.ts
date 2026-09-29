@@ -21,6 +21,10 @@ export function upstreamFailure(err: unknown, notFound = 'That item could not be
   // Log the real cause for us; never return it.
   console.error('[upstream]', raw.slice(0, 300))
 
+  // Every marketplace key is out of its daily allowance. Its message is already
+  // user-safe and says when data returns, so pass it through (it used to fall to
+  // the generic "Something went wrong" and lose the time).
+  if (err instanceof Error && err.name === 'EtsyQuotaError') return { status: 503, message: raw }
   if (/\b404\b|not found/i.test(raw)) return { status: 404, message: notFound }
   if (/\b(429|5\d\d)\b|rate limit|quota|timeout|ETIMEDOUT|ECONNRESET|fetch failed/i.test(raw)) return { status: 503, message: BUSY }
   return { status: 502, message: GENERIC }

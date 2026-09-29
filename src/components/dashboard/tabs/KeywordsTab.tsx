@@ -442,7 +442,8 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
   // ~1–2s; related keywords (~24 live searches) and near matches (~6) fill in
   // behind it, each with its own loading state so the UI can say which part is
   // still measuring.
-  const { data: kw, isLoading, isError, isFetching } = useKeywordSearch(query, country)
+  const { data: kw, isLoading, isError, isFetching, error: kwError } = useKeywordSearch(query, country)
+  const kwFail = describeKeywordError(kwError)
   const related = useRelatedKeywords(query, country)
   const near    = useNearMatches(query)
   // The core keyword payload skips images on purpose: Etsy's search endpoint has
@@ -720,7 +721,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
         </Card>
       )}
 
-      {isError && <ErrorBox>Failed to load keyword data live. Please try again.</ErrorBox>}
+      {isError && kwFail && <ErrorBox title={kwFail.title}>{kwFail.message}</ErrorBox>}
 
       {/* AI read of the whole keyword picture - Gemini interprets the real
           measured signals above into a "how to win this keyword" analysis. */}
@@ -877,4 +878,27 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
       )}
     </div>
   )
+}
+
+/**
+ * What to tell the user when the keyword search fails. It used to be one fixed
+ * "Failed to load keyword data live" for everything, so a user who had simply
+ * used up their credits (the upgrade popup already explains that) was told the
+ * site was broken, and a busy moment looked the same as a real fault.
+ * Returns null when nothing more should be shown.
+ */
+function describeKeywordError(err: unknown): { title: string; message: string } | null {
+  if (!err) return null
+  const e = err as { response?: { status?: number; data?: { error?: unknown } } }
+  const status = e.response?.status
+  const serverMsg = typeof e.response?.data?.error === 'string' ? e.response.data.error : null
+  // Out of credits / plan limit: the upgrade popup is already open.
+  if (status === 402) return { title: 'Daily limit reached', message: serverMsg || 'You have used today\u2019s searches. Upgrade your plan or come back tomorrow.' }
+  // Too many searches this hour: the security check handles it.
+  if (status === 429) return { title: 'Slow down a little', message: serverMsg || 'Too many searches in a short time. Please wait a moment and try again.' }
+  // No answer at all, or a gateway page (502/504/524) instead of our JSON: the server was too busy.
+  if (status == null || (status >= 500 && !serverMsg)) {
+    return { title: 'Rankkw is very busy right now', message: 'Your search did not finish in time and no credit was used. Please try again in a minute.' }
+  }
+  return { title: 'Could not load this keyword', message: `${serverMsg || 'Something went wrong loading this data.'} No credit was used.` }
 }

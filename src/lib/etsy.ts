@@ -106,6 +106,7 @@ export class EtsyQuotaError extends Error {
   constructor(readonly retryAt: number) {
     // User-facing: no provider or quota wording. The real reason is in the logs.
     super(`Marketplace data is temporarily unavailable. It should be back around ${new Date(retryAt).toISOString().slice(11, 16)} UTC.`)
+    this.name = 'EtsyQuotaError'
   }
 }
 
