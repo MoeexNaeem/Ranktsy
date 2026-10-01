@@ -25,6 +25,8 @@ export function upstreamFailure(err: unknown, notFound = 'That item could not be
   // user-safe and says when data returns, so pass it through (it used to fall to
   // the generic "Something went wrong" and lose the time).
   if (err instanceof Error && err.name === 'EtsyQuotaError') return { status: 503, message: raw }
+  // This user's own daily Etsy budget (anti-scraping cap, lib/usage.ts): already user-safe.
+  if (err instanceof Error && err.name === 'EtsyBudgetError') return { status: 429, message: raw }
   if (/\b404\b|not found/i.test(raw)) return { status: 404, message: notFound }
   if (/\b(429|5\d\d)\b|rate limit|quota|timeout|ETIMEDOUT|ECONNRESET|fetch failed/i.test(raw)) return { status: 503, message: BUSY }
   return { status: 502, message: GENERIC }

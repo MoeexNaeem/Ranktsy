@@ -303,6 +303,7 @@ export function ChatWidget() {
   const [sending, setSending] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   // Follow new messages only while the reader is at the bottom. The 10s refresh used to
   // yank people back down while they were reading older messages.
   const stickToBottom = useRef(true)
@@ -367,6 +368,31 @@ export function ChatWidget() {
       setNewBelow(true)
     }
   }, [chatMessages, open])
+  // Phones: the panel is full-screen (CSS .rk-chat-panel) and sized to the VISIBLE
+  // area. iOS does not shrink fixed elements when the keyboard opens, so the old
+  // floating panel's message box slid behind the keyboard. visualViewport reports
+  // the space above the keyboard; the panel follows it, keeping the box in view.
+  useEffect(() => {
+    if (!open || typeof window === 'undefined' || !window.matchMedia('(max-width: 640px)').matches) return
+    const vv = window.visualViewport
+    const panel = panelRef.current
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'   // the page behind must not scroll instead
+    const fit = () => {
+      if (!panel || !vv) return
+      panel.style.setProperty('--vvh', `${Math.round(vv.height)}px`)
+      panel.style.setProperty('--vvt', `${Math.round(vv.offsetTop)}px`)
+      if (stickToBottom.current && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+    fit()
+    vv?.addEventListener('resize', fit)
+    vv?.addEventListener('scroll', fit)
+    return () => {
+      vv?.removeEventListener('resize', fit)
+      vv?.removeEventListener('scroll', fit)
+      document.body.style.overflow = prevOverflow
+    }
+  }, [open])
   // Clicking a "new reply" toast opens this widget.
   useEffect(() => {
     const openChat = () => setOpen(true)
@@ -388,7 +414,7 @@ export function ChatWidget() {
   return (
     <>
       {open && (
-        <div style={{ position: 'fixed', right: 24, bottom: 92, width: 'min(360px, 92vw)', height: 460, background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 16, boxShadow: '0 24px 60px rgba(20,18,14,0.28)', zIndex: 200, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div ref={panelRef} className="rk-chat-panel" style={{ position: 'fixed', right: 24, bottom: 92, width: 'min(360px, 92vw)', height: 460, background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 16, boxShadow: '0 24px 60px rgba(20,18,14,0.28)', zIndex: 200, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ padding: '15px 18px', borderBottom: `1px solid ${C.ash}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <p style={{ fontSize: 15, fontWeight: 600, color: C.ink }}>Support chat</p>
@@ -436,7 +462,7 @@ export function ChatWidget() {
           </div>
         </div>
       )}
-      <button onClick={() => setOpen(o => !o)} aria-label="Support chat" title="Support chat"
+      <button className="rk-chat-launcher" data-open={open ? 'true' : 'false'} onClick={() => setOpen(o => !o)} aria-label="Support chat" title="Support chat"
         style={{ position: 'fixed', right: 24, bottom: 24, width: 54, height: 54, borderRadius: '50%', background: C.orange, color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 10px 30px rgba(251,94,9,0.4)', zIndex: 200, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         {chatUnread > 0 && <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 20, height: 20, padding: '0 5px', borderRadius: 100, background: C.ink, color: '#fff', fontSize: 11, fontWeight: 700, fontFamily: MONO, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${C.paper}` }}>{chatUnread > 99 ? '99+' : chatUnread}</span>}

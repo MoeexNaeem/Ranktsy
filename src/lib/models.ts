@@ -47,6 +47,9 @@ export interface IUserDoc extends Document {
   // fresh from the DB on dashboard load (never baked into the JWT) so it
   // takes effect immediately, not after the access token expires.
   restricted?: boolean
+  // Refresh tokens issued before this moment are rejected (set on password reset),
+  // so a stolen 30-day refresh token dies when the owner resets their password.
+  sessionsValidAfter?: Date | null
   // DEPRECATED - superseded by the ConnectedShop collection (a user can now
   // connect more than one shop). Kept only so lib/etsy-tokens.ts can migrate
   // any pre-existing single-shop connection the first time it's read.
@@ -109,6 +112,7 @@ const UserSchema = new Schema<IUserDoc>({
   }, { _id: false }), default: null },
   sebtBatch:         { type: Number, default: null },
   restricted:        { type: Boolean, default: false },
+  sessionsValidAfter: { type: Date, default: null },
   etsyShopId:       { type: String },
   etsyAccessToken:  { type: String, select: false },
   etsyRefreshToken: { type: String, select: false },

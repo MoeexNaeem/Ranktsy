@@ -12,6 +12,7 @@ import { VelocityPanel } from '../keyword/VelocityPanel'
 import { ShopHealthPanel } from '../keyword/ShopHealthPanel'
 import type { EtsyListing, AiFact } from '@/types'
 import type { ShopReview, ShopSection } from '@/lib/etsy'
+import { apiErrorMessage } from '@/lib/api-error'
 
 const fmtDate = (ts: number) => ts ? new Date(ts * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''
 
@@ -49,7 +50,7 @@ export function ShopTab() {
   const [shopInput, setShopInput] = useState('')
   const [shopId,    setShopId]    = useState('')
 
-  const { data, isLoading, isError, isSuccess } = useQuery({
+  const { data, isLoading, isError, isSuccess, error } = useQuery({
     queryKey: ['shop', shopId],
     queryFn: async () => {
       const [shopRes, revRes, secRes] = await Promise.all([
@@ -130,7 +131,7 @@ export function ShopTab() {
         </div>
       )}
 
-      {isError && <ErrorBox>Shop not found. Check the shop name or ID and try again.</ErrorBox>}
+      {isError && <ErrorBox>{apiErrorMessage(error, 'Shop not found. Check the shop name or ID and try again.')}</ErrorBox>}
 
       {data && !isLoading && (
         <>

@@ -99,7 +99,7 @@ async function aiResult(subject: string, tool: string, facts: AiFact[], notes: s
   }
 }
 
-export const POST = withApiGuard(postHandler, { limit: 40, windowMs: 60_000 })
+export const POST = withApiGuard(postHandler, { limit: 40, windowMs: 60_000, hourly: 150 })
 
 async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<AiInsightsResult>>> {
   const body = await req.json().catch(() => ({}))

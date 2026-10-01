@@ -37,7 +37,10 @@ export const metadata: Metadata = {
 // suppressed it, so phones fell back to a 980px virtual viewport, no max-width
 // media query ever matched, and the whole responsive layer in globals.css was
 // dead code. Next 16 is explicit that root layouts must NOT hand-roll <head>.
-export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#FB5E09' }
+// interactiveWidget 'resizes-content': on Android Chrome the on-screen keyboard
+// shrinks the page instead of covering it, so fixed/bottom inputs (chat reply
+// boxes) stay visible while typing. iOS ignores it (handled with CSS + focus scroll).
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#FB5E09', interactiveWidget: 'resizes-content' }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

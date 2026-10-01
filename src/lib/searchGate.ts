@@ -36,13 +36,22 @@ export function searchFingerprint(req: NextRequest): string {
 export async function guardSearch<T = unknown>(req: NextRequest, fingerprint?: string): Promise<NextResponse<ApiResponse<T>> | null> {
   // Without reCAPTCHA keys there is no way for a human to continue, so the gate
   // stays off rather than locking everyone out.
-  if (!isRecaptchaConfigured()) return null
-
   const user = await getCurrentUser().catch(() => null)
   const ip = req.headers.get('cf-connecting-ip')
     || req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
     || req.headers.get('x-real-ip')
     || 'anon'
+
+  // reCAPTCHA keys missing: the gate used to switch itself OFF entirely, leaving
+  // every search endpoint unlimited. Keep a plain hourly cap instead (no challenge
+  // can be shown without keys, so the answer is "try again later").
+  if (!isRecaptchaConfigured()) {
+    if (await takeSearch(user?.id ? `u:${user.id}` : `ip:${ip}`)) return null
+    return NextResponse.json<ApiResponse<T>>(
+      { success: false, error: 'Too many searches this hour. Please try again a little later.' },
+      { status: 429 },
+    )
+  }
 
   // The browser extension can't show a captcha, so its lookups have their own
   // hourly bucket and simply slow down when it is full.

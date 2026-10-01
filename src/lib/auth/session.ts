@@ -29,6 +29,9 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     await connectDB()
     const dbUser = await User.findById(payload.sub).lean()
     if (!dbUser) return null
+    // Revoked: issued before the user's last password reset (sessionsValidAfter).
+    const validAfter = (dbUser as { sessionsValidAfter?: Date | null }).sessionsValidAfter
+    if (validAfter && (payload.iat ?? 0) * 1000 < new Date(validAfter).getTime()) return null
 
     const authUser: AuthUser = {
       id:         dbUser._id.toString(),

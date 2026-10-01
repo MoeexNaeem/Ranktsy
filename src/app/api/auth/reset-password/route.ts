@@ -35,7 +35,8 @@ export async function POST(req: NextRequest) {
     }
 
     const hashed = await hashPassword(password)
-    await User.updateOne({ email }, { password: hashed })
+    // A new password also signs out every existing session (stolen refresh tokens included).
+    await User.updateOne({ email }, { password: hashed, sessionsValidAfter: new Date(Math.floor(Date.now() / 1000) * 1000) })
 
     // Consume OTP
     await OTP.deleteMany({ email, type: 'reset' })

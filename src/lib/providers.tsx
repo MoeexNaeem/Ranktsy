@@ -8,6 +8,8 @@ import { attachCaptchaInterceptor } from '@/components/security/captchaControlle
 import { CaptchaModal } from '@/components/security/CaptchaModal'
 import { PopupAdHost } from '@/components/landing/PopupAdHost'
 import { toast } from '@/components/ui/toast'
+import { attachUpgradeInterceptor } from '@/lib/upgrade'
+import { broadcastCredits } from '@/lib/credits-client'
 
 // ── Global error toasts ─────────────────────────────────────────────────────────
 // Every failed query (first load only, not a background refetch that still has data)
@@ -43,6 +45,9 @@ function showMaintenancePage() {
 function shouldToast(err: unknown, meta?: Record<string, unknown>) {
   if (meta?.silent) return false
   if (isMaintenance(err)) { showMaintenancePage(); return false }
+  // Out of credits: the upgrade popup already explains it (attachUpgradeInterceptor).
+  const code = (err as { response?: { data?: { code?: string } } })?.response?.data?.code
+  if (code === 'credit_limit' || code === 'plan_limit') return false
   const { status } = errorInfo(err)
   if (status === 401 || status === 403) return false
   if ((err as Error)?.message === 'Captcha unavailable') return false
@@ -66,6 +71,15 @@ if (typeof window !== 'undefined' && !interceptorAttached) {
   interceptorAttached = true
   attachCaptchaInterceptor(axios)
   axios.interceptors.response.use(r => r, (err) => { if (isMaintenance(err)) showMaintenancePage(); return Promise.reject(err) })
+  // Routes that charge credits server-side return the fresh balance as `state`;
+  // push it to the credits pill whichever tool made the call.
+  axios.interceptors.response.use(r => {
+    const st = (r?.data as { state?: { credits?: unknown; limit?: unknown } } | undefined)?.state
+    if (st && typeof st.credits === 'number' && typeof st.limit === 'number') broadcastCredits(st as Parameters<typeof broadcastCredits>[0])
+    return r
+  })
+  // A server-side 402 (out of credits / plan limit) opens the upgrade popup.
+  attachUpgradeInterceptor(axios)
 }
 
 export function Providers({ children }: { children: ReactNode }) {

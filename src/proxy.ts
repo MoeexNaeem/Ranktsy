@@ -140,5 +140,7 @@ export async function proxy(req: NextRequest) {
 export const config = {
   // Every route except Next's static assets and plain files (images, robots.txt,
   // sitemaps, llms.txt...), so maintenance mode can cover the whole site.
-  matcher: ['/((?!_next/static|_next/image|favicon\\.ico|.*\\.[a-zA-Z0-9]+$).*)'],
+  // All of /_next/ is framework-internal (static chunks, images, dev live-reload),
+  // so none of it goes through the gate.
+  matcher: ['/((?!_next/|favicon\\.ico|.*\\.[a-zA-Z0-9]+$).*)'],
 }

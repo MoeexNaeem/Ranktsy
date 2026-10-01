@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cachedFlight, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { searchEtsyListingsPaged, getListingById } from '@/lib/etsy'
 import { guardSearch } from '@/lib/searchGate'
+import { meterSearch } from '@/lib/credit-gate'
 import type { ApiResponse, KeywordGap, GapTag, GapWord, EtsyListing } from '@/types'
 import { withUsage } from '@/lib/track'
 
@@ -34,6 +35,11 @@ async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<Key
 
   const gate = await guardSearch<KeywordGap>(req)
   if (gate) return gate
+
+  // Server-side credits: 1 per analysis, charged only when it succeeds; the same
+  // keyword/listing is free again for the rest of the day.
+  const meter = await meterSearch(req, 'gap', listingParam || query)
+  if (meter.deny) return meter.deny as NextResponse<ApiResponse<KeywordGap>>
 
   try {
     // Resolve the caller's own listing FIRST - it's both the analysis target and,
@@ -109,7 +115,9 @@ async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<Key
       ? tags.filter(t => t.yoursMissing && t.usedPct >= 15).slice(0, 12)
       : []
 
+    const state = await meter.commit()
     return NextResponse.json({
+      ...(state ? { state } : {}),
       success: true,
       data: {
         query,

@@ -12,7 +12,7 @@
  */
 import { cpus } from 'node:os'
 import { recordShopSnapshots, recordListingSnapshots, recordShopSnapshot, getKeywordTrendsBatch } from '@/lib/snapshots'
-import { recordEtsyCall } from '@/lib/usage'
+import { recordEtsyCall, assertEtsyBudget } from '@/lib/usage'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { etsyCacheGet, etsyCacheSet, etsyCacheSetMany } from '@/lib/etsy-cache'
 import { singleFlight } from '@/lib/concurrency'
@@ -295,6 +295,10 @@ async function etsyFetch<T = unknown>(path: string, params?: Record<string, stri
   if (params) {
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)))
   }
+
+  // Per-user daily Etsy budget (anti-scraping, see lib/usage.ts). Checked before
+  // spending a call; cached answers never reach this function and stay available.
+  await assertEtsyBudget()
 
   const pool = KEY_POOL
   const n = pool.length
@@ -1680,6 +1684,7 @@ class EtsyAuthError extends Error {
 async function etsyAuthedFetch<T = unknown>(path: string, accessToken: string, params?: Record<string, string | number>): Promise<T> {
   const url = new URL(`${ETSY_BASE}${path}`)
   if (params) Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)))
+  await assertEtsyBudget()
   recordEtsyCall()   // attribute authenticated (shop) Etsy requests too
   const res = await fetch(url.toString(), {
     headers: {

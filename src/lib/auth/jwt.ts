@@ -44,10 +44,10 @@ export async function verifyAccessToken(token: string): Promise<AuthUser | null>
   }
 }
 
-export async function verifyRefreshToken(token: string): Promise<{ sub: string } | null> {
+export async function verifyRefreshToken(token: string): Promise<{ sub: string; iat?: number } | null> {
   try {
     const { payload } = await jwtVerify(token, REFRESH_SECRET)
-    return payload as { sub: string }
+    return payload as { sub: string; iat?: number }
   } catch {
     return null
   }

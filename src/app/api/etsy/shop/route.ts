@@ -4,6 +4,7 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { listConnectedShops } from '@/lib/etsy-tokens'
 import { cachedFlight, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { withUsage } from '@/lib/track'
+import { upstreamFailure } from '@/lib/upstream-errors'
 
 async function handleGET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -38,8 +39,15 @@ async function handleGET(req: NextRequest) {
     })
     return NextResponse.json({ success: true, data })
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Shop not found'
-    return NextResponse.json({ success: false, error: msg }, { status: 502 })
+    // A shop that genuinely doesn't exist is a 404 with a clear message; Etsy being
+    // busy / out of quota / this user's daily budget is NOT "shop not found" (users
+    // were told their real shop didn't exist during the quota outage).
+    const raw = err instanceof Error ? err.message : ''
+    if (/No Etsy shop found matching/i.test(raw)) {
+      return NextResponse.json({ success: false, error: 'Shop not found. Check the shop name or paste the shop URL from Etsy.' }, { status: 404 })
+    }
+    const fail = upstreamFailure(err, 'Shop not found. Check the shop name or paste the shop URL from Etsy.')
+    return NextResponse.json({ success: false, error: fail.message }, { status: fail.status })
   }
 }
 

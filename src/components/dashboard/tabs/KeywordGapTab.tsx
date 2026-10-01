@@ -5,7 +5,6 @@ import axios from 'axios'
 import { Card, SearchBar, SectionTitle, ErrorBox, Loading, EmptyState, MONO } from '../kit'
 import { ExportBtn, toCsv, downloadCsv, slugify } from '../controls'
 import { C, D, formatNumber } from '@/utils'
-import { ensureCredits, useChargeOnSuccess } from '@/lib/credits-client'
 import type { ApiResponse, KeywordGap, GapTag } from '@/types'
 import { copyWithToast } from '@/components/ui/toast'
 
@@ -43,7 +42,7 @@ export function KeywordGapTab() {
   const [q, setQ] = useState('')
   const [listing, setListing] = useState('')
 
-  const { data, isLoading, isError, isSuccess, isPlaceholderData } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['keyword-gap', q, listing],
     queryFn: async ({ signal }) => {
       const parts = [q ? `q=${encodeURIComponent(q)}` : '', listing ? `listing=${encodeURIComponent(listing)}` : ''].filter(Boolean)
@@ -60,13 +59,13 @@ export function KeywordGapTab() {
   const run = useCallback(async () => {
     const val = input.trim()
     if (val.length < 2) return
-    if (!(await ensureCredits('gap', val))) return
+    // Credits are charged by the server (api/keywords/gap) only when the analysis succeeds.
     // One field, two modes: a listing URL/ID analyses that listing (its keyword is
     // derived from it server-side); anything else is treated as a keyword.
     if (LISTING_RE.test(val)) { setListing(val); setQ('') }
     else { setQ(val); setListing('') }
   }, [input])
-  useChargeOnSuccess('gap', q || listing, isSuccess && !isPlaceholderData && !!data)
+
 
   const exportCsv = useCallback(() => {
     if (!data) return

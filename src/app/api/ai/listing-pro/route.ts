@@ -66,7 +66,7 @@ async function liveContext(seed: string) {
   return { tags, currency, median, sampleTitles: listings.slice(0, 6).map(l => l.title).filter(Boolean) }
 }
 
-export const POST = withApiGuard(postHandler, { limit: 15, windowMs: 60_000 })
+export const POST = withApiGuard(postHandler, { limit: 15, windowMs: 60_000, hourly: 30 })
 
 async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<ListingPro>>> {
   const body = await req.json().catch(() => ({}))

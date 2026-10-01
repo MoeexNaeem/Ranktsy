@@ -116,6 +116,11 @@ export function AdminMessages() {
     selRef.current = userId
     setSel(userId); setSelName(name); setMessages([]); stickToBottom.current = true
     setReply(drafts.current[userId] ?? '')
+    // Phone/tablet: the conversation replaces the list further down the page
+    // (below the broadcast composers), so bring it into view.
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches) {
+      requestAnimationFrame(() => document.querySelector('.am-conv')?.scrollIntoView({ block: 'start', behavior: 'smooth' }))
+    }
     try {
       const r = await fetch(`/api/admin/chat/${userId}`)
       const j = await r.json()
@@ -196,6 +201,13 @@ export function AdminMessages() {
       else errorToast('Upload failed', j?.error || 'Please try again.')
     } finally { setSending(false) }
   }, [sel, loadThreads])
+
+  // Phone/tablet "Back": leave the open conversation (its unsent draft is kept in
+  // `drafts`) and return to the list.
+  const closeThread = useCallback(() => {
+    selRef.current = null
+    setSel(null); setMessages([]); setReply('')
+  }, [])
 
   const deleteThread = useCallback(async () => {
     if (!sel) return
@@ -376,8 +388,10 @@ export function AdminMessages() {
       </div>
 
       {/* Chat threads + conversation */}
-      <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 16, alignItems: 'start' }}>
-        <div style={{ ...cardStyle, padding: 0, overflow: 'hidden', maxHeight: 620, display: 'flex', flexDirection: 'column' }}>
+      {/* Phone/tablet (<=900px): list OR conversation, never both (see .am-split in
+          globals.css); desktop keeps the side-by-side layout. */}
+      <div className="rsplit am-split" data-view={sel ? 'conv' : 'list'} style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 16, alignItems: 'start' }}>
+        <div className="am-list" style={{ ...cardStyle, padding: 0, overflow: 'hidden', maxHeight: 620, display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '14px 16px 12px', borderBottom: `1px solid ${C.ash}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>Conversations</span>
@@ -441,17 +455,21 @@ export function AdminMessages() {
           </div>
         </div>
 
-        <div style={{ ...cardStyle, padding: 0, height: 620, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div className="am-conv" style={{ ...cardStyle, padding: 0, height: 620, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {!sel ? (
             <div style={{ margin: 'auto' }}><EmptyState icon="💬" title="Select a conversation" sub="Pick a user on the left to read and reply to their messages." /></div>
           ) : (
             <>
               <div style={{ padding: '12px 18px', borderBottom: `1px solid ${C.ash}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
+                  <button className="am-back" onClick={closeThread} aria-label="Back to conversations"
+                    style={{ display: 'none', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, flexShrink: 0, borderRadius: 10, border: `1px solid ${C.ash}`, background: C.paper, color: C.ink, cursor: 'pointer', padding: 0 }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+                  </button>
                   <Avatar name={selName} email={selEmail} seed={sel} size={40} />
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 15, fontWeight: 600, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selName}</div>
-                    {selEmail && <a href={`mailto:${selEmail}`} style={{ fontSize: 12, color: C.graphite, fontFamily: MONO, textDecoration: 'none' }}>{selEmail}</a>}
+                    {selEmail && <a href={`mailto:${selEmail}`} style={{ display: 'block', fontSize: 12, color: C.graphite, fontFamily: MONO, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selEmail}</a>}
                   </div>
                 </div>
                 <button onClick={deleteThread} title="Delete this conversation"

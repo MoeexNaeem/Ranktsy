@@ -396,10 +396,10 @@ export function AdminDashboard() {
         </aside>
 
         {/* ─── Content ─────────────────────────────────────────────────────── */}
-        <div style={{ flex: 1, minWidth: 0, padding: '30px 34px 90px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 24 }}>
+        <div className="admin-content" style={{ flex: 1, minWidth: 0, padding: '30px 34px 90px' }}>
+          <div className="admin-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 24 }}>
             <h1 style={{ fontSize: 'clamp(26px,3vw,38px)', fontWeight: 600, color: C.ink, letterSpacing: '-0.03em', textTransform: 'capitalize', margin: 0 }}>{NAV.find(n => n.id === section)?.label ?? section}</h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div className="admin-head-actions" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {lastSync && <span style={{ fontSize: 11, fontFamily: MONO, color: '#9a9a92', whiteSpace: 'nowrap' }}>updated {lastSync.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>}
               <button onClick={refresh} disabled={refreshing} title="Refresh data" aria-label="Refresh data"
                 style={{ display: 'grid', placeItems: 'center', width: 38, height: 38, borderRadius: 12, border: `1px solid ${C.ash}`, background: C.paper, color: C.ink, cursor: refreshing ? 'default' : 'pointer' }}>
@@ -498,8 +498,8 @@ export function AdminDashboard() {
                 {userQuery && <button onClick={() => { setUserQuery(''); setUsersPage(1) }} aria-label="Clear search" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, color: '#8a8a82', lineHeight: 1 }}>×</button>}
               </div>
 
-              <div className="rtable" style={{ ...tableCard, overflow: 'hidden' }}>
-                <div style={{ ...tableHead(GRID), padding: '15px 22px' }}>
+              <div className="rtable admin-users" style={{ ...tableCard, overflow: 'hidden' }}>
+                <div className="admin-user-head" style={{ ...tableHead(GRID), padding: '15px 22px' }}>
                   {['#', 'User', 'Role', 'Plan', 'Status', 'Joined', 'Activity', 'Credits', ''].map((h, i) => <span key={i} style={{ ...th, fontSize: 12 }}>{h}</span>)}
                 </div>
                 {usersPageRows.map((u, i) => {

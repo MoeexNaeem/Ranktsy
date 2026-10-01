@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useAuth, useLogout } from '@/hooks/useAuth'
 import { useCredits } from '@/hooks/useCredits'
-import { UsageMeters } from '@/components/dashboard/UsageMeters'
+import { UsageMeters, CreditsChip } from '@/components/dashboard/UsageMeters'
 import { C, ACCENT, withAlpha, formatNumber, type AccentName } from '@/utils'
 import { UpgradeModalHost } from './UpgradeModal'
 import { triggerUpgrade } from '@/lib/upgrade'
@@ -438,6 +438,7 @@ export function DashboardLayout() {
             </button>
             <NotificationBell />
             <UsageMeters credits={credits} />
+            <CreditsChip credits={credits} />
             {planInfo && (() => {
               const paid = planInfo.plan !== 'free'
               return (

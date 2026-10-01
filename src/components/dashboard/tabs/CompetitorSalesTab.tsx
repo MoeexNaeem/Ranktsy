@@ -11,6 +11,7 @@ import { C, D, flag, formatNumber } from '@/utils'
 import { ensureCredits, useChargeOnSuccess } from '@/lib/credits-client'
 import type { ApiResponse, EtsyShop, AiFact } from '@/types'
 import { toast } from '@/components/ui/toast'
+import { apiErrorMessage } from '@/lib/api-error'
 
 interface Tracked { shopId: number; shopName: string }
 
@@ -63,7 +64,7 @@ export function CompetitorSalesTab() {
   const active = picked || (tracked?.[0] ? String(tracked[0].shopId) : '')
   const setActive = setPicked
 
-  const { data: shop, isLoading, isError, isSuccess } = useShop(active)
+  const { data: shop, isLoading, isError, isSuccess, error } = useShop(active)
 
   const track = useMutation({
     mutationFn: async (shopName: string) => {
@@ -147,7 +148,7 @@ export function CompetitorSalesTab() {
       )}
 
       {isLoading && <div className="shimmer" style={{ height: 200, borderRadius: 16, background: '#e8e7e2' }} />}
-      {isError && <ErrorBox>Couldn&apos;t find that shop on Etsy. Check the shop name.</ErrorBox>}
+      {isError && <ErrorBox>{apiErrorMessage(error, 'Couldn\u2019t find that shop on Etsy. Check the shop name.')}</ErrorBox>}
 
       {shop && !isLoading && (
         <>

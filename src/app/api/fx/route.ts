@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { memCache, cacheKey } from '@/lib/cache'
+import { rateLimit, clientIp, tooManyResponse } from '@/lib/auth/rateLimit'
 import type { ApiResponse } from '@/types'
 
 export const runtime = 'nodejs'
@@ -25,6 +26,11 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Fx
   const key = cacheKey('fx', 'v1', from)
   const hit = memCache.get<FxData>(key)
   if (hit) return NextResponse.json({ success: true, data: hit, cached: true })
+
+  // Public endpoint: cap OUTSIDE lookups per IP (cache hits above are free), so it
+  // can't be used to hammer the FX provider by cycling through currency codes.
+  const rl = rateLimit(`fx:${clientIp(req)}`, 30, 60 * 60 * 1000)
+  if (!rl.allowed) return tooManyResponse(rl.retryAfterSec)
 
   try {
     const res = await fetch(`https://open.er-api.com/v6/latest/${from}`, { cache: 'no-store' })

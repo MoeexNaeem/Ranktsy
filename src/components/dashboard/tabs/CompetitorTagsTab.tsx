@@ -7,6 +7,7 @@ import { ensureCredits, useChargeOnSuccess } from '@/lib/credits-client'
 import { SearchBar, SectionTitle, ErrorBox, EmptyState, Card, tableCard, tableHead, th, tableRow, tdMono, MONO } from '../kit'
 import { AiInsights } from '../AiInsights'
 import type { EtsyListing, AiFact } from '@/types'
+import { apiErrorMessage } from '@/lib/api-error'
 
 const GRID = '2.4fr 0.7fr 1fr 1fr'
 
@@ -14,7 +15,7 @@ export function CompetitorTagsTab() {
   const [input, setInput] = useState('')
   const [shop, setShop] = useState('')
 
-  const { data, isLoading, isError, isSuccess } = useQuery({
+  const { data, isLoading, isError, isSuccess, error } = useQuery({
     queryKey: ['competitor-tags', shop],
     queryFn: async () => {
       const { data } = await axios.get(`/api/etsy/shop?id=${encodeURIComponent(shop)}`)
@@ -59,7 +60,7 @@ export function CompetitorTagsTab() {
       <SearchBar value={input} onChange={setInput} onSubmit={go} placeholder="Shop name or ID…" button="Analyze →" maxWidth={460} />
 
       {isLoading && <div className="shimmer" style={{ height: 360, borderRadius: 8, background: '#e8e7e2' }} />}
-      {isError && <ErrorBox>Shop not found. Check the name or ID and try again.</ErrorBox>}
+      {isError && <ErrorBox>{apiErrorMessage(error, 'Shop not found. Check the name or ID and try again.')}</ErrorBox>}
 
       {tags.length > 0 && !isLoading && (
         <>

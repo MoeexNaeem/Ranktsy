@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   // scripts/deploy.sh builds into a separate folder (NEXT_DIST_DIR=.next-build) while the
   // live site keeps serving .next, then swaps them; `next start` always reads .next.
   distDir: process.env.NEXT_DIST_DIR || '.next',
+  // Don't advertise the framework/version to scanners (X-Powered-By: Next.js).
+  poweredByHeader: false,
 
   images: {
     formats: ['image/avif', 'image/webp'],
@@ -43,6 +45,9 @@ const nextConfig: NextConfig = {
       {
         source: '/(.*)',
         headers: [
+          // Browsers must use HTTPS for this host for 180 days (no includeSubDomains,
+          // so a subdomain that is still http-only is not broken by it).
+          { key: 'Strict-Transport-Security', value: 'max-age=15552000' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options',        value: 'DENY'    },
           { key: 'Referrer-Policy',        value: 'strict-origin-when-cross-origin' },

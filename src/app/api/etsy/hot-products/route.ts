@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cachedFlight, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { searchEtsyListingsPaged } from '@/lib/etsy'
 import { guardSearch } from '@/lib/searchGate'
+import { meterSearch } from '@/lib/credit-gate'
 import type { SearchOpts as EtsySearchOpts } from '@/lib/etsy'
 import type { ApiResponse, HotProduct, HotProductsResponse, EtsyListing } from '@/types'
 import { withUsage } from '@/lib/track'
@@ -69,6 +70,11 @@ async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<Hot
   const gate = await guardSearch<HotProductsResponse>(req)
   if (gate) return gate
 
+  // Server-side credits (1 per search, only on a usable result). Sort, release
+  // filter and paging are free refinements of the same search, so not in the key.
+  const meter = await meterSearch(req, 'hotproducts', JSON.stringify({ q, cat: taxonomyId ?? '', minP: minPrice ?? '', maxP: maxPrice ?? '', minFav: minFavorites || '' }))
+  if (meter.deny) return meter.deny as NextResponse<ApiResponse<HotProductsResponse>>
+
   // Cache the raw Etsy scan (expensive) separately from the cheap re-sort/filter,
   // so changing sort or a client-side filter is instant.
   const scanKey = cacheKey('hot', 'v2', q, String(taxonomyId ?? ''), String(minPrice ?? ''), String(maxPrice ?? ''), sort, String(page))
@@ -117,9 +123,11 @@ async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<Hot
     else if (sort === 'engagement') products.sort((a, b) => b.engagementPct - a.engagementPct)
     else if (sort === 'velocity') products.sort((a, b) => (b.favPerDay ?? 0) - (a.favPerDay ?? 0))
 
+    const state = products.length ? await meter.commit() : undefined
     return NextResponse.json({
       success: true,
       data: { products, total: scan.count, sampled: scan.listings.length },
+      ...(state ? { state } : {}),
     })
   } catch (e) {
     console.error('[Hot Products] failed:', e)

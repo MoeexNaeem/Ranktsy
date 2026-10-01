@@ -204,6 +204,76 @@ svg  { max-width: 100%; }
   .admin-sidebar > div:last-child { margin-top: 0 !important; margin-left: auto; padding-top: 0 !important; }
 }
 
+/* ── Admin content column on tablet/phone ≤ 900px ───────────────────────────────
+   The shell turns into a column here, and its align-items:flex-start made the
+   content column SHRINK-WRAP to its widest child (a 620px users table, the 900px
+   Etsy quota grid), stretching the whole page sideways on phones. Stretch it to
+   the screen instead, so wide tables scroll inside their own card. */
+@media (max-width: 900px) {
+  .admin-shell { align-items: stretch !important; }
+  .admin-content { width: 100% !important; min-width: 0 !important; padding: 18px 0 80px !important; }
+  .admin-head { flex-wrap: wrap !important; gap: 10px !important; margin-bottom: 18px !important; }
+  .admin-head-actions { flex-wrap: wrap !important; }
+}
+
+/* ── Admin users table → stacked cards on tablet/phone ≤ 900px ──────────────────
+   A 9-column row squeezed (or side-scrolled) on a phone/tablet cut names off,
+   broke dates across lines and hid the action buttons. Each user becomes a card:
+   name/email full width, the facts in as many columns as fit (2 on a phone, 4 on
+   a tablet), actions underneath. Desktop keeps the table. */
+@media (max-width: 900px) {
+  .rtable.admin-users { overflow: visible !important; }
+  .rtable.admin-users > * { min-width: 0 !important; }
+  .admin-user-head { display: none !important; }
+  .admin-user-row {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+    gap: 10px 14px !important;
+    padding: 16px 14px !important;
+    border-top: 1px solid #ECE9E1;
+  }
+  .admin-user-row > :nth-child(1) { display: none !important; }            /* row number */
+  .admin-user-row > :nth-child(2),
+  .admin-user-row > :nth-child(9) { grid-column: 1 / -1; }                 /* user, actions */
+  .admin-user-row > * { min-width: 0; }
+}
+
+/* ── Admin Messages: master/detail on tablet/phone ≤ 900px ──────────────────────
+   Stacked, the 620px list sat above a 620px conversation: tapping a user didn't
+   bring the chat into view, and the reply box ended up behind the keyboard.
+   Now the list OR the conversation is shown; the conversation fills the visible
+   screen (dvh), so its reply box sits right above the keyboard. */
+.am-back { display: none; }
+@media (max-width: 900px) {
+  .am-split { grid-template-columns: 1fr !important; }
+  .am-split[data-view="conv"] .am-list { display: none !important; }
+  .am-split[data-view="list"] .am-conv { display: none !important; }
+  .am-split .am-list { max-height: none !important; }
+  .am-conv { height: calc(100dvh - 120px) !important; min-height: 380px; scroll-margin-top: 96px; }
+  .am-back { display: inline-flex !important; }
+}
+
+/* ── Support chat widget → full screen on phones ≤ 640px ────────────────────────
+   Sized from visualViewport (Realtime.tsx ChatWidget) so the message box always
+   sits directly above the keyboard. Desktop keeps the floating panel. */
+@media (max-width: 640px) {
+  .rk-chat-panel {
+    left: 0 !important; right: 0 !important; bottom: auto !important;
+    top: var(--vvt, 0px) !important;
+    width: 100% !important; height: var(--vvh, 100dvh) !important;
+    border-radius: 0 !important; border: none !important; z-index: 1000 !important;
+  }
+  .rk-chat-launcher { right: 16px !important; bottom: 16px !important; }
+  .rk-chat-launcher[data-open="true"] { display: none !important; }
+}
+
+/* ── Inputs never hide behind the on-screen keyboard (phones) ───────────────────
+   iOS can't be resized by the keyboard; scroll-padding keeps a focused field
+   clear of the bottom edge when the browser scrolls it into view. */
+@media (max-width: 900px) {
+  html { scroll-padding-bottom: 120px; }
+  input, textarea, select { font-size: max(16px, 1em); }  /* <16px makes iOS zoom the page on focus */
+}
+
 /* ── Dashboard sidebar → off-canvas drawer ≤ 900px ───────────────────────────── */
 @media (max-width: 900px) {
   /* Lift the sidebar out of flow so the main column takes the full width. */
@@ -266,6 +336,7 @@ svg  { max-width: 100%; }
   main.rpage { padding-top: 118px !important; padding-left: 18px !important; padding-right: 18px !important; }
 
   .rhide-sm  { display: none !important; }
+  .rshow-sm  { display: inline-flex !important; }   /* phone-only elements (hidden by default inline) */
   /* On phones the primary nav CTA (Start free / Dashboard) is dropped too, leaving
      just the logo + burger, so the nav no longer overflows the viewport width. The
      CTA still lives in the mobile drawer. Kept visible on tablet (641px+). */

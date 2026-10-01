@@ -12,7 +12,6 @@ import axios from 'axios'
 import { useListingReviews } from '@/hooks/useListingReviews'
 import { estimateListingSales } from '@/lib/salesEstimate'
 import { C, D, ACCENT, withAlpha, formatNumber } from '@/utils'
-import { ensureCredits, useChargeOnSuccess } from '@/lib/credits-client'
 import { SearchBar, Card, SectionTitle, ErrorBox, Loading, EmptyState, MONO } from '../kit'
 import { HotProductDetail } from '../hot/HotProductDetail'
 import type { HotProduct, HotProductsResponse, ApiResponse } from '@/types'
@@ -92,7 +91,7 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
   })
   const categories = useMemo(() => (taxo ?? []).filter(t => t.level <= 2).sort((a, b) => a.fullPath.localeCompare(b.fullPath)), [taxo])
 
-  const { data, isLoading, isFetching, isError, isSuccess, isPlaceholderData } = useQuery({
+  const { data, isLoading, isFetching, isError } = useQuery({
     queryKey: ['hot-products', applied],
     queryFn: async ({ signal }) => {
       const p = new URLSearchParams({ q: applied.q, sort: applied.sort })
@@ -114,14 +113,12 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
   const apply = useCallback(async () => {
     const q = input.trim(); if (q.length < 2) return
     // Sort and the release filter are free refinements of the same search, so they are not part of the key.
-    if (!(await ensureCredits('hotproducts', JSON.stringify({ q, cat, minP, maxP, minFav })))) return
+    // Credits are charged by the server (api/etsy/hot-products) only when results arrive.
     setSelected(null)
     setApplied({ q, sort, cat, minP, maxP, minFav, release })
   }, [input, sort, cat, minP, maxP, minFav, release])
 
   // 1 credit per search, charged only once real products came back.
-  const chargeKey = applied.q ? JSON.stringify({ q: applied.q, cat: applied.cat, minP: applied.minP, maxP: applied.maxP, minFav: applied.minFav }) : ''
-  useChargeOnSuccess('hotproducts', chargeKey, isSuccess && !isPlaceholderData && (data?.products?.length ?? 0) > 0)
 
   // Sort/release are instant re-applies (cheap for the user).
   const setSortNow = useCallback((s: string) => { setSort(s); setApplied(a => ({ ...a, sort: s })) }, [])

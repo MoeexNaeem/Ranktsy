@@ -204,7 +204,7 @@ async function aiResult(
 }
 
 // ─── Route ────────────────────────────────────────────────────────────────────
-export const POST = withApiGuard(postHandler, { limit: 20, windowMs: 60_000 })
+export const POST = withApiGuard(postHandler, { limit: 20, windowMs: 60_000, hourly: 40 })
 
 async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<AiOptimization>>> {
   const body = await req.json().catch(() => ({}))

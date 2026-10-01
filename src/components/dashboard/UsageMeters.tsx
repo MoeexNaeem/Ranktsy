@@ -117,3 +117,21 @@ export const UsageMeters = memo(function UsageMeters({ credits }: { credits: Cre
     </span>
   )
 })
+
+/**
+ * Phones only (<=640px): the full meter pill is hidden there to fit the top bar,
+ * which left phone users no way to see their balance. A compact chip in the
+ * plan's colour shows credits left; tap/hover for the full detail.
+ */
+export const CreditsChip = memo(function CreditsChip({ credits }: { credits: CreditState | null }) {
+  if (!credits) return null
+  const accent = PLAN_ACCENT[credits.plan] ?? C.orange
+  const out = credits.credits <= 0
+  return (
+    <span className="rshow-sm" title={`${credits.credits.toLocaleString('en-US')} credits left today`}
+      style={{ display: 'none', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 100, border: `1.5px solid ${accent}66`, background: `${accent}14`, fontFamily: SANS, fontSize: 13, fontWeight: 700, color: out ? C.danger : C.ink, whiteSpace: 'nowrap', lineHeight: 1 }}>
+      <BoltIcon c={out ? C.danger : accent} />
+      {credits.credits.toLocaleString('en-US')}
+    </span>
+  )
+})

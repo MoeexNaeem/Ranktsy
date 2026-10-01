@@ -12,6 +12,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/session'
 import { runWithUsageContext } from '@/lib/usage'
+import { isAdmin } from '@/lib/auth/roles'
+import { takeSearch } from '@/lib/searchLimit'
 import { recordExtensionUsage } from '@/lib/extension'
 import { rateLimit, clientIp, tooManyResponse } from '@/lib/auth/rateLimit'
 import { canAfford, consumeCredits, isCreditTool, CREDIT_COST, publicState } from '@/lib/credits'
@@ -32,6 +34,13 @@ interface GuardOpts {
    * BEFORE the handler runs, so no expensive AI work happens for a broke user.
    */
   tool?: string
+  /**
+   * Per-user cap per HOUR for this route, shared across all workers (Mongo-backed,
+   * see lib/searchLimit.ts). For AI routes that cost money but charge no credits
+   * (Listing Pro text, optimizer, insights): the per-minute limit alone still let a
+   * script run them all day. Admins are exempt.
+   */
+  hourly?: number
 }
 
 export function withApiGuard<C = unknown>(handler: Handler<C>, opts: GuardOpts = {}): Handler<C> {
@@ -55,6 +64,13 @@ export function withApiGuard<C = unknown>(handler: Handler<C>, opts: GuardOpts =
     const ipRl = rateLimit(`api:${bucket}:ip:${clientIp(req)}`, limit * 3, windowMs)
     if (!ipRl.allowed) return tooManyResponse(ipRl.retryAfterSec)
 
+    if (opts.hourly && !isAdmin(user) && !(await takeSearch(`hr:${bucket}:u:${user.id}`, opts.hourly))) {
+      return NextResponse.json({
+        success: false,
+        error: `You've used this tool ${opts.hourly} times in the last hour. Please try again a little later.`,
+      }, { status: 429, headers: { 'Retry-After': '900' } })
+    }
+
     // Credit gate BEFORE the handler: don't run expensive AI work for a broke user.
     if (metered) {
       const afford = await canAfford(user.id, CREDIT_COST)
@@ -67,7 +83,7 @@ export function withApiGuard<C = unknown>(handler: Handler<C>, opts: GuardOpts =
       }
     }
 
-    const res = await runWithUsageContext({ userId: user.id, userEmail: user.email }, () => handler(req, ctx))
+    const res = await runWithUsageContext({ userId: user.id, userEmail: user.email, exempt: isAdmin(user), plan: user.plan }, () => handler(req, ctx))
 
     // Charge ONLY on a delivered success, then hand the fresh balance back so the
     // credit pill updates. A failed generation falls through uncharged.
