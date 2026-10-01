@@ -3,6 +3,7 @@ import { verifyAccessToken, verifyRefreshToken } from '@/lib/auth/jwt'
 import { ACCESS_TOKEN_NAME, REFRESH_TOKEN_NAME } from '@/lib/auth/cookies'
 import { resolveRole } from '@/lib/auth/roles'
 import { getMaintenance, isAdminUserId } from '@/lib/maintenance'
+import { maintenanceHtml } from '@/lib/maintenance-html'
 
 // Next 16 renamed "middleware" to "proxy" (same functionality, Node.js runtime by
 // default). This runs before a request completes: maintenance mode, then the
@@ -40,7 +41,9 @@ const isPublicApi = (p: string) => PUBLIC_API.some(a => p === a || p.startsWith(
  * Etsy-spending crons (snapshot, keyword-alerts) are deliberately NOT here, so
  * they pause and the quota can recover.
  */
-const MAINTENANCE_OPEN = ['/maintenance', '/login', '/api/auth/', '/api/health', '/api/lemonsqueezy/webhook', '/api/cron/plan-expiry']
+// /api/realtime/stream handles maintenance itself (an idle stream, so open tabs stop
+// reconnecting every few seconds; see the route).
+const MAINTENANCE_OPEN = ['/maintenance', '/login', '/api/auth/', '/api/health', '/api/lemonsqueezy/webhook', '/api/cron/plan-expiry', '/api/realtime/stream']
 const isMaintenanceOpen = (p: string) => MAINTENANCE_OPEN.some(a => {
   const base = a.replace(/\/$/, '')
   return p === base || p.startsWith(base + '/')
@@ -92,12 +95,13 @@ export async function proxy(req: NextRequest) {
             { status: 503, headers },
           )
         }
-        const url = req.nextUrl.clone()
-        url.pathname = '/maintenance'
-        url.search = ''
-        // Rewrite (not redirect): the visitor's URL stays put, so when maintenance
-        // ends a refresh lands them right back where they were. 503 = temporary.
-        return NextResponse.rewrite(url, { status: 503, headers })
+        // A fixed HTML page straight from here (no React render per request): the
+        // visitor's URL stays put, so when maintenance ends a refresh lands them
+        // back where they were. 503 + Retry-After = temporary for search engines.
+        return new NextResponse(maintenanceHtml(m.message), {
+          status: 503,
+          headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' },
+        })
       }
     }
   }

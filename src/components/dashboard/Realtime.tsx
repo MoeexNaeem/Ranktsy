@@ -57,6 +57,21 @@ export function relTime(d: string | null): string {
 }
 
 /** Open a notification's link. Dashboard tab links switch tabs in place (no reload). */
+/** If the API says the site is in maintenance, reload once so the visitor sees the
+ *  "updating" page (shared guard with providers.tsx so it can never loop). */
+async function checkMaintenance(): Promise<void> {
+  try {
+    const r = await fetch('/api/credits', { cache: 'no-store' })
+    if (r.status !== 503) return
+    const j = await r.json().catch(() => null)
+    if (j?.code !== 'maintenance') return
+    const last = Number(sessionStorage.getItem('rk-maint-reload') || 0)
+    if (Date.now() - last < 15_000) return
+    sessionStorage.setItem('rk-maint-reload', String(Date.now()))
+    window.location.reload()
+  } catch { /* offline: the backoff keeps trying gently */ }
+}
+
 export function openNotifLink(link: string) {
   const m = /^\/dashboard\?tab=([\w-]+)$/.exec(link)
   if (m && window.location.pathname === '/dashboard') {
@@ -141,6 +156,10 @@ export function RealtimeProvider({ isAdmin, children }: { isAdmin: boolean; chil
   useEffect(() => {
     let es: EventSource | null = null
     let stopped = false
+    // Consecutive failed connects. Reconnecting every 4 s forever meant every
+    // dashboard tab left open hammered the server ~15x/minute whenever the stream
+    // was refused (maintenance mode, an outage): back off to at most once a minute.
+    let fails = 0
     const connect = () => {
       if (stopped) return
       es = new EventSource('/api/realtime/stream')
@@ -174,7 +193,17 @@ export function RealtimeProvider({ isAdmin, children }: { isAdmin: boolean; chil
         setChatMessages(list => list.some(x => x.id === m.id) ? list : [...list, m])
       })
       es.addEventListener('chat-count', e => { if (!adminRef.current) setChatUnread(JSON.parse((e as MessageEvent).data).unread) })
-      es.onerror = () => { es?.close(); if (!stopped) setTimeout(connect, 4000) }
+      es.onopen = () => { fails = 0 }
+      es.addEventListener('maintenance', () => { stopped = true; es?.close(); void checkMaintenance() })
+      es.onerror = () => {
+        es?.close()
+        if (stopped) return
+        fails++
+        // EventSource can't read the response, so ask once whether the site is in
+        // maintenance; if so, reload to show the "updating" page instead of retrying.
+        if (fails === 2) void checkMaintenance()
+        setTimeout(connect, Math.min(60_000, 4000 * 2 ** Math.min(fails - 1, 4)))
+      }
     }
     connect()
     return () => { stopped = true; es?.close() }

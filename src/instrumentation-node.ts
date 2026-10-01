@@ -22,4 +22,8 @@ if (process.env.NODE_ENV === 'production') {
   })
 
   console.log(`[boot] worker up · pid ${process.pid} · ${new Date().toISOString()}`)
+
+  // Next's on-disk Etsy fetch cache never expires files on its own and once grew
+  // to 169 GB; prune stale entries (see lib/fetch-cache-janitor.ts).
+  void import('./lib/fetch-cache-janitor').then(m => m.startFetchCacheJanitor()).catch(() => {})
 }

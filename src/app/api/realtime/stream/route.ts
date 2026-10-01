@@ -4,6 +4,7 @@ import { isAdmin } from '@/lib/auth/roles'
 import { connectDB } from '@/lib/db'
 import { Notification, ChatMessage } from '@/lib/models'
 import { notifUnreadCount, chatUnreadCount, notifAudienceFilter, serializeNotif, serializeChat } from '@/lib/notify'
+import { getMaintenance } from '@/lib/maintenance'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -25,6 +26,27 @@ export async function GET(req: NextRequest) {
   const admin = isAdmin(user)
 
   const encoder = new TextEncoder()
+
+  // Maintenance mode: keep the connection OPEN but idle (no Mongo polling) instead
+  // of refusing it. A refused EventSource made every open dashboard tab reconnect
+  // every 4 s, which kept the CPU busy while the site was supposed to be resting.
+  // New clients get a 'maintenance' event and reload into the update page; tabs
+  // still running older code simply sit on this quiet stream until it closes.
+  if (!admin && (await getMaintenance().catch(() => null))?.on) {
+    let timer: ReturnType<typeof setInterval> | null = null
+    let end: ReturnType<typeof setTimeout> | null = null
+    const quiet = new ReadableStream<Uint8Array>({
+      start(controller) {
+        const close = () => { if (timer) clearInterval(timer); if (end) clearTimeout(end); try { controller.close() } catch { /* closed */ } }
+        req.signal.addEventListener('abort', close)
+        controller.enqueue(encoder.encode('retry: 600000\nevent: maintenance\ndata: {}\n\n'))
+        timer = setInterval(() => { try { controller.enqueue(encoder.encode(': idle\n\n')) } catch { close() } }, HEARTBEAT_MS)
+        end = setTimeout(close, MAX_LIFE_MS)
+      },
+      cancel() { if (timer) clearInterval(timer); if (end) clearTimeout(end) },
+    })
+    return new Response(quiet, { headers: { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' } })
+  }
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
