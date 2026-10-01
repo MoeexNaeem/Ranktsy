@@ -8,6 +8,13 @@ const nextConfig: NextConfig = {
   // Don't advertise the framework/version to scanners (X-Powered-By: Next.js).
   poweredByHeader: false,
 
+  experimental: {
+    // The proxy buffers request bodies up to this size (default 10 MB). Automate
+    // Listing uploads one digital download per request, and Etsy accepts files up
+    // to 20 MB. nginx's client_max_body_size must allow it too (see SUMMARY.md).
+    proxyClientMaxBodySize: '21mb',
+  },
+
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [

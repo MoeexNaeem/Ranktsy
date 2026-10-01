@@ -352,6 +352,11 @@ New / tunable this cycle:
    scaling, or drop it. Send more eRank reference numbers to refine the curve.
 5. **Multi-instance** — if deploying to multiple instances/serverless, back the
    in-memory rate-limit/cache/single-flight with Upstash Redis.
+6. **Automate Listing uploads** — photos are auto-shrunk under 5.5 MB, but digital
+   download files (PDF/ZIP) go up as-is, one per request, up to Etsy's 20 MB. nginx
+   is at `client_max_body_size 6M`, so raise it for that path only:
+   `location /api/automation/ { client_max_body_size 25M; ... }` (Next's proxy buffer
+   is already set to 21 MB in next.config.ts).
 
 ---
 

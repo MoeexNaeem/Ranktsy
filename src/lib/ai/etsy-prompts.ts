@@ -8,7 +8,7 @@
  * no real metric, the model is told to mark it an estimate and never fabricate a
  * precise number (matches the app's no-fabricated-data rule).
  */
-import { searchEtsyListingsPaged } from '@/lib/etsy'
+import { searchEtsyListingsPaged, dominantCurrencyPrices } from '@/lib/etsy'
 import { googleKeywordIdeas, isGoogleAdsConfigured } from '@/lib/google-ads'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import type { GeminiSchema } from '@/lib/gemini'
@@ -18,6 +18,10 @@ export interface Grounding {
   text: string
   volumeKeywords: { keyword: string; searches: number | null; competition: string }[]
   topTags: { tag: string; usedPct: number }[]
+  /** Categories the top live listings sit in, most common first (real taxonomy ids). */
+  taxonomies: { id: number; count: number }[]
+  /** Real price spread of the top listings in their most common currency (null when none). */
+  price: { currency: string; median: number; p25: number; p75: number; sample: number } | null
 }
 
 /** Fetch real Google demand + top-listing tags for the focus keyword.
@@ -25,7 +29,7 @@ export interface Grounding {
  *  every re-run, so this turns a ~5s live fetch into an instant hit after the
  *  first generation. TTL stays under Etsy's 6h listing-content limit. */
 export async function buildGrounding(keyword: string, geo = 'US'): Promise<Grounding> {
-  const key = cacheKey('ai-grounding', 'v1', geo, keyword)
+  const key = cacheKey('ai-grounding', 'v2', geo, keyword)
   const cached = memCache.get<Grounding>(key)
   if (cached) return cached
 
@@ -65,7 +69,17 @@ ${volLines}
 TAGS USED BY THE TOP LIVE ETSY LISTINGS (real, ranked by adoption):
 ${tagLines}`
 
-  const result: Grounding = { text, volumeKeywords, topTags }
+  const taxCounts = new Map<number, number>()
+  for (const l of search.listings) if (l.taxonomy_id) taxCounts.set(l.taxonomy_id, (taxCounts.get(l.taxonomy_id) ?? 0) + 1)
+  const taxonomies = [...taxCounts.entries()].map(([id, count]) => ({ id, count })).sort((a, b) => b.count - a.count).slice(0, 6)
+
+  const dp = dominantCurrencyPrices(search.listings)
+  const q = (f: number) => dp.prices[Math.min(dp.prices.length - 1, Math.floor((dp.prices.length - 1) * f))]
+  const price = dp.prices.length >= 3
+    ? { currency: dp.currency, median: q(0.5), p25: q(0.25), p75: q(0.75), sample: dp.prices.length }
+    : null
+
+  const result: Grounding = { text, volumeKeywords, topTags, taxonomies, price }
   memCache.set(key, result, CACHE_TTL.KEYWORD)
   return result
 }

@@ -1,16 +1,20 @@
 import type { Metadata } from 'next'
 import { AutomateEditor } from '@/components/automation/AutomateEditor'
+import { AutomateComingSoon } from '@/components/automation/AutomateComingSoon'
+import { getCurrentUser } from '@/lib/auth/session'
+import { isAdmin } from '@/lib/auth/roles'
 
-// HIDDEN feature — direct-URL only, not in any nav or sitemap, not indexed.
-// The page (the visual builder) is open so it can be used/tested, but the
-// automation APIs (/api/automation/*) stay owner-gated, so a stranger who finds
-// the URL sees only a non-functional canvas (Execute returns 403).
+// Admin-only for now: admins get the visual builder, everyone else (logged in or
+// not) sees "Coming soon". The /api/automation/* routes enforce the same gate
+// (lib/automation/guard.ts). Not indexed.
 export const metadata: Metadata = {
-  title: 'Automate Etsy Shop',
+  title: 'Automate Listing',
   robots: { index: false, follow: false },
 }
 export const dynamic = 'force-dynamic'
 
-export default function AutomateListingPage() {
+export default async function AutomateListingPage() {
+  const user = await getCurrentUser().catch(() => null)
+  if (!isAdmin(user)) return <AutomateComingSoon />
   return <AutomateEditor />
 }

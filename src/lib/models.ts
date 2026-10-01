@@ -614,11 +614,28 @@ export interface IAutomationItem {
   listingId?: number
   listingUrl?: string
   error?: string
+  /** Product the seller uploaded (photos/files live in their browser until upload). */
+  hint?: string
+  fromPhotos?: boolean
+  imageCount?: number
+  fileCount?: number
+  // Full Etsy listing fields the automation filled in.
+  taxonomyId?: number
+  taxonomyPath?: string
+  materials?: string[]
+  styles?: string[]
+  altText?: string
+  attributes?: { propertyId: number; name: string; valueIds: number[]; values: string[] }[]
+  sku?: string
+  currency?: string
+  imagesUploaded?: number
+  filesUploaded?: number
+  warnings?: string[]
 }
 export interface IAutomationRun extends Document {
   userId: string
   status: 'pending' | 'running' | 'done' | 'error' | 'canceled'
-  mode: 'keywords' | 'niche'
+  mode: 'keywords' | 'niche' | 'products'
   niche?: string
   geo: string
   publishToEtsy: boolean
@@ -628,6 +645,8 @@ export interface IAutomationRun extends Document {
   whoMade: 'i_did' | 'someone_else' | 'collective'
   quantity: number
   options?: Record<string, unknown>
+  /** Every node's settings (category, attributes, price, SKU, delivery, how it's made). */
+  config?: Record<string, unknown>
   items: IAutomationItem[]
   error?: string
   createdAt?: Date
@@ -644,11 +663,26 @@ const AutomationItemSchema = new Schema<IAutomationItem>({
   listingId:   Number,
   listingUrl:  String,
   error:       String,
+  hint:        String,
+  fromPhotos:  Boolean,
+  imageCount:  Number,
+  fileCount:   Number,
+  taxonomyId:  Number,
+  taxonomyPath: String,
+  materials:   [String],
+  styles:      [String],
+  altText:     String,
+  attributes:  { type: [{ propertyId: Number, name: String, valueIds: [Number], values: [String], _id: false }], default: undefined },
+  sku:         String,
+  currency:    String,
+  imagesUploaded: Number,
+  filesUploaded:  Number,
+  warnings:    { type: [String], default: undefined },
 }, { _id: false })
 const AutomationRunSchema = new Schema<IAutomationRun>({
   userId:        { type: String, required: true, index: true },
   status:        { type: String, enum: ['pending', 'running', 'done', 'error', 'canceled'], default: 'pending', index: true },
-  mode:          { type: String, enum: ['keywords', 'niche'], default: 'keywords' },
+  mode:          { type: String, enum: ['keywords', 'niche', 'products'], default: 'keywords' },
   niche:         String,
   geo:           { type: String, default: 'US' },
   publishToEtsy: { type: Boolean, default: false },
@@ -658,6 +692,7 @@ const AutomationRunSchema = new Schema<IAutomationRun>({
   whoMade:       { type: String, enum: ['i_did', 'someone_else', 'collective'], default: 'i_did' },
   quantity:      { type: Number, default: 1 },
   options:       { type: Schema.Types.Mixed },
+  config:        { type: Schema.Types.Mixed },
   items:         { type: [AutomationItemSchema], default: [] },
   error:         String,
 }, { timestamps: true })

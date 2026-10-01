@@ -118,5 +118,5 @@ export const DASH_ICON: Record<string, string> = {
   audit: ICON.check, ctags: ICON.build, compare: ICON.display,
   spell: ICON.check, fees: ICON.coins, adsroi: ICON.addCard,
   category: ICON.book, calendar: ICON.celebration, lists: ICON.document,
-  affiliate: ICON.gift, googleads: ICON.addCard, notifications: ICON.bell,
+  affiliate: ICON.gift, googleads: ICON.addCard, notifications: ICON.bell, automate: ICON.build,
 }

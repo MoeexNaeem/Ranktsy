@@ -117,6 +117,8 @@ interface GenerateOpts {
    * main app's quota). Falls back to the shared keys when empty/omitted.
    */
   apiKeys?: string[]
+  /** Photos the model should look at alongside the prompt (multimodal input). */
+  images?: GeminiRefImage[]
 }
 
 /** Why a text generation failed - callers can turn 'quota' into an honest message. */
@@ -134,7 +136,7 @@ export async function geminiGenerate(opts: GenerateOpts, meta?: GeminiMeta): Pro
   if (!isGeminiConfigured()) { if (meta) meta.reason = 'unconfigured'; return null }
 
   const body: Record<string, unknown> = {
-    contents: [{ role: 'user', parts: [{ text: opts.prompt }] }],
+    contents: [{ role: 'user', parts: [{ text: opts.prompt }, ...(opts.images ?? []).map(i => ({ inlineData: { mimeType: i.mimeType, data: i.data } }))] }],
     generationConfig: {
       temperature: opts.temperature ?? 0.7,
       // Headroom matters: `gemini-flash-latest` now resolves to a model that

@@ -56,9 +56,10 @@ const KeywordGapTab        = dynamic(() => import('./tabs/KeywordGapTab').then(m
 const HotProductsTab       = dynamic(() => import('./tabs/HotProductsTab').then(m => ({ default: m.HotProductsTab })), { ssr: false })
 const AlertsTab            = dynamic(() => import('./tabs/AlertsTab').then(m => ({ default: m.AlertsTab })), { ssr: false })
 const AffiliateTab         = dynamic(() => import('./tabs/AffiliateTab').then(m => ({ default: m.AffiliateTab })), { ssr: false })
+const AutomateTab          = dynamic(() => import('./tabs/AutomateTab').then(m => ({ default: m.AutomateTab })), { ssr: false })
 const NotificationsTab     = dynamic(() => import('./tabs/NotificationsTab').then(m => ({ default: m.NotificationsTab })), { ssr: false })
 
-type TabId = 'guide' | 'overview' | 'myshop' | 'hotproducts' | 'keywords' | 'gap' | 'listings' | 'competitors' | 'compsales' | 'trends' | 'buzz' | 'monthly' | 'topsellers' | 'catreport' | 'bulk' | 'rank' | 'shop' | 'salesmap' | 'delivery' | 'tags' | 'aihelper' | 'listingpro' | 'ctags' | 'titlegen' | 'taggen' | 'descgen' | 'audit' | 'compare' | 'spell' | 'fees' | 'adsroi' | 'category' | 'calendar' | 'lists' | 'alerts' | 'affiliate' | 'googleads' | 'notifications'
+type TabId = 'guide' | 'overview' | 'myshop' | 'hotproducts' | 'keywords' | 'gap' | 'listings' | 'competitors' | 'compsales' | 'trends' | 'buzz' | 'monthly' | 'topsellers' | 'catreport' | 'bulk' | 'rank' | 'shop' | 'salesmap' | 'delivery' | 'tags' | 'aihelper' | 'listingpro' | 'ctags' | 'titlegen' | 'taggen' | 'descgen' | 'audit' | 'compare' | 'spell' | 'fees' | 'adsroi' | 'category' | 'calendar' | 'lists' | 'alerts' | 'affiliate' | 'googleads' | 'notifications' | 'automate'
 
 const TABS: { id: TabId; label: string; description: string; group: string; accent: AccentName }[] = [
   // Pinned above every group (its own animated item), not listed under GROUPS.
@@ -90,6 +91,7 @@ const TABS: { id: TabId; label: string; description: string; group: string; acce
   { id: 'taggen',      label: 'Tag Generator', group: 'Optimize',    accent: 'amber',   description: 'AI Etsy tags from real data' },
   { id: 'descgen',     label: 'Description Gen',group: 'Optimize',    accent: 'amber',   description: 'AI Etsy descriptions from real data' },
   { id: 'listingpro',  label: 'Etsy Listing Pro', group: 'Optimize', accent: 'rose',    description: 'A whole listing + AI images in one click' },
+  { id: 'automate',    label: 'Automate Listing', group: 'Optimize', accent: 'orange',  description: 'Photos in, complete Etsy drafts out' },
   { id: 'aihelper',    label: 'AI Listing Helper',group: 'Optimize', accent: 'fuchsia', description: 'AI title, tags & description' },
   { id: 'audit',       label: 'Listing Audit', group: 'Optimize',    accent: 'green',   description: 'Score a listing\'s SEO' },
   { id: 'ctags',       label: 'Competitor Tags',group: 'Optimize',   accent: 'teal',    description: 'Extract a shop\'s tags' },
@@ -148,6 +150,7 @@ function TabContent({ active, onNavigate }: { active: TabId; onNavigate: (id: Ta
     affiliate:   <AffiliateTab />,
     googleads:   <GoogleAdsTab />,
     notifications: <NotificationsTab />,
+    automate:    <AutomateTab />,
   }
   return (
     <Suspense fallback={<div className="shimmer" style={{ height: 300, borderRadius: 8, background: '#e8e7e2' }} />}>
@@ -359,6 +362,9 @@ export function DashboardLayout() {
                     }}><AnimIcon src={DASH_ICON[tab.id]} size={25} color={hue} active={active} target="a" /></span>
                     <span className="rlabel" style={{ fontSize: 14, fontWeight: active ? 600 : 500, color: active ? C.ink : C.inkSoft, letterSpacing: '-0.01em' }}>{tab.label}</span>
                     {tab.id === 'notifications' && <NotifNavBadge />}
+                    {tab.id === 'automate' && user?.role !== 'admin' && (
+                      <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: C.orange, background: C.orangeFaint, padding: '2px 7px', borderRadius: 100 }}>Soon</span>
+                    )}
                   </TabLink>
                 )
               })}

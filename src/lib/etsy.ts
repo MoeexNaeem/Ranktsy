@@ -1719,6 +1719,17 @@ export interface CreateListingInput {
   materials?: string[]
   shippingProfileId?: number
   returnPolicyId?: number
+  readinessStateId?: number
+  shopSectionId?: number
+  styles?: string[]
+  shouldAutoRenew?: boolean
+  personalization?: { required: boolean; instructions?: string; charCountMax?: number } | null
+  itemWeight?: number
+  itemWeightUnit?: 'oz' | 'lb' | 'g' | 'kg'
+  itemLength?: number
+  itemWidth?: number
+  itemHeight?: number
+  itemDimensionsUnit?: 'in' | 'ft' | 'mm' | 'cm' | 'm'
 }
 
 export interface CreatedListing { listingId: number; state: string; url: string }
@@ -1745,6 +1756,26 @@ export async function createDraftListing(accessToken: string, shopId: number, in
   for (const m of (input.materials ?? []).slice(0, 13)) if (m.trim()) body.append('materials', m.trim().slice(0, 45))
   if (input.shippingProfileId) body.set('shipping_profile_id', String(input.shippingProfileId))
   if (input.returnPolicyId) body.set('return_policy_id', String(input.returnPolicyId))
+  if (input.readinessStateId) body.set('readiness_state_id', String(input.readinessStateId))
+  if (input.shopSectionId) body.set('shop_section_id', String(input.shopSectionId))
+  for (const st of (input.styles ?? []).slice(0, 2)) if (st.trim()) body.append('styles', st.trim().slice(0, 45))
+  if (input.shouldAutoRenew != null) body.set('should_auto_renew', String(!!input.shouldAutoRenew))
+  if (input.personalization) {
+    body.set('is_personalizable', 'true')
+    body.set('personalization_is_required', String(!!input.personalization.required))
+    if (input.personalization.instructions) body.set('personalization_instructions', input.personalization.instructions.slice(0, 256))
+    if (input.personalization.charCountMax) body.set('personalization_char_count_max', String(Math.max(1, Math.min(1024, Math.floor(input.personalization.charCountMax)))))
+  }
+  if (input.itemWeight && input.itemWeight > 0) {
+    body.set('item_weight', String(input.itemWeight))
+    body.set('item_weight_unit', input.itemWeightUnit ?? 'oz')
+  }
+  if (input.itemLength && input.itemWidth && input.itemHeight) {
+    body.set('item_length', String(input.itemLength))
+    body.set('item_width', String(input.itemWidth))
+    body.set('item_height', String(input.itemHeight))
+    body.set('item_dimensions_unit', input.itemDimensionsUnit ?? 'in')
+  }
 
   recordEtsyCall()
   const res = await fetch(`${ETSY_BASE}/shops/${shopId}/listings`, {
@@ -1785,7 +1816,7 @@ export async function uploadListingImage(
   accessToken: string,
   shopId: number,
   listingId: number,
-  image: { data: Uint8Array; filename: string; contentType?: string; rank?: number },
+  image: { data: Uint8Array; filename: string; contentType?: string; rank?: number; altText?: string },
 ): Promise<{ imageId: number }> {
   const form = new FormData()
   // Cast: TS 5.7 types Uint8Array as Uint8Array<ArrayBufferLike>, which isn't a
@@ -1793,6 +1824,7 @@ export async function uploadListingImage(
   const blob = new Blob([image.data as unknown as BlobPart], { type: image.contentType || 'image/jpeg' })
   form.append('image', blob, image.filename || 'image.jpg')
   if (image.rank) form.append('rank', String(image.rank))
+  if (image.altText) form.append('alt_text', image.altText.slice(0, 250))
 
   recordEtsyCall()
   const res = await fetch(`${ETSY_BASE}/shops/${shopId}/listings/${listingId}/images`, {
@@ -1812,6 +1844,168 @@ export async function uploadListingImage(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const j = await res.json() as any
   return { imageId: Number(j?.listing_image_id ?? 0) }
+}
+
+/** Any authenticated write (PUT/POST) to the owner's shop. JSON or url-encoded body. */
+async function etsyAuthedSend<T = unknown>(method: 'PUT' | 'POST', path: string, accessToken: string, body: URLSearchParams | Record<string, unknown>, label: string): Promise<T> {
+  await assertEtsyBudget()
+  recordEtsyCall()
+  const isForm = body instanceof URLSearchParams
+  const res = await fetch(`${ETSY_BASE}${path}`, {
+    method,
+    headers: {
+      'x-api-key':     ETSY_KEY_HEADER,
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type':  isForm ? 'application/x-www-form-urlencoded' : 'application/json',
+      'Accept':        'application/json',
+    },
+    body: isForm ? body.toString() : JSON.stringify(body),
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText)
+    throw new EtsyAuthError(res.status, `Etsy ${label} ${res.status}: ${text}`)
+  }
+  return res.json().catch(() => ({})) as Promise<T>
+}
+
+// ─── Listing attributes (category properties) ─────────────────────────────────
+// The "Attributes" section of Etsy's listing form (Craft type, Occasion,
+// Celebration, Holiday, Primary color, ...) is per-category: each taxonomy node
+// exposes its own properties with an allowed value list. Public data, so it is
+// read with the app key and cached for a day (it changes very rarely).
+export interface TaxonomyProperty {
+  propertyId: number
+  name: string
+  required: boolean
+  multi: boolean
+  maxValues: number | null
+  values: { id: number; name: string }[]
+}
+export async function getTaxonomyProperties(taxonomyId: number): Promise<TaxonomyProperty[]> {
+  const key = cacheKey('etsy-tax-props', 'v1', String(taxonomyId))
+  const hit = memCache.get<TaxonomyProperty[]>(key)
+  if (hit) return hit
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = await etsyFetch<{ results: any[] }>(`/seller-taxonomy/nodes/${taxonomyId}/properties`)
+  const props: TaxonomyProperty[] = (data.results ?? [])
+    // Only attribute-capable properties with a fixed value list can be set
+    // reliably; free-form / scale-only ones (sizes with units) are skipped.
+    .filter(p => p?.supports_attributes !== false && Array.isArray(p?.possible_values) && p.possible_values.length > 0)
+    .map(p => ({
+      propertyId: Number(p.property_id),
+      name: String(p.display_name || p.name || ''),
+      required: !!p.is_required,
+      multi: !!p.is_multivalued,
+      maxValues: p.max_values_allowed != null ? Number(p.max_values_allowed) : null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      values: (p.possible_values as any[]).map(v => ({ id: Number(v.value_id), name: String(v.name) })).filter(v => v.id && v.name),
+    }))
+    .filter(p => p.propertyId && p.name && p.values.length)
+  memCache.set(key, props, 60 * 60 * 24)
+  return props
+}
+
+/** Set one attribute on a draft (Etsy `updateListingProperty`). */
+export async function updateListingProperty(
+  accessToken: string, shopId: number, listingId: number,
+  prop: { propertyId: number; valueIds: number[]; values: string[] },
+): Promise<void> {
+  const body = new URLSearchParams()
+  for (const id of prop.valueIds) body.append('value_ids', String(id))
+  for (const v of prop.values) body.append('values', v)
+  await etsyAuthedSend('PUT', `/shops/${shopId}/listings/${listingId}/properties/${prop.propertyId}`, accessToken, body, 'updateProperty')
+}
+
+/**
+ * Give a single-product draft its SKU (Etsy `updateListingInventory`). Etsy has
+ * no `sku` field on the listing itself, it lives on the inventory product, so
+ * the price + quantity are re-sent alongside it.
+ */
+export async function setListingSku(accessToken: string, listingId: number, input: { sku: string; price: number; quantity: number }): Promise<void> {
+  await etsyAuthedSend('PUT', `/listings/${listingId}/inventory`, accessToken, {
+    products: [{
+      sku: input.sku.slice(0, 32),
+      property_values: [],
+      offerings: [{ price: Math.round(input.price * 100) / 100, quantity: Math.max(1, Math.floor(input.quantity || 1)), is_enabled: true }],
+    }],
+    price_on_property: [],
+    quantity_on_property: [],
+    sku_on_property: [],
+  }, 'updateInventory')
+}
+
+/** Attach a downloadable file to a DIGITAL draft (Etsy `uploadListingFile`). */
+export async function uploadListingFile(
+  accessToken: string, shopId: number, listingId: number,
+  file: { data: Uint8Array; filename: string; contentType?: string; rank?: number },
+): Promise<{ fileId: number }> {
+  const form = new FormData()
+  const blob = new Blob([file.data as unknown as BlobPart], { type: file.contentType || 'application/octet-stream' })
+  form.append('file', blob, file.filename || 'file')
+  form.append('name', (file.filename || 'file').slice(0, 250))
+  if (file.rank) form.append('rank', String(file.rank))
+
+  await assertEtsyBudget()
+  recordEtsyCall()
+  const res = await fetch(`${ETSY_BASE}/shops/${shopId}/listings/${listingId}/files`, {
+    method: 'POST',
+    headers: {
+      'x-api-key':     ETSY_KEY_HEADER,
+      'Authorization': `Bearer ${accessToken}`,
+      'Accept':        'application/json',
+    },
+    body: form,
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText)
+    throw new EtsyAuthError(res.status, `Etsy uploadFile ${res.status}: ${text}`)
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const j = await res.json() as any
+  return { fileId: Number(j?.listing_file_id ?? 0) }
+}
+
+// ─── Shop settings a draft can reference (owner-scoped) ───────────────────────
+export interface ShopListingOptions {
+  shippingProfiles: { id: number; title: string; origin: string | null }[]
+  processingProfiles: { id: number; label: string }[]
+  returnPolicies: { id: number; label: string }[]
+  sections: { id: number; title: string }[]
+}
+/**
+ * Everything the "Delivery" step can pick from: shipping profiles, processing
+ * profiles (Etsy readiness states, required for physical listings), return
+ * policies and shop sections. Each part fails soft to [] so one missing scope
+ * or an older shop setup doesn't blank the rest.
+ */
+export async function getShopListingOptions(accessToken: string, shopId: number): Promise<ShopListingOptions> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  type R = { results?: any[] }
+  const none: R = { results: [] }
+  const [ship, ready, ret, sec] = await Promise.all([
+    etsyAuthedFetch<R>(`/shops/${shopId}/shipping-profiles`, accessToken).catch(() => none),
+    etsyAuthedFetch<R>(`/shops/${shopId}/readiness-state-definitions`, accessToken).catch(() => none),
+    etsyAuthedFetch<R>(`/shops/${shopId}/policies/return`, accessToken).catch(() => none),
+    etsyAuthedFetch<R>(`/shops/${shopId}/sections`, accessToken).catch(() => none),
+  ])
+  const unit = (u: unknown) => String(u ?? 'days').replace(/s$/, '') + 's'
+  return {
+    shippingProfiles: (ship.results ?? []).map(p => ({ id: Number(p.shipping_profile_id), title: String(p.title || `Profile ${p.shipping_profile_id}`), origin: p.origin_country_iso ? String(p.origin_country_iso) : null })).filter(p => p.id),
+    processingProfiles: (ready.results ?? []).map(r => {
+      const state = String(r.readiness_state ?? '') === 'ready_to_ship' ? 'Ready to ship' : 'Made to order'
+      const range = r.min_processing_time != null ? `${r.min_processing_time}-${r.max_processing_time ?? r.min_processing_time} ${unit(r.processing_time_unit)}` : ''
+      return { id: Number(r.readiness_state_id), label: range ? `${state} · ${range}` : state }
+    }).filter(r => r.id),
+    returnPolicies: (ret.results ?? []).map(r => ({
+      id: Number(r.return_policy_id),
+      label: r.accepts_returns || r.accepts_exchanges
+        ? `${[r.accepts_returns && 'Returns', r.accepts_exchanges && 'Exchanges'].filter(Boolean).join(' & ')}${r.return_deadline ? ` · ${r.return_deadline} days` : ''}`
+        : 'No returns or exchanges',
+    })).filter(r => r.id),
+    sections: (sec.results ?? []).map(s => ({ id: Number(s.shop_section_id), title: String(s.title ?? '') })).filter(s => s.id && s.title),
+  }
 }
 
 export interface OwnerShop {
