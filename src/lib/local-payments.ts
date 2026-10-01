@@ -27,7 +27,7 @@ export const LOCAL_PLANS: LocalPlan[] = [
   { slug: 'starter',    label: 'Starter',      usd: '$0.99',  pkr: 270,    months: 1,  period: 'per month' },
   { slug: 'basic',      label: 'Basic',        usd: '$2.99',  pkr: 820,    months: 1,  period: 'per month' },
   { slug: 'pro',        label: 'Pro',          usd: '$6.99',  pkr: 1940,   months: 1,  period: 'per month' },
-  { slug: 'pro-1yr',    label: 'Pro · 1-Year', usd: '$99.99', pkr: 27600,  months: 12, period: 'per year' },
+  { slug: 'pro-1yr',    label: 'Pro · 1-Year', usd: '$49.99', pkr: 14000,  months: 12, period: 'per year' },
   { slug: 'business',   label: 'Business',     usd: '$19.99', pkr: 5500,   months: 1,  period: 'per month' },
   { slug: 'agency',     label: 'Agency',       usd: '$39.99', pkr: 11000,  months: 1,  period: 'per month' },
   { slug: 'enterprise', label: 'Enterprise',   usd: '$49.99', pkr: 13800,  months: 1,  period: 'per month' },

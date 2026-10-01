@@ -149,8 +149,8 @@ export function PopupAdsAdmin() {
               <label style={{ ...label, marginTop: 12 }}>Description</label>
               <textarea style={{ ...field, minHeight: 80, resize: 'vertical' }} value={f.description || ''} onChange={e => set('description', e.target.value)} placeholder="A full year of Rankkw Pro at a locked-in price…" />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 12, marginTop: 12 }}>
-                <div><label style={label}>Price</label><input style={field} value={f.price || ''} onChange={e => set('price', e.target.value)} placeholder="$99.99" /></div>
-                <div><label style={label}>Price note</label><input style={field} value={f.priceNote || ''} onChange={e => set('priceNote', e.target.value)} placeholder="per year · ~$7.50 / mo" /></div>
+                <div><label style={label}>Price</label><input style={field} value={f.price || ''} onChange={e => set('price', e.target.value)} placeholder="$49.99" /></div>
+                <div><label style={label}>Price note</label><input style={field} value={f.priceNote || ''} onChange={e => set('priceNote', e.target.value)} placeholder="per year · ~$4.17 / mo" /></div>
               </div>
               <label style={{ ...label, marginTop: 12 }}>Button label</label>
               <input style={field} value={f.ctaLabel || ''} onChange={e => set('ctaLabel', e.target.value)} placeholder="Learn more" />

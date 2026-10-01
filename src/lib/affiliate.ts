@@ -41,7 +41,7 @@ export const PLAN_PRICE_USD: Partial<Record<PlanSlug, number>> = {
   starter: 0.99,
   basic: 2.99,
   pro: 6.99,
-  'pro-1yr': 99.99,
+  'pro-1yr': 49.99,
   business: 19.99,
   agency: 39.99,
   enterprise: 49.99,

@@ -56,8 +56,8 @@ export const PLANS: Plan[] = [
     cta: 'Choose Pro', href: '/register?plan=pro',
   },
   {
-    name: 'Pro · 1-Year', slug: 'pro-1yr', price: '$99.99', period: 'per year', accent: '#B7791F',
-    note: '≈ $7.50 / mo · best value',
+    name: 'Pro · 1-Year', slug: 'pro-1yr', price: '$49.99', period: 'per year', accent: '#B7791F',
+    note: '≈ $4.17 / mo · best value',
     blurb: 'All of Pro for a year - with more images.',
     features: [
       '150 credits / day (1 per search)',
@@ -66,13 +66,6 @@ export const PLANS: Plan[] = [
       'Up to 150 keyword searches / day',
       'Priority support',
       'Locked-in 1-year price',
-    ],
-    expandable: [
-      '25 digital products ready to list',
-      '25 SEO-optimized product titles',
-      '25 SEO-optimized product descriptions',
-      '25 professional product listing images',
-      'A 15-minute one-on-one consultation to map out your next quarter',
     ],
     cta: 'Get 1-Year Pro', href: '/register?plan=pro-1yr',
   },
@@ -173,7 +166,7 @@ const PKR_OVERRIDES: Record<string, { price: string; note?: string }> = {
   starter:      { price: 'Rs 250' },
   basic:        { price: 'Rs 750' },
   pro:          { price: 'Rs 1,750' },
-  'pro-1yr':    { price: 'Rs 18,750', note: '≈ Rs 1,563 / mo · best value' },
+  'pro-1yr':    { price: 'Rs 14,000', note: '≈ Rs 1,167 / mo · best value' },
   business:     { price: 'Rs 4,999' },
   agency:       { price: 'Rs 9,999' },
   enterprise:   { price: 'Rs 12,500' },
