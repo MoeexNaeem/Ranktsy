@@ -665,23 +665,32 @@ export async function getKeywordRankMovers(keywordRaw: string, days = 30, limit 
       .lean<{ listingId: number; shopId: number | null; day: string; position: number }[]>()
     if (!rows.length) return { movers: [], reliable: false, reason: 'none', country }
 
-    // INTEGRITY GATE. A day's capture is only a ranking if each position belongs
-    // to one listing. Today it often does not: captures from different shoppers,
-    // pages and countries are merged with $min, so several listings can each end
-    // up "position 1". Rather than present that as precise movement, refuse it.
-    const seen = new Map<string, Set<number>>()
-    let collisions = 0
+    // INTEGRITY GATE. A position is only a ranking if ONE listing held it that day.
+    // Captures from different shoppers/pages are merged with $min, so sometimes two
+    // listings each claim the same position on the same day. Those observations are
+    // ambiguous and are dropped; every unambiguous one is kept.
+    //
+    // This used to be all-or-nothing: a single conflicting pair anywhere in 30 days
+    // rejected the WHOLE keyword. With many extension users nearly every popular
+    // keyword had one, so Rank Movement vanished for everyone except keywords one
+    // person (in practice the admin) captured alone.
+    const holders = new Map<string, Set<number>>()        // `${day}|${position}` → listings
+    const positionsPerDay = new Map<string, number>()
     for (const r of rows) {
       const k = `${r.day}|${r.position}`
-      let set = seen.get(k)
-      if (!set) { set = new Set(); seen.set(k, set) }
-      if (set.size > 0 && !set.has(r.listingId)) collisions++
+      let set = holders.get(k)
+      if (!set) { set = new Set(); holders.set(k, set); positionsPerDay.set(r.day, (positionsPerDay.get(r.day) ?? 0) + 1) }
       set.add(r.listingId)
     }
-    if (collisions > 0) return { movers: [], reliable: false, reason: 'ambiguous', country }
+    // A day where many positions conflict is not a trustworthy ordering at all.
+    const conflictsPerDay = new Map<string, number>()
+    for (const [k, set] of holders) if (set.size > 1) { const day = k.split('|')[0]; conflictsPerDay.set(day, (conflictsPerDay.get(day) ?? 0) + 1) }
+    const badDays = new Set([...conflictsPerDay].filter(([day, n]) => n / (positionsPerDay.get(day) || 1) > 0.3).map(([day]) => day))
+    const clean = rows.filter(r => !badDays.has(r.day) && (holders.get(`${r.day}|${r.position}`)?.size ?? 0) === 1)
+    if (!clean.length) return { movers: [], reliable: false, reason: 'ambiguous', country }
 
     const byListing = new Map<number, { shopId: number | null; pts: { day: string; position: number }[] }>()
-    for (const r of rows) {
+    for (const r of clean) {
       let e = byListing.get(r.listingId)
       if (!e) { e = { shopId: r.shopId ?? null, pts: [] }; byListing.set(r.listingId, e) }
       e.pts.push({ day: r.day, position: r.position })
