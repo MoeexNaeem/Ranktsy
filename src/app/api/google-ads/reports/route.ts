@@ -6,6 +6,7 @@ import {
   REPORT_RANGES, REPORT_TYPES, type ReportRange, type ReportType,
   accountOverview, campaignReport, adReport, keywordReport, searchTermReport, biddingReport,
 } from '@/lib/google-ads-reports'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -14,7 +15,7 @@ export const dynamic = 'force-dynamic'
 // Reports for the user's selected Google Ads account. Cached 2 minutes per
 // (user, account, report, range, campaign) so tab switching doesn't spend API operations;
 // pass fresh=1 to bypass (e.g. right after an edit).
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
   if (!canUseGoogleAdsManager(user)) return NextResponse.json({ success: false, error: 'Google Ads management is not available for this account yet.' }, { status: 403 })
@@ -52,3 +53,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: er.error, code: er.code }, { status: er.status })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getEtsyShop } from '@/lib/etsy'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import type { ApiResponse } from '@/types'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 
@@ -13,7 +14,7 @@ export interface ShopSummary {
 // Lightweight, cached shop-level stats for the listing-detail panel - real
 // numbers (lifetime sales, reviews, rating, shop age) that give a single listing
 // honest context, especially when its per-listing review count is low.
-export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<ShopSummary>>> {
+async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<ShopSummary>>> {
   const name = new URL(req.url).searchParams.get('shop')?.trim()
   if (!name) return NextResponse.json({ success: false, error: 'Missing shop' }, { status: 400 })
 
@@ -33,3 +34,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Sh
     return NextResponse.json({ success: false, error: 'Shop not found' }, { status: 502 })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)

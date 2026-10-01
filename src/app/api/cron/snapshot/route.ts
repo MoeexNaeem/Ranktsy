@@ -4,6 +4,7 @@ import { TrackedShop, ShopSnapshot, TrackedListing, ListingSnapshot } from '@/li
 import { getEtsyShop, getListingById, getListingReviewStats, topCategoryForTaxonomy, etsyQuotaLow } from '@/lib/etsy'
 import { dayKey, recordObservedListings } from '@/lib/snapshots'
 import type { ApiResponse } from '@/types'
+import { runWithUsageContext } from '@/lib/usage'
 
 // Cap the nightly per-listing refresh so it can't blow the Etsy rate budget.
 // Each listing costs 2 calls (listing + reviews); 200 → ~400 calls/night.
@@ -26,7 +27,7 @@ export const dynamic = 'force-dynamic'
  * run rather than sitting open - an unauthenticated endpoint that burns the Etsy
  * rate budget is a liability.
  */
-export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<unknown>>> {
+async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<unknown>>> {
   const secret = process.env.CRON_SECRET
   if (!secret) {
     return NextResponse.json(
@@ -128,3 +129,6 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<un
     return NextResponse.json({ success: false, error: 'Snapshot job failed' }, { status: 500 })
   }
 }
+
+// Labelled in the admin usage table instead of falling into "anonymous".
+export const GET = (req: NextRequest) => runWithUsageContext({ userId: 'system:cron-snapshot', userEmail: 'System: daily snapshot cron' }, () => handleGET(req))

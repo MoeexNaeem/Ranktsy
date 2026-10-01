@@ -3,8 +3,9 @@ import { getEtsyShop, getShopListings, resolveShopId } from '@/lib/etsy'
 import { getCurrentUser } from '@/lib/auth/session'
 import { listConnectedShops } from '@/lib/etsy-tokens'
 import { cachedFlight, cacheKey, CACHE_TTL } from '@/lib/cache'
+import { withUsage } from '@/lib/track'
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const shopId = searchParams.get('id')
 
@@ -41,3 +42,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: msg }, { status: 502 })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)

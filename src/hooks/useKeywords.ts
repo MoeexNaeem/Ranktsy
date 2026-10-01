@@ -187,17 +187,30 @@ export interface TrendCountries {
   countries: { country: string; percentage: number; color: string; selected?: boolean }[]
   googleStatus?: string
   googleRetryAt?: string | null
+  /** Client-side: true while Google was busy and an automatic re-ask is still pending. */
+  retrying?: boolean
 }
+// Busy answers in a row per keyword+country, so the automatic re-ask gives up after a while.
+const COUNTRY_MAX_TRIES = 8
+const countryTries = new Map<string, number>()
 export function useTrendCountries(query: string, geo = 'US', enabled = true) {
+  const k = `${query.toLowerCase().trim()}|${geo}`
   return useQuery({
     queryKey:  ['trend-countries', query.toLowerCase().trim(), geo] as const,
     queryFn:   async ({ signal }) => {
       const { data } = await api.get(`/trends/countries?q=${encodeURIComponent(query)}&geo=${geo}`, { signal })
       if (!data.success) throw new Error(data.error)
-      return data.data as TrendCountries
+      const d = data.data as TrendCountries
+      const tries = d.googleStatus === 'error' ? (countryTries.get(k) ?? 0) + 1 : 0
+      countryTries.set(k, tries)
+      return { ...d, retrying: d.googleStatus === 'error' && tries < COUNTRY_MAX_TRIES }
     },
     enabled:   enabled && query.trim().length >= 2,
     staleTime: q => (googleGap(q.state.data) ? 60_000 : 1000 * 60 * 60),
+    // Google was busy: the countries that DID answer are stored server-side, so ask
+    // again shortly and each retry only fills the gaps (no fabricated partial split).
+    // A daily quota lock is not retried; it lasts far longer than a page view.
+    refetchInterval: q => ((q.state.data as TrendCountries | undefined)?.retrying ? 15_000 : false),
     retry: dontRetry4xx,
   })
 }

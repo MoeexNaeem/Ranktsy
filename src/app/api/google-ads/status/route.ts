@@ -3,12 +3,13 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { memCache } from '@/lib/cache'
 import { canUseGoogleAdsManager, requireSelectedAccount, adsErrorResponse } from '@/lib/google-ads-user'
 import { statusSchema, setStatus } from '@/lib/google-ads-manage'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 
 // PATCH { kind: campaign|ad|keyword, status: ENABLED|PAUSED|REMOVED, items: [...] }
 // Pause, enable or remove campaigns, ads or keywords in the selected account.
-export async function PATCH(req: NextRequest) {
+async function handlePATCH(req: NextRequest) {
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
   if (!canUseGoogleAdsManager(user)) return NextResponse.json({ success: false, error: 'Google Ads management is not available for this account yet.' }, { status: 403 })
@@ -26,3 +27,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ success: false, error: er.error, code: er.code }, { status: er.status })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const PATCH = withUsage(handlePATCH)

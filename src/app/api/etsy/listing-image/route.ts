@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { getValidEtsyAuth } from '@/lib/etsy-tokens'
 import { uploadListingImage, isEtsyAuthExpired } from '@/lib/etsy'
 import type { ApiResponse } from '@/types'
+import { withUsage } from '@/lib/track'
 
 /**
  * Attach the seller's own photos to a draft created by /api/etsy/create-listing.
@@ -19,7 +20,7 @@ const MAX_IMAGES = 10
 const MAX_BYTES = 10 * 1024 * 1024 // Etsy's per-image cap
 const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/gif'])
 
-export const POST = async (req: NextRequest): Promise<NextResponse<ApiResponse<{ uploaded: number }>>> => {
+const handlePOST = async (req: NextRequest): Promise<NextResponse<ApiResponse<{ uploaded: number }>>> => {
   const user = await getCurrentUser().catch(() => null)
   if (!user) return NextResponse.json({ success: false, error: 'Please log in.' }, { status: 401 })
 
@@ -78,3 +79,6 @@ export const POST = async (req: NextRequest): Promise<NextResponse<ApiResponse<{
     return NextResponse.json({ success: false, error: `${detail}${msg.replace(/^Etsy uploadImage \d+: /, '').slice(0, 240)}` }, { status: 502 })
   }
 }
+
+// Attribute this route's Etsy calls to the signed-in user in the admin usage table.
+export const POST = withUsage(handlePOST)

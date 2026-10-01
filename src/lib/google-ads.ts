@@ -328,7 +328,6 @@ async function getAccessToken(): Promise<string> {
 }
 
 // ─── Quota-aware Google Ads requests ──────────────────────────────────────────
-let pacer: Promise<unknown> = Promise.resolve()
 const MIN_GAP_MS = 250
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
@@ -438,11 +437,20 @@ export async function adsApiCall<T>(o: AdsCallOptions, opts: { probe?: boolean }
     if (planner && !probing && blockedUntil > Date.now()) throw new GoogleAdsError('Google Ads daily quota exhausted', 'quota', blockedUntil)
     recordGoogleCall()
     if (planner) countPlannerOp()
-    const res = await fetch(`https://googleads.googleapis.com/${V}/${o.path}`, {
-      method: o.method ?? 'POST', headers,
-      ...(o.method === 'GET' ? {} : { body: JSON.stringify(o.body ?? {}) }),
-      cache: 'no-store',
-    })
+    let res: Response
+    try {
+      res = await fetch(`https://googleads.googleapis.com/${V}/${o.path}`, {
+        method: o.method ?? 'POST', headers,
+        ...(o.method === 'GET' ? {} : { body: JSON.stringify(o.body ?? {}) }),
+        cache: 'no-store',
+        // A hung call used to hold the shared Planner queue indefinitely.
+        signal: AbortSignal.timeout(planner ? REQUEST_TIMEOUT_MS : 30_000),
+      })
+    } catch (e) {
+      const timedOut = (e as Error)?.name === 'TimeoutError' || (e as Error)?.name === 'AbortError'
+      if (attempt === 0 && !timedOut) { await sleep(500); continue }   // network blip: one quick retry
+      throw new GoogleAdsError(timedOut ? 'Google took too long to answer. Try again in a moment.' : 'Could not reach Google. Try again in a moment.', 'rate')
+    }
     if (res.ok) {
       if (probing) void clearQuotaBlock()
       const t = await res.text()
@@ -464,8 +472,10 @@ export async function adsApiCall<T>(o: AdsCallOptions, opts: { probe?: boolean }
         if (planner) setQuotaBlock(lockUntil, [scope, rateName].filter(Boolean).join(': ') || null)
         throw new GoogleAdsError('Google Ads daily quota exhausted', 'quota', lockUntil)
       }
-      // Short per-second limit: wait what Google asks (capped), retry once.
-      if (attempt === 0) { await sleep(Math.min(8, seconds ?? 2) * 1000 + 200); continue }
+      // Short per-second limit: wait what Google asks (capped), retry once. Planner
+      // calls run inside the shared queue, so they wait at most ~2 s (everyone behind
+      // them waits too); the scheduler then widens its gap for the following calls.
+      if (attempt === 0) { await sleep(Math.min(planner ? 2 : 8, seconds ?? (planner ? 1 : 2)) * 1000 + 200); continue }
       throw new GoogleAdsError(`Google Ads is rate limiting requests. Try again in a moment.`, 'rate')
     }
     if (res.status >= 500 && attempt === 0) { await sleep(800); continue }
@@ -484,19 +494,79 @@ export async function adsApiCall<T>(o: AdsCallOptions, opts: { probe?: boolean }
   throw new GoogleAdsError('Google Ads request failed', 'http')
 }
 
-// Shared Keyword Planner calls run on the app's own account, serialized per process
-// with a small gap so bursts (many users, 7-country Global lookups) don't trip the
-// per-second account limit.
-async function adsRequest<T>(path: string, body: unknown): Promise<T> {
+// ─── Shared Keyword Planner scheduler (per process) ───────────────────────────
+// All of the app's own Planner calls go through ONE lane-ordered queue per worker.
+//
+// It used to be a plain FIFO: one call at a time, a fixed 250 ms gap, and no
+// timeout. At peak (~2,700 searches/hour, each new keyword needing its own volume
+// + related batch + 7 per-country lookups) work arrived faster than it drained,
+// so a user's keyword volume waited behind other people's country charts for
+// MINUTES, and past Cloudflare's 100 s the page errored. A per-second 429 also
+// slept up to 8 s INSIDE the queue, stalling everyone behind it.
+//
+// Now:
+//   • priority lanes  - 'high' (the keyword being searched) always goes first,
+//                       'normal' (related batches), 'low' (country breakdown, ideas).
+//   • waiting limit   - a call that queued longer than its lane allows is dropped
+//                       with a 'rate' error; callers already fall back to stored
+//                       data and say Google is busy, and the client re-asks shortly.
+//   • request timeout - a hung Google call can no longer freeze the queue.
+//   • adaptive gap    - doubles on a per-second 429, eases back on success, so the
+//                       4 workers stop tripping Google's per-second limit together.
+export type GooglePriority = 'high' | 'normal' | 'low'
+const LANE_ORDER: GooglePriority[] = ['high', 'normal', 'low']
+const MAX_WAIT_MS: Record<GooglePriority, number> = { high: 25_000, normal: 30_000, low: 20_000 }
+const REQUEST_TIMEOUT_MS = 15_000
+const GAP_MIN_MS = MIN_GAP_MS, GAP_MAX_MS = 4_000
+
+interface QueuedCall { run: () => Promise<unknown>; resolve: (v: unknown) => void; reject: (e: unknown) => void; enqueuedAt: number; priority: GooglePriority }
+const lanes: Record<GooglePriority, QueuedCall[]> = { high: [], normal: [], low: [] }
+let draining = false
+let gapMs = GAP_MIN_MS
+
+async function drain(): Promise<void> {
+  if (draining) return
+  draining = true
+  try {
+    for (;;) {
+      const lane = LANE_ORDER.find(l => lanes[l].length)
+      if (!lane) break
+      const job = lanes[lane].shift()!
+      if (Date.now() - job.enqueuedAt > MAX_WAIT_MS[job.priority]) {
+        job.reject(new GoogleAdsError('Google is busy right now. Try again in a moment.', 'rate'))
+        continue   // expired jobs cost no Google call and no gap
+      }
+      try {
+        job.resolve(await job.run())
+        gapMs = Math.max(GAP_MIN_MS, Math.round(gapMs * 0.9))
+      } catch (e) {
+        if (e instanceof GoogleAdsError && e.kind === 'rate') gapMs = Math.min(GAP_MAX_MS, gapMs * 2)
+        job.reject(e)
+      }
+      await sleep(gapMs)
+    }
+  } finally {
+    draining = false
+  }
+}
+
+/** Queue one of the app's own Planner calls in its priority lane. */
+async function adsRequest<T>(path: string, body: unknown, priority: GooglePriority = 'normal'): Promise<T> {
   const run = async (): Promise<T> => adsApiCall<T>({
     token: await getAccessToken(),
     path: `customers/${digits(process.env.GOOGLE_ADS_CUSTOMER_ID)}${path}`,
     body,
     loginCustomerId: process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID,
   })
-  const p = pacer.then(async () => { try { return await run() } finally { await sleep(MIN_GAP_MS) } })
-  pacer = p.catch(() => {})
-  return p
+  return new Promise<T>((resolve, reject) => {
+    lanes[priority].push({ run, resolve: resolve as (v: unknown) => void, reject, enqueuedAt: Date.now(), priority })
+    void drain()
+  })
+}
+
+/** Queue depth per lane (diagnostics / admin health). */
+export function googleQueueDepth(): Record<GooglePriority, number> & { gapMs: number } {
+  return { high: lanes.high.length, normal: lanes.normal.length, low: lanes.low.length, gapMs }
 }
 
 // ─── Metrics types ────────────────────────────────────────────────────────────
@@ -566,7 +636,7 @@ function noteFailure(meta: GoogleMetricsMeta | undefined, e: unknown) {
 /** Historical metrics for keywords over a set of geo targets (one country, or all tracked
  *  countries combined for Global), stored under `cacheGeo`: cache first, then ONE batched
  *  request for only the misses. On failure, stale stored rows are used. Never throws. */
-async function fetchMetrics(keywords: string[], geoIds: string[], cacheGeo: string, meta: GoogleMetricsMeta | undefined): Promise<Map<string, GoogleMetric>> {
+async function fetchMetrics(keywords: string[], geoIds: string[], cacheGeo: string, meta: GoogleMetricsMeta | undefined, priority?: GooglePriority): Promise<Map<string, GoogleMetric>> {
   const out = new Map<string, GoogleMetric>()
   const kws = normKws(keywords).slice(0, 1000)
   if (!kws.length) return out
@@ -590,7 +660,9 @@ async function fetchMetrics(keywords: string[], geoIds: string[], cacheGeo: stri
         geoTargetConstants: geoIds.map(id => `geoTargetConstants/${id}`),
         keywordPlanNetwork: 'GOOGLE_SEARCH',
         language: LANG_EN,
-      })
+      // The keyword a user just searched (1-2 terms) jumps the queue; big related
+      // batches wait behind it. Callers can force a lane (country chart = low).
+      }, priority ?? (misses.length <= 2 ? 'high' : 'normal'))
       const got = new Map<string, GoogleMetric>()
       for (const r of j.results ?? []) {
         const m = r.keywordMetrics
@@ -624,8 +696,8 @@ async function fetchMetrics(keywords: string[], geoIds: string[], cacheGeo: stri
 }
 
 /** Historical metrics in ONE country. */
-function metricsForGeo(keywords: string[], geoId: string, meta?: GoogleMetricsMeta): Promise<Map<string, GoogleMetric>> {
-  return fetchMetrics(keywords, [geoId], geoId, meta)
+function metricsForGeo(keywords: string[], geoId: string, meta?: GoogleMetricsMeta, priority?: GooglePriority): Promise<Map<string, GoogleMetric>> {
+  return fetchMetrics(keywords, [geoId], geoId, meta, priority)
 }
 
 /** Add up per-country answers for one keyword (volume + monthly summed, bids averaged). */
@@ -729,7 +801,16 @@ export async function googleCountryBreakdown(keyword: string, meta?: GoogleMetri
   // /api/trends/countries), and each country is cached for 30 days.
   const results: { iso: string; searches: number }[] = []
   for (const iso of Object.keys(GEO_TARGETS)) {
-    const m = await metricsForGeo([kw], GEO_TARGETS[iso].id, meta)
+    // Background lane: the chart is secondary, so it never delays a keyword's own volume.
+    const local: GoogleMetricsMeta = {}
+    const m = await metricsForGeo([kw], GEO_TARGETS[iso].id, local, 'low')
+    if (meta) Object.assign(meta, { failed: meta.failed || local.failed, quota: meta.quota || local.quota, stale: meta.stale || local.stale, retryAt: meta.retryAt ?? local.retryAt })
+    // A country Google could not answer (and had no stored figure for) would make the
+    // others' shares look bigger than they are. Never show a partial split as if it
+    // were complete: stop here (later countries would fail the same way), return
+    // nothing, and let the caller report "busy". Every country that DID answer is
+    // already stored, so the next attempt only asks for the rest.
+    if (local.failed && !m.has(kw)) return []
     results.push({ iso, searches: m.get(kw)?.searches ?? 0 })
   }
   const total = results.reduce((s, r) => s + r.searches, 0)
@@ -766,7 +847,7 @@ export async function googleAccountCurrency(): Promise<string | null> {
     } catch { /* fall through to the API */ }
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const j = await adsRequest<any>('/googleAds:searchStream', { query: 'SELECT customer.currency_code FROM customer LIMIT 1' })
+      const j = await adsRequest<any>('/googleAds:searchStream', { query: 'SELECT customer.currency_code FROM customer LIMIT 1' }, 'high')
       const code = (Array.isArray(j) ? j[0]?.results?.[0] : j?.results?.[0])?.customer?.currencyCode
       if (code) {
         cachedCurrency = String(code)
@@ -828,7 +909,7 @@ export async function googleKeywordIdeas(seed: string, geoIso = 'US', limit = 40
         keywordPlanNetwork: 'GOOGLE_SEARCH',
         language: LANG_EN,
         pageSize: 100,
-      })
+      }, 'low')   // keyword ideas are supplementary: background lane
       const list: GoogleIdea[] = (j.results ?? [])
         .map(r => {
           const m = r.keywordIdeaMetrics ?? {}

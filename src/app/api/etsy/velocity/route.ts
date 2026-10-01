@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { resolveShopId, getEtsyShop } from '@/lib/etsy'
 import { getShopVelocity } from '@/lib/snapshots'
 import type { ApiResponse, ShopVelocity } from '@/types'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 
@@ -13,7 +14,7 @@ export const runtime = 'nodejs'
  * every delta null - the UI must say "tracking started today" rather than imply
  * a real zero.
  */
-export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<ShopVelocity>>> {
+async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<ShopVelocity>>> {
   const { searchParams } = new URL(req.url)
   const q = searchParams.get('shop')?.trim()
   const days = Math.min(Math.max(Number(searchParams.get('days') ?? 90), 7), 400)
@@ -44,3 +45,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Sh
     return NextResponse.json({ success: false, error: 'Could not resolve that shop on Etsy.' }, { status: 502 })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)

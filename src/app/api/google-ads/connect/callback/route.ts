@@ -5,12 +5,13 @@ import {
   canUseGoogleAdsManager, exchangeAdsCode, emailFromIdToken, discoverAccounts, saveConnection, ADS_STATE_COOKIE, ADS_SCOPES,
 } from '@/lib/google-ads-user'
 import { GoogleAdsError } from '@/lib/google-ads'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 
 // Google redirects here after consent. Stores the (encrypted) refresh token and the
 // Google Ads accounts this login can reach, then returns to the Google Ads tab.
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   const back = (q: string) => {
     const res = NextResponse.redirect(appUrl(`/dashboard?tab=googleads&gads=${q}`, req.url))
     res.cookies.delete(ADS_STATE_COOKIE)
@@ -90,3 +91,7 @@ function classify(e: unknown): string {
 
   return 'failed'
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)

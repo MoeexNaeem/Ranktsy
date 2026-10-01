@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getListingById, topCategoryForTaxonomy } from '@/lib/etsy'
 import { cachedFlight, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { upstreamFailure } from '@/lib/upstream-errors'
+import { withUsage } from '@/lib/track'
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const id = parseInt(searchParams.get('id') ?? '', 10)
   if (!id || Number.isNaN(id)) {
@@ -24,3 +25,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: fail.message }, { status: fail.status })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)

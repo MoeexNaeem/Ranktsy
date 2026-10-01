@@ -3,12 +3,13 @@ import { searchEtsyListingsPaged, attachCategoryTop, type SearchOpts } from '@/l
 import { guardSearch } from '@/lib/searchGate'
 import { cachedFlight, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { upstreamFailure } from '@/lib/upstream-errors'
+import { withUsage } from '@/lib/track'
 
 // Etsy caps offset-based paging; keep it within a sane range.
 const MAX_OFFSET = 12000
 const SORTS = new Set(['score', 'price', 'created', 'updated'])
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const q = searchParams.get('q')?.trim()
   const limit = Math.min(Math.max(parseInt(searchParams.get('limit') ?? '24'), 1), 100)
@@ -48,3 +49,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: fail.message }, { status: fail.status })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)

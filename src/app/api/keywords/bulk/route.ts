@@ -4,6 +4,7 @@ import { googleKeywordMetrics, isGoogleAdsConfigured, normalizeGeo } from '@/lib
 import { getKeywordCore } from '@/lib/keywords'
 import { guardSearch } from '@/lib/searchGate'
 import type { ApiResponse, BulkKeywordRow } from '@/types'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 
@@ -63,7 +64,7 @@ async function analyzeOne(keyword: string, geo: string): Promise<BulkKeywordRow>
   }
 }
 
-export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<BulkKeywordRow[]>>> {
+async function handlePOST(req: NextRequest): Promise<NextResponse<ApiResponse<BulkKeywordRow[]>>> {
   const body = await req.json().catch(() => ({})) as { keywords?: string[]; geo?: string }
   const keywords = [...new Set((body.keywords ?? [])
     .map(k => String(k).trim().toLowerCase())
@@ -111,3 +112,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<B
     return NextResponse.json({ success: false, error: 'Bulk analysis failed.' }, { status: 502 })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const POST = withUsage(handlePOST)

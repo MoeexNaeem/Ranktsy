@@ -17,6 +17,7 @@ import { RealtimeProvider, NotificationBell, NotifNavBadge, ChatWidget } from '.
 import { OnboardingChecklist } from './OnboardingChecklist'
 import { PlanExpiredModal, type ExpiredPlan } from './PlanExpiredModal'
 import { TabLink } from './TabLink'
+import { toast } from '@/components/ui/toast'
 import { GuideTab } from './tabs/GuideTab'
 
 const KeywordsTab      = dynamic(() => import('./tabs/KeywordsTab').then(m => ({ default: m.KeywordsTab })), { ssr: false })
@@ -169,6 +170,19 @@ function tabFromUrl(): TabId {
   return isTabId(tab) ? tab : 'overview'
 }
 
+/** One clear message per Etsy OAuth outcome (?etsy=… from /api/etsy/oauth/callback). */
+function announceEtsyResult(result: string | null) {
+  switch (result) {
+    case 'connected':      toast.success('Etsy shop connected', 'Your shop data is loading now.'); break
+    case 'denied':         toast.info('Etsy connection cancelled', 'You can connect your shop any time from My Shop.'); break
+    case 'busy':           toast.error('Etsy is busy right now', 'Your shop was not connected. Please try again in a few minutes.'); break
+    case 'no_shop':        toast.error('No Etsy shop found', 'That Etsy account has no shop yet. Sign in to Etsy with the account that owns your shop and try again.'); break
+    case 'state_mismatch': toast.error('Connection expired', 'The Etsy sign-in took too long or was opened in another tab. Please click Connect again.'); break
+    case 'misconfigured':  toast.error('Etsy connection unavailable', 'Please contact support.'); break
+    case 'error':          toast.error('Could not connect your shop', 'Something went wrong talking to Etsy. Please try again in a minute.'); break
+  }
+}
+
 function writeTabToUrl(id: TabId, mode: 'push' | 'replace') {
   const params = new URLSearchParams(window.location.search)
   params.delete('etsy')   // one-shot OAuth flag; never keep it around
@@ -218,6 +232,9 @@ export function DashboardLayout() {
 
   // Normalise the landing URL once (drops ?etsy=, keeps ?tab=), and follow Back/Forward.
   useEffect(() => {
+    // Tell the user how the Etsy connection went BEFORE the flag is stripped. It used
+    // to be dropped silently, so a failed connect just showed the connect button again.
+    announceEtsyResult(new URLSearchParams(window.location.search).get('etsy'))
     writeTabToUrl(tabFromUrl(), 'replace')
     const onPop = () => setActiveTab(tabFromUrl())
     window.addEventListener('popstate', onPop)

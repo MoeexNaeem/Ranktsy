@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { exchangeCodeForToken, getRedirectUri, userIdFromToken, appUrl } from '@/lib/etsy-oauth'
 import { getShopByOwner } from '@/lib/etsy'
 import { saveEtsyTokens } from '@/lib/etsy-tokens'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 
@@ -14,7 +15,7 @@ function back(req: NextRequest, params: string) {
   return res
 }
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get('code')
   const state = searchParams.get('state')
@@ -36,7 +37,26 @@ export async function GET(req: NextRequest) {
     const tokens = await exchangeCodeForToken({ code, verifier, redirectUri })
 
     const etsyUserId = userIdFromToken(tokens.access_token)
-    const shop = await getShopByOwner(tokens.access_token, etsyUserId)
+    // The shop lookup spends one call on the primary Etsy key. When the shared API
+    // quota is tight or Etsy blips, one attempt used to fail the WHOLE connection and
+    // the user only saw the connect button again. Retry briefly, and if Etsy is still
+    // throttling, tell them it is busy rather than "error".
+    let shop: Awaited<ReturnType<typeof getShopByOwner>> | null = null
+    let lastErr: unknown = null
+    for (let attempt = 0; attempt < 3 && !shop; attempt++) {
+      try { shop = await getShopByOwner(tokens.access_token, etsyUserId) }
+      catch (e) {
+        lastErr = e
+        const msg = e instanceof Error ? e.message : ''
+        if (!/\b(429|5\d\d)\b/.test(msg)) break   // a real error: don't retry
+        await new Promise(r => setTimeout(r, 1200 * (attempt + 1)))
+      }
+    }
+    if (!shop) {
+      console.error('[Etsy OAuth] shop lookup failed:', lastErr)
+      const msg = lastErr instanceof Error ? lastErr.message : ''
+      return back(req, /\b(429|5\d\d)\b/.test(msg) ? 'etsy=busy' : 'etsy=error')
+    }
     if (!shop.shop_id) return back(req, 'etsy=no_shop')
 
     // Upserts by (userId, shopId) - connecting this shop never disturbs any
@@ -50,3 +70,7 @@ export async function GET(req: NextRequest) {
     return back(req, 'etsy=error')
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)

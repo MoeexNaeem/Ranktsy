@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getListingById } from '@/lib/etsy'
 import { memCache, cacheKey } from '@/lib/cache'
 import { rateLimit, clientIp } from '@/lib/auth/rateLimit'
+import { runWithUsageContext } from '@/lib/usage'
 
 /**
  * Model Context Protocol (MCP) server — Streamable HTTP transport, JSON-RPC 2.0.
@@ -225,7 +226,7 @@ async function handleOne(msg: Rpc, req: NextRequest): Promise<object | null> {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   let body: unknown
   try { body = await req.json() } catch { return NextResponse.json(rpcErr(null, -32700, 'Parse error'), { status: 400, headers: CORS }) }
 
@@ -248,3 +249,6 @@ export async function GET() {
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS })
 }
+
+// Public, unauthenticated: labelled so its Etsy/Google spend is visible in the admin usage table.
+export const POST = (req: NextRequest) => runWithUsageContext({ userId: 'system:mcp', userEmail: 'Public MCP server (AI agents)' }, () => handlePOST(req))

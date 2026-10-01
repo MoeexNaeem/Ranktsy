@@ -461,10 +461,11 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
   const deckImages = listingImgs.data?.length && !listingImgs.isPlaceholderData ? listingImgs.data : null
   const deckListings = deckImages ?? kw?.listings ?? []
   const { data: tr } = useTrends(query, country)
-  // Loaded after the graphs and related keywords, not inside them: it needs one Google
-  // request per country (7), and Google rate-limits these, so it must not compete with
-  // the requests the rest of the page is waiting on.
-  const cq = useTrendCountries(query, country, !!tr && !related.isFetching)
+  // Starts as soon as the keyword's main results are in. It used to wait for the
+  // graphs AND the slow related-keywords stage (minutes at peak) so its 7 Google
+  // requests would not compete; the server now runs them in a background priority
+  // lane (google-ads.ts adsRequest), so they never delay the page's own numbers.
+  const cq = useTrendCountries(query, country, !!kw)
   const countryData = tr?.countries?.length ? tr.countries : cq.data?.countries
   // Google-suggested keywords (generateKeywordIdeas) - real discovery beyond Etsy tags.
   const ideas = useKeywordIdeas(query, country)
@@ -664,7 +665,8 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
           <SectionTitle>Searchers by Country</SectionTitle>
           {countryData && countryData.length > 0
             ? <CountryChart data={countryData} />
-            : cq.isPending || (cq.isFetching && !cq.data) ? <Shimmer h={200} r={8} />
+            // Still loading, or Google was busy and the hook is quietly retrying (up to ~2 min).
+            : cq.isPending || (cq.isFetching && !cq.data) || cq.data?.retrying ? <Shimmer h={200} r={8} />
             : googleGapNote(cq.data?.googleStatus, cq.data?.googleRetryAt)
               ? <EmptyState icon="🌍" title="Country data paused" sub={googleGapNote(cq.data?.googleStatus, cq.data?.googleRetryAt)!} />
               : <EmptyState icon="🌍" title="No country data" sub="Google reports too little search volume for this keyword to split by country." />}

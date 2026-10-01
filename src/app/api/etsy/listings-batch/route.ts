@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getListingById, topCategoryForTaxonomy } from '@/lib/etsy'
 import { upstreamFailure } from '@/lib/upstream-errors'
 import type { ApiResponse, EtsyListing } from '@/types'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 
@@ -23,7 +24,7 @@ const MAX_IDS = 100
  * /listings/batch call and shares its cache across workers, so asking for 60 ids
  * here costs one upstream call, not sixty.
  */
-export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<EtsyListing[]>>> {
+async function handlePOST(req: NextRequest): Promise<NextResponse<ApiResponse<EtsyListing[]>>> {
   const body = (await req.json().catch(() => ({}))) as { ids?: unknown }
   const ids = Array.isArray(body.ids)
     ? [...new Set(body.ids.map(Number).filter(n => Number.isFinite(n) && n > 0))].slice(0, MAX_IDS)
@@ -56,3 +57,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<E
 
   return NextResponse.json({ success: true, data: listings })
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const POST = withUsage(handlePOST)

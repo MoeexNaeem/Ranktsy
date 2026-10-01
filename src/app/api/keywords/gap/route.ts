@@ -3,6 +3,7 @@ import { cachedFlight, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { searchEtsyListingsPaged, getListingById } from '@/lib/etsy'
 import { guardSearch } from '@/lib/searchGate'
 import type { ApiResponse, KeywordGap, GapTag, GapWord, EtsyListing } from '@/types'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 
@@ -26,7 +27,7 @@ function tokens(title: string): string[] {
  * keywords" they should add. Nothing is estimated: adoption is a count, views
  * are Etsy's own numbers.
  */
-export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<KeywordGap>>> {
+async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<KeywordGap>>> {
   const { searchParams } = new URL(req.url)
   let query = (searchParams.get('q')?.trim().toLowerCase()) || ''
   const listingParam = searchParams.get('listing')?.trim()   // a keyword OR a listing URL/id
@@ -127,3 +128,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
     return NextResponse.json({ success: false, error: 'Could not analyse this keyword.' }, { status: 502 })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)

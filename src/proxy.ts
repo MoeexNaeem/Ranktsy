@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAccessToken, verifyRefreshToken } from '@/lib/auth/jwt'
 import { ACCESS_TOKEN_NAME, REFRESH_TOKEN_NAME } from '@/lib/auth/cookies'
+import { resolveRole } from '@/lib/auth/roles'
+import { getMaintenance, isAdminUserId } from '@/lib/maintenance'
 
-// Next 16 renamed "middleware" to "proxy" (same functionality). This runs before
-// a request completes: it login-gates the API surface and redirects auth/protected
-// pages.
+// Next 16 renamed "middleware" to "proxy" (same functionality, Node.js runtime by
+// default). This runs before a request completes: maintenance mode, then the
+// login gate for the API surface, then auth/protected page redirects.
 
 const PROTECTED = ['/dashboard', '/profile', '/admin', '/local-payment']
 const AUTH_ONLY = ['/login', '/register', '/forgot-password', '/reset-password'] // redirect if already logged in
@@ -31,6 +33,19 @@ const PUBLIC_API = [
 ]
 const isPublicApi = (p: string) => PUBLIC_API.some(a => p === a || p.startsWith(a))
 
+/**
+ * Still reachable for EVERYONE while maintenance mode is on: the maintenance page
+ * itself, login (so an admin can sign in), the auth API, the health probe, the
+ * payment webhook (sales must keep landing), and the plan-expiry cron. The
+ * Etsy-spending crons (snapshot, keyword-alerts) are deliberately NOT here, so
+ * they pause and the quota can recover.
+ */
+const MAINTENANCE_OPEN = ['/maintenance', '/login', '/api/auth/', '/api/health', '/api/lemonsqueezy/webhook', '/api/cron/plan-expiry']
+const isMaintenanceOpen = (p: string) => MAINTENANCE_OPEN.some(a => {
+  const base = a.replace(/\/$/, '')
+  return p === base || p.startsWith(base + '/')
+})
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
   const isProtected  = PROTECTED.some(p => pathname === p || pathname.startsWith(p + '/'))
@@ -40,16 +55,57 @@ export async function proxy(req: NextRequest) {
   const accessToken  = req.cookies.get(ACCESS_TOKEN_NAME)?.value
   const refreshToken = req.cookies.get(REFRESH_TOKEN_NAME)?.value
 
-  // Determine if authenticated
-  let isAuthed = false
-  if (accessToken) {
-    const user = await verifyAccessToken(accessToken)
-    if (user) isAuthed = true
+  // Who is calling. Lazy: public marketing pages (now also matched, for
+  // maintenance) must not pay for JWT verification when nothing needs it.
+  let session: { authed: boolean; admin: boolean } | null = null
+  const getSession = async () => {
+    if (session) return session
+    let authed = false, admin = false
+    const user = accessToken ? await verifyAccessToken(accessToken) : null
+    if (user) {
+      authed = true
+      admin = !!user.email && resolveRole(user.email, user.role) === 'admin'
+    } else if (refreshToken) {
+      const payload = await verifyRefreshToken(refreshToken)
+      if (payload?.sub) { authed = true; admin = false }
+    }
+    session = { authed, admin }
+    return session
   }
-  if (!isAuthed && refreshToken) {
-    const payload = await verifyRefreshToken(refreshToken)
-    if (payload?.sub) isAuthed = true
+
+  // ── Maintenance mode: the site is closed to everyone but admins ──
+  if (!isMaintenanceOpen(pathname)) {
+    const m = await getMaintenance()
+    if (m.on) {
+      const s = await getSession()
+      let admin = s.admin
+      // Access token expired but a refresh token is present: look the role up.
+      if (!admin && s.authed && !accessToken && refreshToken) {
+        const payload = await verifyRefreshToken(refreshToken)
+        if (payload?.sub) admin = await isAdminUserId(payload.sub)
+      }
+      if (!admin) {
+        const headers = { 'Retry-After': '3600', 'Cache-Control': 'no-store' }
+        if (isApi) {
+          return NextResponse.json(
+            { success: false, code: 'maintenance', error: m.message },
+            { status: 503, headers },
+          )
+        }
+        const url = req.nextUrl.clone()
+        url.pathname = '/maintenance'
+        url.search = ''
+        // Rewrite (not redirect): the visitor's URL stays put, so when maintenance
+        // ends a refresh lands them right back where they were. 503 = temporary.
+        return NextResponse.rewrite(url, { status: 503, headers })
+      }
+    }
   }
+
+  // Pages outside the auth flow need nothing more.
+  if (!isApi && !isProtected && !isAuthPage) return NextResponse.next()
+
+  const { authed: isAuthed } = await getSession()
 
   // Login-gate every non-public API route. The route handler still runs the full
   // getCurrentUser() (which can refresh an expired access token); this is just a
@@ -82,15 +138,7 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    '/api/:path*',
-    '/dashboard/:path*',
-    '/profile/:path*',
-    '/admin/:path*',
-    '/local-payment/:path*',
-    '/login',
-    '/register',
-    '/forgot-password',
-    '/reset-password',
-  ],
+  // Every route except Next's static assets and plain files (images, robots.txt,
+  // sitemaps, llms.txt...), so maintenance mode can cover the whole site.
+  matcher: ['/((?!_next/static|_next/image|favicon\\.ico|.*\\.[a-zA-Z0-9]+$).*)'],
 }

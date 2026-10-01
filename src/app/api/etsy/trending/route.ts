@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getTrendingListings } from '@/lib/etsy'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { upstreamFailure } from '@/lib/upstream-errors'
+import { withUsage } from '@/lib/track'
 
 // Run only at request time, never prerendered at build. Next 16 otherwise tries to
 // execute this param-less GET during the build to cache it, which fires live Etsy
@@ -10,7 +11,7 @@ import { upstreamFailure } from '@/lib/upstream-errors'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+async function handleGET() {
   const key    = cacheKey('trending', 'featured')
   const cached = memCache.get(key)
   if (cached) return NextResponse.json({ success: true, data: cached, cached: true })
@@ -24,3 +25,7 @@ export async function GET() {
     return NextResponse.json({ success: false, error: fail.message }, { status: fail.status })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)

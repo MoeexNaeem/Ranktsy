@@ -3,6 +3,7 @@ import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { googleKeywordIdeas, googleAccountCurrency, isGoogleAdsConfigured, normalizeGeo, googleStatusOf, type GoogleMetricsMeta } from '@/lib/google-ads'
 import { guardSearch } from '@/lib/searchGate'
 import type { ApiResponse, KeywordIdeasResponse } from '@/types'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 
@@ -17,7 +18,7 @@ export const runtime = 'nodejs'
  * Returns an empty `ideas` array (never an error) when Google Ads isn't configured,
  * so the client can render a "connect Google Ads" state instead of a failure.
  */
-export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<KeywordIdeasResponse>>> {
+async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<KeywordIdeasResponse>>> {
   const { searchParams } = new URL(req.url)
   const query = searchParams.get('q')?.trim().toLowerCase()
   const geo = normalizeGeo(searchParams.get('geo'))
@@ -54,3 +55,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
     return NextResponse.json({ success: false, error: 'Could not fetch Google keyword ideas.' }, { status: 502 })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)

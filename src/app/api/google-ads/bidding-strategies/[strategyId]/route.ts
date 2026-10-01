@@ -3,11 +3,12 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { memCache } from '@/lib/cache'
 import { canUseGoogleAdsManager, requireSelectedAccount, adsErrorResponse } from '@/lib/google-ads-user'
 import { portfolioSchema, updatePortfolioStrategy } from '@/lib/google-ads-manage'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 
 // PATCH { type: TARGET_CPA|TARGET_ROAS, targetCpa | targetRoasPercent, name? }: edit a portfolio strategy.
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ strategyId: string }> }) {
+async function handlePATCH(req: NextRequest, { params }: { params: Promise<{ strategyId: string }> }) {
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
   if (!canUseGoogleAdsManager(user)) return NextResponse.json({ success: false, error: 'Google Ads management is not available for this account yet.' }, { status: 403 })
@@ -24,3 +25,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ st
     return NextResponse.json({ success: false, error: er.error, code: er.code }, { status: er.status })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const PATCH = withUsage(handlePATCH)

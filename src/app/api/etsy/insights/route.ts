@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { getValidEtsyAuth } from '@/lib/etsy-tokens'
 import { getShopByOwner, getOwnerListings, getShopReceipts } from '@/lib/etsy'
 import { userIdFromToken } from '@/lib/etsy-oauth'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 
@@ -13,7 +14,7 @@ const COUNTRY_NAMES: Record<string, string> = {
   IE: 'Ireland', NZ: 'New Zealand', JP: 'Japan', CH: 'Switzerland', BE: 'Belgium', AT: 'Austria',
 }
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
 
@@ -88,3 +89,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: msg }, { status: 502 })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)

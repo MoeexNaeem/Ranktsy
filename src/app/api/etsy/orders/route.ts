@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { getValidEtsyAuth } from '@/lib/etsy-tokens'
 import { getShopReceiptsPaged } from '@/lib/etsy'
 import type { ApiResponse, OrdersInsight } from '@/types'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 
@@ -25,7 +26,7 @@ const COUNTRY_NAMES: Record<string, string> = {
  * buyer-geography endpoint for arbitrary shops, which is why Searchers-by-Country
  * elsewhere in the app comes from Google Ads instead.
  */
-export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<OrdersInsight>>> {
+async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<OrdersInsight>>> {
   const user = await getCurrentUser().catch(() => null)
   if (!user) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
 
@@ -116,3 +117,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Or
     return NextResponse.json({ success: false, error: 'Could not load your Etsy orders.' }, { status: 502 })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)

@@ -4,13 +4,14 @@ import { TrackedKeyword } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
 import { fetchMetrics } from '@/lib/alerts'
 import { displayKd } from '@/lib/etsy'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 
 const MAX_PER_USER = Number(process.env.MAX_TRACKED_KEYWORDS) || 30
 
 // List the keywords this user is watching for alerts.
-export async function GET() {
+async function handleGET() {
   const auth = await getCurrentUser()
   if (!auth) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
   await connectDB()
@@ -28,7 +29,7 @@ export async function GET() {
 }
 
 // Track a keyword. Captures the current metrics as the baseline to compare against.
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const auth = await getCurrentUser()
   if (!auth) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
 
@@ -56,3 +57,8 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ success: true, data: { id: String(doc._id), keyword, country, ...m } })
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)
+export const POST = withUsage(handlePOST)

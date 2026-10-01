@@ -3,12 +3,13 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { memCache } from '@/lib/cache'
 import { canUseGoogleAdsManager, requireSelectedAccount, adsErrorResponse } from '@/lib/google-ads-user'
 import { createCampaignSchema, createSearchCampaign } from '@/lib/google-ads-create'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 
 // POST: create a full Search campaign (PAUSED) in the selected account.
 // Body = CreateCampaignInput; { validateOnly: true } checks it with Google without creating anything.
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
   if (!canUseGoogleAdsManager(user)) return NextResponse.json({ success: false, error: 'Google Ads management is not available for this account yet.' }, { status: 403 })
@@ -29,3 +30,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: er.error, code: er.code }, { status: er.status })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const POST = withUsage(handlePOST)

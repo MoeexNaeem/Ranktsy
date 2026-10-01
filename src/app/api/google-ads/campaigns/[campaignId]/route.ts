@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { memCache } from '@/lib/cache'
 import { canUseGoogleAdsManager, requireSelectedAccount, adsErrorResponse } from '@/lib/google-ads-user'
 import { getCampaignSettings, updateCampaignSchema, updateCampaign } from '@/lib/google-ads-manage'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -17,7 +18,7 @@ async function gate() {
 }
 
 // GET: current editable settings of one campaign.
-export async function GET(_req: NextRequest, { params }: Ctx) {
+async function handleGET(_req: NextRequest, { params }: Ctx) {
   const g = await gate()
   if (g.error) return g.error
   const { campaignId } = await params
@@ -33,7 +34,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 }
 
 // PATCH: edit name, budget, networks, countries, languages and/or bidding (validateOnly supported).
-export async function PATCH(req: NextRequest, { params }: Ctx) {
+async function handlePATCH(req: NextRequest, { params }: Ctx) {
   const g = await gate()
   if (g.error) return g.error
   const { campaignId } = await params
@@ -49,3 +50,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     return NextResponse.json({ success: false, error: er.error, code: er.code }, { status: er.status })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)
+export const PATCH = withUsage(handlePATCH)

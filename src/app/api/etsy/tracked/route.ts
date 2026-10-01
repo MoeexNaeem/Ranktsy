@@ -4,6 +4,7 @@ import { TrackedShop } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
 import { resolveShopId, getEtsyShop } from '@/lib/etsy'
 import type { ApiResponse } from '@/types'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 
@@ -12,7 +13,7 @@ export const runtime = 'nodejs'
  * unbroken sales history for a competitor - opportunistic capture only covers
  * shops someone happens to look at.
  */
-export async function GET(): Promise<NextResponse<ApiResponse<unknown>>> {
+async function handleGET(): Promise<NextResponse<ApiResponse<unknown>>> {
   const user = await getCurrentUser().catch(() => null)
   if (!user) return NextResponse.json({ success: false, error: 'Sign in to track shops' }, { status: 401 })
   try {
@@ -25,7 +26,7 @@ export async function GET(): Promise<NextResponse<ApiResponse<unknown>>> {
   }
 }
 
-export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<unknown>>> {
+async function handlePOST(req: NextRequest): Promise<NextResponse<ApiResponse<unknown>>> {
   const user = await getCurrentUser().catch(() => null)
   if (!user) return NextResponse.json({ success: false, error: 'Sign in to track shops' }, { status: 401 })
 
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<u
   }
 }
 
-export async function DELETE(req: NextRequest): Promise<NextResponse<ApiResponse<unknown>>> {
+async function handleDELETE(req: NextRequest): Promise<NextResponse<ApiResponse<unknown>>> {
   const user = await getCurrentUser().catch(() => null)
   if (!user) return NextResponse.json({ success: false, error: 'Sign in to track shops' }, { status: 401 })
 
@@ -67,3 +68,9 @@ export async function DELETE(req: NextRequest): Promise<NextResponse<ApiResponse
     return NextResponse.json({ success: false, error: 'Could not untrack that shop' }, { status: 500 })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)
+export const POST = withUsage(handlePOST)
+export const DELETE = withUsage(handleDELETE)

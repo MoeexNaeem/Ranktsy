@@ -7,6 +7,7 @@ import { serializeRun } from '@/lib/automation/serialize'
 import { generateListing } from '@/lib/automation/orchestrator'
 import { getValidEtsyAuth } from '@/lib/etsy-tokens'
 import { createDraftListing } from '@/lib/etsy'
+import { withUsage } from '@/lib/track'
 
 /**
  * Advance a run by ONE product: generate the listing, optionally push it to Etsy
@@ -18,7 +19,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function handlePOST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser().catch(() => null)
   if (!user) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
   if (!isAdmin(user)) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
@@ -98,3 +99,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   await run.save()
   return NextResponse.json({ success: true, data: serializeRun(run.toObject()) })
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const POST = withUsage(handlePOST)

@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/session'
 import { memCache } from '@/lib/cache'
 import { canUseGoogleAdsManager, requireSelectedAccount, accountStatus, adsErrorResponse } from '@/lib/google-ads-user'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 // GET: settings of the selected account that decide which campaign options work
 // (e.g. conversion-based bidding needs conversion tracking). Cached 2 minutes.
-export async function GET() {
+async function handleGET() {
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
   if (!canUseGoogleAdsManager(user)) return NextResponse.json({ success: false, error: 'Google Ads management is not available for this account yet.' }, { status: 403 })
@@ -25,3 +26,7 @@ export async function GET() {
     return NextResponse.json({ success: false, error: er.error, code: er.code }, { status: er.status })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)

@@ -9,6 +9,7 @@ import { isGoogleAdsConfigured, googleAdsStatus, recheckGoogleAdsQuota } from '@
 import { isRecaptchaConfigured } from '@/lib/recaptcha'
 import type { FlowSystem } from '@/lib/codeflow/graph'
 import type { ApiResponse } from '@/types'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -44,7 +45,7 @@ async function pingMongo(): Promise<SystemHealth> {
   }
 }
 
-export async function GET(): Promise<NextResponse<ApiResponse<{ systems: Record<FlowSystem, SystemHealth>; checkedAt: string; etsyQuota: EtsyKeyQuota[] }>>> {
+async function handleGET(): Promise<NextResponse<ApiResponse<{ systems: Record<FlowSystem, SystemHealth>; checkedAt: string; etsyQuota: EtsyKeyQuota[] }>>> {
   const auth = await getCurrentUser().catch(() => null)
   if (!auth) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
   if (!isAdmin(auth)) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
@@ -123,10 +124,15 @@ export async function GET(): Promise<NextResponse<ApiResponse<{ systems: Record<
  * Admin "Re-check Google now": spends ONE Google Ads operation (a 1-row customer query)
  * to see whether the quota lock is still real. Clears it on success.
  */
-export async function POST(): Promise<NextResponse<ApiResponse<{ ok: boolean; message: string }>>> {
+async function handlePOST(): Promise<NextResponse<ApiResponse<{ ok: boolean; message: string }>>> {
   const auth = await getCurrentUser().catch(() => null)
   if (!auth) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
   if (!isAdmin(auth)) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
   const result = await recheckGoogleAdsQuota()
   return NextResponse.json({ success: true, data: result })
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)
+export const POST = withUsage(handlePOST)

@@ -3,12 +3,13 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { connectDB } from '@/lib/db'
 import { GoogleAdsConnection } from '@/lib/models'
 import { canUseGoogleAdsManager, userAccessToken, discoverAccounts, getConnectionView, adsErrorResponse } from '@/lib/google-ads-user'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 
 // POST: re-scan which Google Ads accounts the connected login can reach
 // (e.g. after the user was added to a new account).
-export async function POST() {
+async function handlePOST() {
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
   if (!canUseGoogleAdsManager(user)) return NextResponse.json({ success: false, error: 'Google Ads management is not available for this account yet.' }, { status: 403 })
@@ -26,3 +27,7 @@ export async function POST() {
     return NextResponse.json({ success: false, error: r.error, code: r.code }, { status: r.status })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const POST = withUsage(handlePOST)

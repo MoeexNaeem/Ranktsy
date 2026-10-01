@@ -4,6 +4,7 @@ import { isAdmin } from '@/lib/auth/roles'
 import { connectDB } from '@/lib/db'
 import { AutomationRun } from '@/lib/models'
 import { expandNiche } from '@/lib/automation/orchestrator'
+import { withUsage } from '@/lib/track'
 
 // "Automate Etsy Shop" — create a batch run. HIDDEN / admin-only for now.
 export const runtime = 'nodejs'
@@ -16,7 +17,7 @@ async function requireAdmin() {
   return { error: null, user }
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const { error, user } = await requireAdmin()
   if (error || !user) return error
 
@@ -64,3 +65,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ success: true, data: { id: String(run._id), items: items.length, keywords } })
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const POST = withUsage(handlePOST)

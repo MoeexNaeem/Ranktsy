@@ -15,6 +15,7 @@ import { AdminSebtSettings, ADMIN_STATS_REFRESH } from '@/components/admin/Admin
 import { AdminSebtStudents } from './AdminSebtStudents'
 import { AdminEarnings } from './AdminEarnings'
 import { AdminLocalPayments } from './AdminLocalPayments'
+import { AdminMaintenance } from './AdminMaintenance'
 import { AddCreditsModal, daysLeft, type BonusInfo } from './AddCreditsModal'
 import { CodeFlow } from './CodeFlow'
 import { RealtimeProvider, NotificationBell } from '@/components/dashboard/Realtime'
@@ -621,7 +622,7 @@ export function AdminDashboard() {
                       <div style={{ padding: '16px 18px', fontSize: 13, color: '#808080' }}>No API usage recorded yet today.</div>
                     ) : usagePageRows.map(u => (
                       <div key={u.userId} style={tableRow(UGRID)}>
-                        <span style={{ fontSize: 12.5, color: C.ink, fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.userEmail || (u.userId === 'anonymous' ? 'anonymous (logged-out)' : u.userId)}</span>
+                        <span style={{ fontSize: 12.5, color: C.ink, fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.userEmail || (u.userId === 'anonymous' ? 'unattributed (logged-out or background)' : u.userId)}</span>
                         <span style={tdMono}>{exact(u.etsyCalls)}</span>
                         <span style={tdMono}>{exact(u.googleCalls)}</span>
                         <span style={tdMono}>{exact(u.searches)}</span>
@@ -731,6 +732,7 @@ export function AdminDashboard() {
 
           {section === 'settings' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+            <AdminMaintenance />
             <AdminSebtSettings />
             <div style={{ ...tableCard, padding: '20px 24px', maxWidth: 640, display: 'flex', alignItems: 'flex-start', gap: 18, flexWrap: 'wrap', borderColor: promoOn ? C.orange : C.ash, background: promoOn ? 'rgba(251,94,9,0.05)' : C.paper }}>
               <div style={{ flex: 1, minWidth: 240 }}>

@@ -3,6 +3,7 @@ import { connectDB } from '@/lib/db'
 import { TrackedKeyword } from '@/lib/models'
 import { fetchMetrics, describeChange } from '@/lib/alerts'
 import { notifyUser } from '@/lib/notify'
+import { runWithUsageContext } from '@/lib/usage'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -17,7 +18,7 @@ const BATCH = Number(process.env.ALERTS_BATCH) || 40
  * value only when we notify, so gradual drift accumulates until it crosses a threshold.
  * Schedule hourly or daily. Auth: CRON_SECRET via `Authorization: Bearer <secret>`.
  */
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   const secret = process.env.CRON_SECRET
   if (!secret) return NextResponse.json({ success: false, error: 'CRON_SECRET is not configured.' }, { status: 503 })
   if (req.headers.get('authorization') !== `Bearer ${secret}`) {
@@ -50,3 +51,6 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ success: true, data: { checked, notified } })
 }
+
+// Labelled in the admin usage table instead of falling into "anonymous".
+export const GET = (req: NextRequest) => runWithUsageContext({ userId: 'system:cron-keyword-alerts', userEmail: 'System: keyword alerts cron' }, () => handleGET(req))

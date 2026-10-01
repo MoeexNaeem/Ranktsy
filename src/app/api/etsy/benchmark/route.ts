@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { getListingById, searchEtsyListingsPaged, dominantCurrencyPrices } from '@/lib/etsy'
 import type { ApiResponse, ListingBenchmark } from '@/types'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 
@@ -25,7 +26,7 @@ function percentile(pool: number[], v: number): number {
  * The niche is inferred from the listing's own most specific tag (Etsy tags are
  * seller-authored and describe the product), falling back to its title.
  */
-export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<ListingBenchmark>>> {
+async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<ListingBenchmark>>> {
   const id = parseInt(new URL(req.url).searchParams.get('id') ?? '', 10)
   if (!id || Number.isNaN(id)) {
     return NextResponse.json({ success: false, error: 'Missing or invalid listing id' }, { status: 400 })
@@ -97,3 +98,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Li
     return NextResponse.json({ success: false, error: 'Could not benchmark this listing.' }, { status: 502 })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)

@@ -89,7 +89,7 @@ export function MyShopTab() {
             Connect your Etsy shop →
           </a>
           <div style={{ display: 'flex', gap: '10px 22px', flexWrap: 'wrap', marginTop: 22 }}>
-            {['Read-only access', 'Official Etsy OAuth', 'Revoke anytime', 'Multiple shops supported'].map(t => (
+            {['Reads your shop data', 'Only creates drafts you ask for', 'Official Etsy OAuth', 'Revoke anytime', 'Multiple shops supported'].map(t => (
               <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, fontFamily: MONO, color: 'rgba(252,252,247,0.6)' }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.orange} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>{t}
               </span>

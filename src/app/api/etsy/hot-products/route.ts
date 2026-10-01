@@ -4,6 +4,7 @@ import { searchEtsyListingsPaged } from '@/lib/etsy'
 import { guardSearch } from '@/lib/searchGate'
 import type { SearchOpts as EtsySearchOpts } from '@/lib/etsy'
 import type { ApiResponse, HotProduct, HotProductsResponse, EtsyListing } from '@/types'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 
@@ -50,7 +51,7 @@ function hotScore(l: EtsyListing): { score: number; favPerDay: number | null; en
   return { score, favPerDay: favPerDay != null ? parseFloat(favPerDay.toFixed(2)) : null, engagementPct }
 }
 
-export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<HotProductsResponse>>> {
+async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<HotProductsResponse>>> {
   const sp = req.nextUrl.searchParams
   const q = (sp.get('q') ?? '').trim().toLowerCase()
   const sort = (sp.get('sort') ?? 'hot') as SortKey
@@ -125,3 +126,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ho
     return NextResponse.json({ success: false, error: 'Could not load products from Etsy.' }, { status: 502 })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)

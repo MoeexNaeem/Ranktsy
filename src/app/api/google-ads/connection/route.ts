@@ -3,12 +3,13 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { connectDB } from '@/lib/db'
 import { GoogleAdsConnection } from '@/lib/models'
 import { canUseGoogleAdsManager, getConnectionView, disconnect, adsErrorResponse } from '@/lib/google-ads-user'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 // GET: is Google Ads management available to this user, and what's connected.
-export async function GET() {
+async function handleGET() {
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
   if (!canUseGoogleAdsManager(user)) return NextResponse.json({ success: true, data: { enabled: false } })
@@ -21,7 +22,7 @@ export async function GET() {
 }
 
 // PATCH { customerId }: choose which connected account the campaign tools act on.
-export async function PATCH(req: NextRequest) {
+async function handlePATCH(req: NextRequest) {
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
   if (!canUseGoogleAdsManager(user)) return NextResponse.json({ success: false, error: 'Google Ads management is not available for this account yet.' }, { status: 403 })
@@ -37,9 +38,15 @@ export async function PATCH(req: NextRequest) {
 }
 
 // DELETE: disconnect Google Ads (revokes the grant at Google and deletes the stored token).
-export async function DELETE() {
+async function handleDELETE() {
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
   await disconnect(user.id)
   return NextResponse.json({ success: true })
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)
+export const PATCH = withUsage(handlePATCH)
+export const DELETE = withUsage(handleDELETE)

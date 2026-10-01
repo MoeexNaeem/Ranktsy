@@ -23,8 +23,26 @@ function errorInfo(err: unknown): { status?: number; message: string } {
   if (!serverMsg && /status code \d+/i.test(message)) message = status && status >= 500 ? 'The server had a problem. Please try again in a moment.' : 'The request failed. Please try again.'
   return { status, message }
 }
+// Maintenance mode switched on while this tab was open: every API call now answers
+// 503 { code: 'maintenance' }. Reload once so the visitor sees the "updating" page
+// (the proxy serves it for every page) instead of a wall of error toasts.
+function isMaintenance(err: unknown): boolean {
+  const r = (err as { response?: { status?: number; data?: { code?: string } } })?.response
+  return r?.status === 503 && r.data?.code === 'maintenance'
+}
+function showMaintenancePage() {
+  if (typeof window === 'undefined') return
+  try {
+    const last = Number(sessionStorage.getItem('rk-maint-reload') || 0)
+    if (Date.now() - last < 15_000) return   // never loop
+    sessionStorage.setItem('rk-maint-reload', String(Date.now()))
+  } catch { /* storage blocked: still reload once below */ }
+  window.location.reload()
+}
+
 function shouldToast(err: unknown, meta?: Record<string, unknown>) {
   if (meta?.silent) return false
+  if (isMaintenance(err)) { showMaintenancePage(); return false }
   const { status } = errorInfo(err)
   if (status === 401 || status === 403) return false
   if ((err as Error)?.message === 'Captcha unavailable') return false
@@ -47,6 +65,7 @@ let interceptorAttached = false
 if (typeof window !== 'undefined' && !interceptorAttached) {
   interceptorAttached = true
   attachCaptchaInterceptor(axios)
+  axios.interceptors.response.use(r => r, (err) => { if (isMaintenance(err)) showMaintenancePage(); return Promise.reject(err) })
 }
 
 export function Providers({ children }: { children: ReactNode }) {

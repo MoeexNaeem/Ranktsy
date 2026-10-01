@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTopSellers } from '@/lib/etsy'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { upstreamFailure } from '@/lib/upstream-errors'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 export const revalidate = 1800
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const query = searchParams.get('q')?.trim().toLowerCase()
   if (!query || query.length < 2) {
@@ -26,3 +27,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: fail.message }, { status: fail.status })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)

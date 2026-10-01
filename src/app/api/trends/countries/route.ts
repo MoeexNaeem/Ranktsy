@@ -37,7 +37,10 @@ async function getHandler(req: NextRequest) {
     const gmeta: GoogleMetricsMeta = {}
     const countries = await countriesForGeo(query, geo, gmeta)
     const data = { countries, googleStatus: googleStatusOf(gmeta), googleRetryAt: gmeta.retryAt ?? null }
-    memCache.set(key, data, gmeta.failed ? 90 : CACHE_TTL.TRENDING)
+    // Only a complete answer is cached here. A busy/failed one used to be held for
+    // 90 s, so the client's retry got the same failure back. The per-country rows
+    // that did arrive are stored in the Google cache, so a retry only fills the gaps.
+    if (!gmeta.failed) memCache.set(key, data, CACHE_TTL.TRENDING)
     return NextResponse.json({ success: true, data })
   } catch (e) {
     console.error('[Trends/countries] failed:', e)

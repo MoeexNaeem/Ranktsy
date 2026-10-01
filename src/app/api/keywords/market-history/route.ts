@@ -3,6 +3,7 @@ import { keywordListings } from '@/lib/keywords'
 import { getKeywordMarketHistory, type KeywordMarketHistory } from '@/lib/snapshots'
 import { cachedFlight, cacheKey, CACHE_TTL } from '@/lib/cache'
 import type { ApiResponse } from '@/types'
+import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
 
@@ -12,7 +13,7 @@ export const runtime = 'nodejs'
  * Keyword Search page in parallel with the core search, so it never blocks paint.
  * Not search-gated (the core /api/keywords call already counts the search action).
  */
-export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<KeywordMarketHistory>>> {
+async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<KeywordMarketHistory>>> {
   const q = new URL(req.url).searchParams.get('q')?.trim().toLowerCase()
   if (!q || q.length < 2) return NextResponse.json({ success: false, error: 'Query must be at least 2 characters' }, { status: 400 })
   try {
@@ -26,3 +27,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
     return NextResponse.json({ success: false, error: 'Could not load market activity.' }, { status: 502 })
   }
 }
+
+// Attribute this route's Etsy/Google calls to the signed-in user in the admin
+// usage table (without it they all landed under "anonymous").
+export const GET = withUsage(handleGET)
