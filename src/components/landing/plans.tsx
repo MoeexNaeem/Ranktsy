@@ -220,7 +220,6 @@ export function PlanCard({ p, cur }: { p: Plan; cur: Currency }) {
    /local-payment (login-gated; logged-out visitors log in and come straight back). */
 const LOCAL_ACCENT = '#16A34A'
 export function LocalPaymentCard() {
-  const cheapest = Math.min(...LOCAL_PLANS.map(p => p.pkr))
   const points = [
     'Bank transfer (Allied Bank) or JazzCash',
     'Every plan, Starter to Enterprise, priced in PKR',
@@ -240,13 +239,11 @@ export function LocalPaymentCard() {
         </span>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <span style={{ width: 9, height: 9, borderRadius: '50%', background: LOCAL_ACCENT }} />
-          <h3 style={{ fontSize: 13, fontWeight: 600, color: LOCAL_ACCENT, letterSpacing: '0.09em', textTransform: 'uppercase', fontFamily: MONO }}>Local Payment</h3>
+          <h3 style={{ fontSize: 13, fontWeight: 600, color: LOCAL_ACCENT, letterSpacing: '0.09em', textTransform: 'uppercase', fontFamily: MONO }}>Pay in PKR</h3>
         </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '2px 6px', marginBottom: 8 }}>
-          <span style={{ fontSize: 15, color: C.graphite }}>from</span>
-          <span style={{ fontSize: 40, fontWeight: 600, color: C.ink, letterSpacing: '-0.035em', lineHeight: 1 }}>{formatPkr(cheapest)}</span>
-          <span style={{ fontSize: 14, color: C.graphite }}>/ month</span>
-        </div>
+        {/* No price here on purpose: "from Rs 270" read as a separate plan. The PKR
+            prices for each plan are shown on /local-payment. */}
+        <div style={{ fontSize: 36, fontWeight: 600, color: C.ink, letterSpacing: '-0.035em', lineHeight: 1.05, marginBottom: 8 }}>Local Payment</div>
         <p style={{ fontSize: 14.5, color: C.graphite, lineHeight: 1.5, marginBottom: 24, minHeight: 42 }}>
           Card payment not working? Pay for any plan in Pakistani Rupees.
         </p>

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Navbar } from '@/components/landing/Navbar'
 import { Footer, CTA } from '@/components/landing/Sections'
-import { PlanScroller, ComparePlans, PriceNote } from '@/components/landing/plans'
+import { PlanScroller, ComparePlans, PriceNote, LocalPaymentBanner } from '@/components/landing/plans'
 import { C } from '@/utils'
 
 const SANS = "'General Sans',sans-serif"
@@ -36,6 +36,8 @@ export default function PricingPage() {
         <section style={{ background: C.canvas, padding: '40px 24px 96px' }}>
           <div style={{ maxWidth: 1300, margin: '0 auto' }}>
             <PlanScroller fade={C.canvas} />
+            {/* Pakistan: pay any plan locally (bank transfer / JazzCash). */}
+            <LocalPaymentBanner />
           </div>
         </section>
 
