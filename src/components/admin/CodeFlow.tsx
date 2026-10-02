@@ -138,8 +138,11 @@ function EtsyQuotaPanel({ rows, now, busyId, msg, onToggle }: { rows: EtsyQuotaR
         Switch a key <strong>OFF</strong> to let its daily quota recover: every tool keeps working on the keys that are ON
         ({onCount} of {rows.length} now). At least one key always stays on. Changes reach every server worker within about 5 seconds.
       </p>
-      <div style={{ overflowX: 'auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '60px 90px 90px minmax(160px,1fr) 110px 110px 90px 120px 170px', gap: '8px 14px', alignItems: 'center', minWidth: 1000 }}>
+      {/* Still scrolls sideways on narrow screens (trackpad / shift+wheel / swipe),
+          but without the big orange scrollbar the global style would draw. */}
+      <style>{`.rk-quota-scroll{scrollbar-width:none}.rk-quota-scroll::-webkit-scrollbar{display:none}`}</style>
+      <div className="rk-quota-scroll" style={{ overflowX: 'auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '44px 86px 80px minmax(130px,1fr) 84px 96px 64px 84px 150px', gap: '8px 12px', alignItems: 'center', minWidth: 920 }}>
           {['Key', 'Use', 'Ends with', 'Used today', 'Left', 'Daily limit', 'Per sec', 'Reported', 'Status'].map(h => <span key={h} style={head}>{h}</span>)}
           {rows.map(r => {
             const p = r.limitPerDay && r.remainingToday != null ? r.remainingToday / r.limitPerDay : null
