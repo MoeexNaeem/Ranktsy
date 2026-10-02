@@ -69,3 +69,13 @@ already serves many concurrent users. `instances = cores` multiplies that. The r
 you'll hit first, in order: **(a) no auto-restart → stays down after a crash** (fixed by #1),
 **(b) Mongo M0/M2 throttling** (#3), **(c) upstream API rate limits / cost** (mitigated by the
 shared cache — bigger with Redis, #6).
+
+## Memory during builds
+
+The server has about 3.6 GB of RAM (plus a 6 GB swap file, already set up). A
+`next build` needs about 1.7 GB, and with all 3 live workers running there is no
+room, so Linux kills the build (2026-10-03: "Killed" in the deploy output,
+`Out of memory: Killed process ... next-build` in `dmesg`). `scripts/deploy.sh`
+therefore pauses one worker (`pm2 scale rankkw 2`) for the build and brings it
+back before the restart; the remaining workers keep the site up throughout.
+Always deploy with `bash scripts/deploy.sh`, never `npm run build` in place.

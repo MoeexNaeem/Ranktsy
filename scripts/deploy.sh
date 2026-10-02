@@ -20,9 +20,29 @@ git pull --ff-only
 echo "==> Installing packages"
 npm install --no-audit --no-fund
 
+# The build needs ~1.7 GB of RAM. With all workers running, the server (3.6 GB)
+# has no room and Linux kills the build ("Killed"). So one worker is paused for
+# the build and comes back afterwards; the others keep the site up throughout.
+WORKERS=$(pm2 jlist 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).filter(p=>p.name==='rankkw').length)}catch{console.log(0)}})")
+restore_workers() {
+  if [ "${WORKERS:-0}" -gt 1 ]; then pm2 scale rankkw "$WORKERS" >/dev/null 2>&1 || true; fi
+}
+trap restore_workers EXIT
+if [ "${WORKERS:-0}" -gt 1 ]; then
+  echo "==> Pausing 1 of $WORKERS workers to free memory for the build"
+  pm2 scale rankkw $((WORKERS - 1)) >/dev/null
+fi
+
 echo "==> Building into .next-build (the live site keeps running meanwhile)"
 rm -rf .next-build
-NEXT_DIST_DIR=.next-build npm run build
+if ! NEXT_DIST_DIR=.next-build npm run build; then
+  echo
+  echo "!! Build failed. The live site was NOT touched and is still running the old version."
+  echo "!! If the line above says 'Killed', the server ran out of memory during the build:"
+  echo "!!   check with: dmesg -T | grep -i 'out of memory' | tail -3"
+  rm -rf .next-build
+  exit 1
+fi
 
 echo "==> Swapping in the new build"
 rm -rf .next-old
@@ -30,6 +50,7 @@ if [ -d .next ]; then mv .next .next-old; fi
 mv .next-build .next
 
 echo "==> Restarting all workers"
+restore_workers
 pm2 restart rankkw --update-env
 pm2 save >/dev/null
 
