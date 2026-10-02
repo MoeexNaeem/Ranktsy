@@ -35,6 +35,8 @@ export function MarketActivityPanel({ query, analysis }: { query: string; analys
     enabled: query.length >= 2,
     staleTime: 1000 * 60 * 10,
     retry: false,
+    // A side panel: when history is busy it just hides, no error toast.
+    meta: { silent: true },
   })
 
   const spark = (k: MetricKey): SparkPoint[] => (data?.daily ?? []).slice(-30).map(d => ({ label: fmtDay(d.day), value: d[k] }))

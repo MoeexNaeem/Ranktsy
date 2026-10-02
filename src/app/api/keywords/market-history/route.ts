@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { keywordListings } from '@/lib/keywords'
-import { getKeywordMarketHistory, type KeywordMarketHistory } from '@/lib/snapshots'
-import { cachedFlight, cacheKey, CACHE_TTL } from '@/lib/cache'
+import { getKeywordMarketHistory, HistoryBusyError, type KeywordMarketHistory } from '@/lib/snapshots'
+import { cachedFlight, cacheKey } from '@/lib/cache'
 import type { ApiResponse } from '@/types'
 import { withUsage } from '@/lib/track'
 
@@ -17,12 +17,17 @@ async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<Key
   const q = new URL(req.url).searchParams.get('q')?.trim().toLowerCase()
   if (!q || q.length < 2) return NextResponse.json({ success: false, error: 'Query must be at least 2 characters' }, { status: 400 })
   try {
-    const data = await cachedFlight(cacheKey('kwmarket', 'v2', q), CACHE_TTL.SHOP, async () => {
+    // Snapshots are taken once a day, so 3 h of caching loses nothing and saves a
+    // large disk read on every repeat search.
+    const data = await cachedFlight(cacheKey('kwmarket', 'v2', q), 60 * 60 * 3, async () => {
       const listings = await keywordListings(q)   // shared with the core search, no extra Etsy call
       return getKeywordMarketHistory(listings.map(l => l.listing_id).filter(Boolean))
     })
     return NextResponse.json({ success: true, data })
   } catch (e) {
+    if (e instanceof HistoryBusyError) {
+      return NextResponse.json({ success: false, error: 'Market activity is busy right now, try again in a minute.' }, { status: 503 })
+    }
     console.error('[KW market history] failed:', e)
     return NextResponse.json({ success: false, error: 'Could not load market activity.' }, { status: 502 })
   }

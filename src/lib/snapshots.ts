@@ -20,6 +20,7 @@
 import { connectDB } from '@/lib/db'
 import { ShopSnapshot, ListingSnapshot, TrackedListing, SearchRankSnapshot, KeywordMarketSnapshot, KeywordSuggestion } from '@/lib/models'
 import { reviewRate } from '@/lib/salesEstimate'
+import { memCache } from '@/lib/cache'
 import type { EtsyListing, SalesPoint, ShopVelocity, ListingVelocity, ListingSalesPoint, ListingRankHistory, ListingRankPoint } from '@/types'
 
 /** UTC day key - the dedupe unit. Local time would double-count across zones. */
@@ -31,6 +32,45 @@ export function daysAgoKey(n: number): string {
   const d = new Date()
   d.setUTCDate(d.getUTCDate() - n)
   return dayKey(d)
+}
+
+// ─── History-read guard ────────────────────────────────────────────────────────
+// listingsnapshots (11M+ rows) is far bigger than the database's memory, so every
+// multi-listing history read comes from disk. Unbounded, a burst of them (the
+// extension asks on every Etsy results page, Keyword Search asks per search) piled
+// up for minutes and slowed every other query on the site (2026-10-03: ~60 such
+// reads running 40-380 s, DB ping 5-20 s). Now each worker runs a few at a time,
+// a long queue is turned away instead of piling up, and the server stops any one
+// read after HISTORY_MAX_MS. Callers already treat "no history" as "not measured
+// yet", never as zero.
+export const HISTORY_MAX_MS = 8000
+const HISTORY_CONCURRENCY = Math.max(1, Number(process.env.HISTORY_CONCURRENCY) || 3)
+const HISTORY_QUEUE_MAX = 12
+const VELOCITY_TTL = 60 * 60 * 3   // 3 h: history changes once a day
+
+/** Thrown when a history read was turned away or ran out of time (not cached by callers). */
+export class HistoryBusyError extends Error {
+  constructor() { super('Snapshot history is busy') }
+}
+
+const hg = globalThis as typeof globalThis & { __rkHistoryGate?: { active: number; waiters: (() => void)[] } }
+const historyGate = hg.__rkHistoryGate ??= { active: 0, waiters: [] }
+
+async function historyRead<T>(fn: () => Promise<T>): Promise<T> {
+  if (historyGate.active >= HISTORY_CONCURRENCY) {
+    if (historyGate.waiters.length >= HISTORY_QUEUE_MAX) throw new HistoryBusyError()
+    await new Promise<void>(r => historyGate.waiters.push(r))   // slot is handed over on release
+  } else historyGate.active++
+  try {
+    return await fn()
+  } catch (e) {
+    // MaxTimeMSExpired (code 50): the server stopped the read, the DB is overloaded.
+    if ((e as { code?: number })?.code === 50) throw new HistoryBusyError()
+    throw e
+  } finally {
+    const next = historyGate.waiters.shift()
+    if (next) next(); else historyGate.active--
+  }
 }
 
 export interface ShopSnapshotInput {
@@ -1130,13 +1170,25 @@ export async function getListingVelocityBatch(listingIds: number[], days = 120):
   const out = new Map<number, ListingVelocitySummary>()
   const ids = [...new Set(listingIds.filter(id => Number.isFinite(id) && id > 0))].slice(0, 120)
   if (!ids.length) return out
+  // Snapshots are taken once a day, so a listing's summary is cached for a few
+  // hours (false = no history yet). Results pages overlap heavily between users,
+  // so most listings are answered without touching the database.
+  const ck = (id: number) => `vel|v1|${days}|${id}`
+  const missing: number[] = []
+  for (const id of ids) {
+    const hit = memCache.get<ListingVelocitySummary | false>(ck(id))
+    if (hit == null) missing.push(id)
+    else if (hit) out.set(id, hit)
+  }
+  if (!missing.length) return out
   try {
     await connectDB()
     const since = daysAgoKey(days)
-    const rows = await ListingSnapshot.find({ listingId: { $in: ids }, day: { $gte: since } })
+    const rows = await historyRead(() => ListingSnapshot.find({ listingId: { $in: missing }, day: { $gte: since } })
       .sort({ listingId: 1, day: 1 })
       .select('listingId day reviewCount views favorers')
-      .lean<{ listingId: number; day: string; reviewCount: number | null; views: number | null; favorers: number | null }[]>()
+      .maxTimeMS(HISTORY_MAX_MS)
+      .lean<{ listingId: number; day: string; reviewCount: number | null; views: number | null; favorers: number | null }[]>())
 
     const byListing = new Map<number, VelRow[]>()
     for (const r of rows) {
@@ -1145,10 +1197,15 @@ export async function getListingVelocityBatch(listingIds: number[], days = 120):
       if (arr) arr.push(row)
       else byListing.set(r.listingId, [row])
     }
-    for (const [listingId, listRows] of byListing) out.set(listingId, summarise(listingId, listRows))
+    for (const id of missing) {
+      const listRows = byListing.get(id)
+      const summary = listRows ? summarise(id, listRows) : false
+      memCache.set(ck(id), summary, VELOCITY_TTL)
+      if (summary) out.set(id, summary)
+    }
     return out
   } catch (e) {
-    console.error('[Snapshots] batch listing velocity failed:', e)
+    if (!(e instanceof HistoryBusyError)) console.error('[Snapshots] batch listing velocity failed:', e)
     return out
   }
 }
@@ -1192,10 +1249,11 @@ export async function getKeywordMarketHistory(listingIds: number[], daysBack = 9
     const since = daysAgoKey(daysBack)   // 'YYYY-MM-DD'
     // Raw daily snapshots (deduped to 1/listing/day by the unique index). Uses the
     // {listingId, day} index. Bounded: <= 200 listings * daysBack rows.
-    const rows = await ListingSnapshot.find({ listingId: { $in: ids }, day: { $gte: since } })
+    const rows = await historyRead(() => ListingSnapshot.find({ listingId: { $in: ids }, day: { $gte: since } })
       .sort({ listingId: 1, day: 1 })
       .select('listingId day views favorers reviewCount')
-      .lean<{ listingId: number; day: string; views: number | null; favorers: number | null; reviewCount: number | null }[]>()
+      .maxTimeMS(HISTORY_MAX_MS)
+      .lean<{ listingId: number; day: string; views: number | null; favorers: number | null; reviewCount: number | null }[]>())
     if (!rows.length) return { ...empty, sampledListings: ids.length }
 
     const byListing = new Map<number, { day: string; views: number | null; favorers: number | null; reviewCount: number | null }[]>()
@@ -1256,6 +1314,8 @@ export async function getKeywordMarketHistory(listingIds: number[], daysBack = 9
 
     return { months, daily, totals, thisMonth, last30, sampledListings: ids.length, measuredListings: measured, trackedDays: active.length, fromDay }
   } catch (e) {
+    // Busy is passed up so the route answers "try again" instead of caching an empty panel.
+    if (e instanceof HistoryBusyError) throw e
     console.error('[Snapshots] keyword market history failed:', e)
     return empty
   }
@@ -1272,15 +1332,16 @@ export interface KeywordTrend { views: number[]; favorites: number[]; sales: num
  */
 export async function getKeywordTrendsBatch(keywordToIds: Map<string, number[]>, days = 30): Promise<Map<string, KeywordTrend>> {
   const out = new Map<string, KeywordTrend>()
-  const allIds = [...new Set([...keywordToIds.values()].flat().filter(Boolean))]
+  const allIds = [...new Set([...keywordToIds.values()].flat().filter(Boolean))].slice(0, 600)
   if (!allIds.length) return out
   try {
     await connectDB()
     const since = daysAgoKey(days + 1)
-    const rows = await ListingSnapshot.find({ listingId: { $in: allIds }, day: { $gte: since } })
+    const rows = await historyRead(() => ListingSnapshot.find({ listingId: { $in: allIds }, day: { $gte: since } })
       .sort({ listingId: 1, day: 1 })
       .select('listingId day views favorers reviewCount')
-      .lean<{ listingId: number; day: string; views: number | null; favorers: number | null; reviewCount: number | null }[]>()
+      .maxTimeMS(HISTORY_MAX_MS)
+      .lean<{ listingId: number; day: string; views: number | null; favorers: number | null; reviewCount: number | null }[]>())
     if (!rows.length) return out
 
     const rate = reviewRate()
@@ -1316,7 +1377,7 @@ export async function getKeywordTrendsBatch(keywordToIds: Map<string, number[]>,
     }
     return out
   } catch (e) {
-    console.error('[Snapshots] keyword trends batch failed:', e)
+    if (!(e instanceof HistoryBusyError)) console.error('[Snapshots] keyword trends batch failed:', e)
     return out
   }
 }
