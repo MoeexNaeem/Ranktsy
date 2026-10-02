@@ -391,11 +391,16 @@ export interface ObservedListing {
  * the daily cron keeps hot listings' history unbroken. Returns rows captured.
  */
 export async function recordObservedListings(rows: ObservedListing[]): Promise<number> {
-  const valid = rows.filter(r => r.listingId && r.shopId)
-  if (!valid.length) return 0
+  const accepted = rows.filter(r => r.listingId && r.shopId)
+  if (!accepted.length) return 0
+  // Users re-open the same Etsy pages all day, so most observations repeat exactly
+  // what was already saved today. Those are skipped (see repeatObservation): the
+  // stored data is identical either way, the database just does less work.
+  const day = dayKey()
+  const valid = accepted.filter(r => !repeatObservation(r, day))
+  if (!valid.length) return accepted.length
   try {
     await connectDB()
-    const day = dayKey()
     const now = new Date()
     const known = await knownTitleTags(valid.map(r => r.listingId))
 
@@ -475,10 +480,60 @@ export async function recordObservedListings(rows: ObservedListing[]): Promise<n
 
     await ListingSnapshot.bulkWrite(snapOps, { ordered: false })
     await TrackedListing.bulkWrite(trackOps, { ordered: false })
-    return valid.length
+    for (const r of valid) rememberObservation(r, day)
+    return accepted.length
   } catch (e) {
     console.error('[Snapshots] observe capture failed:', e)
     return 0
+  }
+}
+
+// ─── Repeat-observation filter ─────────────────────────────────────────────────
+// Per process, remembers what was last saved for each listing today (a short hash
+// of every observed field). An observation is skipped only when ALL of its values
+// match one already saved today within REPEAT_WINDOW_MS and it brings no better
+// rank, so every new or changed value is still written. Effects of a skip: the
+// day's snapshot is byte-for-byte the same; only TrackedListing's lastSeenAt /
+// observeCount (admin-only readouts) advance a little less often.
+const REPEAT_WINDOW_MS = 6 * 3600_000
+const REPEAT_MAX_LISTINGS = 150_000
+type SeenEntry = { day: string; at: number; fps: number[]; bestRank: number | null }
+const rg = globalThis as typeof globalThis & { __rkSeenObs?: Map<number, SeenEntry> }
+const seenObs = rg.__rkSeenObs ??= new Map<number, SeenEntry>()
+
+function observationHash(r: ObservedListing): number {
+  const { rank: _rank, tags, badges, ...rest } = r
+  void _rank
+  const text = JSON.stringify(rest, Object.keys(rest).sort()) + '|' + tagsKey(tags) + '|' + (badges ?? []).join(',')
+  let h = 0x811c9dc5   // FNV-1a, 32-bit
+  for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193) }
+  return h >>> 0
+}
+
+export function repeatObservation(r: ObservedListing, day: string): boolean {
+  const e = seenObs.get(r.listingId)
+  if (!e || e.day !== day || Date.now() - e.at > REPEAT_WINDOW_MS) return false
+  if (r.rank != null && r.rank > 0 && (e.bestRank == null || r.rank < e.bestRank)) return false
+  return e.fps.includes(observationHash(r))
+}
+
+export function rememberObservation(r: ObservedListing, day: string): void {
+  const prev = seenObs.get(r.listingId)
+  const same = prev && prev.day === day
+  const fp = observationHash(r)
+  const rank = r.rank != null && r.rank > 0 ? r.rank : null
+  const entry: SeenEntry = {
+    day,
+    at: Date.now(),   // time of the last real save
+    // A few recent shapes (a search card and a listing page carry different fields).
+    fps: same ? [fp, ...prev.fps.filter(x => x !== fp)].slice(0, 3) : [fp],
+    bestRank: same && prev.bestRank != null ? (rank != null ? Math.min(rank, prev.bestRank) : prev.bestRank) : rank,
+  }
+  seenObs.delete(r.listingId)
+  seenObs.set(r.listingId, entry)
+  if (seenObs.size > REPEAT_MAX_LISTINGS) {
+    let drop = Math.floor(REPEAT_MAX_LISTINGS / 5)   // oldest first (Map keeps insertion order)
+    for (const k of seenObs.keys()) { if (drop-- <= 0) break; seenObs.delete(k) }
   }
 }
 

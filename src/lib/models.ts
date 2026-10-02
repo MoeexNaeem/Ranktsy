@@ -297,17 +297,21 @@ const ListingSnapshotSchema = new Schema<IListingSnapshot>({
   currency:   { type: String, default: 'USD' },
   views:      { type: Number, default: 0 },
   favorers:   { type: Number, default: 0 },
-  reviewCount:{ type: Number, default: null },
+  // The fields below have NO default on purpose: an unknown value is simply not
+  // stored (absent reads as null everywhere), instead of writing a placeholder
+  // into every one of millions of daily rows. A real value, including 0 or false,
+  // is saved whenever it is observed.
+  reviewCount:{ type: Number },
   // What the buyer actually saw that day. The Etsy API reports a listing's
   // ORIGINAL list price, so a discounted listing is wrong everywhere unless the
   // real price is captured from the page - which is exactly what the extension
   // sees. Keeping the pair lets us reconstruct discount history per listing.
-  priceOriginal: { type: Number, default: null },
-  onSale:        { type: Boolean, default: null },
-  rating:        { type: Number, default: null },
-  quantity:      { type: Number, default: null },
+  priceOriginal: { type: Number },
+  onSale:        { type: Boolean },
+  rating:        { type: Number },
+  quantity:      { type: Number },
   // Best rank this listing held in any tracked keyword that day (1 = top).
-  bestRank:      { type: Number, default: null },
+  bestRank:      { type: Number },
   capturedAt: { type: Date, default: Date.now },
 }, { timestamps: false })
 

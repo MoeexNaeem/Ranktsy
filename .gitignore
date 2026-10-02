@@ -44,3 +44,6 @@ next-env.d.ts
 /.next-build/
 /.next-old/
 /.next-bad/
+
+# db-maintenance resume state
+scripts/db-maintenance/.dedupe-snapshot-progress.json
