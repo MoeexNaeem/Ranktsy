@@ -11,6 +11,8 @@ export const dynamic = 'force-dynamic'
 /**
  * Admin list of local payments. ?status=pending|approved|rejected|expired|all,
  * paginated with ?page=1&limit=20 (limit 5..100); the response carries the total.
+ * Optional ?q= searches within the chosen status by email, Transaction ID (TID) or
+ * name (case-insensitive, partial match). The tab counts stay unfiltered.
  * "expired" = approved whose granted period has ended (the user is back on free).
  * Each row carries the user's CURRENT plan and expiry so the admin sees the effect.
  */
@@ -29,11 +31,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, data: { counts: { pending } } })
   }
 
-  const filter: Record<string, unknown> =
+  const statusFilter: Record<string, unknown> =
     status === 'all' ? {}
     : status === 'expired' ? { status: 'approved', grantedUntil: { $lte: now } }
     : status === 'approved' ? { status: 'approved', $or: [{ grantedUntil: null }, { grantedUntil: { $gt: now } }] }
     : { status }
+
+  // Search: escaped so the admin's text is matched literally (no regex injection).
+  const q = (req.nextUrl.searchParams.get('q') ?? '').trim().slice(0, 100)
+  const rx = q ? new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') : null
+  const filter: Record<string, unknown> = rx
+    ? { $and: [statusFilter, { $or: [{ userEmail: rx }, { reference: rx }, { userName: rx }] }] }
+    : statusFilter
 
   const limit = Math.min(100, Math.max(5, Number(req.nextUrl.searchParams.get('limit')) || 20))
   const total = await LocalPayment.countDocuments(filter)

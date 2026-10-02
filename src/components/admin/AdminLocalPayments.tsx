@@ -65,10 +65,22 @@ export function AdminLocalPayments() {
   const [months, setMonths] = useState(1)
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
+  // Search by email / Transaction ID (TID) / name, in whichever tab is open.
+  // `search` is what's typed; `q` is the debounced value sent to the server.
+  const [search, setSearch] = useState('')
+  const [q, setQ] = useState('')
+  useEffect(() => {
+    const next = search.trim()
+    if (next === q) return
+    const t = setTimeout(() => { setQ(next); setPage(1) }, 300)
+    return () => clearTimeout(t)
+  }, [search, q])
 
   const load = useCallback(async () => {
     try {
-      const r = await fetch(`/api/admin/local-payments?status=${filter}&page=${page}&limit=${PAGE_SIZE}`, { cache: 'no-store' })
+      const qs = new URLSearchParams({ status: filter, page: String(page), limit: String(PAGE_SIZE) })
+      if (q) qs.set('q', q)
+      const r = await fetch(`/api/admin/local-payments?${qs}`, { cache: 'no-store' })
       const j = await r.json()
       if (j?.success) {
         setRows(j.data.rows); setCounts(j.data.counts)
@@ -78,7 +90,7 @@ export function AdminLocalPayments() {
       }
       else setRows([])
     } catch { setRows([]) }
-  }, [filter, page])
+  }, [filter, page, q])
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setRows(null); void load() }, [load])
 
@@ -142,16 +154,32 @@ export function AdminLocalPayments() {
         <button onClick={() => void load()} style={{ ...btn(C.paper, C.graphite, C.ash), borderRadius: 100, marginLeft: 'auto' }}>Refresh</button>
       </div>
 
+      <div style={{ position: 'relative', maxWidth: 460 }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.stone} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+          <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <input type="search" value={search} onChange={e => setSearch(e.target.value)} maxLength={100}
+          placeholder="Search by email or Transaction ID (TID)" aria-label="Search local payments by email or Transaction ID"
+          style={{ width: '100%', boxSizing: 'border-box', padding: '10px 36px 10px 38px', fontSize: 14, fontFamily: 'inherit', color: C.ink, background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 10, outline: 'none' }} />
+        {search && (
+          <button type="button" onClick={() => setSearch('')} aria-label="Clear search"
+            style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 24, height: 24, borderRadius: '50%', border: 'none', background: C.bone, color: C.graphite, cursor: 'pointer', fontSize: 14, lineHeight: '24px', padding: 0 }}>×</button>
+        )}
+      </div>
+
       {rows != null && paging.total > 0 && (
         <p style={{ fontSize: 12.5, color: C.stone, fontFamily: MONO, margin: 0 }}>
-          Showing {(page - 1) * paging.limit + 1}-{Math.min(page * paging.limit, paging.total)} of {paging.total}
+          Showing {(page - 1) * paging.limit + 1}-{Math.min(page * paging.limit, paging.total)} of {paging.total}{q ? ` matching "${q}"` : ''}
         </p>
       )}
 
       {rows == null ? (
         <p style={{ fontSize: 13, color: C.graphite }}>Loading…</p>
       ) : rows.length === 0 ? (
-        <div style={cardStyle}><EmptyState title={filter === 'pending' ? 'No payments waiting' : 'Nothing here'} sub={filter === 'pending' ? 'New local payments show up here (you also get a notification).' : undefined} /></div>
+        <div style={cardStyle}>{q
+          ? <EmptyState title={`No payments match "${q}"`} sub="Search looks at the email, Transaction ID (TID) and name in this tab. Try All to search every payment." />
+          : <EmptyState title={filter === 'pending' ? 'No payments waiting' : 'Nothing here'} sub={filter === 'pending' ? 'New local payments show up here (you also get a notification).' : undefined} />}</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {rows.map(r => {
