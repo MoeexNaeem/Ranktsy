@@ -38,13 +38,18 @@ module.exports = {
       script: 'node_modules/next/dist/bin/next',
       args: 'start',
       exec_mode: 'cluster',
-      // One worker per core. Set a number (e.g. 2) to leave cores for nginx/Mongo
-      // on a small box, or override with the PM2_INSTANCES env var.
-      instances: process.env.PM2_INSTANCES || Math.max(1, os.cpus().length),
+      // One worker per core MINUS ONE, so nginx and the OS always have a core
+      // (on the 4-core / 3.5 GB server, 4 workers left nothing spare, 2026-10-03).
+      // Override with the PM2_INSTANCES env var.
+      instances: process.env.PM2_INSTANCES || Math.max(1, os.cpus().length - 1),
       autorestart: true,
-      // Recycle a worker before it OOMs. Tune to your box: (total RAM / instances)
-      // minus headroom. On an 8 GB / 4-core box, ~700M per worker is safe.
-      max_memory_restart: process.env.PM2_MAX_MEMORY || '700M',
+      // Make V8 collect garbage BEFORE PM2's limit. Without a heap limit Node lets
+      // the heap grow to ~2 GB, so every worker climbed to PM2's ceiling and was
+      // killed (30-51 restarts each, each restart a 100% CPU reload), 2026-10-03.
+      node_args: `--max-old-space-size=${process.env.NODE_HEAP_MB || 640}`,
+      // Last-resort recycle, above the heap limit plus Next's non-heap memory.
+      // 3 workers x 900M stays inside the 3.5 GB box.
+      max_memory_restart: process.env.PM2_MAX_MEMORY || '900M',
       // Back off if a worker crash-loops, instead of hammering restarts.
       exp_backoff_restart_delay: 200,
       // Give in-flight requests time to finish on reload/restart.

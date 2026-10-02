@@ -21,11 +21,35 @@ export const runtime = 'nodejs'
  *     background at most every HEAVY_TTL_MS and served from the last saved result.
  */
 const HEAVY_KEY = 'snapshot-stats-heavy'
-const HEAVY_TTL_MS = 6 * 3600_000
+const HEAVY_LOCK_KEY = 'snapshot-stats-heavy-lock'
+// Once a day is plenty for an admin growth number; each run scans millions of rows.
+const HEAVY_TTL_MS = 24 * 3600_000
+// A run holds this lease; another worker can only start once it has expired.
+const HEAVY_LEASE_MS = 30 * 60_000
 
 interface HeavyStats { measuredListings: number; measuredRankPairs: number; computedAt: string }
 
-async function computeHeavy(): Promise<HeavyStats> {
+/**
+ * Claim the right to run the heavy scan, across ALL PM2 workers (singleFlight only
+ * covers one process: with 4 workers, admin dashboard visits started several full
+ * scans at once and slowed the database for every user, 2026-10-03).
+ */
+async function claimHeavyLease(): Promise<boolean> {
+  const now = Date.now()
+  try {
+    const r = await AppSetting.updateOne(
+      { key: HEAVY_LOCK_KEY, $or: [{ num: { $lt: now } }, { num: { $exists: false } }] },
+      { $set: { num: now + HEAVY_LEASE_MS } },
+      { upsert: true },
+    )
+    return r.modifiedCount === 1 || r.upsertedCount === 1
+  } catch {
+    return false   // duplicate key: another worker holds a live lease
+  }
+}
+
+async function computeHeavy(): Promise<HeavyStats | null> {
+  if (!(await claimHeavyLease())) return null
   const [measuredAgg, rankMeasuredAgg] = await Promise.all([
     // Listings with >= 2 review-count snapshots → real measured sales velocity.
     ListingSnapshot.aggregate<{ n: number }>([
