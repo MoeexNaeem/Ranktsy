@@ -11,6 +11,8 @@
  *   GET /v3/application/shops/{shop_id}/listings/active → shop listings
  */
 import { cpus } from 'node:os'
+import { createHash } from 'node:crypto'
+import { getDisabledEtsyKeyIds, disabledEtsyKeyIdsNow } from '@/lib/etsy-key-switch'
 import { recordShopSnapshots, recordListingSnapshots, recordShopSnapshot, getKeywordTrendsBatch } from '@/lib/snapshots'
 import { recordEtsyCall, assertEtsyBudget } from '@/lib/usage'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
@@ -106,6 +108,31 @@ const gPool = globalThis as typeof globalThis & { __rkEtsyKeyPool?: EtsyKey[] }
 const KEY_POOL: EtsyKey[] = gPool.__rkEtsyKeyPool ??= buildKeyPool()
 if (KEY_POOL.length > 1) console.log(`[Etsy] key pool: ${KEY_POOL.length} keys (public throughput ~${KEY_POOL.length}× one key).`)
 
+// Stable, non-secret id per key (short hash of the keystring) used by the admin
+// on/off switch (lib/etsy-key-switch.ts). Computed once per key header.
+const keyIds = new Map<string, string>()
+function keyId(k: EtsyKey): string {
+  let id = keyIds.get(k.header)
+  if (!id) {
+    id = createHash('sha256').update(k.header.split(':')[0]).digest('hex').slice(0, 12)
+    keyIds.set(k.header, id)
+  }
+  return id
+}
+/** Ids of every configured public-call key, in pool order. */
+export function etsyKeyIds(): string[] { return KEY_POOL.map(keyId) }
+
+/**
+ * The keys public calls may use right now: every key the admin hasn't switched
+ * off. If the saved state somehow leaves none (it can't be saved that way), fall
+ * back to the whole pool rather than take every Etsy tool down.
+ */
+function usableKeys(disabled: Set<string>): EtsyKey[] {
+  if (!disabled.size) return KEY_POOL
+  const on = KEY_POOL.filter(k => !disabled.has(keyId(k)))
+  return on.length ? on : KEY_POOL
+}
+
 // ─── Daily quota lockout + usage by endpoint ──────────────────────────────────
 // When Etsy answers 429 "Exceeded daily rate limit", that key rests for a few
 // minutes (quotaLockUntil) instead of being retried in a tight loop. Retrying it
@@ -148,7 +175,9 @@ function noteQuota(k: EtsyKey, res: Response): void {
 
 export interface EtsyKeyQuota {
   index: number            // 1-based, same numbering as the logs
+  id: string               // stable hash id, used by the admin on/off switch
   last4: string            // last 4 chars of the keystring, to tell keys apart
+  enabled: boolean         // false = switched off by an admin (resting)
   limitPerDay: number | null
   remainingToday: number | null
   limitPerSec: number | null
@@ -170,9 +199,12 @@ async function persistQuota(): Promise<void> {
 
 function localQuota(): EtsyKeyQuota[] {
   const now = Date.now()
+  const disabled = disabledEtsyKeyIdsNow()
   return KEY_POOL.map((k, i) => ({
     index: i + 1,
+    id: keyId(k),
     last4: k.header.split(':')[0].slice(-4),
+    enabled: !disabled.has(keyId(k)),
     limitPerDay: k.limitPerDay,
     remainingToday: k.remainingToday,
     limitPerSec: k.limitPerSec,
@@ -186,6 +218,7 @@ function localQuota(): EtsyKeyQuota[] {
  * across workers: for each key, the most recent reading any worker saw wins.
  */
 export async function etsyKeyQuota(): Promise<EtsyKeyQuota[]> {
+  await getDisabledEtsyKeyIds()   // make sure `enabled` reflects the saved switch state
   const mine = localQuota()
   let shared: EtsyKeyQuota[] = []
   try {
@@ -195,7 +228,8 @@ export async function etsyKeyQuota(): Promise<EtsyKeyQuota[]> {
   } catch { /* fall back to this worker's view */ }
   return mine.map(m => {
     const s = shared.find(x => x.index === m.index && x.last4 === m.last4)
-    return s && (s.seenAt ?? '') > (m.seenAt ?? '') ? { ...s, lockedUntil: m.lockedUntil } : m
+    // Quota figures may come from another worker; id / on-off / lock are always this worker's view.
+    return s && (s.seenAt ?? '') > (m.seenAt ?? '') ? { ...s, id: m.id, enabled: m.enabled, lockedUntil: m.lockedUntil } : m
   })
 }
 
@@ -207,7 +241,8 @@ export async function etsyKeyQuota(): Promise<EtsyKeyQuota[]> {
  */
 export function etsyQuotaLow(fraction = 0.3): boolean {
   let remaining = 0, limit = 0
-  for (const k of KEY_POOL) {
+  // Only the keys that are switched on serve traffic, so only they count.
+  for (const k of usableKeys(disabledEtsyKeyIdsNow())) {
     if (k.remainingToday == null || k.limitPerDay == null) return false
     remaining += Math.max(0, k.remainingToday)
     limit += k.limitPerDay
@@ -218,8 +253,9 @@ export function etsyQuotaLow(fraction = 0.3): boolean {
 /** Keys currently locked out for the day (index is 1-based), for the admin health view. */
 export function etsyKeyLocks(): { index: number; blockedUntil: string }[] {
   const now = Date.now()
-  return KEY_POOL.map((k, i) => ({ index: i + 1, until: k.blockedUntil }))
-    .filter(k => k.until > now)
+  const usable = new Set(usableKeys(disabledEtsyKeyIdsNow()))
+  return KEY_POOL.map((k, i) => ({ index: i + 1, until: k.blockedUntil, on: usable.has(k) }))
+    .filter(k => k.on && k.until > now)
     .map(k => ({ index: k.index, blockedUntil: new Date(k.until).toISOString() }))
 }
 
@@ -240,9 +276,13 @@ export function etsyKeyPoolSize(): number { return KEY_POOL.length }
  * fails ~half of all Etsy requests. Returns per-key ok/status. Spends one Etsy
  * call per key, so this is only for the admin health check, never the hot path.
  */
-export async function probeEtsyKeys(): Promise<{ index: number; ok: boolean; status: number | null; retryAt?: string | null }[]> {
+export async function probeEtsyKeys(): Promise<{ index: number; ok: boolean; status: number | null; retryAt?: string | null; enabled: boolean }[]> {
   const url = `${ETSY_BASE}/listings/active?limit=1`
+  // Switched-off keys are probed too (one call each), so the admin can see when
+  // a resting key has its quota back and switch it on again.
+  const disabled = await getDisabledEtsyKeyIds()
   return Promise.all(KEY_POOL.map(async (k, i) => {
+    const enabled = !disabled.has(keyId(k))
     // Probe even a LOCKED key: this is what "Re-check" is for. It used to report a
     // locked key as 429 straight from memory, so the admin showed DOWN while Etsy
     // itself had quota again. A 200 here clears the lock (see noteQuota).
@@ -251,9 +291,9 @@ export async function probeEtsyKeys(): Promise<{ index: number; ok: boolean; sta
       noteQuota(k, res)
       const ra = Number(res.headers.get('retry-after'))
       if (res.status === 429 && Number.isFinite(ra) && ra > 60) k.blockedUntil = quotaLockUntil(ra)
-      return { index: i + 1, ok: res.ok, status: res.status, retryAt: res.status === 429 ? new Date(k.blockedUntil || Date.now()).toISOString() : null }
+      return { index: i + 1, ok: res.ok, status: res.status, retryAt: res.status === 429 ? new Date(k.blockedUntil || Date.now()).toISOString() : null, enabled }
     } catch {
-      return { index: i + 1, ok: false, status: null }
+      return { index: i + 1, ok: false, status: null, enabled }
     }
   }))
 }
@@ -300,7 +340,8 @@ async function etsyFetch<T = unknown>(path: string, params?: Record<string, stri
   // spending a call; cached answers never reach this function and stay available.
   await assertEtsyBudget()
 
-  const pool = KEY_POOL
+  // Only the keys the admin has left switched ON (Code Flow → Etsy API quota).
+  const pool = usableKeys(await getDisabledEtsyKeyIds())
   const n = pool.length
   // Enough attempts to visit every key at least once, plus a couple of passes for
   // a transient blip. Single key → 4 (unchanged from before the pool existed).
@@ -346,7 +387,7 @@ async function etsyFetch<T = unknown>(path: string, params?: Record<string, stri
     if (res.status === 429 && key && (/daily/i.test(text) || (Number.isFinite(retryAfterSec) && retryAfterSec > 60))) {
       const until = quotaLockUntil(retryAfterSec)
       if (key.blockedUntil < Date.now()) {
-        console.warn(`[Etsy] key #${pool.indexOf(key) + 1}/${n} hit the DAILY rate limit - resting until ${new Date(until).toISOString()} (Etsy retry-after ${retryAfterSec}s)`)
+        console.warn(`[Etsy] key #${KEY_POOL.indexOf(key) + 1}/${KEY_POOL.length} hit the DAILY rate limit - resting until ${new Date(until).toISOString()} (Etsy retry-after ${retryAfterSec}s)`)
       }
       key.blockedUntil = until
       if (pool.every(k => k.blockedUntil > Date.now())) throw new EtsyQuotaError(Math.min(...pool.map(k => k.blockedUntil)))
@@ -361,7 +402,7 @@ async function etsyFetch<T = unknown>(path: string, params?: Record<string, stri
     const serverBusy = res.status === 429 || res.status >= 500
     const cycledAllKeys = n <= 1 || attempt >= n - 1
     if (authBad && n > 1) {
-      console.warn(`[Etsy] key #${(start + attempt) % n + 1}/${n} returned ${res.status} - check that key's keystring + shared secret + commercial access. ${text.slice(0, 120)}`)
+      console.warn(`[Etsy] key #${KEY_POOL.indexOf(pool[(start + attempt) % n]) + 1}/${KEY_POOL.length} returned ${res.status} - check that key's keystring + shared secret + commercial access. ${text.slice(0, 120)}`)
     }
 
     // Not retryable (a real 400/404, or a single-key auth failure), or out of

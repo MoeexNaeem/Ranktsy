@@ -55,16 +55,22 @@ async function handleGET(): Promise<NextResponse<ApiResponse<{ systems: Record<F
   // Live-probe each Etsy key so a bad/misconfigured one is caught (a single bad
   // key silently fails ~half of all Etsy requests). All keys good = ok; some bad
   // = down (it IS breaking requests); none configured = down.
-  const etsyKeys = etsyKeyPoolSize()
-  const probes = etsyKeys > 0 ? await probeEtsyKeys().catch(() => []) : []
+  // Keys an admin switched OFF are resting on purpose: they're probed (so the panel
+  // shows when they have quota again) but don't count toward the health colour.
+  const allProbes = etsyKeyPoolSize() > 0 ? await probeEtsyKeys().catch(() => []) : []
+  const offKeys = allProbes.filter(p => !p.enabled).length
+  const offNote = offKeys ? ` ${offKeys} key${offKeys === 1 ? ' is' : 's are'} switched off by an admin.` : ''
+  const probes = allProbes.filter(p => p.enabled)
+  const etsyKeys = etsyKeyPoolSize() - offKeys
   const goodKeys = probes.filter(p => p.ok).length
   const badKeys = probes.filter(p => !p.ok)
   // Etsy's own per-key figures (limit/day, calls left), read from the probe above and
   // from the headers of every normal call. This is the source of truth for usage.
   const etsyQuota = await etsyKeyQuota().catch(() => [] as EtsyKeyQuota[])
-  const left = etsyQuota.reduce((s, q) => s + (q.remainingToday ?? 0), 0)
-  const limit = etsyQuota.reduce((s, q) => s + (q.limitPerDay ?? 0), 0)
-  const quotaSummary = limit ? `${left.toLocaleString('en-US')} of ${limit.toLocaleString('en-US')} daily calls left across ${etsyQuota.length} keys` : ''
+  const onQuota = etsyQuota.filter(q => q.enabled)
+  const left = onQuota.reduce((s, q) => s + (q.remainingToday ?? 0), 0)
+  const limit = onQuota.reduce((s, q) => s + (q.limitPerDay ?? 0), 0)
+  const quotaSummary = limit ? `${left.toLocaleString('en-US')} of ${limit.toLocaleString('en-US')} daily calls left across the ${onQuota.length} key${onQuota.length === 1 ? '' : 's'} in use` : ''
   // A 429 is Etsy's DAILY quota for that key, not a broken key: say so plainly.
   const quotaKeys = badKeys.filter(b => b.status === 429)
   const reset = probes.map(p => p.retryAt).filter((x): x is string => !!x).sort()[0]
@@ -72,8 +78,8 @@ async function handleGET(): Promise<NextResponse<ApiResponse<{ systems: Record<F
   const quotaNote = quotaKeys.length
     ? `daily Etsy limit reached on key ${quotaKeys.map(q => `#${q.index}`).join(', ')}${reset ? ` (resets ~${reset.slice(11, 16)} UTC)` : ''} - add more Etsy app keys or ask Etsy for a higher limit${usage ? `; top endpoints (this worker): ${usage}` : ''}`
     : ''
-  const etsyHealth: SystemHealth =
-    etsyKeys === 0 ? { status: 'down', required: true, detail: 'no Etsy key configured' }
+  const etsyBase: SystemHealth =
+    etsyKeyPoolSize() === 0 ? { status: 'down', required: true, detail: 'no Etsy key configured' }
     : quotaKeys.length && quotaKeys.length === badKeys.length
       ? goodKeys === 0
         ? { status: 'down', required: true, detail: `all keys out of quota: ${quotaNote}` }
@@ -83,6 +89,7 @@ async function handleGET(): Promise<NextResponse<ApiResponse<{ systems: Record<F
     : goodKeys === 0 ? { status: 'down', required: true, detail: `all ${etsyKeys} keys failing (${badKeys.map(b => `#${b.index}:${b.status ?? 'err'}`).join(', ')})` }
     : badKeys.length > 0 ? { status: 'down', required: true, detail: `key ${badKeys.map(b => `#${b.index} (${b.status ?? 'err'})`).join(', ')} failing - fix or remove it; ${goodKeys}/${etsyKeys} ok` }
     : { status: 'ok', required: true, detail: `${goodKeys}/${etsyKeys} keys ok${quotaSummary ? `; ${quotaSummary}` : ''}` }
+  const etsyHealth: SystemHealth = offNote ? { ...etsyBase, detail: etsyBase.detail + '.' + offNote, label: etsyBase.label ?? `${etsyKeys}/${etsyKeys + offKeys} keys on` } : etsyBase
 
   const lsOk = env('LS_API_KEY') && env('LS_WEBHOOK_SECRET')
   // Google Ads Basic Access = 15,000 ops/day for the whole app; when exhausted every

@@ -57,14 +57,15 @@ function FlowNode({ data }: NodeProps<NodeData>) {
   const base: React.CSSProperties = {
     display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
     fontSize: 15, fontWeight: 600, lineHeight: 1.35, color: '#1f2430', background: data.state === 'code' ? '#ffffff' : c.tint,
-    border: `3px solid ${c.line}`, boxShadow: '0 6px 20px rgba(30,30,40,0.12)',
+    // Longhands only: mixing `border` with a `borderStyle` override made React warn on every re-colour.
+    borderWidth: 3, borderStyle: isExternal ? 'dashed' : 'solid', borderColor: c.line, boxShadow: '0 6px 20px rgba(30,30,40,0.12)',
     fontFamily: 'system-ui, -apple-system, Segoe UI, sans-serif', position: 'relative',
   }
   const shape: React.CSSProperties = isDiamond
     ? { ...base, width: 220, height: 124, clipPath: 'polygon(50% 0, 100% 50%, 50% 100%, 0 50%)', padding: '0 34px', fontSize: 14, background: c.line, color: '#fff' }
     : isPill
       ? { ...base, borderRadius: 999, padding: '16px 28px', minWidth: 190 }
-      : { ...base, borderRadius: 14, padding: '18px 24px', minWidth: 220, maxWidth: 250, ...(isExternal ? { borderStyle: 'dashed' } : null) }
+      : { ...base, borderRadius: 14, padding: '18px 24px', minWidth: 220, maxWidth: 250 }
 
   return (
     <div title={data.detail ? `${data.label} - ${data.detail}` : data.label} style={{ position: 'relative' }}>
@@ -90,7 +91,7 @@ const DOT: Record<Status, string> = { ok: '#22c55e', down: '#ef4444', off: '#d99
 // on every call and on Re-check), not from our internal call counter, which is
 // per-worker and drifts. "Left" is Etsy's rolling 24-hour window.
 interface EtsyQuotaRow {
-  index: number; last4: string
+  index: number; id: string; last4: string; enabled: boolean
   limitPerDay: number | null; remainingToday: number | null; limitPerSec: number | null
   seenAt: string | null; lockedUntil: string | null
 }
@@ -101,10 +102,26 @@ function ago(iso: string | null, now: number): string {
   return s < 60 ? `${s}s ago` : s < 3600 ? `${Math.round(s / 60)}m ago` : `${Math.round(s / 3600)}h ago`
 }
 
+/** On/off switch for one key. */
+function KeySwitch({ on, busy, disabled, title, onChange }: { on: boolean; busy: boolean; disabled: boolean; title: string; onChange: (v: boolean) => void }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} title={title} disabled={disabled || busy} onClick={() => onChange(!on)}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', padding: 0, cursor: disabled || busy ? 'not-allowed' : 'pointer', opacity: disabled ? 0.55 : 1 }}>
+      <span style={{ position: 'relative', width: 38, height: 22, borderRadius: 11, background: on ? '#1F8A4C' : '#C9C9BE', transition: 'background .15s', flexShrink: 0 }}>
+        <span style={{ position: 'absolute', top: 3, left: on ? 19 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.25)', transition: 'left .15s' }} />
+      </span>
+      <span style={{ fontSize: 12, fontWeight: 700, color: on ? '#1F8A4C' : '#6E6E64', fontFamily: 'ui-monospace, monospace' }}>{busy ? '...' : on ? 'ON' : 'OFF'}</span>
+    </button>
+  )
+}
+
 /** `now` = when the server built this report, so ages/locks read as of that check. */
-function EtsyQuotaPanel({ rows, now }: { rows: EtsyQuotaRow[]; now: number }) {
-  const limit = rows.reduce((s, r) => s + (r.limitPerDay ?? 0), 0)
-  const left = rows.reduce((s, r) => s + (r.remainingToday ?? 0), 0)
+function EtsyQuotaPanel({ rows, now, busyId, msg, onToggle }: { rows: EtsyQuotaRow[]; now: number; busyId: string | null; msg: { ok: boolean; text: string } | null; onToggle: (id: string, enabled: boolean) => void }) {
+  const onRows = rows.filter(r => r.enabled)
+  const onCount = onRows.length
+  // Totals cover only the keys that are switched on (they're the ones serving traffic).
+  const limit = onRows.reduce((s, r) => s + (r.limitPerDay ?? 0), 0)
+  const left = onRows.reduce((s, r) => s + (r.remainingToday ?? 0), 0)
   const pctLeft = limit ? left / limit : null
   const tone = (p: number | null) => p == null ? '#919183' : p < 0.05 ? '#CF463A' : p < 0.2 ? '#C28111' : '#1F8A4C'
   const cell: React.CSSProperties = { fontSize: 12.5, color: '#3D3E3B', fontFamily: 'ui-monospace, monospace', whiteSpace: 'nowrap' }
@@ -114,18 +131,28 @@ function EtsyQuotaPanel({ rows, now }: { rows: EtsyQuotaRow[]; now: number }) {
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <strong style={{ fontSize: 14, color: '#3D3E3B' }}>Etsy API quota (live from Etsy)</strong>
         <span style={{ fontSize: 13, fontWeight: 700, color: tone(pctLeft), fontFamily: 'ui-monospace, monospace' }}>
-          {fmtN(left)} / {fmtN(limit)} calls left{pctLeft != null ? ` (${Math.round(pctLeft * 100)}%)` : ''}
+          {fmtN(left)} / {fmtN(limit)} calls left{pctLeft != null ? ` (${Math.round(pctLeft * 100)}%)` : ''}{onCount < rows.length ? ` on ${onCount} of ${rows.length} keys` : ''}
         </span>
       </div>
+      <p style={{ margin: '0 0 12px', fontSize: 12.5, color: '#6E6E64', lineHeight: 1.5 }}>
+        Switch a key <strong>OFF</strong> to let its daily quota recover: every tool keeps working on the keys that are ON
+        ({onCount} of {rows.length} now). At least one key always stays on. Changes reach every server worker within about 5 seconds.
+      </p>
       <div style={{ overflowX: 'auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '60px 90px minmax(160px,1fr) 110px 110px 90px 120px 150px', gap: '8px 14px', alignItems: 'center', minWidth: 900 }}>
-          {['Key', 'Ends with', 'Used today', 'Left', 'Daily limit', 'Per sec', 'Reported', 'Status'].map(h => <span key={h} style={head}>{h}</span>)}
+        <div style={{ display: 'grid', gridTemplateColumns: '60px 90px 90px minmax(160px,1fr) 110px 110px 90px 120px 170px', gap: '8px 14px', alignItems: 'center', minWidth: 1000 }}>
+          {['Key', 'Use', 'Ends with', 'Used today', 'Left', 'Daily limit', 'Per sec', 'Reported', 'Status'].map(h => <span key={h} style={head}>{h}</span>)}
           {rows.map(r => {
             const p = r.limitPerDay && r.remainingToday != null ? r.remainingToday / r.limitPerDay : null
             const usedPct = p == null ? null : Math.max(0, Math.min(1, 1 - p))
             const locked = r.lockedUntil && new Date(r.lockedUntil).getTime() > now
+            const lastOn = r.enabled && onCount <= 1
             return [
               <span key={`i${r.index}`} style={cell}>#{r.index}</span>,
+              <span key={`u${r.index}`}>
+                <KeySwitch on={r.enabled} busy={busyId === r.id} disabled={lastOn || (busyId != null && busyId !== r.id)}
+                  title={lastOn ? 'The last key that is on cannot be switched off' : r.enabled ? `Switch key #${r.index} off so it can recover` : `Switch key #${r.index} back on`}
+                  onChange={v => onToggle(r.id, v)} />
+              </span>,
               <span key={`k${r.index}`} style={cell}>...{r.last4}</span>,
               <span key={`b${r.index}`} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ flex: 1, height: 8, background: '#EEEEE6', borderRadius: 4, overflow: 'hidden' }}>
@@ -137,14 +164,18 @@ function EtsyQuotaPanel({ rows, now }: { rows: EtsyQuotaRow[]; now: number }) {
               <span key={`d${r.index}`} style={cell}>{fmtN(r.limitPerDay)}</span>,
               <span key={`s${r.index}`} style={cell}>{fmtN(r.limitPerSec)}</span>,
               <span key={`t${r.index}`} style={{ ...cell, color: '#919183' }}>{ago(r.seenAt, now)}</span>,
-              <span key={`st${r.index}`} style={{ ...cell, fontWeight: 700, color: locked ? '#CF463A' : '#1F8A4C' }}>
-                {locked ? `resting until ${new Date(r.lockedUntil!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'in use'}
+              <span key={`st${r.index}`} style={{ ...cell, fontWeight: 700, color: !r.enabled ? '#6E6E64' : locked ? '#CF463A' : '#1F8A4C' }}>
+                {!r.enabled ? 'off (recovering)' : locked ? `resting until ${new Date(r.lockedUntil!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'in use'}
               </span>,
             ]
           })}
         </div>
       </div>
+      {msg && <p style={{ margin: '10px 0 0', fontSize: 12.5, fontWeight: 600, color: msg.ok ? '#1F8A4C' : '#CF463A' }}>{msg.text}</p>}
       <p style={{ margin: '10px 0 0', fontSize: 11.5, color: '#919183', lineHeight: 1.5 }}>
+        Key #1 is also the Etsy app shops connect through, so connected-shop features (My Shop, Sales Map, Delivery Status, creating drafts) always use key #1, even while it is off here. Only the public data calls (searches, listings, shops, trends) move to the other keys.
+      </p>
+      <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#919183', lineHeight: 1.5 }}>
         Etsy&apos;s own figures from its response headers. The daily limit is a rolling 24-hour window, so calls free up gradually rather than at one reset time. Click Re-check for fresh numbers.
       </p>
     </div>
@@ -181,6 +212,30 @@ function CodeFlowInner() {
   }, [])
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load() }, [load])
+
+  // Etsy key on/off switch: saved server-side, applied to every worker within ~5s.
+  const [keyBusy, setKeyBusy] = useState<string | null>(null)
+  const [keyMsg, setKeyMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const toggleKey = useCallback(async (id: string, enabled: boolean) => {
+    setKeyBusy(id); setKeyMsg(null)
+    try {
+      const r = await fetch('/api/admin/etsy-keys', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, enabled }) })
+      const d = await r.json().catch(() => null)
+      if (r.ok && d?.success) {
+        const keys = d.data.keys as { index: number; id: string; enabled: boolean }[]
+        const states = new Map(keys.map(k => [k.id, k.enabled]))
+        setEtsyQuota(rows => rows.map(row => ({ ...row, enabled: states.get(row.id) ?? row.enabled })))
+        const k = keys.find(x => x.id === id)
+        const on = keys.filter(x => x.enabled).length
+        setKeyMsg({ ok: true, text: `Key #${k?.index ?? '?'} is now ${enabled ? 'ON' : 'OFF'}. ${on} of ${keys.length} keys serving all Etsy tools.` })
+      } else {
+        setKeyMsg({ ok: false, text: d?.error || 'Could not change the key. Please try again.' })
+      }
+    } catch {
+      setKeyMsg({ ok: false, text: 'Network error. The key was not changed.' })
+    }
+    setKeyBusy(null)
+  }, [])
 
   // Google Ads quota lock: one real call to see if Google still refuses, then refresh.
   const [gRecheck, setGRecheck] = useState<{ busy: boolean; msg: string; ok?: boolean }>({ busy: false, msg: '' })
@@ -290,7 +345,7 @@ function CodeFlowInner() {
         ))}
       </div>
 
-      {etsyQuota.length > 0 && <EtsyQuotaPanel rows={etsyQuota} now={checkedAt ? Date.parse(checkedAt) : 0} />}
+      {etsyQuota.length > 0 && <EtsyQuotaPanel rows={etsyQuota} now={checkedAt ? Date.parse(checkedAt) : 0} busyId={keyBusy} msg={keyMsg} onToggle={toggleKey} />}
 
       {(health?.google?.status === 'down' || gRecheck.msg) && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '10px 14px', borderRadius: 12,
