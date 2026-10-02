@@ -960,9 +960,10 @@ export async function getKeywordPageSignals(keywordRaw: string, days = 30): Prom
     }) as number[]
     if (!ids.length) return null
 
-    const rows = await TrackedListing.find({ listingId: { $in: ids.slice(0, 500) } })
+    const rows = await historyRead(() => TrackedListing.find({ listingId: { $in: ids.slice(0, 500) } })
       .select('freeShipping hasVideo badges starSeller imageCount inCarts')
-      .lean<{ freeShipping?: boolean | null; hasVideo?: boolean | null; badges?: string[]; starSeller?: boolean | null; imageCount?: number | null; inCarts?: number | null }[]>()
+      .maxTimeMS(HISTORY_MAX_MS)
+      .lean<{ freeShipping?: boolean | null; hasVideo?: boolean | null; badges?: string[]; starSeller?: boolean | null; imageCount?: number | null; inCarts?: number | null }[]>())
     if (!rows.length) return null
 
     // Share of the listings that reported the field, never of the whole sample.
@@ -996,6 +997,7 @@ export async function getKeywordPageSignals(keywordRaw: string, days = 30): Prom
         .map(([badge, count]) => ({ badge, count })),
     }
   } catch (e) {
+    if (e instanceof HistoryBusyError) throw e   // caller decides not to cache a busy answer
     console.error('[Snapshots] keyword page signals failed:', e)
     return null
   }
