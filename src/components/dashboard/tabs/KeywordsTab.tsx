@@ -275,6 +275,7 @@ function googleGapNote(status?: string | null, retryAt?: string | null): string 
     return `Search-volume data is paused for today${t ? ` and resumes around ${t}` : ''}. Everything else on this page is live.`
   }
   if (status === 'error') return 'Search-volume data didn’t load just now. Search again in a minute.'
+  if (status === 'pending') return 'Google is still answering. This fills in by itself in a moment.'
   return null
 }
 
@@ -307,7 +308,7 @@ function KeywordStatsPanel({ s, geoName }: { s: KeywordStats; geoName: string })
     {
       source: 'Google', dot: '#4285F4',
       items: [
-        { label: 'Search Volume',  tip: `Real average monthly Google searches for this keyword in ${geoName}, measured not estimated.`, value: s.googleSearches != null ? exact(s.googleSearches) : '—', color: s.googleSearches != null ? D.good : C.lightGray },
+        { label: 'Search Volume',  tip: `Real average monthly Google searches for this keyword in ${geoName}, measured not estimated.`, value: s.googleSearches != null ? exact(s.googleSearches) : s.googleStatus === 'pending' ? '…' : '—', color: s.googleSearches != null ? D.good : C.lightGray },
         { label: 'Ad Competition', tip: 'How strongly advertisers compete for this keyword on Google, measured not estimated.', value: band(s.googleCompetition), color: s.googleCompetition === 'HIGH' ? D.hard : s.googleCompetition === 'MEDIUM' ? D.mid : s.googleCompetition === 'LOW' ? D.good : C.lightGray },
       ],
     },
@@ -583,21 +584,10 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
           control={<CountrySelect value={country} onChange={setCountry} />} />
       </div>
 
-      {/* Keyword header + main cards - plain skeletons while data loads. */}
-      {isLoading && !kw && (
-        <>
-          <div className="rsectitle" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <Shimmer h={32} w={220} r={6} />
-            <Shimmer h={24} w={130} r={100} />
-            <Shimmer h={24} w={100} r={100} />
-          </div>
-          <div className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
-            <CardSkeleton h={240} />
-            <CardSkeleton h={240} />
-            <CardSkeleton h={240} />
-          </div>
-        </>
-      )}
+      {/* While the keyword loads, every section below shows a skeleton in its real
+          place and shape (the cards themselves render around them), so nothing
+          jumps or appears twice when the data lands. */}
+      {isLoading && !kw && <HeaderSkeleton />}
 
       {kw && (
         <div className="rsectitle" style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
@@ -635,7 +625,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
       {/* Overview - Keyword Statistics · Search Trends · Searchers by Country
           (the sample's three-panel row). Every figure is real or "-". */}
       <div data-tour="kw-stats" className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1.55fr 1fr', gap: 12, alignItems: 'stretch' }}>
-        {kw ? <KeywordStatsPanel s={kw.stats} geoName={geoName} /> : <Card><Shimmer h={230} r={8} /></Card>}
+        {kw ? <KeywordStatsPanel s={kw.stats} geoName={geoName} /> : <StatsCardSkeleton />}
 
         <Card style={{ display: 'flex', flexDirection: 'column' }}>
           <SectionTitle right={tr?.trends?.length ? <PlatformToggle active={plats} onChange={setPlats} /> : undefined}>
@@ -666,7 +656,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
           {countryData && countryData.length > 0
             ? <CountryChart data={countryData} />
             // Still loading, or Google was busy and the hook is quietly retrying (up to ~2 min).
-            : cq.isPending || (cq.isFetching && !cq.data) || cq.data?.retrying ? <Shimmer h={200} r={8} />
+            : cq.isPending || (cq.isFetching && !cq.data) || cq.data?.retrying ? <CountrySkeleton />
             : googleGapNote(cq.data?.googleStatus, cq.data?.googleRetryAt)
               ? <EmptyState icon="🌍" title="Country data paused" sub={googleGapNote(cq.data?.googleStatus, cq.data?.googleRetryAt)!} />
               : <EmptyState icon="🌍" title="No country data" sub="Google reports too little search volume for this keyword to split by country." />}
@@ -675,6 +665,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
 
       {/* Measured monthly market activity from our own snapshot tracking (eHunt-style). */}
       {kw && <MarketActivityPanel query={kw.query} analysis={kw.analysis} />}
+      {isLoading && !kw && <MarketActivitySkeleton />}
 
       {/* Measured rank movement, the one thing Etsy's API can never answer later. */}
       {kw && <RankMovementPanel query={kw.query} />}
@@ -691,9 +682,11 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
         <Card>
           <SectionTitle>Search Volume</SectionTitle>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, padding: '8px 0' }}>
-            <span style={{ fontSize: 38, fontWeight: 400, color: '#2E6DB4', letterSpacing: '-1px', lineHeight: 1 }}>
-              {kw?.stats.googleSearches != null ? formatNumber(kw.stats.googleSearches) : '-'}
-            </span>
+            {kw ? (
+              <span style={{ fontSize: 38, fontWeight: 400, color: '#2E6DB4', letterSpacing: '-1px', lineHeight: 1 }}>
+                {kw.stats.googleSearches != null ? formatNumber(kw.stats.googleSearches) : kw.stats.googleStatus === 'pending' ? '…' : '-'}
+              </span>
+            ) : <Shimmer h={38} w={120} r={8} />}
             <span style={{ fontSize: 12.5, color: C.stone }}>avg / month</span>
           </div>
           {/* Competition + CPC, from the same Keyword Planner call as the volume. */}
@@ -706,10 +699,12 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
                   {GCOMP[kw.stats.googleCompetition].label}
                   {kw.stats.googleCompetitionIndex != null ? ` · ${kw.stats.googleCompetitionIndex}/100` : ''}
                 </span>
-              ) : <span style={{ fontSize: 15, fontFamily: MONO, color: C.stone }}>-</span>}
+              ) : kw ? <span style={{ fontSize: 15, fontFamily: MONO, color: C.stone }}>-</span> : <Shimmer h={18} w={90} r={5} />}
             </div>
             <div style={{ padding: '10px 12px', background: C.canvas, borderRadius: 10 }}>
-              <CpcDisplay low={kw?.stats.googleCpcLow ?? null} high={kw?.stats.googleCpcHigh ?? null} currency={kw?.stats.googleCurrency ?? null} />
+              {kw
+                ? <CpcDisplay low={kw.stats.googleCpcLow ?? null} high={kw.stats.googleCpcHigh ?? null} currency={kw.stats.googleCurrency ?? null} />
+                : <><Shimmer h={10} w={110} r={3} /><div style={{ height: 9 }} /><Shimmer h={18} w={120} r={5} /></>}
             </div>
           </div>
           <p style={{ fontSize: 11.5, color: C.stone, lineHeight: 1.55, marginTop: 10 }}>
@@ -727,6 +722,8 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
           <TopListingsCarousel listings={deckListings} imagesPending={imagesMissing && listingImgs.isPending} />
         </Card>
       )}
+
+      {isLoading && !kw && <TopListingsSkeleton />}
 
       {isError && kwFail && <ErrorBox title={kwFail.title}>{kwFail.message}</ErrorBox>}
 
@@ -883,9 +880,131 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
           {sub === 'markets'  && <MarketplacesPanel query={kw.query} stats={kw.stats} />}
         </div>
       )}
+      {isLoading && !kw && <SubTabsSkeleton />}
     </div>
   )
 }
+
+// ─── Loading skeletons, shaped like the sections they stand in for ───────────
+// Each mirrors its real section's layout (rows, tiles, cards) so the page keeps
+// its shape when the data lands. Section titles stay real text: they never change.
+
+function HeaderSkeleton() {
+  return (
+    <div className="rsectitle" style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', minHeight: 41 }}>
+      <Shimmer h={34} w={300} r={8} />
+      <Shimmer h={19} w={19} r={5} />
+      <Shimmer h={24} w={130} r={100} />
+      <Shimmer h={24} w={70} r={100} />
+      <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
+        <Shimmer h={40} w={150} r={100} />
+        <Shimmer h={40} w={165} r={100} />
+        <Shimmer h={40} w={82} r={100} />
+      </div>
+    </div>
+  )
+}
+
+const STAT_LABEL_W = [112, 120, 86, 112, 84, 78, 96]
+function StatsCardSkeleton() {
+  // GOOGLE: 2 rows, ETSY: 5 rows; label on the left, value box on the right.
+  return (
+    <Card style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
+      <SectionTitle>Keyword Statistics</SectionTitle>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 20, flex: 1 }}>
+        {[2, 5].map((n, g) => (
+          <div key={g}>
+            <div style={{ marginBottom: 13 }}><Shimmer h={10} w={g ? 38 : 56} r={3} /></div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+              {Array.from({ length: n }, (_, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                  <Shimmer h={14} w={STAT_LABEL_W[g * 2 + i]} r={4} />
+                  <Shimmer h={36} w={100} r={9} style={{ marginLeft: 'auto' }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
+const COUNTRY_BAR_W = ['88%', '30%', '24%', '20%', '16%', '12%']
+const COUNTRY_NAME_W = [110, 120, 70, 82, 60, 50]
+function CountrySkeleton() {
+  // Six country rows: code, name and share on one line, the bar under it.
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 15, padding: '4px 0' }}>
+      {COUNTRY_BAR_W.map((w, i) => (
+        <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <Shimmer h={12} w={18} r={3} />
+            <Shimmer h={13} w={COUNTRY_NAME_W[i]} r={4} />
+            <Shimmer h={13} w={40} r={4} style={{ marginLeft: 'auto' }} />
+          </div>
+          <Shimmer h={8} w={w} r={999} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function MarketActivitySkeleton() {
+  return (
+    <Card>
+      <SectionTitle>Market Activity (measured)</SectionTitle>
+      <Shimmer h={10} w={190} r={3} />
+      <div className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginTop: 10 }}>
+        {Array.from({ length: 6 }, (_, i) => <Shimmer key={i} h={70} r={12} />)}
+      </div>
+      <div className="rgrid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginTop: 16 }}>
+        {Array.from({ length: 4 }, (_, i) => <Shimmer key={i} h={118} r={12} />)}
+      </div>
+      <Shimmer h={150} r={12} style={{ marginTop: 16 }} />
+    </Card>
+  )
+}
+
+function TopListingsSkeleton() {
+  // A row of listing cards: image, two title lines, shop, then a 2x2 stat grid.
+  return (
+    <Card>
+      <SectionTitle>Top Listings</SectionTitle>
+      <div style={{ display: 'flex', gap: 14, overflow: 'hidden' }}>
+        {Array.from({ length: 6 }, (_, i) => (
+          <div key={i} style={{ flex: '0 0 236px', border: `1px solid ${C.hair}`, borderRadius: 14, overflow: 'hidden' }}>
+            <Shimmer h={150} r={0} />
+            <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <Shimmer h={13} w="92%" r={4} />
+              <Shimmer h={13} w="64%" r={4} />
+              <Shimmer h={11} w="40%" r={4} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 10px', marginTop: 6 }}>
+                {Array.from({ length: 4 }, (_, j) => <Shimmer key={j} h={30} r={8} />)}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
+function SubTabsSkeleton() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {[128, 128, 160, 118, 112].map((w, i) => <Shimmer key={i} h={38} w={w} r={100} />)}
+      </div>
+      <TableSkeleton
+        grid="26px 24px 1.9fr 1fr 1fr 0.7fr 0.85fr 0.85fr 0.75fr 0.8fr 0.55fr 0.85fr"
+        columns={['', '', 'Keywords', 'Listings / month', 'Etsy Competition', 'KD', 'Avg. Views', 'Avg. Favorites', 'Favs / View', 'Tag Occurrences', 'Chars', 'Searches']}
+        rows={10}
+        label="Analyzing related keywords…" />
+    </div>
+  )
+}
+
 
 /**
  * What to tell the user when the keyword search fails. It used to be one fixed

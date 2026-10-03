@@ -49,12 +49,14 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
     // Collective store: rows saved there were measured on a smaller sample and
     // disagreed with the keyword once clicked (2026-10-03). Each keyword's
     // measurement is cached and shared, so repeats cost no Etsy calls.
-    let related = await enrichRelatedCompetition(core.related)
-
-    if (isGoogleAdsConfigured()) {
-      const metrics = await googleKeywordMetrics(related.map(r => r.keyword), geo, gmeta)
-      if (metrics.size) related = withGoogle(metrics, related)
-    }
+    // Etsy probes and the Google volume batch run at the same time (they used to run
+    // one after the other); both work from the same keyword list.
+    const [enriched, metrics] = await Promise.all([
+      enrichRelatedCompetition(core.related),
+      isGoogleAdsConfigured() ? googleKeywordMetrics(core.related.map(r => r.keyword), geo, gmeta) : Promise.resolve(new Map<string, GoogleMetric>()),
+    ])
+    let related = enriched
+    if (metrics.size) related = withGoogle(metrics, related)
 
     // Etsy competition is expensive to re-measure, so keep it; but a Google failure
     // must not pin "no data" for hours - expire soon so the volume fills in.

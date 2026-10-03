@@ -84,7 +84,7 @@ export function TrendsTab() {
               <SectionTitle>Buyers by Country</SectionTitle>
               {(tr.countries?.length ? tr.countries : cq.data?.countries)?.length
                 ? <CountryChart data={tr.countries?.length ? tr.countries : cq.data!.countries} />
-                : cq.isPending || cq.isFetching ? <div className="shimmer" style={{ height: 200, borderRadius: 8, background: '#e8e7e2' }} />
+                : cq.isPending || cq.isFetching || cq.data?.retrying ? <div className="shimmer" style={{ height: 200, borderRadius: 8, background: '#e8e7e2' }} />
                 : <p style={{ fontSize: 13, color: '#6B6B63' }}>Google reports too little search volume for this keyword to split by country.</p>}
             </Card>
             <Card>

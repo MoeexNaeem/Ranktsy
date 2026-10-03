@@ -1325,7 +1325,9 @@ export function displayKdPackage(d: KeywordSearchResponse): KeywordSearchRespons
  */
 export async function enrichRelatedCompetition(related: KeywordData[]): Promise<KeywordData[]> {
   if (!related.length) return related
-  const facts = await pooled(related, 4, r => keywordFacts(r.keyword))
+  // 10 at a time (was 4): each probe is one Etsy call (~2.5 s from the server) and the
+  // per-key rate gate (30-40/s per worker) has ample room, so 24 probes take ~3 rounds.
+  const facts = await pooled(related, 10, r => keywordFacts(r.keyword))
 
   // Measured per-keyword trend sparklines (eHunt-style) for the table - computed
   // in ONE snapshot query from the listing ids the searches above already

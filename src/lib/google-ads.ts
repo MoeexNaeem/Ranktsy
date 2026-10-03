@@ -46,6 +46,7 @@
  * operation cap): Google Ads UI → Tools → API Center → "Apply for Standard Access".
  */
 import { recordGoogleCall } from '@/lib/usage'
+import mongoose from 'mongoose'
 import { singleFlight } from '@/lib/concurrency'
 import { workerCount } from '@/lib/workers'
 import { memCache } from '@/lib/cache'
@@ -118,7 +119,8 @@ export interface GoogleMetricsMeta {
   stale?: boolean
 }
 
-export type GoogleDataStatus = 'ok' | 'quota' | 'error' | 'unconfigured'
+// 'pending': Google is still answering; the page fills the numbers in when they land.
+export type GoogleDataStatus = 'ok' | 'quota' | 'error' | 'unconfigured' | 'pending'
 /** Collapse a meta into the status string the API responses/UI use. */
 export function googleStatusOf(meta: GoogleMetricsMeta): GoogleDataStatus {
   if (!isGoogleAdsConfigured()) return 'unconfigured'
@@ -604,14 +606,19 @@ async function dispatch(): Promise<void> {
       }
       const acct = pool.reduce((a, b) => (b.nextAt < a.nextAt ? b : a))
       if (acct.nextAt > now) { await sleep(Math.min(acct.nextAt - now, 1000)); continue }
-      const job = nextJob()
+      // Ask the other workers' shared clock for this account's next free second.
+      const wait = await claimSharedSlot(acct.cid, acct.slowUntil > now ? SHARED_SLOT_MS * 2 : SHARED_SLOT_MS)
+      if (wait > 0) { acct.nextAt = Date.now() + wait; continue }
+      let job = nextJob()
+      // A batch another slot already sent: nothing to ask Google; use the slot for the next job.
+      while (job?.prepare && !job.prepare()) { job.resolve(null); job = nextJob() }
       if (!job) continue
-      // A batch another slot already sent: nothing to ask Google, keep the slot.
-      if (job.prepare && !job.prepare()) { job.resolve(null); continue }
       planner.dispatched++
       acct.sent++
-      // After a per-second 429 this account is paced at half speed for a minute.
-      acct.nextAt = now + CID_INTERVAL_MS * (acct.slowUntil > now ? 2 : 1)
+      // Shared clock answered: it paces this account across all workers, so this
+      // worker may use any free second. Without it (database unreachable), fall back
+      // to this worker's fixed 1/WORKERS share. After a per-second 429, half speed.
+      acct.nextAt = Date.now() + (wait === 0 ? 50 : CID_INTERVAL_MS * (acct.slowUntil > now ? 2 : 1))
       planner.waits.push(now - job.enqueuedAt)
       if (planner.waits.length > 200) planner.waits.splice(0, planner.waits.length - 200)
       planner.inFlight++
@@ -633,6 +640,32 @@ async function dispatch(): Promise<void> {
     }
   } finally {
     planner.dispatching = false
+  }
+}
+
+// ── Shared per-account clock (all workers) ───────────────────────────────────
+// Each account's next free second lives in Mongo, so whichever worker has work
+// takes it. With a fixed per-worker share, one busy worker got only a third of the
+// account while the other two sat idle (2026-10-03: 6-23 s queue waits).
+const SHARED_SLOT_MS = 1050
+/** 0 = slot claimed (send now); > 0 = ms until the account is free; -1 = clock unavailable. */
+async function claimSharedSlot(cid: string, spacingMs: number): Promise<number> {
+  try {
+    await connectDB()
+    const db = mongoose.connection.db
+    if (!db) return -1
+    const col = db.collection<{ _id: string; nextAt: number }>('plannerslots')
+    const now = Date.now()
+    const claimed = await col.findOneAndUpdate({ _id: cid, nextAt: { $lte: now } }, { $set: { nextAt: now + spacingMs } })
+    if (claimed) return 0
+    const doc = await col.findOne({ _id: cid })
+    if (!doc) {
+      // First use of this account: create its clock (another worker may win the race).
+      try { await col.insertOne({ _id: cid, nextAt: now + spacingMs }); return 0 } catch { return 50 }
+    }
+    return Math.max(20, doc.nextAt - now)
+  } catch {
+    return -1
   }
 }
 
@@ -769,8 +802,10 @@ function noteFailure(meta: GoogleMetricsMeta | undefined, e: unknown) {
 const BATCH_MAX_KEYWORDS = 5000
 interface BatchWaiter { kws: string[]; got: Map<string, GoogleMetric>; resolve: (m: Map<string, GoogleMetric>) => void; reject: (e: unknown) => void; done: boolean }
 interface HistBatch { geoIds: string[]; waiters: BatchWaiter[]; lanes: Set<GooglePriority> }
-const bg = globalThis as typeof globalThis & { __rkHistBatches?: Map<string, HistBatch> }
+const bg = globalThis as typeof globalThis & { __rkHistBatches?: Map<string, HistBatch>; __rkHistInflight?: Map<string, Promise<GoogleMetric | null | undefined>> }
 const histBatches: Map<string, HistBatch> = bg.__rkHistBatches ??= new Map()
+/** `${cacheGeo}|${keyword}` → the sent request's answer (null = no data, undefined = it failed). */
+const histInflight: Map<string, Promise<GoogleMetric | null | undefined>> = bg.__rkHistInflight ??= new Map()
 
 function parseHistorical(results: unknown[] | undefined): Map<string, GoogleMetric> {
   const got = new Map<string, GoogleMetric>()
@@ -836,6 +871,13 @@ function takeBatch(cacheGeo: string, batch: HistBatch): PreparedBatch | null {
     if (sendSet.has(k) || sendSet.size >= BATCH_MAX_KEYWORDS) continue
     sendSet.add(k); send.push(k)
   }
+  let settle: (got: Map<string, GoogleMetric> | null) => void = () => {}
+  const answer = new Promise<Map<string, GoogleMetric> | null>(r => { settle = r })
+  for (const kw of send) histInflight.set(`${cacheGeo}|${kw}`, answer.then(got => (got ? got.get(kw) ?? null : undefined)))
+  const finish = (got: Map<string, GoogleMetric> | null) => {
+    settle(got)
+    for (const kw of send) histInflight.delete(`${cacheGeo}|${kw}`)
+  }
   return {
     body: {
       keywords: send,
@@ -844,9 +886,10 @@ function takeBatch(cacheGeo: string, batch: HistBatch): PreparedBatch | null {
       language: LANG_EN,
     },
     deliver: (j, err) => {
-      if (err || !j) { for (const w of live) if (!w.done) { w.done = true; w.reject(err ?? new GoogleAdsError('Google Ads request failed', 'http')) } return }
+      if (err || !j) { finish(null); for (const w of live) if (!w.done) { w.done = true; w.reject(err ?? new GoogleAdsError('Google Ads request failed', 'http')) } return }
       const got = parseHistorical(j.results)
       writeStored(send.map(kw => ({ key: metricKey(cacheGeo, kw), m: got.get(kw) ?? null })))
+      finish(got)
       for (const w of live) {
         if (w.done) continue
         const left: string[] = []
@@ -883,8 +926,18 @@ async function fetchMetrics(keywords: string[], geoIds: string[], cacheGeo: stri
   try {
     // Joins whatever other users are asking for in this country right now: one
     // Google request answers all of them (see batchedHistorical).
-    const fetched = await batchedHistorical(misses, geoIds, cacheGeo, priority ?? (misses.length <= 2 ? 'high' : 'normal'))
+    // A keyword already on its way to Google (another user, or this keyword's main
+    // stats a moment ago) is awaited rather than asked for again.
+    const pending = misses.filter(kw => histInflight.has(`${cacheGeo}|${kw}`))
+    const fresh = misses.filter(kw => !histInflight.has(`${cacheGeo}|${kw}`))
+    const [joined, fetched] = await Promise.all([
+      Promise.all(pending.map(async kw => [kw, await histInflight.get(`${cacheGeo}|${kw}`)!] as const)),
+      fresh.length ? batchedHistorical(fresh, geoIds, cacheGeo, priority ?? (fresh.length <= 2 ? 'high' : 'normal')) : Promise.resolve(new Map<string, GoogleMetric>()),
+    ])
+    let joinFailed = false
+    for (const [kw, r] of joined) { if (r === undefined) joinFailed = true; else if (r) out.set(kw, r) }
     for (const [k, v] of fetched) out.set(k, v)
+    if (joinFailed) throw new GoogleAdsError('Google is busy right now. Try again in a moment.', 'rate')
   } catch (e) {
     // The lockout is logged once when it trips; don't repeat it for every country/keyword.
     if (!(e instanceof GoogleAdsError && e.kind === 'quota')) console.error(`[GoogleAds] metrics (geo ${cacheGeo}) failed:`, e instanceof Error ? e.message : e)
@@ -1011,8 +1064,9 @@ export async function googleCountryBreakdown(keyword: string, meta?: GoogleMetri
   // country, so they no longer wait for each other one by one.
   const answers = await Promise.all(Object.keys(GEO_TARGETS).map(async iso => {
     const local: GoogleMetricsMeta = {}
-    // Background lane: the chart is secondary, so it never delays a keyword's own volume.
-    const m = await metricsForGeo([kw], GEO_TARGETS[iso].id, local, 'low')
+    // Same lane as related keywords: users wait on this chart too (it used to be
+    // 'low' and starved at peak). The keyword's own volume ('high') still goes first.
+    const m = await metricsForGeo([kw], GEO_TARGETS[iso].id, local, 'normal')
     return { iso, local, m }
   }))
   const results: { iso: string; searches: number }[] = []
@@ -1121,7 +1175,7 @@ export async function googleKeywordIdeas(seed: string, geoIso = 'US', limit = 40
         keywordPlanNetwork: 'GOOGLE_SEARCH',
         language: LANG_EN,
         pageSize: 100,
-      }, 'low')   // keyword ideas are supplementary: background lane
+      }, 'normal')   // users wait on this panel: same lane as related keywords
       const list: GoogleIdea[] = (j.results ?? [])
         .map(r => {
           const m = r.keywordIdeaMetrics ?? {}

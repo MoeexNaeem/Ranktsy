@@ -23,7 +23,7 @@ import { getCollectivePackage } from '@/lib/collective-read'
 import { memCache, cacheKey, CACHE_TTL, cachedFlight } from '@/lib/cache'
 import { singleFlight } from '@/lib/concurrency'
 import { searchEtsyListingsPaged, buildKeywordStats, buildSearchAnalysis, warmTaxonomy } from '@/lib/etsy'
-import { googleKeywordMetrics, googleAccountCurrency, isGoogleAdsConfigured, googleStatusOf, type GoogleMetricsMeta } from '@/lib/google-ads'
+import { googleKeywordMetrics, googleAccountCurrency, isGoogleAdsConfigured, googleStatusOf, type GoogleMetricsMeta, type GoogleMetric } from '@/lib/google-ads'
 import type { KeywordSearchResponse, EtsyListing } from '@/types'
 
 // v9: core/related now carry Google competition + CPC (account currency), not just
@@ -197,21 +197,42 @@ async function computeKeywordCore(query: string, geo: string, key: string): Prom
   // Track whether the Google lookup actually FAILED (vs. genuinely no data) so a
   // transient blip isn't cached for hours as permanent blanks.
   let googleFailed = false
+  let googlePending = false
   if (isGoogleAdsConfigured()) {
     const gmeta: GoogleMetricsMeta = {}
-    const [metrics, currency] = await Promise.all([googleKeywordMetrics([query], geo, gmeta), googleAccountCurrency()])
-    googleFailed = !!gmeta.failed && !g_has(metrics, query)
-    data.stats.googleStatus = googleStatusOf(gmeta)
-    data.stats.googleRetryAt = gmeta.retryAt ?? null
-    const g = metrics.get(query)
-    if (g) {
-      data.stats.googleSearches         = g.searches ?? null
-      data.stats.googleCompetition      = g.competition as KeywordSearchResponse['stats']['googleCompetition']
-      data.stats.googleCompetitionIndex = g.competitionIndex
-      data.stats.googleCpcLow           = g.cpcLow
-      data.stats.googleCpcHigh          = g.cpcHigh
+    const google = Promise.all([googleKeywordMetrics([query], geo, gmeta), googleAccountCurrency()])
+    const applyGoogle = (d: KeywordSearchResponse, [metrics, currency]: [Map<string, GoogleMetric>, string | null]) => {
+      d.stats.googleStatus = googleStatusOf(gmeta)
+      d.stats.googleRetryAt = gmeta.retryAt ?? null
+      const g = metrics.get(query)
+      if (g) {
+        d.stats.googleSearches         = g.searches ?? null
+        d.stats.googleCompetition      = g.competition as KeywordSearchResponse['stats']['googleCompetition']
+        d.stats.googleCompetitionIndex = g.competitionIndex
+        d.stats.googleCpcLow           = g.cpcLow
+        d.stats.googleCpcHigh          = g.cpcHigh
+      }
+      d.stats.googleCurrency = currency
+      return !!gmeta.failed && !g_has(metrics, query)
     }
-    data.stats.googleCurrency = currency
+    // The Etsy numbers are ready now; Google's volume can sit in its queue (one
+    // request per second per Ads account) for several seconds at peak. Wait a
+    // little, then answer without it: the page asks /api/keywords/google for the
+    // volume and fills it in when it lands (no second charge).
+    const answered = await Promise.race([google, new Promise<null>(r => setTimeout(() => r(null), GOOGLE_CORE_WAIT_MS))])
+    if (answered) {
+      googleFailed = applyGoogle(data, answered)
+    } else {
+      googlePending = true
+      data.stats.googleStatus = 'pending'
+      // When Google does answer, complete the cached copy so later readers get it whole.
+      void google.then(res => {
+        const later = slimForStorage({ ...data, stats: { ...data.stats } })
+        if (applyGoogle(later, res)) return
+        memCache.set(key, later, CACHE_TTL.KEYWORD)
+        persistCore(query, geo, later)
+      }).catch(() => {})
+    }
   }
 
   data = slimForStorage(data)
@@ -219,14 +240,21 @@ async function computeKeywordCore(query: string, geo: string, key: string): Prom
   // If Google failed, cache only BRIEFLY (2 min) in memory and do NOT persist to
   // the DB - so the next request retries and can fill the real numbers, instead
   // of the keyword staying blank for the full 5-hour TTL.
-  if (googleFailed) {
-    memCache.set(key, data, 120)
+  if (googleFailed || googlePending) {
+    memCache.set(key, data, googlePending ? 30 : 120)
     return data
   }
 
   memCache.set(key, data, CACHE_TTL.KEYWORD)
+  persistCore(query, geo, data)
+  return data
+}
 
-  // Persist without blocking the response.
+/** Longest the keyword's own stats wait for Google before answering without it. */
+const GOOGLE_CORE_WAIT_MS = 2500
+
+/** Persist a complete core package without blocking the response. */
+function persistCore(query: string, geo: string, data: KeywordSearchResponse) {
   const expiresAt = new Date(Date.now() + CACHE_TTL.KEYWORD * 1000)
   connectDB()
     .then(() => KeywordCache.findOneAndUpdate(
@@ -235,6 +263,4 @@ async function computeKeywordCore(query: string, geo: string, key: string): Prom
       { upsert: true, returnDocument: 'after' },
     ))
     .catch(e => console.error('[Keywords] DB write:', e))
-
-  return data
 }

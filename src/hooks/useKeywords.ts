@@ -1,11 +1,12 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { attachCaptchaInterceptor } from '@/components/security/captchaController'
 import { attachUpgradeInterceptor } from '@/lib/upgrade'
 import { broadcastSearches, broadcastCredits, refundLastCharge, type SearchUsage, type CreditState } from '@/lib/credits-client'
-import type { ApiResponse, KeywordSearchResponse, KeywordData, NearMatch, EtsyListing, KeywordIdeasResponse } from '@/types'
+import type { ApiResponse, KeywordSearchResponse, KeywordStats, KeywordData, NearMatch, EtsyListing, KeywordIdeasResponse } from '@/types'
 
 // ─── Axios instance (shared, avoids creating new instance per component) ──────
 const api = axios.create({ baseURL: '/api' })
@@ -39,6 +40,40 @@ const dontRetry4xx = (failureCount: number, error: unknown) => {
 
 // ─── useKeywordSearch - fast core: stats, listings, analysis ──────────────────
 export function useKeywordSearch(query: string, geo = 'US') {
+  const core = useCoreSearch(query, geo)
+  useGoogleFill(query, geo, core.data)
+  return core
+}
+
+/**
+ * The core answers without Google's volume when Google is slow ('pending'); this
+ * fetches just the volume (uncharged) and writes it into the cached core result,
+ * so the stats card fills in by itself a moment later.
+ */
+function useGoogleFill(query: string, geo: string, core?: KeywordSearchResponse) {
+  const qc = useQueryClient()
+  const pending = core?.stats?.googleStatus === 'pending'
+  const fill = useQuery({
+    queryKey: ['keywords-google', query.toLowerCase().trim(), geo] as const,
+    queryFn: async ({ signal }) => {
+      const { data } = await api.get<ApiResponse<Partial<KeywordStats>>>(
+        `/keywords/google?q=${encodeURIComponent(query)}&geo=${geo}`, { signal })
+      if (!data.success || !data.data) throw new Error(data.error ?? 'Unknown error')
+      return data.data
+    },
+    enabled: pending && query.trim().length >= 2,
+    staleTime: 1000 * 60 * 30,
+    retry: 2,
+    meta: { silent: true },
+  })
+  useEffect(() => {
+    if (!fill.data) return
+    qc.setQueryData<KeywordSearchResponse>([...queryKeys.keywords(query), geo], old =>
+      old && old.stats.googleStatus === 'pending' ? { ...old, stats: { ...old.stats, ...fill.data } } : old)
+  }, [fill.data, qc, query, geo])
+}
+
+function useCoreSearch(query: string, geo: string) {
   return useQuery({
     queryKey:  [...queryKeys.keywords(query), geo] as const,
     queryFn:   async ({ signal }) => {
@@ -191,7 +226,7 @@ export interface TrendCountries {
   retrying?: boolean
 }
 // Busy answers in a row per keyword+country, so the automatic re-ask gives up after a while.
-const COUNTRY_MAX_TRIES = 8
+const COUNTRY_MAX_TRIES = 20
 const countryTries = new Map<string, number>()
 export function useTrendCountries(query: string, geo = 'US', enabled = true) {
   const k = `${query.toLowerCase().trim()}|${geo}`
@@ -201,16 +236,21 @@ export function useTrendCountries(query: string, geo = 'US', enabled = true) {
       const { data } = await api.get(`/trends/countries?q=${encodeURIComponent(query)}&geo=${geo}`, { signal })
       if (!data.success) throw new Error(data.error)
       const d = data.data as TrendCountries
-      const tries = d.googleStatus === 'error' ? (countryTries.get(k) ?? 0) + 1 : 0
+      const waiting = d.googleStatus === 'error' || d.googleStatus === 'pending'
+      const tries = waiting ? (countryTries.get(k) ?? 0) + 1 : 0
       countryTries.set(k, tries)
-      return { ...d, retrying: d.googleStatus === 'error' && tries < COUNTRY_MAX_TRIES }
+      return { ...d, retrying: waiting && tries < COUNTRY_MAX_TRIES }
     },
     enabled:   enabled && query.trim().length >= 2,
     staleTime: q => (googleGap(q.state.data) ? 60_000 : 1000 * 60 * 60),
     // Google was busy: the countries that DID answer are stored server-side, so ask
     // again shortly and each retry only fills the gaps (no fabricated partial split).
     // A daily quota lock is not retried; it lasts far longer than a page view.
-    refetchInterval: q => ((q.state.data as TrendCountries | undefined)?.retrying ? 15_000 : false),
+    // 'pending' = the server is still collecting the 7 countries: check back soon.
+    refetchInterval: q => {
+      const d = q.state.data as TrendCountries | undefined
+      return d?.retrying ? (d.googleStatus === 'pending' ? 3_000 : 15_000) : false
+    },
     retry: dontRetry4xx,
   })
 }

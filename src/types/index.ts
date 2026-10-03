@@ -110,7 +110,8 @@ export interface KeywordStats {
   googleRetryAt?: string | null
 }
 
-export type GoogleDataStatus = 'ok' | 'quota' | 'error' | 'unconfigured'
+// 'pending': Google is still answering; the page fills the numbers in when they land.
+export type GoogleDataStatus = 'ok' | 'quota' | 'error' | 'unconfigured' | 'pending'
 
 // ─── Google Keyword Ideas (generateKeywordIdeas) ──────────────────────────────
 // Google-SUGGESTED keywords for a seed - genuine discovery, not a lookup of terms
