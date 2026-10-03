@@ -9,7 +9,10 @@ import { Faq }               from '@/components/landing/Faq'
 import { abs, siteUrl }      from '@/lib/seo/site'
 import { JsonLd }            from '@/components/seo/JsonLd'
 
-export const revalidate = 86400
+// No `revalidate`: every section here is fixed content that only changes with a
+// deploy, so the page is built once per build. With a daily revalidate, the old
+// worker still serving during a deploy re-saved its OLD homepage over the new
+// build (2026-10-04: footer kept the previous WhatsApp number after deploying).
 
 const jsonLd = {
   '@context': 'https://schema.org',
