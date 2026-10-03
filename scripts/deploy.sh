@@ -20,17 +20,20 @@ git pull --ff-only
 echo "==> Installing packages"
 npm install --no-audit --no-fund
 
-# The build needs ~1.7 GB of RAM. With all workers running, the server (3.6 GB)
-# has no room and Linux kills the build ("Killed"). So one worker is paused for
-# the build and comes back afterwards; the others keep the site up throughout.
+# The build needs ~1.7 GB+ of RAM and each live worker holds ~650 MB, so on this
+# 3.6 GB server Linux kills the build ("Killed") unless workers make room; pausing
+# just one was not enough (2026-10-03). So only BUILD_WORKERS (default 1) keep
+# serving during the build (the site stays up, a little slower for ~2-3 min) and
+# the rest come back right after.
 WORKERS=$(pm2 jlist 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).filter(p=>p.name==='rankkw').length)}catch{console.log(0)}})")
 restore_workers() {
   if [ "${WORKERS:-0}" -gt 1 ]; then pm2 scale rankkw "$WORKERS" >/dev/null 2>&1 || true; fi
 }
 trap restore_workers EXIT
-if [ "${WORKERS:-0}" -gt 1 ]; then
-  echo "==> Pausing 1 of $WORKERS workers to free memory for the build"
-  pm2 scale rankkw $((WORKERS - 1)) >/dev/null
+BUILD_WORKERS=${BUILD_WORKERS:-1}
+if [ "${WORKERS:-0}" -gt "$BUILD_WORKERS" ]; then
+  echo "==> Running $BUILD_WORKERS of $WORKERS workers during the build to free memory"
+  pm2 scale rankkw "$BUILD_WORKERS" >/dev/null
 fi
 
 echo "==> Building into .next-build (the live site keeps running meanwhile)"

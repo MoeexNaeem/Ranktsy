@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { memCache, CACHE_TTL } from '@/lib/cache'
 import { getKeywordCore, nearKey } from '@/lib/keywords'
 import { getNearMatches, displayKdRows } from '@/lib/etsy'
-import { getCollectivePackage } from '@/lib/collective-read'
 import { withUsage } from '@/lib/track'
 import type { ApiResponse, NearMatch } from '@/types'
 
@@ -25,22 +24,16 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Ne
   const hit = memCache.get<NearMatch[]>(key)
   if (hit) return NextResponse.json({ success: true, data: displayKdRows(hit), cached: true })
 
-  // Shared Collective store first - if the saved package carries near matches,
-  // serve them with no Etsy calls. (Near matches are geo-independent; checked
-  // under the default US doc.)
-  const shared = await getCollectivePackage(query, 'US')
-  if (shared?.nearMatches?.length) {
-    memCache.set(key, shared.nearMatches, CACHE_TTL.KEYWORD)
-    return NextResponse.json({ success: true, data: displayKdRows(shared.nearMatches), cached: true })
-  }
+  // Not read from the shared Collective store: matches saved there were measured on
+  // a 25-listing sample and disagreed with the variant once searched (2026-10-03).
 
   try {
     const matches = await getNearMatches(query)
 
-    // The "exact" row is the query itself, measured off a 25-listing probe while
-    // the core stats use the full 100. Reconcile it to the core so the same
-    // keyword can't show two different numbers on one screen. The core is
-    // cached, so this costs nothing.
+    // The "exact" row is the query itself. Both now use the top 100, but they are
+    // separate fetches (possibly minutes apart), so the row is set from the core to
+    // guarantee one number per keyword on one screen. The core is cached, so this
+    // costs nothing.
     const core = await getKeywordCore(query).catch(() => null)
     const reconciled = core
       ? matches.map(m => m.kind === 'exact'

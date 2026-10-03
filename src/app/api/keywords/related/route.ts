@@ -32,9 +32,6 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
     const core = await getKeywordCore(query, geo)
     if (!core.related.length) return NextResponse.json({ success: true, data: [] })
 
-    // If the core came from the shared Collective store, its related keywords are
-    // already enriched (competition/KD/Google) - return them as-is, no re-probe,
-    // no API calls.
     const gmeta: GoogleMetricsMeta = {}
     const withGoogle = (metrics: Map<string, GoogleMetric>, rows: KeywordData[]) => rows.map(r => {
       const g = metrics.get(r.keyword.toLowerCase())
@@ -48,17 +45,10 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Ke
       } : r
     })
 
-    if (core.related.some(r => r.competition != null)) {
-      let rows = core.related
-      // Shared packages saved while Google was failing lack volume - backfill it
-      // (from the stored Google cache when possible) instead of "no data yet" forever.
-      if (isGoogleAdsConfigured() && rows.every(r => r.googleSearches == null)) {
-        rows = withGoogle(await googleKeywordMetrics(rows.map(r => r.keyword), geo, gmeta), rows)
-      }
-      memCache.set(key, rows, gmeta.failed ? 90 : CACHE_TTL.KEYWORD)
-      return NextResponse.json({ success: true, data: displayKdRows(rows), cached: true })
-    }
-
+    // Always measured the same way, even when the core came from the shared
+    // Collective store: rows saved there were measured on a smaller sample and
+    // disagreed with the keyword once clicked (2026-10-03). Each keyword's
+    // measurement is cached and shared, so repeats cost no Etsy calls.
     let related = await enrichRelatedCompetition(core.related)
 
     if (isGoogleAdsConfigured()) {

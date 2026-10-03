@@ -47,6 +47,7 @@
  */
 import { recordGoogleCall } from '@/lib/usage'
 import { singleFlight } from '@/lib/concurrency'
+import { workerCount } from '@/lib/workers'
 import { memCache } from '@/lib/cache'
 import { connectDB } from '@/lib/db'
 import { GoogleAdsCache } from '@/lib/models'
@@ -328,7 +329,6 @@ async function getAccessToken(): Promise<string> {
 }
 
 // ─── Quota-aware Google Ads requests ──────────────────────────────────────────
-const MIN_GAP_MS = 250
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 function parseRetrySeconds(body: string): { scope: string | null; seconds: number | null; rateName: string | null } {
@@ -515,58 +515,185 @@ export async function adsApiCall<T>(o: AdsCallOptions, opts: { probe?: boolean }
 //                       4 workers stop tripping Google's per-second limit together.
 export type GooglePriority = 'high' | 'normal' | 'low'
 const LANE_ORDER: GooglePriority[] = ['high', 'normal', 'low']
-const MAX_WAIT_MS: Record<GooglePriority, number> = { high: 25_000, normal: 30_000, low: 20_000 }
+const MAX_WAIT_MS: Record<GooglePriority, number> = { high: 25_000, normal: 30_000, low: 30_000 }
 const REQUEST_TIMEOUT_MS = 15_000
-const GAP_MIN_MS = MIN_GAP_MS, GAP_MAX_MS = 4_000
 
-interface QueuedCall { run: () => Promise<unknown>; resolve: (v: unknown) => void; reject: (e: unknown) => void; enqueuedAt: number; priority: GooglePriority }
-const lanes: Record<GooglePriority, QueuedCall[]> = { high: [], normal: [], low: [] }
-let draining = false
-let gapMs = GAP_MIN_MS
+// ── Planner accounts ──────────────────────────────────────────────────────────
+// Google allows Keyword Planner ONE request per second PER ACCOUNT (customer id),
+// whatever the access level (developers.google.com/google-ads/api/docs/best-practices/quotas).
+// One account therefore caps the whole site at ~86k requests a day; on 2026-10-02
+// we were asking ~110k, so every Google number queued for minutes. Extra client
+// accounts under the same manager each add one request per second:
+//   GOOGLE_ADS_PLANNER_CUSTOMER_IDS=1111111111,2222222222,...
+// (falls back to GOOGLE_ADS_CUSTOMER_ID). Every worker shares every account, so
+// each worker spaces its own requests per account by WORKERS x 1.1 s.
+const PLANNER_CIDS = [...new Set(
+  (process.env.GOOGLE_ADS_PLANNER_CUSTOMER_IDS || process.env.GOOGLE_ADS_CUSTOMER_ID || '')
+    .split(/[\s,]+/).map(x => digits(x)).filter(Boolean),
+)]
+const CID_INTERVAL_MS = Math.ceil(1100 * workerCount())
 
-async function drain(): Promise<void> {
-  if (draining) return
-  draining = true
+interface PlannerAccount { cid: string; nextAt: number; slowUntil: number; badUntil: number; sent: number; errors: number }
+interface QueuedCall {
+  run: (cid: string) => Promise<unknown>
+  resolve: (v: unknown) => void
+  reject: (e: unknown) => void
+  enqueuedAt: number
+  priority: GooglePriority
+  /** Batched calls: build the request at send time; false = nothing left to send (no Google call). */
+  prepare?: () => boolean
+  /** Called if the job waited past its lane limit and was dropped. */
+  onExpire?: () => void
+}
+interface PlannerState {
+  accounts: PlannerAccount[]
+  lanes: Record<GooglePriority, QueuedCall[]>
+  dispatching: boolean
+  dispatched: number
+  inFlight: number
+  waits: number[]   // recent queue waits (ms), for the admin readout
+}
+// Pinned on globalThis: Next bundles this module into many route chunks, and a
+// module-level queue gave each chunk its OWN queue and pacing, so together they
+// sent several times the per-account limit and tripped Google's 429s.
+const pg = globalThis as typeof globalThis & { __rkPlanner?: PlannerState }
+const planner: PlannerState = pg.__rkPlanner ??= {
+  accounts: PLANNER_CIDS.map(cid => ({ cid, nextAt: 0, slowUntil: 0, badUntil: 0, sent: 0, errors: 0 })),
+  lanes: { high: [], normal: [], low: [] },
+  dispatching: false,
+  dispatched: 0,
+  inFlight: 0,
+  waits: [],
+}
+
+function nextJob(): QueuedCall | undefined {
+  const now = Date.now()
+  // Drop anything that waited past its lane's limit: callers fall back to stored
+  // data and say Google is busy, instead of hanging until Cloudflare's 100 s.
+  for (const l of LANE_ORDER) {
+    const lane = planner.lanes[l]
+    while (lane.length && now - lane[0].enqueuedAt > MAX_WAIT_MS[l]) {
+      const j = lane.shift()!
+      j.onExpire?.()
+      j.reject(new GoogleAdsError('Google is busy right now. Try again in a moment.', 'rate'))
+    }
+  }
+  // Every 4th request goes to the lowest waiting lane, so country charts and
+  // keyword ideas always make progress at peak instead of starving forever.
+  if (planner.dispatched % 4 === 3) {
+    const low = [...LANE_ORDER].reverse().find(l => planner.lanes[l].length)
+    if (low) return planner.lanes[low].shift()
+  }
+  const lane = LANE_ORDER.find(l => planner.lanes[l].length)
+  return lane ? planner.lanes[lane].shift() : undefined
+}
+
+async function dispatch(): Promise<void> {
+  if (planner.dispatching) return
+  planner.dispatching = true
   try {
     for (;;) {
-      const lane = LANE_ORDER.find(l => lanes[l].length)
-      if (!lane) break
-      const job = lanes[lane].shift()!
-      if (Date.now() - job.enqueuedAt > MAX_WAIT_MS[job.priority]) {
-        job.reject(new GoogleAdsError('Google is busy right now. Try again in a moment.', 'rate'))
-        continue   // expired jobs cost no Google call and no gap
+      if (!LANE_ORDER.some(l => planner.lanes[l].length)) break
+      const now = Date.now()
+      const usable = planner.accounts.filter(a => a.badUntil <= now)
+      const pool = usable.length ? usable : planner.accounts
+      if (!pool.length) {
+        // Misconfigured (no customer id): fail everything rather than hang.
+        for (const l of LANE_ORDER) for (const j of planner.lanes[l].splice(0)) j.reject(new GoogleAdsError('Google Ads customer id is not set', 'http'))
+        break
       }
-      try {
-        job.resolve(await job.run())
-        gapMs = Math.max(GAP_MIN_MS, Math.round(gapMs * 0.9))
-      } catch (e) {
-        if (e instanceof GoogleAdsError && e.kind === 'rate') gapMs = Math.min(GAP_MAX_MS, gapMs * 2)
-        job.reject(e)
-      }
-      await sleep(gapMs)
+      const acct = pool.reduce((a, b) => (b.nextAt < a.nextAt ? b : a))
+      if (acct.nextAt > now) { await sleep(Math.min(acct.nextAt - now, 1000)); continue }
+      const job = nextJob()
+      if (!job) continue
+      // A batch another slot already sent: nothing to ask Google, keep the slot.
+      if (job.prepare && !job.prepare()) { job.resolve(null); continue }
+      planner.dispatched++
+      acct.sent++
+      // After a per-second 429 this account is paced at half speed for a minute.
+      acct.nextAt = now + CID_INTERVAL_MS * (acct.slowUntil > now ? 2 : 1)
+      planner.waits.push(now - job.enqueuedAt)
+      if (planner.waits.length > 200) planner.waits.splice(0, planner.waits.length - 200)
+      planner.inFlight++
+      // Not awaited: requests to different accounts (and the next slot on this one)
+      // go out while this one is still being answered (~1-2 s each).
+      void job.run(acct.cid).then(
+        v => job.resolve(v),
+        e => {
+          acct.errors++
+          if (e instanceof GoogleAdsError && e.kind === 'rate') acct.slowUntil = Date.now() + 60_000
+          // An account Google refuses (not enabled, no access) sits out for 10 minutes.
+          if (e instanceof GoogleAdsError && e.kind === 'auth' && planner.accounts.length > 1) {
+            acct.badUntil = Date.now() + 600_000
+            console.warn(`[GoogleAds] planner account ${acct.cid} refused: ${e.message.slice(0, 160)}`)
+          }
+          job.reject(e)
+        },
+      ).finally(() => { planner.inFlight-- })
     }
   } finally {
-    draining = false
+    planner.dispatching = false
   }
 }
 
 /** Queue one of the app's own Planner calls in its priority lane. */
 async function adsRequest<T>(path: string, body: unknown, priority: GooglePriority = 'normal'): Promise<T> {
-  const run = async (): Promise<T> => adsApiCall<T>({
+  const run = async (cid: string): Promise<T> => adsApiCall<T>({
     token: await getAccessToken(),
-    path: `customers/${digits(process.env.GOOGLE_ADS_CUSTOMER_ID)}${path}`,
+    path: `customers/${cid}${path}`,
     body,
     loginCustomerId: process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID,
   })
   return new Promise<T>((resolve, reject) => {
-    lanes[priority].push({ run, resolve: resolve as (v: unknown) => void, reject, enqueuedAt: Date.now(), priority })
-    void drain()
+    planner.lanes[priority].push({ run: run as (cid: string) => Promise<unknown>, resolve: resolve as (v: unknown) => void, reject, enqueuedAt: Date.now(), priority })
+    void dispatch()
   })
 }
 
-/** Queue depth per lane (diagnostics / admin health). */
-export function googleQueueDepth(): Record<GooglePriority, number> & { gapMs: number } {
-  return { high: lanes.high.length, normal: lanes.normal.length, low: lanes.low.length, gapMs }
+/** Queue a batched Planner call whose request is built only when its slot comes up. */
+type PreparedBatch = { body: unknown; deliver: (j: { results?: unknown[] } | null, err?: unknown) => void }
+function adsBatchRequest(path: string, take: () => PreparedBatch | null, onExpire: () => void, priority: GooglePriority): Promise<unknown> {
+  let prepared: PreparedBatch | null = null
+  return new Promise((resolve, reject) => {
+    planner.lanes[priority].push({
+      prepare: () => { prepared = take(); return !!prepared },
+      run: async (cid: string) => {
+        const p = prepared!
+        try {
+          const j = await adsApiCall<{ results?: unknown[] }>({
+            token: await getAccessToken(),
+            path: `customers/${cid}${path}`,
+            body: p.body,
+            loginCustomerId: process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID,
+          })
+          p.deliver(j)
+          return j
+        } catch (e) {
+          p.deliver(null, e)
+          throw e
+        }
+      },
+      onExpire,
+      resolve, reject, enqueuedAt: Date.now(), priority,
+    })
+    void dispatch()
+  })
+}
+
+/** Queue depth per lane plus per-account pacing (diagnostics / admin health). */
+export function googleQueueDepth() {
+  const w = [...planner.waits].sort((a, b) => a - b)
+  return {
+    high: planner.lanes.high.length,
+    normal: planner.lanes.normal.length,
+    low: planner.lanes.low.length,
+    inFlight: planner.inFlight,
+    accounts: planner.accounts.length,
+    intervalMs: CID_INTERVAL_MS,
+    waitP50Ms: w.length ? w[Math.floor(w.length / 2)] : 0,
+    waitP90Ms: w.length ? w[Math.floor(w.length * 0.9)] : 0,
+    perAccount: planner.accounts.map(a => ({ cid: `…${a.cid.slice(-4)}`, sent: a.sent, errors: a.errors, resting: a.badUntil > Date.now() })),
+  }
 }
 
 // ─── Metrics types ────────────────────────────────────────────────────────────
@@ -633,6 +760,109 @@ function noteFailure(meta: GoogleMetricsMeta | undefined, e: unknown) {
   }
 }
 
+// ── Cross-user batching ───────────────────────────────────────────────────────
+// Keyword Planner answers up to 10,000 keywords in ONE request, and requests are
+// what Google rate-limits (1/s per account). So every lookup for the same country
+// (or the same Global set) that is waiting at the same moment, from any user or
+// route, rides in one request instead of queueing for its own. Under load this is
+// the difference between minutes and seconds: N waiting users cost one request.
+const BATCH_MAX_KEYWORDS = 5000
+interface BatchWaiter { kws: string[]; got: Map<string, GoogleMetric>; resolve: (m: Map<string, GoogleMetric>) => void; reject: (e: unknown) => void; done: boolean }
+interface HistBatch { geoIds: string[]; waiters: BatchWaiter[]; lanes: Set<GooglePriority> }
+const bg = globalThis as typeof globalThis & { __rkHistBatches?: Map<string, HistBatch> }
+const histBatches: Map<string, HistBatch> = bg.__rkHistBatches ??= new Map()
+
+function parseHistorical(results: unknown[] | undefined): Map<string, GoogleMetric> {
+  const got = new Map<string, GoogleMetric>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const r of (results ?? []) as any[]) {
+    const m = r.keywordMetrics
+    if (!m) continue
+    const monthly = (m.monthlySearchVolumes ?? []).map((v: { monthlySearches?: string }) => Number(v.monthlySearches ?? 0))
+    got.set(String(r.text).toLowerCase(), {
+      keyword:     String(r.text),
+      searches:    Number(m.avgMonthlySearches ?? 0),
+      competition: String(m.competition ?? 'UNSPECIFIED'),
+      competitionIndex: m.competitionIndex != null ? Number(m.competitionIndex) : null,
+      cpcLow:      microsToCurrency(m.lowTopOfPageBidMicros),
+      cpcHigh:     microsToCurrency(m.highTopOfPageBidMicros),
+      monthly,
+    })
+  }
+  return got
+}
+
+function batchedHistorical(kws: string[], geoIds: string[], cacheGeo: string, priority: GooglePriority): Promise<Map<string, GoogleMetric>> {
+  return new Promise((resolve, reject) => {
+    const waiter: BatchWaiter = { kws: [...kws], got: new Map(), resolve, reject, done: false }
+    // Never wait past the lane's limit, even if the batch is still queued.
+    const timer = setTimeout(() => {
+      if (waiter.done) return
+      waiter.done = true
+      reject(new GoogleAdsError('Google is busy right now. Try again in a moment.', 'rate'))
+    }, MAX_WAIT_MS[priority] + 5_000)
+    waiter.resolve = m => { clearTimeout(timer); resolve(m) }
+    waiter.reject = e => { clearTimeout(timer); reject(e) }
+    joinBatch(cacheGeo, geoIds, waiter, priority)
+  })
+}
+
+function joinBatch(cacheGeo: string, geoIds: string[], waiter: BatchWaiter, priority: GooglePriority) {
+  let b = histBatches.get(cacheGeo)
+  if (!b) { b = { geoIds, waiters: [], lanes: new Set() }; histBatches.set(cacheGeo, b) }
+  b.waiters.push(waiter)
+  if (b.lanes.has(priority)) return
+  b.lanes.add(priority)
+  const batch = b
+  // One queued request per lane in use; whichever runs first takes the whole batch,
+  // the other then finds it empty and resolves without calling Google.
+  adsBatchRequest(':generateKeywordHistoricalMetrics', () => takeBatch(cacheGeo, batch), () => {
+    // Dropped from the queue: let the next lookup start a fresh batch (the waiters
+    // here time out on their own and fall back to stored data).
+    batch.lanes.delete(priority)
+    if (!batch.lanes.size && histBatches.get(cacheGeo) === batch) histBatches.delete(cacheGeo)
+  }, priority).catch(() => { /* errors reach the waiters through deliver() */ })
+}
+
+/** Called when a queued slot is about to send: claim every waiting keyword for this geo. */
+function takeBatch(cacheGeo: string, batch: HistBatch): PreparedBatch | null {
+  if (histBatches.get(cacheGeo) !== batch) return null   // already sent by another lane's slot
+  histBatches.delete(cacheGeo)
+  const live = batch.waiters.filter(w => !w.done)
+  if (!live.length) return null
+  const send: string[] = []
+  const sendSet = new Set<string>()
+  for (const w of live) for (const k of w.kws) {
+    if (sendSet.has(k) || sendSet.size >= BATCH_MAX_KEYWORDS) continue
+    sendSet.add(k); send.push(k)
+  }
+  return {
+    body: {
+      keywords: send,
+      geoTargetConstants: batch.geoIds.map(id => `geoTargetConstants/${id}`),
+      keywordPlanNetwork: 'GOOGLE_SEARCH',
+      language: LANG_EN,
+    },
+    deliver: (j, err) => {
+      if (err || !j) { for (const w of live) if (!w.done) { w.done = true; w.reject(err ?? new GoogleAdsError('Google Ads request failed', 'http')) } return }
+      const got = parseHistorical(j.results)
+      writeStored(send.map(kw => ({ key: metricKey(cacheGeo, kw), m: got.get(kw) ?? null })))
+      for (const w of live) {
+        if (w.done) continue
+        const left: string[] = []
+        for (const k of w.kws) {
+          if (sendSet.has(k)) { const m = got.get(k); if (m) w.got.set(k, m) }
+          else left.push(k)
+        }
+        // A batch over the size cap: the rest of this waiter's keywords go in the next one.
+        if (left.length) { w.kws = left; joinBatch(cacheGeo, batch.geoIds, w, 'normal'); continue }
+        w.done = true
+        w.resolve(w.got)
+      }
+    },
+  }
+}
+
 /** Historical metrics for keywords over a set of geo targets (one country, or all tracked
  *  countries combined for Global), stored under `cacheGeo`: cache first, then ONE batched
  *  request for only the misses. On failure, stale stored rows are used. Never throws. */
@@ -650,37 +880,10 @@ async function fetchMetrics(keywords: string[], geoIds: string[], cacheGeo: stri
   }
   if (!misses.length) return out
 
-  // Coalesce identical concurrent lookups (several routes ask for the same keyword at once).
-  const flightKey = `gads-hist:${cacheGeo}:${misses.join('')}`
   try {
-    const fetched = await singleFlight(flightKey, async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const j = await adsRequest<{ results?: any[] }>(':generateKeywordHistoricalMetrics', {
-        keywords: misses,
-        geoTargetConstants: geoIds.map(id => `geoTargetConstants/${id}`),
-        keywordPlanNetwork: 'GOOGLE_SEARCH',
-        language: LANG_EN,
-      // The keyword a user just searched (1-2 terms) jumps the queue; big related
-      // batches wait behind it. Callers can force a lane (country chart = low).
-      }, priority ?? (misses.length <= 2 ? 'high' : 'normal'))
-      const got = new Map<string, GoogleMetric>()
-      for (const r of j.results ?? []) {
-        const m = r.keywordMetrics
-        if (!m) continue
-        const monthly = (m.monthlySearchVolumes ?? []).map((v: { monthlySearches?: string }) => Number(v.monthlySearches ?? 0))
-        got.set(String(r.text).toLowerCase(), {
-          keyword:     String(r.text),
-          searches:    Number(m.avgMonthlySearches ?? 0),
-          competition: String(m.competition ?? 'UNSPECIFIED'),
-          competitionIndex: m.competitionIndex != null ? Number(m.competitionIndex) : null,
-          cpcLow:      microsToCurrency(m.lowTopOfPageBidMicros),
-          cpcHigh:     microsToCurrency(m.highTopOfPageBidMicros),
-          monthly,
-        })
-      }
-      writeStored(misses.map(kw => ({ key: metricKey(cacheGeo, kw), m: got.get(kw) ?? null })))
-      return got
-    })
+    // Joins whatever other users are asking for in this country right now: one
+    // Google request answers all of them (see batchedHistorical).
+    const fetched = await batchedHistorical(misses, geoIds, cacheGeo, priority ?? (misses.length <= 2 ? 'high' : 'normal'))
     for (const [k, v] of fetched) out.set(k, v)
   } catch (e) {
     // The lockout is logged once when it trips; don't repeat it for every country/keyword.
@@ -795,21 +998,30 @@ export async function googleKeywordMetrics(
 export async function googleCountryBreakdown(keyword: string, meta?: GoogleMetricsMeta): Promise<{ country: string; percentage: number; color: string }[]> {
   if (!isGoogleAdsConfigured()) return []
   const kw = keyword.toLowerCase().trim()
-  // One country at a time ON PURPOSE: Keyword Planner rate-limits per second even on
-  // Standard Access; asking for several at once was measured at 27-41 s (throttled
-  // retries) vs ~10 s sequential. The graphs no longer wait for this (see
-  // /api/trends/countries), and each country is cached for 30 days.
-  const results: { iso: string; searches: number }[] = []
-  for (const iso of Object.keys(GEO_TARGETS)) {
-    // Background lane: the chart is secondary, so it never delays a keyword's own volume.
+  // No Google volume worldwide means every country is zero too, and the chart would
+  // come back empty anyway: answer that from the (usually already stored) Global
+  // figure instead of spending 7 requests on it. Most long-tail Etsy keywords
+  // land here.
+  const gmeta: GoogleMetricsMeta = {}
+  const global = await metricsGlobal([kw], gmeta)
+  if (!gmeta.failed && !(global.get(kw)?.searches)) return []
+
+  // All 7 countries are queued together: the scheduler spaces them per account and
+  // folds each into whatever batch other users already have waiting for that
+  // country, so they no longer wait for each other one by one.
+  const answers = await Promise.all(Object.keys(GEO_TARGETS).map(async iso => {
     const local: GoogleMetricsMeta = {}
+    // Background lane: the chart is secondary, so it never delays a keyword's own volume.
     const m = await metricsForGeo([kw], GEO_TARGETS[iso].id, local, 'low')
+    return { iso, local, m }
+  }))
+  const results: { iso: string; searches: number }[] = []
+  for (const { iso, local, m } of answers) {
     if (meta) Object.assign(meta, { failed: meta.failed || local.failed, quota: meta.quota || local.quota, stale: meta.stale || local.stale, retryAt: meta.retryAt ?? local.retryAt })
     // A country Google could not answer (and had no stored figure for) would make the
     // others' shares look bigger than they are. Never show a partial split as if it
-    // were complete: stop here (later countries would fail the same way), return
-    // nothing, and let the caller report "busy". Every country that DID answer is
-    // already stored, so the next attempt only asks for the rest.
+    // were complete: return nothing and let the caller report "busy". Every country
+    // that DID answer is already stored, so the next attempt only asks for the rest.
     if (local.failed && !m.has(kw)) return []
     results.push({ iso, searches: m.get(kw)?.searches ?? 0 })
   }

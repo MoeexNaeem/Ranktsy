@@ -10,7 +10,7 @@
  *   GET /v3/application/shops/{shop_id}  → shop info
  *   GET /v3/application/shops/{shop_id}/listings/active → shop listings
  */
-import { cpus } from 'node:os'
+import { workerCount } from '@/lib/workers'
 import { createHash } from 'node:crypto'
 import { getDisabledEtsyKeyIds, disabledEtsyKeyIdsNow } from '@/lib/etsy-key-switch'
 import { recordShopSnapshots, recordListingSnapshots, recordShopSnapshot, getKeywordTrendsBatch } from '@/lib/snapshots'
@@ -310,20 +310,45 @@ export async function probeEtsyKeys(): Promise<{ index: number; ok: boolean; sta
 // Default now: ~120/sec per key split across the workers (30 each on 4 cores),
 // under Etsy's 150 with headroom. Only speed changes: the DAILY quota is spent per
 // call, not per second. ETSY_RATE_PER_SEC (per worker) still overrides.
-const WORKERS = Math.max(1, Number(process.env.PM2_INSTANCES) || cpus().length || 1)
+// Real worker count (3 on the 4-core server). It used to assume one per core (4), so
+// each worker held back to 30/sec per key while only 3 workers existed: ~90/sec of a
+// 150/sec key actually used.
+const WORKERS = workerCount()
 const RATE_LIMIT_PER_SEC = Number(process.env.ETSY_RATE_PER_SEC ?? Math.max(8, Math.floor(120 / WORKERS)))
 const MIN_GAP_MS = 1000 / Math.max(1, RATE_LIMIT_PER_SEC)
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+const ETSY_TIMEOUT_MS = 15_000
 
 /** Serialise callers on ONE key just long enough to keep MIN_GAP_MS between its departures. */
 function rateGate(k: EtsyKey): Promise<void> {
+  const queuedAt = Date.now()
+  gateStats.pending++
   k.gate = k.gate.then(async () => {
     const wait = k.lastCallAt + MIN_GAP_MS - Date.now()
     if (wait > 0) await sleep(wait)
     k.lastCallAt = Date.now()
+    gateStats.pending--
+    noteSample(gateStats.waits, Date.now() - queuedAt)
   })
   return k.gate
+}
+
+// ── Live timing, per worker (admin Code Flow readout) ───────────────────────────
+// How long Etsy calls wait for their turn on a key, and how long Etsy takes to
+// answer. Pinned on globalThis so every route chunk reports into the same numbers.
+const sg = globalThis as typeof globalThis & { __rkEtsyTiming?: { pending: number; waits: number[]; fetches: number[]; timeouts: number } }
+const gateStats = sg.__rkEtsyTiming ??= { pending: 0, waits: [], fetches: [], timeouts: 0 }
+function noteSample(arr: number[], v: number) { arr.push(v); if (arr.length > 300) arr.splice(0, arr.length - 300) }
+const pct = (arr: number[], p: number) => { if (!arr.length) return 0; const a = [...arr].sort((x, y) => x - y); return a[Math.min(a.length - 1, Math.floor(a.length * p))] }
+/** This worker's Etsy timing: calls waiting for a key now, and wait / answer times (ms). */
+export function etsyTiming() {
+  return {
+    rateLimitPerSecPerKey: RATE_LIMIT_PER_SEC, workers: WORKERS, waitingNow: gateStats.pending,
+    waitP50Ms: pct(gateStats.waits, 0.5), waitP90Ms: pct(gateStats.waits, 0.9),
+    answerP50Ms: pct(gateStats.fetches, 0.5), answerP90Ms: pct(gateStats.fetches, 0.9),
+    timeouts: gateStats.timeouts,
+  }
 }
 
 // Round-robin start point so successive searches begin on different keys (spreads
@@ -362,18 +387,35 @@ async function etsyFetch<T = unknown>(path: string, params?: Record<string, stri
     recordEtsyCall()   // attribute every Etsy HTTP request (incl. retries) to the caller
     const ep = endpointOf(path)
     endpointCounts.set(ep, (endpointCounts.get(ep) ?? 0) + 1)
-    const res = await fetch(url.toString(), {
+    const fetchStart = Date.now()
+    let res: Response
+    try {
+      res = await fetch(url.toString(), {
       headers: {
         'x-api-key': key ? key.header : ETSY_KEY_HEADER,
         'Accept':    'application/json',
       },
+      // Etsy normally answers in well under a second. Without a limit, one stuck
+      // connection held its caller (and its page) until Cloudflare's 100 s cutoff.
+      signal: AbortSignal.timeout(ETSY_TIMEOUT_MS),
       // Next.js fetch cache - revalidate every 30 minutes. Some responses (the
       // /listings/batch image payload) exceed Next's 2MB Data Cache per-entry cap
       // and log "items over 2MB can not be cached" on every call while never
       // actually caching. Those pass noStore so Next doesn't try - reuse is
       // handled by our own memCache/cachedFlight + Mongo caches at the route level.
       ...(opts?.noStore ? { cache: 'no-store' as const } : { next: { revalidate: 1800 } }),
-    })
+      })
+    } catch (e) {
+      const name = (e as Error)?.name
+      if (name === 'TimeoutError' || name === 'AbortError') {
+        gateStats.timeouts++
+        lastErr = new Error(`Etsy API did not answer within ${ETSY_TIMEOUT_MS / 1000}s`)
+        if (attempt < MAX_ATTEMPTS - 1) continue   // try the next key once more
+        throw lastErr
+      }
+      throw e
+    }
+    noteSample(gateStats.fetches, Date.now() - fetchStart)
 
     if (key) noteQuota(key, res)
     if (res.ok) return res.json() as Promise<T>
@@ -1172,7 +1214,11 @@ type KeywordFacts = {
 // related-keyword probes were for a keyword another search had just measured
 // (68,378 probes vs 14,505 distinct keywords in 24h). Cached in the shared Etsy
 // cache (all workers) for the keyword TTL, inside Etsy's 6h listing-cache limit.
-const factsKey = (keyword: string) => `kwfacts:v1:${keyword.toLowerCase().trim()}`
+// v2 (2026-10-03): measured over the top 100 listings, the same sample Keyword Search
+// uses for the keyword itself. v1 used the top 20, which read ~3x higher (the top
+// results are the most-viewed), so clicking a related keyword showed different
+// Avg. Views / Favorites / KD than its row. Same single Etsy call either way.
+const factsKey = (keyword: string) => `kwfacts:v2:${keyword.toLowerCase().trim()}`
 
 async function keywordFacts(keyword: string): Promise<KeywordFacts | null> {
   const key = factsKey(keyword)
@@ -1180,7 +1226,7 @@ async function keywordFacts(keyword: string): Promise<KeywordFacts | null> {
   if (hit) return hit
   return singleFlight(key, async () => {
     try {
-      const { listings, count } = await searchEtsyListingsPaged(keyword, 20, 0, { skipImages: true })
+      const { listings, count } = await searchEtsyListingsPaged(keyword, KEYWORD_SAMPLE, 0, { skipImages: true })
       let facts: KeywordFacts
       if (!listings.length) {
         facts = { count, avgViews: 0, avgFavorites: 0, favPerView: 0, byMonth: [], listingIds: [] }
@@ -1210,6 +1256,14 @@ async function keywordFacts(keyword: string): Promise<KeywordFacts | null> {
  * Bulk Keywords previously used its own 50k/500k thresholds, so the same keyword
  * could read "Med" on one screen and "Low" on another.
  */
+/**
+ * How many top listings every keyword-level average is measured over: the keyword
+ * itself, its related keywords, near matches and bulk rows. One sample size, so the
+ * same keyword never shows two different Avg. Views. Etsy returns 100 per call, so
+ * this costs no extra calls.
+ */
+export const KEYWORD_SAMPLE = 100
+
 export function levelForCount(count: number): 'Low' | 'Med' | 'High' {
   return count > 250_000 ? 'High' : count > 25_000 ? 'Med' : 'Low'
 }
@@ -1277,14 +1331,20 @@ export async function enrichRelatedCompetition(related: KeywordData[]): Promise<
   // in ONE snapshot query from the listing ids the searches above already
   // returned, so there are zero extra Etsy calls. Empty until tracking accrues.
   const kwIds = new Map<string, number[]>()
-  related.forEach((r, i) => { const ids = facts[i]?.listingIds; if (ids?.length) kwIds.set(r.keyword, ids) })
+  // Sparklines follow each keyword's top 20 listings (as before the 100-listing
+  // sample), which keeps that one history read small.
+  related.forEach((r, i) => { const ids = facts[i]?.listingIds; if (ids?.length) kwIds.set(r.keyword, ids.slice(0, 20)) })
   const trends = kwIds.size ? await getKeywordTrendsBatch(kwIds).catch(() => new Map()) : new Map()
 
   return related.map((r, i) => {
     const f = facts[i]
     const trend = trends.get(r.keyword)
-    if (!f) return trend ? { ...r, trend } : r   // probe failed → stays unknown
-    if (f.count <= 0) return { ...r, competition: 0, competitionLevel: null, difficulty: null, trend }
+    // The pre-probe numbers average only the parent search's listings that carry this
+    // tag: a different group from the keyword's own search, so they would disagree
+    // with the keyword once clicked. Without the probe they are unknown, not shown.
+    const unmeasured = { avgViews: null, avgFavorites: null, favPerView: null }
+    if (!f) return { ...r, ...unmeasured, trend }   // probe failed → stays unknown
+    if (f.count <= 0) return { ...r, ...unmeasured, competition: 0, competitionLevel: null, difficulty: null, trend }
     return {
       ...r,
       competition:      f.count,
@@ -1351,7 +1411,9 @@ export async function getNearMatches(query: string): Promise<NearMatch[]> {
       // A small sample is enough - `count` (the real total) is the headline
       // number here, and the sample only anchors the engagement proxies.
       // No images: this table never renders one.
-      const { listings, count } = await searchEtsyListingsPaged(keyword, 25, 0, { skipImages: true })
+      // Same top-100 sample as Keyword Search, so a variant reads the same here as
+      // when it is searched directly (was 25). Still one Etsy call.
+      const { listings, count } = await searchEtsyListingsPaged(keyword, KEYWORD_SAMPLE, 0, { skipImages: true })
       if (!listings.length) return null
 
       // Every figure measured from this variant's own listings.

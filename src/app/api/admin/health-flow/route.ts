@@ -3,9 +3,9 @@ import mongoose from 'mongoose'
 import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin } from '@/lib/auth/roles'
 import { connectDB } from '@/lib/db'
-import { etsyKeyPoolSize, probeEtsyKeys, etsyEndpointUsage, etsyKeyQuota, type EtsyKeyQuota } from '@/lib/etsy'
+import { etsyKeyPoolSize, probeEtsyKeys, etsyEndpointUsage, etsyKeyQuota, etsyTiming, type EtsyKeyQuota } from '@/lib/etsy'
 import { isGeminiConfigured, geminiKeyPoolSize } from '@/lib/gemini'
-import { isGoogleAdsConfigured, googleAdsStatus, recheckGoogleAdsQuota } from '@/lib/google-ads'
+import { isGoogleAdsConfigured, googleAdsStatus, recheckGoogleAdsQuota, googleQueueDepth } from '@/lib/google-ads'
 import { isRecaptchaConfigured } from '@/lib/recaptcha'
 import type { FlowSystem } from '@/lib/codeflow/graph'
 import type { ApiResponse } from '@/types'
@@ -45,7 +45,7 @@ async function pingMongo(): Promise<SystemHealth> {
   }
 }
 
-async function handleGET(): Promise<NextResponse<ApiResponse<{ systems: Record<FlowSystem, SystemHealth>; checkedAt: string; etsyQuota: EtsyKeyQuota[] }>>> {
+async function handleGET(): Promise<NextResponse<ApiResponse<{ systems: Record<FlowSystem, SystemHealth>; checkedAt: string; etsyQuota: EtsyKeyQuota[]; timing: { pid: number; etsy: ReturnType<typeof etsyTiming>; google: ReturnType<typeof googleQueueDepth> } }>>> {
   const auth = await getCurrentUser().catch(() => null)
   if (!auth) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
   if (!isAdmin(auth)) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
@@ -124,7 +124,9 @@ async function handleGET(): Promise<NextResponse<ApiResponse<{ systems: Record<F
                     detail: env('UPSTASH_REDIS_REST_URL') && env('UPSTASH_REDIS_REST_TOKEN') ? 'configured' : 'per-worker cache only' },
   }
 
-  return NextResponse.json({ success: true, data: { systems, checkedAt: new Date().toISOString(), etsyQuota } })
+  // This worker's live queue/timing figures (each request lands on one worker).
+  const timing = { pid: process.pid, etsy: etsyTiming(), google: googleQueueDepth() }
+  return NextResponse.json({ success: true, data: { systems, checkedAt: new Date().toISOString(), etsyQuota, timing } })
 }
 
 /**

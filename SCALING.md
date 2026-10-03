@@ -76,6 +76,7 @@ The server has about 3.6 GB of RAM (plus a 6 GB swap file, already set up). A
 `next build` needs about 1.7 GB, and with all 3 live workers running there is no
 room, so Linux kills the build (2026-10-03: "Killed" in the deploy output,
 `Out of memory: Killed process ... next-build` in `dmesg`). `scripts/deploy.sh`
-therefore pauses one worker (`pm2 scale rankkw 2`) for the build and brings it
-back before the restart; the remaining workers keep the site up throughout.
+therefore scales down to 1 worker (`BUILD_WORKERS`, ~650 MB each; pausing only
+one was not enough) for the build and brings the rest back before the restart;
+the remaining worker keeps the site up throughout.
 Always deploy with `bash scripts/deploy.sh`, never `npm run build` in place.
