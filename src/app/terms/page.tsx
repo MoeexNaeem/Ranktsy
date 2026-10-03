@@ -115,7 +115,7 @@ const sections = [
 const contactRows: { label: string; value: string; href?: string }[] = [
   { label: 'OWNER', value: 'Zafar Ali' },
   { label: 'OPERATOR', value: 'Letrank Marketing Software House, Pakistan' },
-  { label: 'PHONE / WHATSAPP', value: '+92 345 8181216', href: 'tel:+923458181216' },
+  { label: 'PHONE / WHATSAPP', value: '+92 327 9100000', href: 'tel:+923279100000' },
   { label: 'LOCATION', value: 'Leaving Dol Beauty Salone, College Road, Bahawalpur, Punjab, Pakistan' },
   { label: 'CONTACT', value: 'rankkw.com/contact', href: 'https://rankkw.com/contact' },
 ]

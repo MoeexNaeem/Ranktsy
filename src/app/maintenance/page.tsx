@@ -46,7 +46,7 @@ export default async function MaintenancePage() {
               Your account, credits and saved work are safe.
             </div>
             <p style={{ fontSize: 13, color: '#8a8a82', marginTop: 22, lineHeight: 1.6 }}>
-              Please check back in a little while. Questions? Contact us at 0345 8181216.
+              Please check back in a little while. Questions? Contact us at 0327 9100000.
             </p>
           </>
         ) : (

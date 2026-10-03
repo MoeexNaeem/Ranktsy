@@ -19,5 +19,5 @@ p{font-size:15px;color:#5F5F57;line-height:1.65;margin:0 auto 24px;max-width:440
 small{display:block;font-size:13px;color:#8a8a82;margin-top:22px;line-height:1.6}</style></head>
 <body><main class="c"><img src="/website_logo.png" alt="Rankkw"><div class="i"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#FB5E09" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
 <h1>We are updating Rankkw</h1><p>${esc(message)}</p><div class="b"><span class="d"></span>Your account, credits and saved work are safe.</div>
-<small>Please check back in a little while. Questions? Contact us at 0345 8181216.</small></main></body></html>`
+<small>Please check back in a little while. Questions? Contact us at 0327 9100000.</small></main></body></html>`
 }

@@ -41,10 +41,10 @@ const CONTACT_CHANNELS: {
   {
     icon: 'phone',
     label: 'Phone',
-    value: '0345 8181216',
+    value: '0327 9100000',
     // tel: needs the international form or it won't dial from outside Pakistan.
-    href: 'tel:+923458181216',
-    desc: 'Pakistan Standard Time, business hours. Dial +92 345 8181216 from abroad.',
+    href: 'tel:+923279100000',
+    desc: 'Pakistan Standard Time, business hours. Dial +92 327 9100000 from abroad.',
     bg: C.orange, fg: '#fff', chip: 'rgba(255,255,255,0.16)', chipIc: '#fff',
   },
   {

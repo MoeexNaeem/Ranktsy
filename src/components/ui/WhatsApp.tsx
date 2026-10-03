@@ -3,16 +3,16 @@ import React from 'react'
 /**
  * WhatsApp contact - shared by the footer and the contact page.
  *
- * The number is a local Pakistani format (0345 8181216). wa.me needs the
- * INTERNATIONAL form with no leading 0 or +, so it's 92 345 8181216 → 923458181216.
+ * The number is a local Pakistani format (0327 9100000). wa.me needs the
+ * INTERNATIONAL form with no leading 0 or +, so it's 92 327 9100000 → 923279100000.
  * A short prefilled message opens the chat ready to type.
  *
  * The brand glyph is a FILLED path (fill="currentColor") - it can't go in the
  * stroke-only `Icon` set, so it lives here and inherits colour like the rest.
  */
-export const WHATSAPP_DISPLAY = '0345 8181216'
+export const WHATSAPP_DISPLAY = '0327 9100000'
 export const WHATSAPP_HREF =
-  'https://wa.me/923458181216?text=' + encodeURIComponent('Hi Rankkw, I have a question')
+  'https://wa.me/923279100000?text=' + encodeURIComponent('Hi Rankkw, I have a question')
 
 export function WhatsAppIcon({ size = 22, color = 'currentColor', style }: {
   size?: number
