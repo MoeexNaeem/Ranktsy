@@ -34,7 +34,8 @@ async function getHandler(req: NextRequest) {
   // empty/partial Google result when the concurrent calls were being throttled.
   // v5: countries moved to /api/trends/countries (they took ~10 s and held up the
   // graphs); this response now carries only the monthly series and market data.
-  const key    = cacheKey('trends', 'v5', geo, query)
+  // v6 (2026-10-06): months come from Google's own calendar (see monthlyEnd).
+  const key    = cacheKey('trends', 'v6', geo, query)
   const cached = memCache.get(key)
   if (cached) return NextResponse.json({ success: true, data: cached, cached: true })
 
@@ -74,14 +75,21 @@ async function getHandler(req: NextRequest) {
     const market = marketplaceAvailable ? buildListingMarketStats(listings) : null
 
     let googleAvailable = false
-    const monthly = metrics?.get(query)?.monthly ?? []
+    const gm = metrics?.get(query)
+    const monthly = gm?.monthly ?? []
     if (monthly.length) {
-      // Google returns the trailing 12 months oldest→newest; label them as
-      // rolling months ending with the current one.
-      const nowMonth = new Date().getMonth()
+      // Google returns 12 months oldest→newest, ending at its newest PUBLISHED month,
+      // which trails today by one to two months. Each value is labelled with Google's
+      // own month. Labelling the series as ending "this month" moved every peak two
+      // months late (Thanksgiving in January, Christmas in February; 2026-10-06).
+      // A row without its end month (Google failed, stale copy served) falls back to
+      // two months back, the usual publication lag.
+      const now = new Date()
+      const [ey, em] = (gm?.monthlyEnd ?? '').split('-').map(Number)
+      const endIdx = ey && em ? ey * 12 + (em - 1) : now.getFullYear() * 12 + now.getMonth() - 2
       const last12 = monthly.slice(-12)
       const points: TrendPoint[] = last12.map((value, i) => ({
-        month: MONTHS[(nowMonth - last12.length + 1 + i + 24) % 12],
+        month: MONTHS[(endIdx - (last12.length - 1 - i)) % 12],
         value,
       }))
       trends.push({ platform: 'google', points })

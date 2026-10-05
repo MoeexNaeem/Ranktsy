@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { sameCreditDay } from '@/lib/creditDay'
 import { connectDB } from '@/lib/db'
 import { User, KeywordHistory, ConnectedShop } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
@@ -12,8 +13,6 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const DAY = 24 * 60 * 60 * 1000
-const sameUTCDay = (a?: Date | null, b?: Date | null) =>
-  !!a && !!b && a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth() && a.getUTCDate() === b.getUTCDate()
 
 /**
  * Admin users list - server-side PAGINATED + searched, so opening the admin no
@@ -116,7 +115,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const a = act.get(id)
     const plan = effectivePlan(u)
     const creditsLimit = creditLimitFor(plan)
-    const creditsUsedToday = sameUTCDay(u.creditsResetAt, now) ? (u.creditsUsedToday ?? 0) : 0
+    const creditsUsedToday = sameCreditDay(u.creditsResetAt, now) ? (u.creditsUsedToday ?? 0) : 0
     return {
       id,
       name: u.name,

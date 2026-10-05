@@ -6,11 +6,10 @@ import { activeBonus } from './credits'
 /**
  * Per-plan quota metering. Counters live on the User doc (daily searches reuse the
  * existing searchCount/lastSearchReset; monthly Listing-Pro images use their own
- * fields) and reset on a UTC day/month rollover. Reads the plan fresh from the DB
+ * fields) and reset daily at 12:00 AM Pakistan time (monthly images: UTC month). Reads the plan fresh from the DB
  * so it reflects a just-purchased upgrade even before the JWT refreshes.
  */
-const sameUTCDay = (a?: Date | null, b?: Date | null) =>
-  !!a && !!b && a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth() && a.getUTCDate() === b.getUTCDate()
+import { sameCreditDay, creditDayStart } from './creditDay'
 const sameUTCMonth = (a?: Date | null, b?: Date | null) =>
   !!a && !!b && a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth()
 
@@ -33,8 +32,8 @@ export async function peekDailySearch(userId: string): Promise<QuotaResult | nul
   // A valid admin bonus pool lifts the cap by its GRANTED size; the credit balance
   // (plan + bonus remaining) is what actually limits the searches.
   const limit = limitsFor(plan).searchesPerDay + (activeBonus(user)?.granted ?? 0)
-  // A stale counter from a previous UTC day reads as zero; consume resets it.
-  const used = sameUTCDay(user.lastSearchReset, new Date()) ? (user.searchCount ?? 0) : 0
+  // A stale counter from a previous day reads as zero; consume resets it.
+  const used = sameCreditDay(user.lastSearchReset, new Date()) ? (user.searchCount ?? 0) : 0
   return { allowed: limit === Infinity || used < limit, used, limit, plan }
 }
 
@@ -49,7 +48,8 @@ export async function consumeDailySearch(userId: string): Promise<QuotaResult | 
   const plan = effectivePlan(user)
   const now = new Date()
   const limit = limitsFor(plan).searchesPerDay + (activeBonus(user, now)?.granted ?? 0)
-  const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  // Same day boundary as credits: 12:00 AM Pakistan time (creditDay.ts).
+  const dayStart = creditDayStart(now)
   await User.updateOne(
     { _id: userId, $or: [{ lastSearchReset: { $lt: dayStart } }, { lastSearchReset: null }] },
     { $set: { searchCount: 0, lastSearchReset: now } },

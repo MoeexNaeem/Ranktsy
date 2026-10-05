@@ -1,13 +1,14 @@
 import { User, PaidLookup } from './models'
 import { effectivePlan, type PlanSlug } from './plans'
+import { sameCreditDay, creditDayStart, creditDayKey } from './creditDay'
 
 /**
  * Credit system for the "other tools" - every dashboard feature that ISN'T
  * already governed by a hard per-plan limit (competitors monitored, Etsy
  * Listing Pro images, listing audits). Each search costs a flat CREDIT_COST (1),
  * and it is charged only once the search has actually delivered a result: a
- * failed search, an empty result or a server error never costs anything. The daily allowance comes from the plan and resets on a UTC
- * day rollover; the balance is derived as `limit − creditsUsedToday`, so a plan
+ * failed search, an empty result or a server error never costs anything. The daily allowance comes from the plan and resets at
+ * 12:00 AM Pakistan time (creditDay.ts); the balance is derived as `limit − creditsUsedToday`, so a plan
  * change or admin grant is reflected immediately with no stored-balance drift.
  *
  * Counters live on the User doc (creditsUsedToday / creditsResetAt / lifetime
@@ -19,7 +20,7 @@ import { effectivePlan, type PlanSlug } from './plans'
 export const CREDIT_COST = 1
 
 /**
- * Daily credit allowance per plan (resets 00:00 UTC). One credit = one search,
+ * Daily credit allowance per plan (resets 12:00 AM Pakistan time). One credit = one search,
  * so these are also the plan's searches per day (planLimits.ts must match).
  */
 export const CREDITS_PER_DAY: Record<PlanSlug, number> = {
@@ -63,8 +64,6 @@ export function isCreditTool(tool: string | null | undefined): boolean {
   return !!tool && CREDIT_TOOLS.has(tool)
 }
 
-const sameUTCDay = (a?: Date | null, b?: Date | null) =>
-  !!a && !!b && a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth() && a.getUTCDate() === b.getUTCDate()
 
 /** An admin-granted bonus pool, only while it is still valid. */
 export interface BonusState {
@@ -109,14 +108,14 @@ export async function canAfford(userId: string, cost = CREDIT_COST): Promise<Aff
   return { ...publicState(s), ok: s.credits >= cost }
 }
 
-/** Current credit balance for a user (with a lazy UTC-day reset applied to the read). */
+/** Current credit balance for a user (with the lazy daily reset applied to the read). */
 export async function getCreditState(userId: string): Promise<(CreditState & { usedTotal: number }) | null> {
   const user = await User.findById(userId)
   if (!user) return null
   const plan = effectivePlan(user)
   const limit = creditLimitFor(plan)
   const now = new Date()
-  const used = sameUTCDay(user.creditsResetAt, now) ? (user.creditsUsedToday ?? 0) : 0
+  const used = sameCreditDay(user.creditsResetAt, now) ? (user.creditsUsedToday ?? 0) : 0
   const bonus = activeBonus(user, now)
   return { credits: Math.max(0, limit - used) + (bonus?.remaining ?? 0), limit, usedToday: used, plan, bonus, usedTotal: user.creditsUsedTotal ?? 0 }
 }
@@ -193,7 +192,6 @@ export async function refundLastCharge(userId: string, tool: string): Promise<Cr
   return s ? publicState(s) : null
 }
 
-const utcDayStart = (d = new Date()) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
 
 /**
  * Charge `cost` credits for one tool use, or return allowed:false without
@@ -215,10 +213,10 @@ export async function consumeCredits(userId: string, cost = CREDIT_COST): Promis
   const limit = creditLimitFor(plan)
   const now = new Date()
 
-  // 1) Lazy UTC-day reset. Matches only a stale counter, so of several requests
-  //    racing across midnight exactly one resets it.
+  // 1) Lazy daily reset (Pakistan midnight). Matches only a stale counter, so of
+  //    several requests racing across midnight exactly one resets it.
   await User.updateOne(
-    { _id: userId, $or: [{ creditsResetAt: { $lt: utcDayStart(now) } }, { creditsResetAt: null }] },
+    { _id: userId, $or: [{ creditsResetAt: { $lt: creditDayStart(now) } }, { creditsResetAt: null }] },
     { $set: { creditsUsedToday: 0, creditsResetAt: now } },
   )
 
@@ -256,9 +254,9 @@ export async function consumeCredits(userId: string, cost = CREDIT_COST): Promis
 }
 
 // ─── Pay once per lookup per day ────────────────────────────────────────────────
-// Credits reset each UTC day; so does this. `key` identifies the result (e.g.
+// Credits reset each day at Pakistan midnight; so does this. `key` identifies the result (e.g.
 // "keywords|GLO|silver necklace"): re-opening the same result that day is free.
-const paidDay = () => new Date().toISOString().slice(0, 10)
+const paidDay = () => creditDayKey()
 
 /** Normalised "paid today" key for a tool search, or '' when there is no key. */
 export function paidKeyFor(tool: string, rawKey: unknown): string {

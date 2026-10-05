@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { sameCreditDay } from '@/lib/creditDay'
 import { connectDB } from '@/lib/db'
 import { User, KeywordHistory, ConnectedShop, ApiUsage } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
@@ -17,8 +18,6 @@ async function requireAdmin() {
   return { error: null, auth }
 }
 
-const sameUTCDay = (a?: Date | null, b?: Date | null) =>
-  !!a && !!b && a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth() && a.getUTCDate() === b.getUTCDate()
 const dayKey = (d: Date) => d.toISOString().slice(0, 10)
 
 // Full per-user detail for the admin user-detail panel - everything we hold about
@@ -45,7 +44,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const plan = effectivePlan(u)
   const creditsLimit = creditLimitFor(plan)
-  const creditsUsedToday = sameUTCDay(u.creditsResetAt, new Date()) ? (u.creditsUsedToday ?? 0) : 0
+  const creditsUsedToday = sameCreditDay(u.creditsResetAt, new Date()) ? (u.creditsUsedToday ?? 0) : 0
   const byDay = new Map(usageRows.map(r => [r.day, r]))
   const usage = days.slice().reverse().map(day => {
     const r = byDay.get(day)

@@ -115,3 +115,17 @@ export function useChargeOnSuccess(tool: string, key: string, delivered: boolean
     void commitCredits(tool, key)
   }, [tool, key, delivered])
 }
+
+// ─── Daily reset time, shown in the viewer's own clock ─────────────────────────
+// Credits and searches reset at 12:00 AM Pakistan time (see creditDay.ts).
+export { nextCreditReset } from './creditDay'
+import { nextCreditReset } from './creditDay'
+
+/**
+ * When the daily allowance resets, in the viewer's local time ("12:00 AM" in
+ * Pakistan). "Midnight UTC" meant nothing to most users, who reported that
+ * credits never reset (2026-10-06).
+ */
+export function creditResetLabel(): string {
+  return nextCreditReset().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}

@@ -64,7 +64,7 @@ export interface IUserDoc extends Document {
   listingImageReset?: Date
   // Credit system - 1 credit per search, charged only when the search succeeds.
   // Daily allowance comes from the plan (see lib/credits.ts); balance = limit −
-  // creditsUsedToday. Resets on a UTC day rollover. creditsUsedTotal is lifetime
+  // creditsUsedToday. Resets at 12:00 AM Pakistan time (lib/creditDay.ts). creditsUsedTotal is lifetime
   // spend, kept for the admin analytics.
   creditsUsedToday?: number
   creditsResetAt?: Date

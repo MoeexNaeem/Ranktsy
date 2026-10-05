@@ -13,7 +13,7 @@
  */
 import { memo } from 'react'
 import { C } from '@/utils'
-import type { CreditState } from '@/lib/credits-client'
+import { creditResetLabel, type CreditState } from '@/lib/credits-client'
 import { PLANS } from '@/components/landing/plans-data'
 
 /**
@@ -97,7 +97,7 @@ export const UsageMeters = memo(function UsageMeters({ credits }: { credits: Cre
         label="credits"
         accent={accent}
         badge={bonus ? `+${bonus.remaining.toLocaleString('en-US')} bonus` : undefined}
-        title={`${Math.max(0, credits.credits - (bonus?.remaining ?? 0)).toLocaleString('en-US')} of ${credits.limit.toLocaleString('en-US')} daily credits left on the ${planName} plan${bonus ? ` + ${bonus.remaining.toLocaleString('en-US')} bonus credits (valid until ${bonusUntil}, used after the daily credits)` : ''} · 1 credit per search, charged only when it succeeds · daily credits reset midnight UTC`}
+        title={`${Math.max(0, credits.credits - (bonus?.remaining ?? 0)).toLocaleString('en-US')} of ${credits.limit.toLocaleString('en-US')} daily credits left on the ${planName} plan${bonus ? ` + ${bonus.remaining.toLocaleString('en-US')} bonus credits (valid until ${bonusUntil}, used after the daily credits)` : ''} · 1 credit per search, charged only when it succeeds · daily credits reset every day at ${creditResetLabel()} your time`}
       />
       {s && (
         <>
@@ -110,7 +110,7 @@ export const UsageMeters = memo(function UsageMeters({ credits }: { credits: Cre
             accent="#2E6DB4"
             title={sUnlimited
               ? `${s.used.toLocaleString('en-US')} keyword searches today · unlimited on your plan`
-              : `${sLeft.toLocaleString('en-US')} of ${(sLimit as number).toLocaleString('en-US')} daily keyword searches left · resets midnight UTC`}
+              : `${sLeft.toLocaleString('en-US')} of ${(sLimit as number).toLocaleString('en-US')} daily keyword searches left · resets every day at ${creditResetLabel()} your time`}
           />
         </>
       )}

@@ -741,6 +741,14 @@ export interface GoogleMetric {
   cpcLow: number | null
   cpcHigh: number | null
   monthly: number[]
+  /**
+   * Calendar month of the LAST value in `monthly`, as 'YYYY-MM'. Google's newest
+   * month trails today by one to two months (on 2026-10-06 it was 2026-08), so the
+   * series can't be labelled as "ending this month": doing that shifted every peak
+   * two months late (Thanksgiving showed in January). Missing on rows stored before
+   * this field existed; those are re-fetched once (see isFresh).
+   */
+  monthlyEnd?: string | null
 }
 
 // Google returns bids in micros of the account currency: 1 unit = 1_000_000 micros.
@@ -751,7 +759,23 @@ const microsToCurrency = (v?: string | number | null): number | null =>
 interface StoredMetric { m: GoogleMetric | null; at: number }
 const metricKey = (geoId: string, kw: string) => `m|${geoId}|${kw}`
 const normKws = (keywords: string[]) => [...new Set(keywords.map(k => k.toLowerCase().trim()).filter(Boolean))]
-const isFresh = (s: StoredMetric) => Date.now() - s.at < (s.m ? FRESH_MS : EMPTY_FRESH_MS)
+const isFresh = (s: StoredMetric) =>
+  // A stored series without its end month can't be placed on the calendar: refresh it once.
+  !(s.m && s.m.monthly?.length && !s.m.monthlyEnd) &&
+  Date.now() - s.at < (s.m ? FRESH_MS : EMPTY_FRESH_MS)
+
+const GOOGLE_MONTHS = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER']
+/** 'YYYY-MM' of the last point in Google's monthlySearchVolumes (oldest → newest), or null. */
+function seriesEnd(vols: { year?: string | number; month?: string | number }[] | undefined): string | null {
+  const last = vols?.[vols.length - 1]
+  if (!last?.year || last.month == null) return null
+  // The REST API sends the month as an enum name ("AUGUST"); be lenient about numbers too.
+  const idx = typeof last.month === 'number' ? last.month - 1
+    : /^\d+$/.test(String(last.month)) ? Number(last.month) - 1
+    : GOOGLE_MONTHS.indexOf(String(last.month).toUpperCase())
+  if (idx < 0 || idx > 11) return null
+  return `${last.year}-${String(idx + 1).padStart(2, '0')}`
+}
 
 async function readStored(keys: string[]): Promise<Map<string, StoredMetric>> {
   const out = new Map<string, StoredMetric>()
@@ -814,6 +838,7 @@ function parseHistorical(results: unknown[] | undefined): Map<string, GoogleMetr
     const m = r.keywordMetrics
     if (!m) continue
     const monthly = (m.monthlySearchVolumes ?? []).map((v: { monthlySearches?: string }) => Number(v.monthlySearches ?? 0))
+    const monthlyEnd = seriesEnd(m.monthlySearchVolumes)
     got.set(String(r.text).toLowerCase(), {
       keyword:     String(r.text),
       searches:    Number(m.avgMonthlySearches ?? 0),
@@ -822,6 +847,7 @@ function parseHistorical(results: unknown[] | undefined): Map<string, GoogleMetr
       cpcLow:      microsToCurrency(m.lowTopOfPageBidMicros),
       cpcHigh:     microsToCurrency(m.highTopOfPageBidMicros),
       monthly,
+      monthlyEnd,
     })
   }
   return got
@@ -963,6 +989,8 @@ function sumMetrics(keyword: string, rows: GoogleMetric[]): GoogleMetric | null 
   let searches = 0, compIdxSum = 0, compIdxCount = 0, cpcLowSum = 0, cpcLowCount = 0, cpcHighSum = 0, cpcHighCount = 0
   const monthly: number[] = []
   let bestBand = 'UNSPECIFIED'
+  // Every country row comes from the same Google data release, so they share an end month.
+  const monthlyEnd = rows.map(r => r.monthlyEnd).filter(Boolean).sort().pop() ?? null
   for (const g of rows) {
     searches += g.searches
     for (let i = 0; i < g.monthly.length; i++) monthly[i] = (monthly[i] ?? 0) + g.monthly[i]
@@ -977,6 +1005,7 @@ function sumMetrics(keyword: string, rows: GoogleMetric[]): GoogleMetric | null 
     cpcLow: cpcLowCount ? parseFloat((cpcLowSum / cpcLowCount).toFixed(2)) : null,
     cpcHigh: cpcHighCount ? parseFloat((cpcHighSum / cpcHighCount).toFixed(2)) : null,
     monthly,
+    monthlyEnd,
   }
 }
 
@@ -1204,6 +1233,7 @@ export async function googleKeywordIdeas(seed: string, geoIso = 'US', limit = 40
               cpcLow: microsToCurrency(m.lowTopOfPageBidMicros),
               cpcHigh: microsToCurrency(m.highTopOfPageBidMicros),
               monthly: (m.monthlySearchVolumes ?? []).map((v: { monthlySearches?: string }) => Number(v.monthlySearches ?? 0)),
+              monthlyEnd: seriesEnd(m.monthlySearchVolumes),
             },
           }
         }))
