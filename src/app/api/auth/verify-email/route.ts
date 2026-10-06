@@ -8,6 +8,7 @@ import { resolveRole } from '@/lib/auth/roles'
 import { rateLimit, clientIp, tooManyResponse } from '@/lib/auth/rateLimit'
 import { checkVerificationCode, CHECK_MESSAGES } from '@/lib/auth/verification'
 import { applySignupReferral } from '@/lib/affiliate'
+import { logFromRequest } from '@/lib/security/events'
 import type { ApiResponse, AuthUser } from '@/types'
 
 const schema = z.object({
@@ -37,6 +38,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<A
     if (!user.isVerified) {
       const result = await checkVerificationCode(email, code)
       if (result !== 'ok') {
+        if (result === 'wrong') logFromRequest('verify_code_wrong', req, { email })
+        if (result === 'too_many') logFromRequest('verify_code_locked', req, { email })
         return NextResponse.json({ success: false, error: CHECK_MESSAGES[result] }, { status: 400 })
       }
       await User.updateOne({ _id: user._id }, { $set: { isVerified: true } })

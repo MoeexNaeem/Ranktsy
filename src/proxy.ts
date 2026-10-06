@@ -4,6 +4,8 @@ import { ACCESS_TOKEN_NAME, REFRESH_TOKEN_NAME } from '@/lib/auth/cookies'
 import { resolveRole } from '@/lib/auth/roles'
 import { getMaintenance, isAdminUserId } from '@/lib/maintenance'
 import { maintenanceHtml } from '@/lib/maintenance-html'
+import { isIpBlocked } from '@/lib/security/ipBlock'
+import { logSecurityEvent, requestContext } from '@/lib/security/events'
 
 // Next 16 renamed "middleware" to "proxy" (same functionality, Node.js runtime by
 // default). This runs before a request completes: maintenance mode, then the
@@ -76,6 +78,21 @@ export async function proxy(req: NextRequest) {
     return session
   }
 
+  // ── Blocked IPs (admin Security section): refused on every page and API ──
+  const reqCtx = requestContext(req)
+  if (await isIpBlocked(reqCtx.ip)) {
+    logSecurityEvent('blocked_ip', reqCtx)
+    const headers = { 'Cache-Control': 'no-store' }
+    if (isApi) return NextResponse.json({ success: false, code: 'blocked', error: 'Access from your network has been blocked.' }, { status: 403, headers })
+    return new NextResponse(
+      '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Access blocked</title>'
+      + '<body style="font-family:system-ui,sans-serif;background:#F6F4EC;color:#3C3C3A;display:grid;place-items:center;min-height:100vh;margin:0">'
+      + '<main style="max-width:460px;padding:24px;text-align:center"><h1 style="font-size:24px">Access blocked</h1>'
+      + '<p style="line-height:1.6">Access to Rankkw from your network has been blocked because of unusual activity. If you think this is a mistake, email support@rankkw.com.</p></main></body>',
+      { status: 403, headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' } },
+    )
+  }
+
   // ── Maintenance mode: the site is closed to everyone but admins ──
   if (!isMaintenanceOpen(pathname)) {
     const m = await getMaintenance()
@@ -108,6 +125,19 @@ export async function proxy(req: NextRequest) {
 
   // Pages outside the auth flow need nothing more.
   if (!isApi && !isProtected && !isAuthPage) return NextResponse.next()
+
+  // Someone who is not an admin reaching for the admin area: recorded for the
+  // Security section (the pages and API still refuse them themselves). An admin
+  // whose short-lived access token expired is looked up, so they never show here.
+  if (pathname === '/admin' || pathname.startsWith('/admin/') || pathname.startsWith('/api/admin/')) {
+    const s = await getSession()
+    let admin = s.admin
+    if (!admin && s.authed && !accessToken && refreshToken) {
+      const payload = await verifyRefreshToken(refreshToken)
+      if (payload?.sub) admin = await isAdminUserId(payload.sub)
+    }
+    if (!admin) logSecurityEvent('admin_denied', { ...reqCtx, detail: s.authed ? 'logged-in non-admin' : 'not logged in' })
+  }
 
   const { authed: isAuthed } = await getSession()
 

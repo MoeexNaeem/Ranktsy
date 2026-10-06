@@ -18,6 +18,8 @@ import { recordExtensionUsage } from '@/lib/extension'
 import { rateLimit, clientIp, tooManyResponse } from '@/lib/auth/rateLimit'
 import { canAfford, consumeCredits, isCreditTool, CREDIT_COST, publicState } from '@/lib/credits'
 import { PLAN_LABELS } from '@/lib/plans'
+import { logFromRequest } from '@/lib/security/events'
+import { isUserRestricted, RESTRICTED_MESSAGE } from '@/lib/security/restricted'
 
 type Handler<C> = (req: NextRequest, ctx: C) => Promise<Response> | Response
 
@@ -54,17 +56,22 @@ export function withApiGuard<C = unknown>(handler: Handler<C>, opts: GuardOpts =
       return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 })
     }
     void recordExtensionUsage(req, user.id)
+    if (await isUserRestricted(user.id)) {
+      logFromRequest('restricted_access', req, { userId: user.id, email: user.email })
+      return NextResponse.json({ success: false, code: 'restricted', error: RESTRICTED_MESSAGE }, { status: 403 })
+    }
 
     // Per-user + per-route bucket so one heavy tool can't starve another.
     const bucket = new URL(req.url).pathname
     const rl = rateLimit(`api:${bucket}:u:${user.id}`, limit, windowMs)
-    if (!rl.allowed) return tooManyResponse(rl.retryAfterSec)
+    if (!rl.allowed) { logFromRequest('api_rate_limited', req, { userId: user.id, email: user.email, detail: 'per-minute limit' }); return tooManyResponse(rl.retryAfterSec) }
 
     // Defence in depth: also cap by source IP (shared accounts / token replay).
     const ipRl = rateLimit(`api:${bucket}:ip:${clientIp(req)}`, limit * 3, windowMs)
-    if (!ipRl.allowed) return tooManyResponse(ipRl.retryAfterSec)
+    if (!ipRl.allowed) { logFromRequest('api_rate_limited', req, { userId: user.id, email: user.email, detail: 'IP limit' }); return tooManyResponse(ipRl.retryAfterSec) }
 
     if (opts.hourly && !isAdmin(user) && !(await takeSearch(`hr:${bucket}:u:${user.id}`, opts.hourly))) {
+      logFromRequest('api_rate_limited', req, { userId: user.id, email: user.email, detail: 'hourly limit' })
       return NextResponse.json({
         success: false,
         error: `You've used this tool ${opts.hourly} times in the last hour. Please try again a little later.`,

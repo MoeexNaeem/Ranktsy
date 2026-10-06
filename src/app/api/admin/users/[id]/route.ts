@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sameCreditDay } from '@/lib/creditDay'
 import { rememberDeletedTempAccounts } from '@/lib/auth/deletedAccounts'
+import { logFromRequest } from '@/lib/security/events'
+import { forgetRestrictedCache } from '@/lib/security/restricted'
 import { connectDB } from '@/lib/db'
 import { User, KeywordHistory, ConnectedShop, ApiUsage } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
@@ -112,10 +114,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const u = await User.findByIdAndUpdate(id, update, { returnDocument: 'after' }).lean()
   if (!u) return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
+  if ('restricted' in update) {
+    forgetRestrictedCache()   // enforced on this worker at once, others within 30 s
+    logFromRequest('admin_action', req, { userId: auth?.id, email: auth?.email, detail: `${update.restricted ? 'restricted' : 'unrestricted'} ${u.email}` })
+  }
+  if ('role' in update) logFromRequest('admin_action', req, { userId: auth?.id, email: auth?.email, detail: `role of ${u.email} set to ${String(update.role)}` })
   return NextResponse.json({ success: true, data: { id, ...update } })
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { error, auth } = await requireAdmin()
   if (error) return error
   const { id } = await params
@@ -129,5 +136,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!deleted) return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
   await KeywordHistory.deleteMany({ userId: id }).catch(() => {})
   await rememberDeletedTempAccounts([deleted.email])
+  logFromRequest('admin_action', req, { userId: auth?.id, email: auth?.email, detail: `deleted user ${deleted.email}` })
   return NextResponse.json({ success: true, data: { id } })
 }

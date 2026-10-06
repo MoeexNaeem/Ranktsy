@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin, resolveRole } from '@/lib/auth/roles'
 import { parseUserFilters, buildUserFilter } from '@/lib/admin/userFilters'
 import { rememberDeletedTempAccounts } from '@/lib/auth/deletedAccounts'
+import { logFromRequest } from '@/lib/security/events'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -68,5 +69,6 @@ export async function POST(req: NextRequest) {
     await rememberDeletedTempAccounts(del.map(u => u.email))
   }
   console.warn(`[admin] ${auth.email} bulk-deleted ${r.deletedCount} users (skipped ${JSON.stringify(skipped)})`)
+  logFromRequest('admin_action', req, { userId: auth.id, email: auth.email, detail: `bulk-deleted ${r.deletedCount} users${body.filters ? ` (filters ${JSON.stringify(body.filters).slice(0, 150)})` : ''}` })
   return NextResponse.json({ success: true, data: { deleted: r.deletedCount ?? 0, skipped } })
 }

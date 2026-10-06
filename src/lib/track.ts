@@ -7,12 +7,14 @@
  * handler inside the usage AsyncLocalStorage context, so every recordEtsyCall /
  * recordGoogleCall fired deep in the pipeline lands on the right user's daily row.
  */
-import type { NextRequest } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/session'
 import { runWithUsageContext } from '@/lib/usage'
 import { isAdmin } from '@/lib/auth/roles'
 import { rateLimit, tooManyResponse } from '@/lib/auth/rateLimit'
 import { recordExtensionUsage } from '@/lib/extension'
+import { logFromRequest } from '@/lib/security/events'
+import { isUserRestricted, RESTRICTED_MESSAGE } from '@/lib/security/restricted'
 
 type Handler<C> = (req: NextRequest, ctx: C) => Promise<Response> | Response
 
@@ -28,7 +30,12 @@ export function withUsage<C = unknown>(handler: Handler<C>): Handler<C> {
     const admin = isAdmin(user)
     if (user && !admin && PER_MINUTE) {
       const rl = rateLimit(`wu:${new URL(req.url).pathname}:u:${user.id}`, PER_MINUTE, 60_000)
-      if (!rl.allowed) return tooManyResponse(rl.retryAfterSec)
+      if (!rl.allowed) { logFromRequest('api_rate_limited', req, { userId: user.id, email: user.email, detail: 'per-minute limit' }); return tooManyResponse(rl.retryAfterSec) }
+    }
+    // Restricted accounts are refused here on the server, not just hidden in the UI.
+    if (user && !admin && await isUserRestricted(user.id)) {
+      logFromRequest('restricted_access', req, { userId: user.id, email: user.email })
+      return NextResponse.json({ success: false, code: 'restricted', error: RESTRICTED_MESSAGE }, { status: 403 })
     }
     // Attribute extension traffic (chrome-extension origin / version header) to the user.
     if (user) void recordExtensionUsage(req, user.id)

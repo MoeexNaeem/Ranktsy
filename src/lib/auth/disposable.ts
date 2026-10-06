@@ -38,3 +38,6 @@ export function isDisposableEmail(email: string): boolean {
   }
   return false
 }
+
+/** How many throwaway domains are on the block list (admin Security health). */
+export function disposableDomainCount(): number { return domains().size }

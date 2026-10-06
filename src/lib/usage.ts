@@ -17,6 +17,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { connectDB } from '@/lib/db'
 import { ApiUsage } from '@/lib/models'
+import { logSecurityEvent } from '@/lib/security/events'
 
 export interface UsageCtx {
   userId: string
@@ -172,7 +173,11 @@ export async function assertEtsyBudget(): Promise<void> {
   }
   const used = base.calls + (buffers.get(k)?.etsy ?? 0)
   if (used >= cap) {
-    if (!warned.has(k)) { warned.add(k); console.warn(`[usage] Etsy daily budget reached: ${ctx.userEmail ?? ctx.userId} (${used} calls)`) }
+    if (!warned.has(k)) {
+      warned.add(k)
+      console.warn(`[usage] Etsy daily budget reached: ${ctx.userEmail ?? ctx.userId} (${used} calls)`)
+      logSecurityEvent('etsy_budget_exceeded', { userId: ctx.userId, email: ctx.userEmail ?? null, detail: `${used} Etsy calls today` })
+    }
     throw new EtsyBudgetError()
   }
 }

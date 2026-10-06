@@ -12,6 +12,7 @@ import { getSebtConfig, sebtGrantFields } from '@/lib/sebt'
 import { sendVerificationCode, domainAcceptsMail } from '@/lib/auth/verification'
 import { isDisposableEmail } from '@/lib/auth/disposable'
 import { signupsToday, recordSignup, SIGNUPS_PER_IP_PER_DAY } from '@/lib/auth/signupLimit'
+import { logFromRequest } from '@/lib/security/events'
 import type { ApiResponse } from '@/types'
 
 type RegisterResponse = ApiResponse<never> & { needsVerification?: boolean; email?: string; codeSent?: boolean; cooldownSec?: number }
@@ -23,10 +24,11 @@ export async function POST(req: NextRequest): Promise<NextResponse<RegisterRespo
 
     // Cap account creation per IP (anti-abuse).
     const ipRL = rateLimit(`register:ip:${ip}`, 5, 60 * 60 * 1000)
-    if (!ipRL.allowed) return tooManyResponse(ipRL.retryAfterSec)
+    if (!ipRL.allowed) { logFromRequest('register_rate_limited', req); return tooManyResponse(ipRL.retryAfterSec) }
 
     // Bot protection - verify the reCAPTCHA token (a no-op if keys aren't set).
     if (!(await verifyRecaptcha(body?.captchaToken, ip))) {
+      logFromRequest('captcha_failed', req, { email: typeof body?.email === 'string' ? body.email : null, detail: 'signup' })
       return NextResponse.json({ success: false, errors: { _: 'Please complete the “I’m not a robot” check.' } }, { status: 400 })
     }
 
@@ -42,18 +44,21 @@ export async function POST(req: NextRequest): Promise<NextResponse<RegisterRespo
 
     // Temp-mail sites can receive our code, so they are refused outright.
     if (isDisposableEmail(email)) {
+      logFromRequest('register_temp_mail', req, { email })
       return NextResponse.json({ success: false, errors: { email: 'Temporary or throwaway email addresses can’t be used. Please sign up with your real email (Gmail, Outlook, Yahoo...) or use “Continue with Google”.' } }, { status: 422 })
     }
 
     // A few new accounts per connection per day (SEBT classrooms share one, so exempt).
     const isSebtSignup = body?.cohort === 'sebt'
     if (!isSebtSignup && (await signupsToday(ip)) >= SIGNUPS_PER_IP_PER_DAY) {
+      logFromRequest('register_ip_limit', req, { email })
       return NextResponse.json({ success: false, errors: { _: 'Too many new accounts were created from this connection today. Please log in to your existing account, or try again tomorrow.' } }, { status: 429 })
     }
 
     // A domain with no mail servers (a typo like "gmial.com", or an invented one)
     // can never receive the verification code.
     if (!(await domainAcceptsMail(email))) {
+      logFromRequest('register_bad_domain', req, { email })
       return NextResponse.json({ success: false, errors: { email: 'This email address can’t receive email. Please check the spelling.' } }, { status: 422 })
     }
 
@@ -86,7 +91,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<RegisterRespo
     // Affiliate attribution: remembered now, credited once the email is confirmed
     // (verify-email), so fake signups never count as an affiliate's referrals.
     const refCode = req.cookies.get(REF_COOKIE)?.value || null
-    await User.create({ name, email, password: hashed, role, ...sebtGrant, emailVerifyRequired: true, isVerified: false, signupRef: refCode })
+    await User.create({ name, email, password: hashed, role, ...sebtGrant, emailVerifyRequired: true, isVerified: false, signupRef: refCode, signupIp: ip })
     if (!isSebtSignup) void recordSignup(ip)
 
     // No session yet: the account opens once the code from the email is entered.

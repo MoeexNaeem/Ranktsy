@@ -14,6 +14,7 @@ import { AdminSavedKeywords } from './AdminSavedKeywords'
 import { AdminSebtSettings, ADMIN_STATS_REFRESH } from '@/components/admin/AdminSebtSettings'
 import { AdminSebtStudents } from './AdminSebtStudents'
 import { AdminEarnings } from './AdminEarnings'
+import { AdminSecurity } from './AdminSecurity'
 import { AdminLocalPayments } from './AdminLocalPayments'
 import { AdminMaintenance } from './AdminMaintenance'
 import { AddCreditsModal, daysLeft, type BonusInfo } from './AddCreditsModal'
@@ -117,10 +118,11 @@ const selectStyle: React.CSSProperties = {
   fontSize: 12.5, fontFamily: MONO, color: C.ink, outline: 'none', cursor: 'pointer', width: '100%', minWidth: 0,
 }
 
-type Section = 'overview' | 'users' | 'analytics' | 'earnings' | 'localpayments' | 'keywords' | 'sebt' | 'extension' | 'affiliates' | 'messages' | 'codeflow' | 'content' | 'settings'
+type Section = 'overview' | 'users' | 'security' | 'analytics' | 'earnings' | 'localpayments' | 'keywords' | 'sebt' | 'extension' | 'affiliates' | 'messages' | 'codeflow' | 'content' | 'settings'
 const NAV: { id: Section; label: string; icon: string }[] = [
   { id: 'overview',  label: 'Overview',  icon: ICON.home },
   { id: 'users',     label: 'Users',     icon: ICON.account },
+  { id: 'security',  label: 'Security',  icon: ICON.eye },
   { id: 'analytics', label: 'Analytics', icon: ICON.coins },
   { id: 'earnings',  label: 'Earnings',  icon: ICON.addCard },
   { id: 'localpayments', label: 'Local Payments', icon: ICON.coins },
@@ -804,6 +806,7 @@ export function AdminDashboard() {
             </div>
           )}
 
+          {section === 'security' && <AdminSecurity />}
           {section === 'earnings' && <AdminEarnings />}
           {section === 'localpayments' && <AdminLocalPayments />}
           {section === 'keywords' && <AdminSavedKeywords />}

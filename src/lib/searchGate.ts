@@ -4,6 +4,7 @@ import { verifyRecaptcha, isRecaptchaConfigured } from '@/lib/recaptcha'
 import { takeSearch, takeHumanSearch, resetHumanSearch, SEARCH_LIMIT_EXT, HUMAN_CHECK_EVERY } from '@/lib/searchLimit'
 import { detectExtension } from '@/lib/extension'
 import type { ApiResponse } from '@/types'
+import { logFromRequest } from '@/lib/security/events'
 
 /**
  * Search gate - call at the top of each user-facing SEARCH route:
@@ -47,6 +48,7 @@ export async function guardSearch<T = unknown>(req: NextRequest, fingerprint?: s
   // can be shown without keys, so the answer is "try again later").
   if (!isRecaptchaConfigured()) {
     if (await takeSearch(user?.id ? `u:${user.id}` : `ip:${ip}`)) return null
+    logFromRequest('search_rate_limited', req, { userId: user?.id, email: user?.email })
     return NextResponse.json<ApiResponse<T>>(
       { success: false, error: 'Too many searches this hour. Please try again a little later.' },
       { status: 429 },
@@ -57,6 +59,7 @@ export async function guardSearch<T = unknown>(req: NextRequest, fingerprint?: s
   // hourly bucket and simply slow down when it is full.
   if (user?.id && detectExtension(req).isExt) {
     if (await takeSearch(`x:${user.id}`, SEARCH_LIMIT_EXT)) return null
+    logFromRequest('extension_rate_limited', req, { userId: user.id, email: user.email })
     return NextResponse.json<ApiResponse<T>>(
       { success: false, error: 'Too many lookups this hour. Keyword data will resume shortly.' },
       { status: 429 },
@@ -78,6 +81,7 @@ export async function guardSearch<T = unknown>(req: NextRequest, fingerprint?: s
     if (!(await takeSearch(key))) verdict = 'captcha'
   }
   if (verdict === 'captcha') {
+    logFromRequest('search_captcha', req, { userId: user?.id, email: user?.email })
     return NextResponse.json<ApiResponse<T>>(
       { success: false, captchaRequired: true, error: `Please confirm you're human to keep searching (every ${HUMAN_CHECK_EVERY} searches).` },
       { status: 429 },
