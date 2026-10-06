@@ -7,6 +7,7 @@ import { setAuthCookies } from '@/lib/auth/cookies'
 import { resolveRole } from '@/lib/auth/roles'
 import { rateLimit, clientIp, tooManyResponse } from '@/lib/auth/rateLimit'
 import { checkVerificationCode, CHECK_MESSAGES } from '@/lib/auth/verification'
+import { applySignupReferral } from '@/lib/affiliate'
 import type { ApiResponse, AuthUser } from '@/types'
 
 const schema = z.object({
@@ -39,6 +40,14 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<A
         return NextResponse.json({ success: false, error: CHECK_MESSAGES[result] }, { status: 400 })
       }
       await User.updateOne({ _id: user._id }, { $set: { isVerified: true } })
+      // The signup is real now: credit the affiliate whose link brought them.
+      if (user.signupRef && !user.referredBy) {
+        const doc = await User.findById(user._id)
+        if (doc) {
+          await applySignupReferral(doc, user.signupRef).catch(() => null)
+          await User.updateOne({ _id: user._id }, { $unset: { signupRef: 1 } }).catch(() => null)
+        }
+      }
     }
 
     const authUser: AuthUser = { id: user._id.toString(), name: user.name, email: user.email, role: resolveRole(user.email, user.role), plan: user.plan, isVerified: true }

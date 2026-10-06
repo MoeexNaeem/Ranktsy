@@ -6,7 +6,8 @@ import { registerSchema } from '@/lib/auth/schemas'
 import { resolveRole } from '@/lib/auth/roles'
 import { verifyRecaptcha } from '@/lib/recaptcha'
 import { rateLimit, clientIp, tooManyResponse } from '@/lib/auth/rateLimit'
-import { applySignupReferral, REF_COOKIE } from '@/lib/affiliate'
+import { REF_COOKIE } from '@/lib/affiliate'
+import { PENDING_SIGNUP, cleanupPendingSignups } from '@/lib/auth/pendingSignups'
 import { getSebtConfig, sebtGrantFields } from '@/lib/sebt'
 import { sendVerificationCode, domainAcceptsMail } from '@/lib/auth/verification'
 import type { ApiResponse } from '@/types'
@@ -45,8 +46,14 @@ export async function POST(req: NextRequest): Promise<NextResponse<RegisterRespo
 
     await connectDB()
 
+    void cleanupPendingSignups().catch(() => null)
+
     const exists = await User.findOne({ email }).lean()
-    if (exists) {
+    // An earlier signup with this email that never confirmed its code is replaced:
+    // only whoever can read the inbox can finish either one.
+    if (exists && exists.emailVerifyRequired && !exists.isVerified) {
+      await User.deleteOne({ _id: exists._id, ...PENDING_SIGNUP })
+    } else if (exists) {
       return NextResponse.json({ success: false, errors: { email: 'An account with this email already exists' } }, { status: 409 })
     }
 
@@ -63,12 +70,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<RegisterRespo
     const sebtGrant = sebtCfg?.registrationOpen ? sebtGrantFields(sebtCfg) : {}
 
     // Not usable until the emailed code is confirmed (/api/auth/verify-email).
-    const user    = await User.create({ name, email, password: hashed, role, ...sebtGrant, emailVerifyRequired: true, isVerified: false })
-
-    // Affiliate attribution: if the visitor arrived through a ?ref link, credit
-    // that affiliate (best-effort; never blocks signup).
-    const refCode = req.cookies.get(REF_COOKIE)?.value
-    if (refCode) await applySignupReferral(user, refCode).catch(() => null)
+    // Affiliate attribution: remembered now, credited once the email is confirmed
+    // (verify-email), so fake signups never count as an affiliate's referrals.
+    const refCode = req.cookies.get(REF_COOKIE)?.value || null
+    await User.create({ name, email, password: hashed, role, ...sebtGrant, emailVerifyRequired: true, isVerified: false, signupRef: refCode })
 
     // No session yet: the account opens once the code from the email is entered.
     const sent = await sendVerificationCode(email)

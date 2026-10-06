@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { NOT_PENDING_SIGNUP } from '@/lib/auth/pendingSignups'
 import { connectDB } from '@/lib/db'
 import { ChatMessage, Notification, User } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
@@ -24,6 +25,7 @@ async function guard() {
 /** Recipients for an audience, minus the admin sending it: an announcement landing
  *  in your own support thread is just confusing. */
 const filterFor = (a: Audience, senderId?: string) => ({
+  ...NOT_PENDING_SIGNUP,   // unconfirmed signups can't log in to read it
   ...(a === 'sebt' ? { sebtStudent: true } : {}),
   ...(senderId ? { _id: { $ne: senderId } } : {}),
 })

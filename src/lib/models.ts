@@ -18,6 +18,7 @@ export interface IUserDoc extends Document {
   plan: PlanSlug
   isVerified: boolean
   emailVerifyRequired?: boolean          // new email/password signups must confirm a code first
+  signupRef?: string | null              // affiliate ?ref code, credited only once the email is confirmed
   // Lemon Squeezy subscription (set by the webhook)
   lsSubscriptionId?: string
   lsCustomerId?: string
@@ -96,6 +97,7 @@ const UserSchema = new Schema<IUserDoc>({
   // inbox before they can log in (proves the address is real). Older accounts
   // do not have the flag, so they are never asked.
   emailVerifyRequired: { type: Boolean, default: false },
+  signupRef:           { type: String, default: null },
   lsSubscriptionId:  { type: String },
   lsCustomerId:      { type: String },
   lsVariantId:       { type: String },

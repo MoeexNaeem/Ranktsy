@@ -1,5 +1,7 @@
 import nodemailer from 'nodemailer'
+import mongoose from 'mongoose'
 import { siteUrl } from '@/lib/seo/site'
+import { connectDB } from '@/lib/db'
 
 /**
  * Email delivery. Preferred path is Resend (set RESEND_API_KEY) sending from
@@ -36,6 +38,53 @@ const LOGO_URL = `${APP_URL}/website_logo.png`
 
 const SMTP_READY = !!(process.env.SMTP_USER && process.env.SMTP_PASS)
 
+// Resend's free plan: 100 emails a day and 3,000 a month. Past either limit Resend
+// still ANSWERS "accepted" and only fails the email afterwards, so a failed request
+// never told us to switch (2026-10-06: 56 signup codes silently lost after 18:19 UTC).
+// We count our own Resend sends instead (shared by all workers, in Mongo) and move
+// to the SMTP backup a little before the limit.
+const RESEND_DAILY_LIMIT = Number(process.env.RESEND_DAILY_LIMIT) || 95
+const RESEND_MONTHLY_LIMIT = Number(process.env.RESEND_MONTHLY_LIMIT) || 2950
+
+/**
+ * Safety net: Resend can accept an email and fail it moments later (quota reached,
+ * provider trouble). Shortly after each send, ask Resend how it went; if it failed,
+ * send the same email through the SMTP backup so the person still gets it.
+ * "bounced" (the address itself rejected it) is not retried.
+ */
+function watchResendDelivery(id: string, to: string, subject: string, html: string) {
+  setTimeout(async () => {
+    try {
+      const r = await fetch(`https://api.resend.com/emails/${id}`, {
+        headers: { Authorization: `Bearer ${RESEND_API_KEY}` },
+        signal: AbortSignal.timeout(10_000),
+      })
+      const ev = ((await r.json().catch(() => null)) as { last_event?: string } | null)?.last_event
+      if (ev !== 'failed') return
+      await transporter.sendMail({ from: SMTP_FROM, to, subject, html })
+      console.warn(`[email] Resend failed email ${id}; re-sent through SMTP`)
+    } catch (e) {
+      console.error('[email] delivery check failed:', e instanceof Error ? e.message : e)
+    }
+  }, 45_000)
+}
+
+/** Reserve one Resend send; false when today's or this month's allowance is used up. */
+async function claimResendSend(): Promise<boolean> {
+  try {
+    await connectDB()
+    const col = mongoose.connection.db!.collection<{ _id: string; n: number }>('emailsends')
+    const now = new Date().toISOString()
+    const [day, month] = await Promise.all([
+      col.findOneAndUpdate({ _id: `resend|${now.slice(0, 10)}` }, { $inc: { n: 1 } }, { upsert: true, returnDocument: 'after' }),
+      col.findOneAndUpdate({ _id: `resend|${now.slice(0, 7)}` }, { $inc: { n: 1 } }, { upsert: true, returnDocument: 'after' }),
+    ])
+    return (day?.n ?? 0) <= RESEND_DAILY_LIMIT && (month?.n ?? 0) <= RESEND_MONTHLY_LIMIT
+  } catch {
+    return true   // counter unavailable: keep using Resend rather than block email
+  }
+}
+
 /**
  * Send one email. Resend first (free plan: 100 a day); if Resend refuses (daily
  * limit reached, or any other error) and an SMTP mailbox is configured, the same
@@ -43,7 +92,8 @@ const SMTP_READY = !!(process.env.SMTP_USER && process.env.SMTP_PASS)
  * ~500 free emails a day, so signup codes keep arriving on busy days.
  */
 async function sendEmail(to: string, subject: string, html: string): Promise<void> {
-  if (RESEND_API_KEY) {
+  // Resend while its free allowance lasts (or always, when there is no SMTP backup).
+  if (RESEND_API_KEY && (!SMTP_READY || await claimResendSend())) {
     try {
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -51,7 +101,11 @@ async function sendEmail(to: string, subject: string, html: string): Promise<voi
         body: JSON.stringify({ from: RESEND_FROM, to, subject, html }),
         signal: AbortSignal.timeout(15_000),
       })
-      if (res.ok) return
+      if (res.ok) {
+        const id = ((await res.json().catch(() => null)) as { id?: string } | null)?.id
+        if (id && SMTP_READY) watchResendDelivery(id, to, subject, html)
+        return
+      }
       const why = `Resend send failed (${res.status}): ${(await res.text().catch(() => '')).slice(0, 200)}`
       if (!SMTP_READY) throw new Error(why)
       console.warn(`[email] ${why} - sending through SMTP instead`)

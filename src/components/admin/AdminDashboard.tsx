@@ -1,7 +1,7 @@
 'use client'
 import { Icon } from '@/components/ui/Icon'
 import { NavButton } from '@/components/ui/NavButton'
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { C } from '@/utils'
 import { SectionTitle, Pagination, tableCard, tableHead, th, tableRow, tdMono, EmptyState, MONO, cardStyle } from '@/components/dashboard/kit'
@@ -34,6 +34,8 @@ const isRealPaid = (u: AUser) => u.paidViaLemonSqueezy && u.plan !== 'free'
 interface Stats {
   total: number; admins: number; verified: number; searches: number
   paying: number; newThisWeek: number
+  /** Signups still waiting for their email code (left out of every other count). */
+  pending?: number
   signups: { label: string; value: number }[]
   planDist: { plan: string; value: number }[]
 }
@@ -163,6 +165,11 @@ export function AdminDashboard() {
   const [usagePage, setUsagePage] = useState(1)
   const [extPage, setExtPage] = useState(1)
   const [userQuery, setUserQuery] = useState('')
+  // Off: real users. On: signups that never confirmed their email code.
+  const [pendingView, setPendingView] = useState(false)
+  const pendingRef = useRef(false)
+  // Synced before the list effect below runs (effects run in declaration order).
+  useEffect(() => { pendingRef.current = pendingView }, [pendingView])
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
   const [creditsFor, setCreditsFor] = useState<AUser | null>(null)   // "Add Credits" dialog target
@@ -179,7 +186,7 @@ export function AdminDashboard() {
   const loadUsers = useCallback(async (page: number, q: string) => {
     setUsersLoading(true)
     try {
-      const r = await fetch(`/api/admin/users?page=${page}&limit=${USERS_PAGE_SIZE}&q=${encodeURIComponent(q)}`)
+      const r = await fetch(`/api/admin/users?page=${page}&limit=${USERS_PAGE_SIZE}&q=${encodeURIComponent(q)}${pendingRef.current ? '&view=pending' : ''}`)
       if (r.status === 401) { window.location.href = '/login?redirect=/admin'; return }
       if (r.status === 403) { setState('forbidden'); return }
       const d = await r.json().catch(() => null)
@@ -222,7 +229,7 @@ export function AdminDashboard() {
 
   // (Re)load the users page on mount and whenever the page or search changes.
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void loadUsers(usersPage, debouncedQuery) }, [loadUsers, usersPage, debouncedQuery])
+  useEffect(() => { void loadUsers(usersPage, debouncedQuery) }, [loadUsers, usersPage, debouncedQuery, pendingView])
 
   // Manual refresh (spins the icon) and an optional 30s live auto-refresh.
   const refresh = useCallback(async () => { setRefreshing(true); await Promise.all([load(), loadUsers(usersPage, debouncedQuery)]); setRefreshing(false) }, [load, loadUsers, usersPage, debouncedQuery])
@@ -496,6 +503,22 @@ export function AdminDashboard() {
                   placeholder="Search users by name, email or ID…" aria-label="Search users by name, email or ID"
                   style={{ width: '100%', background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 100, padding: '10px 38px', fontSize: 13.5, fontFamily: MONO, color: C.ink, outline: 'none' }} />
                 {userQuery && <button onClick={() => { setUserQuery(''); setUsersPage(1) }} aria-label="Clear search" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, color: '#8a8a82', lineHeight: 1 }}>×</button>}
+              </div>
+
+              {/* Signups that never typed their emailed code: hidden from the list and
+                  counts above, deleted automatically after 3 days. */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+                <button onClick={() => { setPendingView(v => !v); setUsersPage(1) }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 14px', borderRadius: 100, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
+                    border: `1px solid ${pendingView ? C.orange : C.ash}`, background: pendingView ? `${C.orange}14` : C.paper, color: pendingView ? C.orange : C.ink }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: pendingView ? C.orange : '#B9B9B0' }} />
+                  {pendingView ? 'Showing: waiting for email code' : 'Waiting for email code'} ({exact(stats?.pending ?? 0)})
+                </button>
+                <span style={{ fontSize: 12, color: '#8a8a82' }}>
+                  {pendingView
+                    ? 'These signups never typed the code we emailed. They cannot log in, and are deleted after 3 days.'
+                    : 'Signups that have not confirmed their email are not shown or counted here.'}
+                </span>
               </div>
 
               <div className="rtable admin-users" style={{ ...tableCard, overflow: 'hidden' }}>

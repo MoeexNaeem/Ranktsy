@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { NOT_PENDING_SIGNUP } from '@/lib/auth/pendingSignups'
 import { connectDB } from '@/lib/db'
 import { User } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
@@ -65,13 +66,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // Headline counts, computed with cheap countDocuments (no full-collection load).
     // A SEBT trial is "active" while its comp grant hasn't expired.
     const [total, activeCount, batches] = await Promise.all([
-      User.countDocuments({ sebtStudent: true, ...batchFilter }),
-      User.countDocuments({ sebtStudent: true, ...batchFilter, compExpiresAt: { $gt: new Date(now) } }),
+      User.countDocuments({ sebtStudent: true, ...batchFilter, ...NOT_PENDING_SIGNUP }),
+      User.countDocuments({ sebtStudent: true, ...batchFilter, ...NOT_PENDING_SIGNUP, compExpiresAt: { $gt: new Date(now) } }),
       User.distinct('sebtBatch', { sebtStudent: true, sebtBatch: { $ne: null } }) as Promise<number[]>,
     ])
 
     // Only load the rows we actually return: the whole list for CSV, one page for UI.
-    const q = User.find({ sebtStudent: true, ...batchFilter }).sort({ createdAt: -1 })
+    const q = User.find({ sebtStudent: true, ...batchFilter, ...NOT_PENDING_SIGNUP }).sort({ createdAt: -1 })
     if (!isCsv) q.skip((page - 1) * limit).limit(limit)
     const docs = await q.lean()
 

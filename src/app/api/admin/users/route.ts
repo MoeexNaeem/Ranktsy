@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sameCreditDay } from '@/lib/creditDay'
+import { PENDING_SIGNUP, NOT_PENDING_SIGNUP, cleanupPendingSignups } from '@/lib/auth/pendingSignups'
 import { connectDB } from '@/lib/db'
 import { User, KeywordHistory, ConnectedShop } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
@@ -36,6 +37,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const page = Math.max(1, Number(searchParams.get('page')) || 1)
   const limit = Math.min(100, Math.max(1, Number(searchParams.get('limit')) || 20))
   const q = (searchParams.get('q') || '').trim()
+  // view=pending lists signups still waiting for their email code; the default list
+  // and every count leave them out (they can't log in and are deleted after 3 days).
+  const pendingView = searchParams.get('view') === 'pending'
+  void cleanupPendingSignups().catch(() => null)
 
   // Search filter: name / email (case-insensitive) or an exact Mongo _id.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,24 +52,26 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (/^[a-f0-9]{24}$/i.test(q)) or.push({ _id: q })
     filter = { $or: or }
   }
+  filter = { $and: [filter, pendingView ? PENDING_SIGNUP : NOT_PENDING_SIGNUP] }
+  const real = NOT_PENDING_SIGNUP
 
   const now = new Date()
   const weekAgo = new Date(now.getTime() - 7 * DAY)
   const since14 = new Date(now.getTime() - 13 * DAY)   // 14-day window incl. today
 
-  const [total, verified, admins, paying, newThisWeek, searches, signupAgg, planAgg, matched, docs, promoOn] = await Promise.all([
-    User.countDocuments({}),
+  const [total, verified, admins, paying, newThisWeek, searches, signupAgg, planAgg, matched, docs, promoOn, pending] = await Promise.all([
+    User.countDocuments(real),
     User.countDocuments({ isVerified: true }),
     User.countDocuments({ role: 'admin' }),
     User.countDocuments({ lsSubscriptionId: { $exists: true, $ne: null }, plan: { $ne: 'free' } }),
-    User.countDocuments({ createdAt: { $gte: weekAgo } }),
+    User.countDocuments({ ...real, createdAt: { $gte: weekAgo } }),
     KeywordHistory.estimatedDocumentCount(),
     User.aggregate([
-      { $match: { createdAt: { $gte: since14 } } },
+      { $match: { ...real, createdAt: { $gte: since14 } } },
       { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'UTC' } }, count: { $sum: 1 } } },
     ]),
-    User.aggregate([{ $group: { _id: '$plan', count: { $sum: 1 } } }]),
-    q ? User.countDocuments(filter) : null,
+    User.aggregate([{ $match: real }, { $group: { _id: '$plan', count: { $sum: 1 } } }]),
+    (q || pendingView) ? User.countDocuments(filter) : null,
     // Paying customers FIRST (real Lemon Squeezy sub on a non-free plan), then by
     // plan tier, then newest - matching the old client sort but now applied
     // globally across ALL users so page 1 shows the payers, not just page order.
@@ -89,9 +96,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       { $project: { name: 1, email: 1, role: 1, plan: 1, subscriptionStatus: 1, planRenewsAt: 1, compExpiresAt: 1, isVerified: 1, restricted: 1, lsSubscriptionId: 1, createdAt: 1, listingImageCount: 1, creditsResetAt: 1, creditsUsedToday: 1, creditsUsedTotal: 1, bonusCredits: 1, bonusCreditsGranted: 1, bonusExpiresAt: 1 } },
     ]),
     isFreeToProPromoOn(),
+    User.countDocuments(PENDING_SIGNUP),
   ])
 
-  const matchTotal = q ? (matched ?? 0) : total
+  const matchTotal = (q || pendingView) ? (matched ?? 0) : total
 
   // Per-user activity + shop counts, ONLY for the users on this page.
   const pageIds = docs.map(u => String(u._id))
@@ -151,7 +159,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const planDist = (planAgg as any[]).map(p => ({ plan: (p._id as string) ?? 'free', value: p.count as number }))
 
-  const stats = { total, admins, verified, searches, paying, newThisWeek, signups, planDist }
+  const stats = { total, admins, verified, searches, paying, newThisWeek, signups, planDist, pending }
 
   return NextResponse.json({
     success: true,
