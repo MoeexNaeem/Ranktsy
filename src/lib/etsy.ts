@@ -314,7 +314,13 @@ export async function probeEtsyKeys(): Promise<{ index: number; ok: boolean; sta
 // each worker held back to 30/sec per key while only 3 workers existed: ~90/sec of a
 // 150/sec key actually used.
 const WORKERS = workerCount()
-const RATE_LIMIT_PER_SEC = Number(process.env.ETSY_RATE_PER_SEC ?? Math.max(8, Math.floor(120 / WORKERS)))
+// All workers share each key's 150/sec, so the per-worker rate is capped at
+// 140/WORKERS whatever ETSY_RATE_PER_SEC says: 30/worker was fine on 3 workers
+// (90/sec) but would be 210/sec on the 7-worker server and trip Etsy's 429s.
+const RATE_LIMIT_PER_SEC = Math.max(4, Math.min(
+  Number(process.env.ETSY_RATE_PER_SEC) || Math.floor(120 / WORKERS),
+  Math.floor(140 / WORKERS),
+))
 const MIN_GAP_MS = 1000 / Math.max(1, RATE_LIMIT_PER_SEC)
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))

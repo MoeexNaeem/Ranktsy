@@ -31,6 +31,10 @@ restore_workers() {
 }
 trap restore_workers EXIT
 BUILD_WORKERS=${BUILD_WORKERS:-1}
+# Only needed on a small server: with 4 GB+ free (the 23 GB server) the build fits
+# beside every worker, so the site keeps full capacity during a deploy.
+AVAIL_MB=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)
+if [ "${AVAIL_MB:-0}" -ge 4096 ]; then BUILD_WORKERS=${WORKERS:-1}; fi
 if [ "${WORKERS:-0}" -gt "$BUILD_WORKERS" ]; then
   echo "==> Running $BUILD_WORKERS of $WORKERS workers during the build to free memory"
   pm2 scale rankkw "$BUILD_WORKERS" >/dev/null

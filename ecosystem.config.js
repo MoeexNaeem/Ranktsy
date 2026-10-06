@@ -31,6 +31,16 @@
  */
 const os = require('os')
 
+// Sized from the machine it runs on, so moving to a bigger server needs no edits
+// (2026-10-06: 4 cores / 3.6 GB -> 8 cores / 23 GB). Each env var still overrides.
+const INSTANCES = Number(process.env.PM2_INSTANCES) || Math.max(1, os.cpus().length - 1)
+const TOTAL_MB = Math.floor(os.totalmem() / 1024 / 1024)
+// Leave ~1.5 GB (or a quarter of RAM) for the OS, nginx and a build, split the rest
+// across the workers: ~70% of each share is V8 heap, the rest is Next's native memory.
+const SHARE_MB = Math.floor((TOTAL_MB - Math.max(1536, TOTAL_MB / 4)) / INSTANCES)
+const HEAP_MB = Number(process.env.NODE_HEAP_MB) || Math.max(512, Math.min(2048, Math.floor(SHARE_MB * 0.7)))
+const MAX_MEMORY = process.env.PM2_MAX_MEMORY || `${Math.max(800, Math.min(2600, Math.floor(SHARE_MB * 0.95)))}M`
+
 module.exports = {
   apps: [
     {
@@ -41,15 +51,15 @@ module.exports = {
       // One worker per core MINUS ONE, so nginx and the OS always have a core
       // (on the 4-core / 3.5 GB server, 4 workers left nothing spare, 2026-10-03).
       // Override with the PM2_INSTANCES env var.
-      instances: process.env.PM2_INSTANCES || Math.max(1, os.cpus().length - 1),
+      instances: INSTANCES,
       autorestart: true,
       // Make V8 collect garbage BEFORE PM2's limit. Without a heap limit Node lets
       // the heap grow to ~2 GB, so every worker climbed to PM2's ceiling and was
       // killed (30-51 restarts each, each restart a 100% CPU reload), 2026-10-03.
-      node_args: `--max-old-space-size=${process.env.NODE_HEAP_MB || 640}`,
+      // 4-core/3.6 GB box: 640 MB. 8-core/23 GB box: 2048 MB (see HEAP_MB above).
+      node_args: `--max-old-space-size=${HEAP_MB}`,
       // Last-resort recycle, above the heap limit plus Next's non-heap memory.
-      // 3 workers x 900M stays inside the 3.5 GB box.
-      max_memory_restart: process.env.PM2_MAX_MEMORY || '900M',
+      max_memory_restart: MAX_MEMORY,
       // Back off if a worker crash-loops, instead of hammering restarts.
       exp_backoff_restart_delay: 200,
       // Give in-flight requests time to finish on reload/restart.
@@ -59,6 +69,9 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: process.env.PORT || 3000,
+        // The app paces Etsy and Google per worker from this (lib/workers.ts): every
+        // worker shares the same per-second API budgets.
+        PM2_INSTANCES: String(INSTANCES),
       },
     },
   ],
