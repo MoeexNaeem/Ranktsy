@@ -26,24 +26,39 @@ const transporter = nodemailer.createTransport({
 // fallback uses the authenticated mailbox (some providers reject a mismatched
 // From). Override either with EMAIL_FROM.
 const RESEND_FROM = process.env.EMAIL_FROM || 'Rankkw Support <support@rankkw.com>'
-const SMTP_FROM   = process.env.EMAIL_FROM || `"Rankkw" <${process.env.SMTP_USER ?? 'noreply@rankkw.com'}>`
+// Gmail only sends as the signed-in mailbox, so the SMTP backup never borrows
+// EMAIL_FROM (support@rankkw.com): it sends as "Rankkw" <SMTP_USER>, or SMTP_FROM.
+const SMTP_FROM   = process.env.SMTP_FROM || `"Rankkw" <${process.env.SMTP_USER ?? 'noreply@rankkw.com'}>`
 // Absolute URLs - email clients can't resolve relative paths, and siteUrl()
 // returns the real production origin (never localhost) in prod.
 const APP_URL  = siteUrl()
 const LOGO_URL = `${APP_URL}/website_logo.png`
 
-/** Send one email - via Resend's REST API when configured, else SMTP. */
+const SMTP_READY = !!(process.env.SMTP_USER && process.env.SMTP_PASS)
+
+/**
+ * Send one email. Resend first (free plan: 100 a day); if Resend refuses (daily
+ * limit reached, or any other error) and an SMTP mailbox is configured, the same
+ * email goes out through SMTP instead. With a Gmail app password that is another
+ * ~500 free emails a day, so signup codes keep arriving on busy days.
+ */
 async function sendEmail(to: string, subject: string, html: string): Promise<void> {
   if (RESEND_API_KEY) {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: RESEND_FROM, to, subject, html }),
-    })
-    if (!res.ok) {
-      throw new Error(`Resend send failed (${res.status}): ${await res.text().catch(() => '')}`)
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: RESEND_FROM, to, subject, html }),
+        signal: AbortSignal.timeout(15_000),
+      })
+      if (res.ok) return
+      const why = `Resend send failed (${res.status}): ${(await res.text().catch(() => '')).slice(0, 200)}`
+      if (!SMTP_READY) throw new Error(why)
+      console.warn(`[email] ${why} - sending through SMTP instead`)
+    } catch (e) {
+      if (!SMTP_READY) throw e
+      console.warn('[email] Resend unavailable, sending through SMTP instead:', e instanceof Error ? e.message : e)
     }
-    return
   }
   await transporter.sendMail({ from: SMTP_FROM, to, subject, html })
 }
@@ -88,9 +103,9 @@ export async function sendUserEmail(to: string, subject: string, message: string
 </html>`)
 }
 
-export async function sendOtpEmail(email: string, otp: string, type: 'reset' | 'verify') {
-  const subject = type === 'reset' ? 'Reset your Rankkw password' : 'Verify your Rankkw account'
-  const action  = type === 'reset' ? 'reset your password' : 'verify your account'
+export async function sendOtpEmail(email: string, otp: string, type: 'reset' | 'verify', minutes = 10) {
+  const subject = type === 'reset' ? 'Reset your Rankkw password' : 'Your Rankkw verification code'
+  const action  = type === 'reset' ? 'reset your password' : 'confirm this email address for your new Rankkw account'
 
   await sendEmail(email, subject, `
 <!DOCTYPE html>
@@ -108,7 +123,7 @@ export async function sendOtpEmail(email: string, otp: string, type: 'reset' | '
         <tr><td style="padding:40px">
           <h1 style="font-size:22px;font-weight:400;color:#3D3E3B;margin:0 0 12px;letter-spacing:-0.5px">${subject}</h1>
           <p style="font-size:14px;color:#666;line-height:1.65;margin:0 0 32px">
-            We received a request to ${action}. Use the 6-digit code below. It expires in <strong>10 minutes</strong>.
+            We received a request to ${action}. Use the 6-digit code below. It expires in <strong>${minutes} minutes</strong>.
           </p>
           <!-- OTP Box -->
           <div style="background:#EEEBE1;border-radius:12px;padding:24px;text-align:center;margin-bottom:32px">

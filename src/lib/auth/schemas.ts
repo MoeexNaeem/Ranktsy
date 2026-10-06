@@ -35,6 +35,15 @@ export const DISPOSABLE_EMAIL_DOMAINS = [
   'tempinbox.com', 'spamgourmet.com', 'mytemp.email', 'moakt.com', 'discard.email',
   '1secmail.com', 'mailtemp.info', 'inboxkitten.com', 'burnermail.io', 'mintemail.com',
   'spam4.me', 'grr.la', 'einrot.com', 'tmail.ws', 'tmails.net', 'harakirimail.com',
+  // Added 2026-10-06 with signup email verification.
+  'guerrillamail.net', 'guerrillamail.org', 'guerrillamail.de', 'guerrillamail.biz', 'pokemail.net',
+  'temp-mail.io', 'tempmail.net', 'tempmail.dev', 'tempmail.plus', 'temp-mail.live', 'tempmailaddress.com',
+  'emailtemporanea.com', '10minutemail.co.uk', '20minutemail.com', 'minuteinbox.com', 'mailpoof.com',
+  'dropmail.me', 'emltmp.com', 'yomail.info', 'yopmail.fr', 'yopmail.net', 'cool.fr.nf', 'jetable.org',
+  'trashmail.net', 'trashmail.io', 'wegwerfmail.de', 'spambox.us', 'mailsac.com', 'mail.tm', 'mail.gw',
+  'linshiyouxiang.net', 'fakemail.net', 'fakemailgenerator.com', 'getairmail.com', 'anonaddy.me',
+  'mailtothis.com', 'mvrht.net', 'byom.de', 'tempail.com', 'luxusmail.org', 'emailfake.com',
+  'generator.email', 'tmpmail.org', 'tmpmail.net', 'tmpeml.com', 'kzccv.com', 'vintomaper.com',
 ] as const
 
 export const EMAIL_DOMAIN_MESSAGE =

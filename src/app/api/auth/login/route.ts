@@ -8,11 +8,14 @@ import { loginSchema } from '@/lib/auth/schemas'
 import { resolveRole } from '@/lib/auth/roles'
 import { verifyRecaptcha } from '@/lib/recaptcha'
 import { rateLimit, clientIp, tooManyResponse } from '@/lib/auth/rateLimit'
+import { sendVerificationCode } from '@/lib/auth/verification'
 import type { ApiResponse, AuthUser } from '@/types'
 
 const FIFTEEN_MIN = 15 * 60 * 1000
 
-export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<AuthUser>>> {
+type LoginResponse = ApiResponse<AuthUser> & { needsVerification?: boolean; email?: string; codeSent?: boolean; cooldownSec?: number }
+
+export async function POST(req: NextRequest): Promise<NextResponse<LoginResponse>> {
   try {
     const body   = await req.json()
     const ip = clientIp(req)
@@ -54,6 +57,20 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<A
     const valid = await comparePassword(password, user.password)
     if (!valid) {
       return NextResponse.json({ success: false, error: INVALID }, { status: 401 })
+    }
+
+    // A new email/password account that never confirmed its code: send a code (at
+    // most one a minute) and ask for it, instead of logging in.
+    if (user.emailVerifyRequired && !user.isVerified) {
+      const sent = await sendVerificationCode(user.email)
+      return NextResponse.json({
+        success: false,
+        needsVerification: true,
+        email: user.email,
+        codeSent: sent.ok,
+        cooldownSec: sent.cooldownSec,
+        error: 'Please confirm your email first. We sent a 6-digit code to your inbox.',
+      }, { status: 403 })
     }
 
     const authUser: AuthUser = { id: user._id.toString(), name: user.name, email: user.email, role: resolveRole(user.email, user.role), plan: user.plan, isVerified: user.isVerified }

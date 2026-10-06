@@ -2,17 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
 import { User } from '@/lib/models'
 import { hashPassword } from '@/lib/auth/password'
-import { signAccessToken, signRefreshToken } from '@/lib/auth/jwt'
-import { setAuthCookies } from '@/lib/auth/cookies'
 import { registerSchema } from '@/lib/auth/schemas'
 import { resolveRole } from '@/lib/auth/roles'
 import { verifyRecaptcha } from '@/lib/recaptcha'
 import { rateLimit, clientIp, tooManyResponse } from '@/lib/auth/rateLimit'
 import { applySignupReferral, REF_COOKIE } from '@/lib/affiliate'
 import { getSebtConfig, sebtGrantFields } from '@/lib/sebt'
-import type { ApiResponse, AuthUser } from '@/types'
+import { sendVerificationCode, domainAcceptsMail } from '@/lib/auth/verification'
+import type { ApiResponse } from '@/types'
 
-export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<AuthUser>>> {
+type RegisterResponse = ApiResponse<never> & { needsVerification?: boolean; email?: string; codeSent?: boolean; cooldownSec?: number }
+
+export async function POST(req: NextRequest): Promise<NextResponse<RegisterResponse>> {
   try {
     const body   = await req.json()
     const ip = clientIp(req)
@@ -36,6 +37,12 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<A
 
     const { name, email, password } = parsed.data
 
+    // A domain with no mail servers (a typo like "gmial.com", or an invented one)
+    // can never receive the verification code.
+    if (!(await domainAcceptsMail(email))) {
+      return NextResponse.json({ success: false, errors: { email: 'This email address can’t receive email. Please check the spelling.' } }, { status: 422 })
+    }
+
     await connectDB()
 
     const exists = await User.findOne({ email }).lean()
@@ -55,19 +62,23 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<A
     const sebtCfg = body?.cohort === 'sebt' ? await getSebtConfig() : null
     const sebtGrant = sebtCfg?.registrationOpen ? sebtGrantFields(sebtCfg) : {}
 
-    const user    = await User.create({ name, email, password: hashed, role, ...sebtGrant })
+    // Not usable until the emailed code is confirmed (/api/auth/verify-email).
+    const user    = await User.create({ name, email, password: hashed, role, ...sebtGrant, emailVerifyRequired: true, isVerified: false })
 
     // Affiliate attribution: if the visitor arrived through a ?ref link, credit
     // that affiliate (best-effort; never blocks signup).
     const refCode = req.cookies.get(REF_COOKIE)?.value
     if (refCode) await applySignupReferral(user, refCode).catch(() => null)
 
-    const authUser: AuthUser = { id: user._id.toString(), name: user.name, email: user.email, role, plan: user.plan, isVerified: user.isVerified }
-
-    const [at, rt] = await Promise.all([signAccessToken(authUser), signRefreshToken(authUser.id)])
-    await setAuthCookies(at, rt)
-
-    return NextResponse.json({ success: true, data: authUser }, { status: 201 })
+    // No session yet: the account opens once the code from the email is entered.
+    const sent = await sendVerificationCode(email)
+    return NextResponse.json({
+      success: true,
+      needsVerification: true,
+      email,
+      codeSent: sent.ok,
+      cooldownSec: sent.cooldownSec,
+    }, { status: 201 })
   } catch (err) {
     console.error('[Register]', err)
     return NextResponse.json({ success: false, error: 'Server error. Please try again.' }, { status: 500 })

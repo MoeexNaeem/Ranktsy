@@ -36,7 +36,8 @@ export async function POST(req: NextRequest) {
 
     const hashed = await hashPassword(password)
     // A new password also signs out every existing session (stolen refresh tokens included).
-    await User.updateOne({ email }, { password: hashed, sessionsValidAfter: new Date(Math.floor(Date.now() / 1000) * 1000) })
+    // The reset code was read from this inbox, so the address is proven real too.
+    await User.updateOne({ email }, { password: hashed, isVerified: true, sessionsValidAfter: new Date(Math.floor(Date.now() / 1000) * 1000) })
 
     // Consume OTP
     await OTP.deleteMany({ email, type: 'reset' })

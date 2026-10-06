@@ -17,6 +17,7 @@ export interface IUserDoc extends Document {
   role: 'user' | 'admin'
   plan: PlanSlug
   isVerified: boolean
+  emailVerifyRequired?: boolean          // new email/password signups must confirm a code first
   // Lemon Squeezy subscription (set by the webhook)
   lsSubscriptionId?: string
   lsCustomerId?: string
@@ -91,6 +92,10 @@ const UserSchema = new Schema<IUserDoc>({
   role:             { type: String, enum: ['user','admin'], default: 'user' },
   plan:             { type: String, enum: PLAN_SLUGS, default: 'free' },
   isVerified:       { type: Boolean, default: false },
+  // Email/password signups from 2026-10-06 on must confirm a code sent to their
+  // inbox before they can log in (proves the address is real). Older accounts
+  // do not have the flag, so they are never asked.
+  emailVerifyRequired: { type: Boolean, default: false },
   lsSubscriptionId:  { type: String },
   lsCustomerId:      { type: String },
   lsVariantId:       { type: String },
@@ -139,6 +144,7 @@ const OTPSchema = new Schema<IOTP>({
   code:      { type: String, required: true },
   type:      { type: String, enum: ['reset','verify'], required: true },
   expiresAt: { type: Date, required: true, index: { expireAfterSeconds: 0 } }, // MongoDB TTL auto-delete
+  attempts:  { type: Number, default: 0 },
 }, { timestamps: true })
 
 OTPSchema.index({ email: 1, type: 1 })

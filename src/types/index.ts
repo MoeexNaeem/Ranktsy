@@ -7,6 +7,7 @@ export interface IUser {
   role: 'user' | 'admin'
   plan: import('@/lib/plans').PlanSlug
   isVerified: boolean
+  emailVerifyRequired?: boolean
   etsyShopId?: string
   etsyAccessToken?: string
   etsyRefreshToken?: string
@@ -30,6 +31,8 @@ export interface IOTP {
   type: 'reset' | 'verify'
   expiresAt: Date
   createdAt: Date
+  /** Wrong guesses so far; the code is dropped after MAX_CODE_ATTEMPTS. */
+  attempts?: number
 }
 
 // ─── Keyword ──────────────────────────────────────────────────────────────────

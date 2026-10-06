@@ -7,6 +7,7 @@ import { PASSWORD_RULES, isAllowedEmailDomain, EMAIL_DOMAIN_MESSAGE } from '@/li
 import { safeRedirectPath } from '@/lib/auth/safe-redirect'
 import { Recaptcha, RECAPTCHA_ENABLED } from '@/components/security/Recaptcha'
 import { toast, AUTH_TOAST_KEY } from '@/components/ui/toast'
+import { VerifyEmailStep } from './VerifyEmailStep'
 
 type FormType = 'login' | 'register' | 'forgot' | 'verify-otp' | 'reset'
 interface Field { name: string; label: string; type: string; placeholder: string }
@@ -178,6 +179,8 @@ function AuthFormInner({ type, email: initEmail, onNext, providers, cohort }: { 
   const [captchaKey, setCaptchaKey] = useState(0) // bump to remount (reset) the captcha
   const [emailStatus, setEmailStatus] = useState<EmailStatus>('idle')
   const [reveal, setReveal] = useState<Record<string, boolean>>({}) // per-field show/hide password
+  // Set when signup (or login to a not-yet-confirmed new account) needs the emailed code.
+  const [verify, setVerify] = useState<{ email: string; cooldown: number; sent: boolean } | null>(null)
 
   const isRegister  = type === 'register'
   // Reset uses the same new-password rules as signup, minus the live email check.
@@ -235,6 +238,12 @@ function AuthFormInner({ type, email: initEmail, onNext, providers, cohort }: { 
     try {
       const res  = await fetch(ENDPOINTS[type], { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(body) })
       const json = await res.json()
+      // New email/password account: the code step comes before any login.
+      if ((type === 'register' || type === 'login') && json.needsVerification && json.email) {
+        setVerify({ email: json.email, cooldown: json.cooldownSec ?? 60, sent: json.codeSent !== false })
+        if (needsCaptcha) { setCaptcha(''); setCaptchaKey(k => k + 1) }
+        return
+      }
       if (!json.success) {
         setErrors(json.errors ?? { _: json.error ?? 'Something went wrong' })
         const firstFieldErr = json.errors ? Object.values(json.errors as Record<string, string>)[0] : ''
@@ -329,8 +338,13 @@ function AuthFormInner({ type, email: initEmail, onNext, providers, cohort }: { 
             {isSebt ? 'SEBT NEXT · Rankkw' : 'Rankkw'}
           </span>
         </div>
-        <h1 style={{ fontSize:32, fontWeight:500, color:C.ink, letterSpacing:'-0.03em', marginBottom:8, lineHeight:1.05 }}>{heading}</h1>
-        <p style={{ fontSize:15, color:'#6E6E64', marginBottom:30, lineHeight:1.5, letterSpacing:'-0.1px' }}>{subhead}</p>
+        <h1 style={{ fontSize:32, fontWeight:500, color:C.ink, letterSpacing:'-0.03em', marginBottom:8, lineHeight:1.05 }}>{verify ? 'Check your email' : heading}</h1>
+        <p style={{ fontSize:15, color:'#6E6E64', marginBottom:30, lineHeight:1.5, letterSpacing:'-0.1px' }}>{verify ? 'One last step to open your account' : subhead}</p>
+
+        {verify ? (
+          <VerifyEmailStep email={verify.email} redirect={redirect} initialCooldown={verify.cooldown} codeSent={verify.sent}
+            onBack={() => setVerify(null)} />
+        ) : (<>
 
         {success  && <div style={{ background:C.orange, color:C.snow, borderRadius:10, padding:'12px 16px', fontSize:13.5, marginBottom:16 }}>✓ {success}</div>}
         {(errors._ || oauthMsg) && <div style={{ background:'#fff0f0', color:'#c00', borderRadius:10, padding:'12px 16px', fontSize:13.5, marginBottom:16 }}>⚠ {errors._ || oauthMsg}</div>}
@@ -410,6 +424,7 @@ function AuthFormInner({ type, email: initEmail, onNext, providers, cohort }: { 
           {type==='forgot'   && <Link href="/login" style={S.link}>← Back to login</Link>}
           {type==='reset'    && <Link href="/login" style={S.link}>← Back to login</Link>}
         </div>
+        </>)}
       </div>
     </div>
   )
