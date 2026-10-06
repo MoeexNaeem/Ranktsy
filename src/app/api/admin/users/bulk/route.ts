@@ -4,6 +4,7 @@ import { User, KeywordHistory, OTP } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin, resolveRole } from '@/lib/auth/roles'
 import { parseUserFilters, buildUserFilter } from '@/lib/admin/userFilters'
+import { rememberDeletedTempAccounts } from '@/lib/auth/deletedAccounts'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
   if (ids.length) {
     await KeywordHistory.deleteMany({ userId: { $in: ids.map(String) } }).catch(() => {})
     await OTP.deleteMany({ email: { $in: del.map(u => u.email) } }).catch(() => {})
+    await rememberDeletedTempAccounts(del.map(u => u.email))
   }
   console.warn(`[admin] ${auth.email} bulk-deleted ${r.deletedCount} users (skipped ${JSON.stringify(skipped)})`)
   return NextResponse.json({ success: true, data: { deleted: r.deletedCount ?? 0, skipped } })

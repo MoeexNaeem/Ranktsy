@@ -9,6 +9,8 @@ import { resolveRole } from '@/lib/auth/roles'
 import { verifyRecaptcha } from '@/lib/recaptcha'
 import { rateLimit, clientIp, tooManyResponse } from '@/lib/auth/rateLimit'
 import { sendVerificationCode } from '@/lib/auth/verification'
+import { isDisposableEmail } from '@/lib/auth/disposable'
+import { wasDeletedTempAccount, DELETED_TEMP_MESSAGE, TEMP_LOGIN_MESSAGE } from '@/lib/auth/deletedAccounts'
 import type { ApiResponse, AuthUser } from '@/types'
 
 const FIFTEEN_MIN = 15 * 60 * 1000
@@ -51,6 +53,12 @@ export async function POST(req: NextRequest): Promise<NextResponse<LoginResponse
     const INVALID = 'Invalid email or password.'
     const user = await User.findOne({ email }).select('+password').lean()
     if (!user) {
+      // A temp-mail address with no account: say why, instead of "invalid password".
+      // (Only throwaway domains get this message, so real accounts stay unguessable.)
+      if (isDisposableEmail(email)) {
+        const deleted = await wasDeletedTempAccount(email)
+        return NextResponse.json({ success: false, error: deleted ? DELETED_TEMP_MESSAGE : TEMP_LOGIN_MESSAGE }, { status: 403 })
+      }
       return NextResponse.json({ success: false, error: INVALID }, { status: 401 })
     }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sameCreditDay } from '@/lib/creditDay'
+import { rememberDeletedTempAccounts } from '@/lib/auth/deletedAccounts'
 import { connectDB } from '@/lib/db'
 import { User, KeywordHistory, ConnectedShop, ApiUsage } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
@@ -127,5 +128,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const deleted = await User.findByIdAndDelete(id).lean()
   if (!deleted) return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
   await KeywordHistory.deleteMany({ userId: id }).catch(() => {})
+  await rememberDeletedTempAccounts([deleted.email])
   return NextResponse.json({ success: true, data: { id } })
 }
