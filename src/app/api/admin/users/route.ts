@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sameCreditDay } from '@/lib/creditDay'
 import { PENDING_SIGNUP, NOT_PENDING_SIGNUP, cleanupPendingSignups } from '@/lib/auth/pendingSignups'
+import { parseUserFilters, buildUserFilter, isFiltered } from '@/lib/admin/userFilters'
+import { isDisposableEmail } from '@/lib/auth/disposable'
 import { connectDB } from '@/lib/db'
 import { User, KeywordHistory, ConnectedShop } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
@@ -36,30 +38,20 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url)
   const page = Math.max(1, Number(searchParams.get('page')) || 1)
   const limit = Math.min(100, Math.max(1, Number(searchParams.get('limit')) || 20))
-  const q = (searchParams.get('q') || '').trim()
-  // view=pending lists signups still waiting for their email code; the default list
-  // and every count leave them out (they can't log in and are deleted after 3 days).
-  const pendingView = searchParams.get('view') === 'pending'
+  // Search + filters (plan, temp-mail or real email, paying / granted / restricted /
+  // waiting for email code). Shared with bulk actions (lib/admin/userFilters.ts).
+  const filters = parseUserFilters(searchParams)
+  const pendingView = filters.account === 'pending'
+  const filtered = !!isFiltered(filters)
   void cleanupPendingSignups().catch(() => null)
-
-  // Search filter: name / email (case-insensitive) or an exact Mongo _id.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let filter: Record<string, any> = {}
-  if (q) {
-    const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const or: any[] = [{ name: rx }, { email: rx }]
-    if (/^[a-f0-9]{24}$/i.test(q)) or.push({ _id: q })
-    filter = { $or: or }
-  }
-  filter = { $and: [filter, pendingView ? PENDING_SIGNUP : NOT_PENDING_SIGNUP] }
+  const filter = await buildUserFilter(filters)
   const real = NOT_PENDING_SIGNUP
 
   const now = new Date()
   const weekAgo = new Date(now.getTime() - 7 * DAY)
   const since14 = new Date(now.getTime() - 13 * DAY)   // 14-day window incl. today
 
-  const [total, verified, admins, paying, newThisWeek, searches, signupAgg, planAgg, matched, docs, promoOn, pending] = await Promise.all([
+  const [total, verified, admins, paying, newThisWeek, searches, signupAgg, planAgg, matched, docs, promoOn, pending, tempMail] = await Promise.all([
     User.countDocuments(real),
     User.countDocuments({ isVerified: true }),
     User.countDocuments({ role: 'admin' }),
@@ -71,7 +63,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'UTC' } }, count: { $sum: 1 } } },
     ]),
     User.aggregate([{ $match: real }, { $group: { _id: '$plan', count: { $sum: 1 } } }]),
-    (q || pendingView) ? User.countDocuments(filter) : null,
+    filtered ? User.countDocuments(filter) : null,
     // Paying customers FIRST (real Lemon Squeezy sub on a non-free plan), then by
     // plan tier, then newest - matching the old client sort but now applied
     // globally across ALL users so page 1 shows the payers, not just page order.
@@ -97,9 +89,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     ]),
     isFreeToProPromoOn(),
     User.countDocuments(PENDING_SIGNUP),
+    buildUserFilter({ emailType: 'temp' }).then(f => User.countDocuments(f)),
   ])
+  void pendingView
 
-  const matchTotal = (q || pendingView) ? (matched ?? 0) : total
+  const matchTotal = filtered ? (matched ?? 0) : total
 
   // Per-user activity + shop counts, ONLY for the users on this page.
   const pageIds = docs.map(u => String(u._id))
@@ -131,6 +125,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       role: resolveRole(u.email, u.role),
       plan: u.plan,
       isVerified: u.isVerified,
+      tempMail: isDisposableEmail(u.email),
       restricted: u.restricted ?? false,
       paidViaLemonSqueezy: !!u.lsSubscriptionId,
       connectedShops: shops.get(id) ?? 0,
@@ -159,7 +154,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const planDist = (planAgg as any[]).map(p => ({ plan: (p._id as string) ?? 'free', value: p.count as number }))
 
-  const stats = { total, admins, verified, searches, paying, newThisWeek, signups, planDist, pending }
+  const stats = { total, admins, verified, searches, paying, newThisWeek, signups, planDist, pending, tempMail }
 
   return NextResponse.json({
     success: true,

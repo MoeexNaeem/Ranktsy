@@ -28,6 +28,7 @@ interface AUser {
   compExpiresAt: string | null
   creditsUsedToday: number; creditsLimit: number; creditsRemaining: number; creditsUsedTotal: number
   bonus?: BonusInfo | null   // admin-granted bonus pool, only while still valid
+  tempMail?: boolean         // signed up with a throwaway / temp-mail address
 }
 type ConfirmAction = { user: AUser; kind: 'delete' | 'restrict' | 'unrestrict' }
 const isRealPaid = (u: AUser) => u.paidViaLemonSqueezy && u.plan !== 'free'
@@ -36,6 +37,8 @@ interface Stats {
   paying: number; newThisWeek: number
   /** Signups still waiting for their email code (left out of every other count). */
   pending?: number
+  /** Real (not pending) accounts on a throwaway / temp-mail domain. */
+  tempMail?: number
   signups: { label: string; value: number }[]
   planDist: { plan: string; value: number }[]
 }
@@ -165,11 +168,21 @@ export function AdminDashboard() {
   const [usagePage, setUsagePage] = useState(1)
   const [extPage, setExtPage] = useState(1)
   const [userQuery, setUserQuery] = useState('')
-  // Off: real users. On: signups that never confirmed their email code.
-  const [pendingView, setPendingView] = useState(false)
-  const pendingRef = useRef(false)
+  // List filters (sent to /api/admin/users and reused by bulk delete).
+  const [fPlan, setFPlan] = useState('all')
+  const [fEmail, setFEmail] = useState<'all' | 'temp' | 'real'>('all')
+  const [fAccount, setFAccount] = useState<'all' | 'paying' | 'granted' | 'restricted' | 'pending'>('all')
+  const filtersRef = useRef({ plan: 'all', emailType: 'all', account: 'all' })
   // Synced before the list effect below runs (effects run in declaration order).
-  useEffect(() => { pendingRef.current = pendingView }, [pendingView])
+  useEffect(() => { filtersRef.current = { plan: fPlan, emailType: fEmail, account: fAccount } }, [fPlan, fEmail, fAccount])
+  // Bulk selection: ticked rows, or "every user matching the filters".
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [selectAllMatching, setSelectAllMatching] = useState(false)
+  const [bulkConfirm, setBulkConfirm] = useState(false)
+  const [bulkText, setBulkText] = useState('')
+  const [bulkBusy, setBulkBusy] = useState(false)
+  // A selection belongs to one view: any filter or search change clears it.
+  const clearSelection = useCallback(() => { setSelected(new Set()); setSelectAllMatching(false) }, [])
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
   const [creditsFor, setCreditsFor] = useState<AUser | null>(null)   // "Add Credits" dialog target
@@ -186,7 +199,8 @@ export function AdminDashboard() {
   const loadUsers = useCallback(async (page: number, q: string) => {
     setUsersLoading(true)
     try {
-      const r = await fetch(`/api/admin/users?page=${page}&limit=${USERS_PAGE_SIZE}&q=${encodeURIComponent(q)}${pendingRef.current ? '&view=pending' : ''}`)
+      const f = filtersRef.current
+      const r = await fetch(`/api/admin/users?page=${page}&limit=${USERS_PAGE_SIZE}&q=${encodeURIComponent(q)}&plan=${f.plan}&emailType=${f.emailType}&account=${f.account}`)
       if (r.status === 401) { window.location.href = '/login?redirect=/admin'; return }
       if (r.status === 403) { setState('forbidden'); return }
       const d = await r.json().catch(() => null)
@@ -229,7 +243,28 @@ export function AdminDashboard() {
 
   // (Re)load the users page on mount and whenever the page or search changes.
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void loadUsers(usersPage, debouncedQuery) }, [loadUsers, usersPage, debouncedQuery, pendingView])
+  useEffect(() => { void loadUsers(usersPage, debouncedQuery) }, [loadUsers, usersPage, debouncedQuery, fPlan, fEmail, fAccount])
+
+  // Bulk delete: the ticked rows, or every user matching the current filters.
+  const bulkCount = selectAllMatching ? usersTotal : selected.size
+  const runBulkDelete = useCallback(async () => {
+    setBulkBusy(true)
+    try {
+      const body = selectAllMatching
+        ? { action: 'delete', filters: { q: debouncedQuery, plan: fPlan, emailType: fEmail, account: fAccount }, expected: usersTotal }
+        : { action: 'delete', ids: [...selected], expected: selected.size }
+      const r = await fetch('/api/admin/users/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const d = await r.json().catch(() => null)
+      if (!r.ok || !d?.success) { toast.error('Bulk delete failed', d?.error ?? 'Please try again.'); return }
+      const sk = d.data.skipped as { self: number; admin: number; paying: number }
+      const skippedN = sk.self + sk.admin + sk.paying
+      toast.success(`Deleted ${exact(d.data.deleted)} user${d.data.deleted === 1 ? '' : 's'}`,
+        skippedN ? `Kept ${skippedN}: ${[sk.paying && `${sk.paying} paying`, sk.admin && `${sk.admin} admin`, sk.self && 'your own account'].filter(Boolean).join(', ')}.` : 'Their search history was removed too.')
+      setSelected(new Set()); setSelectAllMatching(false); setBulkConfirm(false); setBulkText('')
+      setUsersPage(1)
+      await loadUsers(1, debouncedQuery)
+    } finally { setBulkBusy(false) }
+  }, [selectAllMatching, selected, debouncedQuery, fPlan, fEmail, fAccount, usersTotal, loadUsers])
 
   // Manual refresh (spins the icon) and an optional 30s live auto-refresh.
   const refresh = useCallback(async () => { setRefreshing(true); await Promise.all([load(), loadUsers(usersPage, debouncedQuery)]); setRefreshing(false) }, [load, loadUsers, usersPage, debouncedQuery])
@@ -499,31 +534,66 @@ export function AdminDashboard() {
 
               <div style={{ position: 'relative', marginBottom: 12, maxWidth: 420 }}>
                 <span aria-hidden style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: '#8a8a82', pointerEvents: 'none', display: 'flex' }}><Icon name="search" size={13} color="#8a8a82" /></span>
-                <input value={userQuery} onChange={e => { setUserQuery(e.target.value); setUsersPage(1) }}
+                <input value={userQuery} onChange={e => { setUserQuery(e.target.value); setUsersPage(1); clearSelection() }}
                   placeholder="Search users by name, email or ID…" aria-label="Search users by name, email or ID"
                   style={{ width: '100%', background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 100, padding: '10px 38px', fontSize: 13.5, fontFamily: MONO, color: C.ink, outline: 'none' }} />
                 {userQuery && <button onClick={() => { setUserQuery(''); setUsersPage(1) }} aria-label="Clear search" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, color: '#8a8a82', lineHeight: 1 }}>×</button>}
               </div>
 
-              {/* Signups that never typed their emailed code: hidden from the list and
-                  counts above, deleted automatically after 3 days. */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
-                <button onClick={() => { setPendingView(v => !v); setUsersPage(1) }}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 14px', borderRadius: 100, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
-                    border: `1px solid ${pendingView ? C.orange : C.ash}`, background: pendingView ? `${C.orange}14` : C.paper, color: pendingView ? C.orange : C.ink }}>
-                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: pendingView ? C.orange : '#B9B9B0' }} />
-                  {pendingView ? 'Showing: waiting for email code' : 'Waiting for email code'} ({exact(stats?.pending ?? 0)})
-                </button>
-                <span style={{ fontSize: 12, color: '#8a8a82' }}>
-                  {pendingView
-                    ? 'These signups never typed the code we emailed. They cannot log in, and are deleted after 3 days.'
-                    : 'Signups that have not confirmed their email are not shown or counted here.'}
-                </span>
+              {/* Filters: email type, plan, account. Bulk delete acts on exactly this view. */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                <FilterSelect label="Email" value={fEmail} onChange={v => { setFEmail(v as typeof fEmail); setUsersPage(1); clearSelection() }}
+                  options={[['all', 'All emails'], ['temp', `Temp mail (${exact(stats?.tempMail ?? 0)})`], ['real', 'Real emails']]} />
+                <FilterSelect label="Plan" value={fPlan} onChange={v => { setFPlan(v); setUsersPage(1); clearSelection() }}
+                  options={[['all', 'All plans'], ...['free', 'starter', 'basic', 'pro', 'pro-1yr', 'business', 'agency', 'enterprise', 'custom'].map(pl => [pl, PLAN_LABEL[pl] ?? pl] as [string, string])]} />
+                <FilterSelect label="Account" value={fAccount} onChange={v => { setFAccount(v as typeof fAccount); setUsersPage(1); clearSelection() }}
+                  options={[['all', 'All accounts'], ['paying', 'Paying (card)'], ['granted', 'Granted by admin'], ['restricted', 'Restricted'], ['pending', `Waiting for email code (${exact(stats?.pending ?? 0)})`]]} />
+                {(fEmail !== 'all' || fPlan !== 'all' || fAccount !== 'all') && (
+                  <button onClick={() => { setFEmail('all'); setFPlan('all'); setFAccount('all'); setUsersPage(1); clearSelection() }}
+                    style={{ background: 'none', border: 'none', color: C.orange, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Clear filters</button>
+                )}
               </div>
+              {fAccount === 'pending' && (
+                <p style={{ fontSize: 12, color: '#8a8a82', margin: '0 0 10px' }}>These signups never typed the code we emailed. They can&apos;t log in, and are deleted automatically after 3 days.</p>
+              )}
+
+              {/* Bulk bar: shows once anything is ticked. */}
+              {bulkCount > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '10px 14px', marginBottom: 10, borderRadius: 12, background: C.dangerBg, border: `1px solid ${C.danger}40` }}>
+                  <span style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>
+                    {selectAllMatching ? `All ${exact(usersTotal)} matching users selected` : `${exact(selected.size)} selected`}
+                  </span>
+                  {!selectAllMatching && usersTotal > selected.size && (
+                    <button onClick={() => setSelectAllMatching(true)}
+                      style={{ background: 'none', border: 'none', color: C.orange, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
+                      Select all {exact(usersTotal)} matching
+                    </button>
+                  )}
+                  <button onClick={() => { setSelected(new Set()); setSelectAllMatching(false) }}
+                    style={{ background: 'none', border: 'none', color: '#6E6E64', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Clear</button>
+                  <button onClick={() => { setBulkText(''); setBulkConfirm(true) }}
+                    style={{ marginLeft: 'auto', background: C.danger, border: 'none', color: '#fff', borderRadius: 100, padding: '8px 18px', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
+                    Delete {exact(bulkCount)} user{bulkCount === 1 ? '' : 's'}
+                  </button>
+                </div>
+              )}
 
               <div className="rtable admin-users" style={{ ...tableCard, overflow: 'hidden' }}>
                 <div className="admin-user-head" style={{ ...tableHead(GRID), padding: '15px 22px' }}>
-                  {['#', 'User', 'Role', 'Plan', 'Status', 'Joined', 'Activity', 'Credits', ''].map((h, i) => <span key={i} style={{ ...th, fontSize: 12 }}>{h}</span>)}
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} title="Select every user on this page">
+                    <input type="checkbox" aria-label="Select all users on this page"
+                      checked={selectAllMatching || (usersPageRows.length > 0 && usersPageRows.every(u => selected.has(u.id)))}
+                      onChange={e => {
+                        setSelectAllMatching(false)
+                        setSelected(prev => {
+                          const n = new Set(prev)
+                          for (const u of usersPageRows) { if (e.target.checked) n.add(u.id); else n.delete(u.id) }
+                          return n
+                        })
+                      }} style={{ width: 16, height: 16, accentColor: C.danger, cursor: 'pointer' }} />
+                    <span style={{ ...th, fontSize: 12 }}>#</span>
+                  </label>
+                  {['User', 'Role', 'Plan', 'Status', 'Joined', 'Activity', 'Credits', ''].map((h, i) => <span key={i} style={{ ...th, fontSize: 12 }}>{h}</span>)}
                 </div>
                 {usersPageRows.map((u, i) => {
                   const sp = statusPill(u.subscriptionStatus)
@@ -537,7 +607,15 @@ export function AdminDashboard() {
                       style={{ ...tableRow(GRID), padding: '18px 22px', opacity: busy === u.id ? 0.5 : 1, transition: 'background 0.12s', background: rowBg, borderLeft: `4px solid ${barColor}` }}
                       onMouseEnter={e => (e.currentTarget.style.background = rowBgHover)}
                       onMouseLeave={e => (e.currentTarget.style.background = rowBg)}>
-                      <span style={{ ...tdMono, fontSize: 13, color: '#8a8a82' }}>{(usersPage - 1) * USERS_PAGE_SIZE + i + 1}</span>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                        <input type="checkbox" aria-label={`Select ${u.email}`}
+                          checked={selectAllMatching || selected.has(u.id)}
+                          onChange={e => {
+                            setSelectAllMatching(false)
+                            setSelected(prev => { const n = new Set(prev); if (e.target.checked) n.add(u.id); else n.delete(u.id); return n })
+                          }} style={{ width: 16, height: 16, accentColor: C.danger, cursor: 'pointer' }} />
+                        <span style={{ ...tdMono, fontSize: 13, color: '#8a8a82' }}>{(usersPage - 1) * USERS_PAGE_SIZE + i + 1}</span>
+                      </label>
                       <div style={{ minWidth: 0 }}>
                         <button onClick={() => setDetailUserId(u.id)} title="View full detail"
                           style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit', display: 'flex', alignItems: 'center', gap: 7, maxWidth: '100%' }}>
@@ -546,6 +624,7 @@ export function AdminDashboard() {
                           {u.role === 'admin' && <span style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, color: C.orange, background: C.orangeFaint, padding: '2.5px 8px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}>Admin</span>}
                         </button>
                         <p style={{ fontSize: 13, color: '#6E6E64', fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 3 }}>{u.email}</p>
+                        {u.tempMail && <span title="Signed up with a throwaway / temp-mail address" style={{ display: 'inline-block', fontSize: 10, fontWeight: 700, fontFamily: MONO, color: '#9A3412', background: '#FFEDD5', padding: '2.5px 8px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 5 }}>Temp mail</span>}
                         <button onClick={() => copyId(u.id)} title="Click to copy user ID"
                           style={{ display: 'inline-flex', alignItems: 'center', gap: 5, maxWidth: '100%', marginTop: 4, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: MONO, fontSize: 11, color: copiedId === u.id ? '#1F8A4C' : '#a2a29a', overflow: 'hidden' }}>
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>ID {u.id}</span>
@@ -801,7 +880,49 @@ export function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* Bulk delete confirmation: type DELETE to confirm. */}
+      {bulkConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,18,14,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: 20 }} onClick={() => !bulkBusy && setBulkConfirm(false)}>
+          <div style={{ background: C.paper, borderRadius: 16, padding: '26px 28px', maxWidth: 460, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 18, fontWeight: 600, color: C.ink, marginBottom: 10 }}>Delete {exact(bulkCount)} user{bulkCount === 1 ? '' : 's'}?</h3>
+            <p style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.6, marginBottom: 12 }}>
+              {selectAllMatching
+                ? <>Every user matching the current filters ({[fEmail === 'temp' ? 'temp mail' : fEmail === 'real' ? 'real email' : null, fPlan !== 'all' ? (PLAN_LABEL[fPlan] ?? fPlan) : null, fAccount !== 'all' ? fAccount : null, debouncedQuery ? `"${debouncedQuery}"` : null].filter(Boolean).join(', ') || 'all users'}) will be deleted with their search history.</>
+                : <>The selected users will be deleted with their search history.</>}
+              {' '}This cannot be undone.
+            </p>
+            <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.55, marginBottom: 14 }}>
+              Always kept, even if selected: admin accounts, your own account, and customers paying by card.
+            </p>
+            <label style={{ display: 'block', fontSize: 12.5, color: C.ink, fontWeight: 600, marginBottom: 6 }}>Type DELETE to confirm</label>
+            <input value={bulkText} onChange={e => setBulkText(e.target.value)} autoFocus placeholder="DELETE"
+              style={{ width: '100%', boxSizing: 'border-box', border: `1px solid ${C.ash}`, borderRadius: 10, padding: '10px 12px', fontSize: 14, fontFamily: MONO, marginBottom: 18, outline: 'none', background: C.canvas, color: C.ink }} />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button onClick={() => setBulkConfirm(false)} disabled={bulkBusy} style={{ background: 'transparent', border: `1px solid ${C.hairInk}`, color: C.ink, borderRadius: 100, padding: '9px 18px', fontSize: 13.5, fontFamily: 'inherit', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={runBulkDelete} disabled={bulkText !== 'DELETE' || bulkBusy}
+                style={{ background: C.danger, border: 'none', color: '#fff', borderRadius: 100, padding: '9px 18px', fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: bulkText === 'DELETE' && !bulkBusy ? 'pointer' : 'not-allowed', opacity: bulkText === 'DELETE' && !bulkBusy ? 1 : 0.5 }}>
+                {bulkBusy ? 'Deleting…' : `Delete ${exact(bulkCount)}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
     </RealtimeProvider>
+  )
+}
+
+/** A labelled dropdown for the Users filters. */
+function FilterSelect({ label, value, options, onChange }: { label: string; value: string; options: [string, string][]; onChange: (v: string) => void }) {
+  const active = value !== 'all'
+  return (
+    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 6px 6px 13px', borderRadius: 100, border: `1px solid ${active ? C.orange : C.ash}`, background: active ? `${C.orange}12` : C.paper }}>
+      <span style={{ fontSize: 11, fontWeight: 700, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.06em', color: active ? C.orange : '#8a8a82' }}>{label}</span>
+      <select value={value} onChange={e => onChange(e.target.value)}
+        style={{ border: 'none', background: 'transparent', fontSize: 13, fontWeight: 600, color: C.ink, fontFamily: 'inherit', cursor: 'pointer', outline: 'none', paddingRight: 4 }}>
+        {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+    </label>
   )
 }

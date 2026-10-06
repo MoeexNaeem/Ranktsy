@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { connectDB } from '@/lib/db'
 import { User } from '@/lib/models'
 import { rateLimit, clientIp } from '@/lib/auth/rateLimit'
+import { isDisposableEmail } from '@/lib/auth/disposable'
 
 // Live "is this email already registered?" check for the signup form. Returns
 // { valid, exists } - `valid:false` means it isn't a well-formed email yet, so
@@ -20,6 +21,8 @@ export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get('email')?.trim().toLowerCase() ?? ''
   const parsed = emailSchema.safeParse(raw)
   if (!parsed.success) return NextResponse.json({ valid: false, exists: false })
+  // Throwaway domain: the form shows "temporary emails can't be used" straight away.
+  if (isDisposableEmail(parsed.data)) return NextResponse.json({ valid: true, exists: false, disposable: true })
 
   try {
     await connectDB()

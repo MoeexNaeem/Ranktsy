@@ -47,7 +47,7 @@ export const DISPOSABLE_EMAIL_DOMAINS = [
 ] as const
 
 export const EMAIL_DOMAIN_MESSAGE =
-  'Please use a permanent email address - temporary / disposable email providers aren’t allowed.'
+  'Temporary or throwaway email addresses can’t be used. Please sign up with your real email (Gmail, Outlook, Yahoo...) or use “Continue with Google”.'
 
 /** Allowed to create a NEW account? True for any valid domain that isn't disposable. */
 export function isAllowedEmailDomain(email: string): boolean {

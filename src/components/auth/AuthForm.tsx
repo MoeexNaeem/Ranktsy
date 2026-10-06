@@ -218,6 +218,7 @@ function AuthFormInner({ type, email: initEmail, onNext, providers, cohort }: { 
         const json = await res.json()
         if (cancelled) return
         if (!json.valid) setEmailStatus('invalid')
+        else if (json.disposable) setEmailStatus('domain')
         else setEmailStatus(json.exists ? 'taken' : 'available')
       } catch { if (!cancelled) setEmailStatus('idle') }
     }, 450)

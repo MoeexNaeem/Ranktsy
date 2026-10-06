@@ -10,6 +10,8 @@ import { REF_COOKIE } from '@/lib/affiliate'
 import { PENDING_SIGNUP, cleanupPendingSignups } from '@/lib/auth/pendingSignups'
 import { getSebtConfig, sebtGrantFields } from '@/lib/sebt'
 import { sendVerificationCode, domainAcceptsMail } from '@/lib/auth/verification'
+import { isDisposableEmail } from '@/lib/auth/disposable'
+import { signupsToday, recordSignup, SIGNUPS_PER_IP_PER_DAY } from '@/lib/auth/signupLimit'
 import type { ApiResponse } from '@/types'
 
 type RegisterResponse = ApiResponse<never> & { needsVerification?: boolean; email?: string; codeSent?: boolean; cooldownSec?: number }
@@ -37,6 +39,17 @@ export async function POST(req: NextRequest): Promise<NextResponse<RegisterRespo
     }
 
     const { name, email, password } = parsed.data
+
+    // Temp-mail sites can receive our code, so they are refused outright.
+    if (isDisposableEmail(email)) {
+      return NextResponse.json({ success: false, errors: { email: 'Temporary or throwaway email addresses can’t be used. Please sign up with your real email (Gmail, Outlook, Yahoo...) or use “Continue with Google”.' } }, { status: 422 })
+    }
+
+    // A few new accounts per connection per day (SEBT classrooms share one, so exempt).
+    const isSebtSignup = body?.cohort === 'sebt'
+    if (!isSebtSignup && (await signupsToday(ip)) >= SIGNUPS_PER_IP_PER_DAY) {
+      return NextResponse.json({ success: false, errors: { _: 'Too many new accounts were created from this connection today. Please log in to your existing account, or try again tomorrow.' } }, { status: 429 })
+    }
 
     // A domain with no mail servers (a typo like "gmial.com", or an invented one)
     // can never receive the verification code.
@@ -74,6 +87,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<RegisterRespo
     // (verify-email), so fake signups never count as an affiliate's referrals.
     const refCode = req.cookies.get(REF_COOKIE)?.value || null
     await User.create({ name, email, password: hashed, role, ...sebtGrant, emailVerifyRequired: true, isVerified: false, signupRef: refCode })
+    if (!isSebtSignup) void recordSignup(ip)
 
     // No session yet: the account opens once the code from the email is entered.
     const sent = await sendVerificationCode(email)
