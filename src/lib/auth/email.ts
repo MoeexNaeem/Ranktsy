@@ -64,6 +64,30 @@ async function sendEmail(to: string, subject: string, html: string): Promise<voi
 }
 
 /**
+ * Admin check of ONE delivery path (Resend, or the SMTP backup) with no fallback,
+ * so each can be confirmed on the live server. Returns the sender used.
+ */
+export async function sendDeliveryTest(to: string, via: 'resend' | 'smtp'): Promise<{ from: string; detail: string }> {
+  const subject = `Rankkw email test (${via === 'resend' ? 'Resend' : 'Gmail backup'})`
+  const html = `<p style="font-family:sans-serif;font-size:14px;color:#333">This is a delivery test sent through <strong>${via === 'resend' ? 'Resend' : 'the SMTP backup'}</strong>. If you can read it, this path works.</p>`
+  if (via === 'resend') {
+    if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY is not set on this server')
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: RESEND_FROM, to, subject, html }),
+      signal: AbortSignal.timeout(15_000),
+    })
+    const text = (await res.text().catch(() => '')).slice(0, 300)
+    if (!res.ok) throw new Error(`Resend refused (${res.status}): ${text}`)
+    return { from: RESEND_FROM, detail: text }
+  }
+  if (!SMTP_READY) throw new Error('SMTP_USER / SMTP_PASS are not set on this server')
+  const info = await transporter.sendMail({ from: SMTP_FROM, to, subject, html })
+  return { from: SMTP_FROM, detail: String(info.response ?? '') }
+}
+
+/**
  * Send an admin-composed message to one user, wrapped in the Rankkw template.
  * `message` is plain text (blank lines start new paragraphs); it is HTML-escaped so
  * an admin cannot inject markup. Throws if delivery fails so the caller can report it.
