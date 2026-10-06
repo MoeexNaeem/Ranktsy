@@ -40,7 +40,9 @@ export const formatPkr = (n: number) => `Rs ${n.toLocaleString('en-PK')}`
 export interface LocalAccount {
   method: LocalMethod
   label: string
-  rows: { label: string; value: string; copy?: boolean }[]
+  rows: { label: string; value: string; copy?: boolean; big?: boolean }[]
+  /** Payment QR shown large on the payment step (e.g. a JazzCash Raast till code). */
+  qr?: { src: string; download: string; alt: string; caption: string }
 }
 
 export const LOCAL_ACCOUNTS: Record<LocalMethod, LocalAccount> = {
@@ -54,13 +56,20 @@ export const LOCAL_ACCOUNTS: Record<LocalMethod, LocalAccount> = {
       { label: 'IBAN', value: 'PK17ABPA0010135230250014', copy: true },
     ],
   },
+  // Till payment (JazzCash / Raast QR) since 2026-10-06; was mobile number 03028181216.
   jazzcash: {
     method: 'jazzcash',
     label: 'JazzCash',
     rows: [
-      { label: 'JazzCash number', value: '03028181216', copy: true },
-      { label: 'Account title', value: 'Letrank Marketing', copy: true },
+      { label: 'Account name', value: 'ZAFAR Shop', copy: true },
+      { label: 'Till ID', value: '984605348', copy: true, big: true },
     ],
+    qr: {
+      src: '/payments/jazzcash-qr.png',
+      download: '/payments/jazzcash-qr-poster.jpg',
+      alt: 'JazzCash Raast QR code for ZAFAR Shop, Till ID 984605348',
+      caption: 'Scan with the JazzCash app (or any Raast banking app)',
+    },
   },
 }
 

@@ -12,7 +12,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { copyWithToast, errorToast } from '@/components/ui/toast'
 import {
   LOCAL_PLANS, LOCAL_ACCOUNTS, METHOD_LABELS, PROOF_ACCEPT, formatPkr, localPlanFor, validateProof,
-  type LocalMethod, type LocalPlan,
+  type LocalMethod, type LocalPlan, type LocalAccount,
 } from '@/lib/local-payments'
 import { PLAN_LABELS, type PlanSlug } from '@/lib/plans'
 import { PLANS } from '@/components/landing/plans-data'
@@ -252,6 +252,26 @@ export function LocalPaymentFlow() {
                 <span style={{ color: C.graphite, fontSize: 14 }}>Amount to send</span>
                 <span style={{ fontSize: 26, fontWeight: 700, color: C.orange, letterSpacing: '-0.02em' }}>{formatPkr(plan.pkr)}</span>
               </div>
+
+              {/* How to pay: sits under the order, next to the payment details it refers to. */}
+              <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${C.hair}` }}>
+                <p style={{ fontSize: 11, fontWeight: 700, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.stone, marginBottom: 12 }}>How to pay</p>
+                <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {[
+                    account.qr
+                      ? <>Open the <strong style={{ color: C.ink }}>JazzCash app</strong> and scan the QR code, or dial <strong style={{ color: C.ink }}>*786*10#</strong> and enter the Till ID.</>
+                      : <>Open your banking app and send to the {account.label} details shown here.</>,
+                    <>Pay exactly <strong style={{ color: C.orange }}>{formatPkr(plan.pkr)}</strong>{account.qr ? <> to <strong style={{ color: C.ink }}>{account.rows[0]?.value}</strong></> : null}.</>,
+                    <>Take a screenshot of the successful payment (it shows the amount and transaction ID).</>,
+                    <>Attach it below and press <strong style={{ color: C.ink }}>Submit payment</strong>. We verify it and turn your plan on.</>,
+                  ].map((text, i) => (
+                    <li key={i} style={{ display: 'flex', gap: 11, alignItems: 'flex-start', fontSize: 13.5, color: C.graphite, lineHeight: 1.55 }}>
+                      <span style={{ flexShrink: 0, width: 22, height: 22, borderRadius: '50%', background: C.paper, border: `1px solid ${C.ash}`, color: C.ink, fontSize: 11.5, fontWeight: 700, display: 'grid', placeItems: 'center', marginTop: 1 }}>{i + 1}</span>
+                      <span>{text}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
             </div>
 
             {/* Where to send it */}
@@ -260,26 +280,27 @@ export function LocalPaymentFlow() {
                 <p style={{ fontSize: 11, fontWeight: 700, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.stone }}>Send to ({account.label})</p>
                 <img src={LOGO[method].src} alt={LOGO[method].alt} width={36} height={28} style={{ width: 36, height: 28, objectFit: 'contain' }} />
               </div>
-              {account.rows.map(r => (
-                <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: `1px solid ${C.hair}` }}>
-                  <div style={{ minWidth: 0 }}>
-                    <p style={{ fontSize: 12, color: C.graphite }}>{r.label}</p>
-                    <p style={{ fontSize: 14.5, color: C.ink, fontWeight: 600, fontFamily: MONO, wordBreak: 'break-all' }}>{r.value}</p>
-                  </div>
-                  {r.copy && (
-                    <button onClick={() => copyWithToast(r.value, r.label)}
-                      style={{ flexShrink: 0, background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 8, padding: '5px 10px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: C.ink }}>Copy</button>
-                  )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {account.qr && <PaymentQr qr={account.qr} />}
+                <div style={{ minWidth: 0 }}>
+                  {account.rows.map(r => (
+                    <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: r.big ? '10px 0' : '6px 0', borderBottom: `1px solid ${C.hair}` }}>
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ fontSize: 12, color: C.graphite }}>{r.label}</p>
+                        <p style={{ fontSize: r.big ? 24 : 14.5, color: C.ink, fontWeight: r.big ? 700 : 600, fontFamily: MONO, letterSpacing: r.big ? '0.12em' : undefined, wordBreak: 'break-all', lineHeight: 1.25 }}>{r.value}</p>
+                      </div>
+                      {r.copy && (
+                        <button onClick={() => copyWithToast(r.value, r.label)}
+                          style={{ flexShrink: 0, background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 8, padding: '5px 10px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: C.ink }}>Copy</button>
+                      )}
+                    </div>
+                  ))}
+
                 </div>
-              ))}
+              </div>
             </div>
           </div>
 
-          <ol style={{ fontSize: 14, color: C.graphite, lineHeight: 1.7, paddingLeft: 20, marginBottom: 18 }}>
-            <li>Send exactly <strong style={{ color: C.ink }}>{formatPkr(plan.pkr)}</strong> to the {account.label} details above.</li>
-            <li>Take a screenshot of the successful payment (it should show the amount and transaction ID).</li>
-            <li>Attach it below and press <strong style={{ color: C.ink }}>Submit payment</strong>. We verify it and turn your plan on.</li>
-          </ol>
 
           <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.ink, marginBottom: 6 }}>Transaction ID (optional)</label>
           <input value={reference} onChange={e => setReference(e.target.value)} maxLength={200} placeholder="e.g. the TID / reference number on your receipt"
@@ -330,5 +351,27 @@ export function LocalPaymentFlow() {
         </section>
       )}
     </div>
+  )
+}
+
+/**
+ * The payment QR, shown large and crisp in a white frame (scanners need the white
+ * margin). "Save QR" downloads the full poster so someone paying on this same
+ * phone can scan it from their gallery inside the JazzCash app.
+ */
+function PaymentQr({ qr }: { qr: NonNullable<LocalAccount['qr']> }) {
+  return (
+    <figure style={{ margin: 0, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+      <div style={{ background: '#fff', borderRadius: 18, padding: 12, border: `1px solid ${C.hair}`, boxShadow: '0 10px 28px rgba(61,62,59,0.12)' }}>
+        <img src={qr.src} alt={qr.alt} width={232} height={232}
+          style={{ display: 'block', width: 'min(232px, 62vw)', height: 'auto', aspectRatio: '1 / 1', imageRendering: 'pixelated' }} />
+      </div>
+      <figcaption style={{ fontSize: 12.5, color: C.graphite, textAlign: 'center', maxWidth: 280, lineHeight: 1.45 }}>{qr.caption}</figcaption>
+      <a href={qr.download} download="Rankkw-JazzCash-QR.jpg"
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: C.ink, background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 100, padding: '6px 13px', textDecoration: 'none' }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
+        Save QR
+      </a>
+    </figure>
   )
 }
