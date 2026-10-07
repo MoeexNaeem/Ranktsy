@@ -6,7 +6,8 @@
  *  Batch & registration - set the batch number, open or close the signup link.
  *                         While open, /register/sebtnext is live and every signup
  *                         is stamped with that number.
- *  Enterprise trial     - turn the free grant on/off and set its length in days.
+ *  Free trial           - turn the free grant on/off, pick its plan (Starter …
+ *                         Enterprise) and set its length in days.
  *                         New signups get it automatically; "Grant now" applies it
  *                         to students who already signed up.
  */
@@ -15,12 +16,15 @@ import { C } from '@/utils'
 import { MONO, cardStyle } from '@/components/dashboard/kit'
 import { StatCard, LoadingBlock } from './ui'
 import { errorToast, toast, copyWithToast } from '@/components/ui/toast'
+import { PLAN_LABELS } from '@/lib/plans'
+import { SEBT_TRIAL_PLANS, type SebtTrialPlan } from '@/lib/sebt-plans'
 
 interface Config {
   batch: number
   registrationOpen: boolean
   trialEnabled: boolean
   trialDays: number
+  trialPlan: SebtTrialPlan
   batchStudents: number
   totalStudents: number
   activeTrials: number
@@ -79,11 +83,12 @@ export function AdminSebtSettings() {
   // Draft values so typing a batch number does not fire a save per keystroke.
   const [batchDraft, setBatchDraft] = useState(1)
   const [daysDraft, setDaysDraft]   = useState(7)
+  const [planDraft, setPlanDraft]   = useState<SebtTrialPlan>('enterprise')
   const [confirmGrant, setConfirmGrant] = useState<'batch' | 'all' | null>(null)
   const [confirmEnd, setConfirmEnd] = useState(false)
 
   const apply = useCallback((d: Config) => {
-    setCfg(d); setBatchDraft(d.batch); setDaysDraft(d.trialDays); setState('ok')
+    setCfg(d); setBatchDraft(d.batch); setDaysDraft(d.trialDays); setPlanDraft(d.trialPlan ?? 'enterprise'); setState('ok')
   }, [])
 
   const load = useCallback(async () => {
@@ -126,7 +131,7 @@ export function AdminSebtSettings() {
       if (n) window.dispatchEvent(new Event(ADMIN_STATS_REFRESH))
       toast.success(
         n ? `${n.toLocaleString()} student${n === 1 ? '' : 's'} updated` : 'No students needed updating',
-        n ? `Enterprise for ${d.trialDays} days, starting now.` : 'Everyone matching is already on a paid plan.',
+        n ? `${PLAN_LABELS[d.trialPlan] ?? d.trialPlan} for ${d.trialDays} days, starting now.` : 'Everyone matching is already on a paid plan.',
       )
     }
   }, [save])
@@ -159,6 +164,8 @@ export function AdminSebtSettings() {
   const loginUrl  = `${origin}/login/sebtnext`
   const batchDirty = batchDraft !== cfg.batch
   const daysDirty  = daysDraft !== cfg.trialDays
+  const planDirty  = planDraft !== cfg.trialPlan
+  const planName   = PLAN_LABELS[cfg.trialPlan] ?? cfg.trialPlan
   const batchInUse = cfg.usedBatches.includes(batchDraft) && batchDirty
 
   return (
@@ -168,10 +175,10 @@ export function AdminSebtSettings() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
           <h3 style={{ fontSize: 16, fontWeight: 700, color: C.ink, margin: 0 }}>SEBT NEXT</h3>
           <StatusPill on={cfg.registrationOpen} onText={`Batch ${cfg.batch} open`} offText={`Batch ${cfg.batch} closed`} />
-          <StatusPill on={cfg.trialEnabled} onText={`Trial ${cfg.trialDays}d`} offText="Trial off" />
+          <StatusPill on={cfg.trialEnabled} onText={`${planName} trial · ${cfg.trialDays}d`} offText="Trial off" />
         </div>
         <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.6, margin: '0 0 16px' }}>
-          Control the student cohort without a deploy: open a numbered batch, and set how long its free Enterprise access lasts.
+          Control the student cohort without a deploy: open a numbered batch, choose which plan students get free, and for how long.
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 18 }}>
@@ -182,7 +189,7 @@ export function AdminSebtSettings() {
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 4, borderBottom: `1px solid ${C.hair}` }}>
-          {([['batch', 'Batch & registration'], ['trial', 'Enterprise trial']] as [Tab, string][]).map(([id, label]) => (
+          {([['batch', 'Batch & registration'], ['trial', 'Free plan trial']] as [Tab, string][]).map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)}
               style={{ fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', color: tab === id ? C.ink : C.graphite, background: 'transparent', border: 'none', borderBottom: `2px solid ${tab === id ? C.orange : 'transparent'}`, padding: '11px 14px', marginBottom: -1, cursor: 'pointer' }}>
               {label}
@@ -243,14 +250,43 @@ export function AdminSebtSettings() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* Which plan students get */}
+            <div>
+              <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: C.ink, marginBottom: 8 }}>Plan students get</span>
+              <div role="radiogroup" aria-label="Plan students get" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {SEBT_TRIAL_PLANS.map(pl => {
+                  const on = planDraft === pl
+                  return (
+                    <button key={pl} role="radio" aria-checked={on} onClick={() => setPlanDraft(pl)} disabled={busy}
+                      style={{ fontSize: 13, fontWeight: 600, fontFamily: 'inherit', padding: '8px 14px', borderRadius: 9, cursor: 'pointer', border: `1.5px solid ${on ? C.orange : C.ash}`, background: on ? C.orangeFaint : C.paper, color: on ? '#9A3A05' : C.ink }}>
+                      {PLAN_LABELS[pl]}{pl === cfg.trialPlan ? ' ✓' : ''}
+                    </button>
+                  )
+                })}
+              </div>
+              <span style={{ display: 'block', fontSize: 11.5, color: C.stone, marginTop: 7 }}>Used for new SEBT signups and for &ldquo;Grant to students&rdquo; below.</span>
+            </div>
+
+            {planDirty && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', background: C.orangeFaint, border: `1px solid ${C.orange}`, borderRadius: 12, padding: '12px 15px' }}>
+                <p style={{ fontSize: 12.5, color: C.ink, flex: 1, minWidth: 200, lineHeight: 1.55, margin: 0 }}>
+                  Give <strong>{PLAN_LABELS[planDraft]}</strong> instead of {planName}? New signups get it. Existing students keep their current plan until you grant again.
+                </p>
+                <button onClick={() => setPlanDraft(cfg.trialPlan)} disabled={busy}
+                  style={{ ...BTN, color: C.graphite, background: 'transparent', borderColor: C.ash }}>Cancel</button>
+                <button onClick={() => save({ trialPlan: planDraft }, `SEBT students now get ${PLAN_LABELS[planDraft]}`)} disabled={busy}
+                  style={{ ...BTN, background: C.orange, color: '#fff' }}>Save plan</button>
+              </div>
+            )}
+
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 22, flexWrap: 'wrap' }}>
               <NumberField label="Trial length (days)" min={1} max={365} value={daysDraft} onChange={setDaysDraft}
                 disabled={!cfg.trialEnabled} hint="Counted from each student's own signup" />
               <div style={{ flex: 1, minWidth: 220 }}>
-                <p style={{ fontSize: 13, fontWeight: 600, color: C.ink, margin: '0 0 4px' }}>Free Enterprise access</p>
+                <p style={{ fontSize: 13, fontWeight: 600, color: C.ink, margin: '0 0 4px' }}>Free {planName} access</p>
                 <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.6, margin: 0 }}>
                   {cfg.trialEnabled
-                    ? <>Every SEBT signup gets Enterprise for <strong style={{ color: C.ink }}>{cfg.trialDays} days</strong>, then drops to free automatically.</>
+                    ? <>Every SEBT signup gets {planName} for <strong style={{ color: C.ink }}>{cfg.trialDays} days</strong>, then drops to free automatically.</>
                     : <>Off. SEBT signups join on the free plan and keep the student badge.</>}
                 </p>
               </div>
@@ -258,8 +294,8 @@ export function AdminSebtSettings() {
                 <span style={{ fontSize: 12.5, fontWeight: 600, color: cfg.trialEnabled ? '#1F7A44' : C.graphite, fontFamily: MONO }}>
                   {cfg.trialEnabled ? 'ON' : 'OFF'}
                 </span>
-                <Toggle on={cfg.trialEnabled} busy={busy} label="Enterprise trial"
-                  onClick={() => save({ trialEnabled: !cfg.trialEnabled }, !cfg.trialEnabled ? 'Enterprise trial on' : 'Enterprise trial off')} />
+                <Toggle on={cfg.trialEnabled} busy={busy} label={`${planName} trial`}
+                  onClick={() => save({ trialEnabled: !cfg.trialEnabled }, !cfg.trialEnabled ? `${planName} trial on` : `${planName} trial off`)} />
               </div>
             </div>
 
@@ -279,7 +315,7 @@ export function AdminSebtSettings() {
             <div style={{ borderTop: `1px solid ${C.hair}`, paddingTop: 18 }}>
               <p style={{ fontSize: 13, fontWeight: 600, color: C.ink, margin: '0 0 4px' }}>Grant to students who already signed up</p>
               <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.6, margin: '0 0 14px' }}>
-                Starts a fresh {cfg.trialDays}-day Enterprise clock from now. Students who have since bought a paid plan are skipped.
+                Gives {planName} with a fresh {cfg.trialDays}-day clock from now. Students who paid (card or local payment) are skipped.
               </p>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <button onClick={() => setConfirmGrant('batch')} disabled={busy || !cfg.trialEnabled || !cfg.batchStudents} style={{ ...BTN, opacity: busy || !cfg.trialEnabled || !cfg.batchStudents ? 0.5 : 1 }}>
@@ -315,7 +351,7 @@ export function AdminSebtSettings() {
           <div style={{ background: C.paper, borderRadius: 16, padding: '26px 28px', maxWidth: 440, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
             <h3 style={{ fontSize: 18, fontWeight: 600, color: C.ink, marginBottom: 10 }}>End {cfg.activeTrials.toLocaleString()} live trials now?</h3>
             <p style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.6, marginBottom: 22 }}>
-              These SEBT students move from Enterprise to the <strong style={{ color: C.ink }}>Free</strong> plan immediately and see a
+              These SEBT students move from their trial plan to the <strong style={{ color: C.ink }}>Free</strong> plan immediately and see a
               &ldquo;plan expired, upgrade&rdquo; popup next time they open the dashboard. Students who paid are not touched.
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
@@ -329,10 +365,10 @@ export function AdminSebtSettings() {
       {confirmGrant && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,18,14,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: 20 }} onClick={() => setConfirmGrant(null)}>
           <div style={{ background: C.paper, borderRadius: 16, padding: '26px 28px', maxWidth: 440, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ fontSize: 18, fontWeight: 600, color: C.ink, marginBottom: 10 }}>Grant Enterprise for {cfg.trialDays} days?</h3>
+            <h3 style={{ fontSize: 18, fontWeight: 600, color: C.ink, marginBottom: 10 }}>Grant {planName} for {cfg.trialDays} days?</h3>
             <p style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.6, marginBottom: 22 }}>
               This updates up to <strong style={{ color: C.ink }}>{(confirmGrant === 'batch' ? cfg.batchStudents : cfg.totalStudents).toLocaleString()}</strong>
-              {confirmGrant === 'batch' ? <> students in batch {cfg.batch}</> : <> SEBT students</>}, restarting their trial from today. Anyone on a paid subscription is left alone.
+              {confirmGrant === 'batch' ? <> students in batch {cfg.batch}</> : <> SEBT students</>}: they get <strong style={{ color: C.ink }}>{planName}</strong>, restarting their trial from today. Anyone who paid is left alone.
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button onClick={() => setConfirmGrant(null)} style={{ background: 'transparent', border: `1px solid ${C.hairInk}`, color: C.ink, borderRadius: 100, padding: '9px 18px', fontSize: 13.5, fontFamily: 'inherit', cursor: 'pointer' }}>Cancel</button>

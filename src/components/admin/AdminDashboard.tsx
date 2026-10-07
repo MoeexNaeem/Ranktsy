@@ -103,6 +103,8 @@ function statusPill(s: string | null): { label: string; fg: string; bg: string }
 // Admin wants EXACT figures (1,300 - not "1.3k").
 const exact = (n: number) => (n ?? 0).toLocaleString('en-US')
 const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }) : '-'
+// Chart label for a day: "Wed 7". Charts read oldest -> newest, left to right.
+const dayLabel = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', timeZone: 'UTC' }).replace(',', '')
 const fmtDay = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 const numCell: React.CSSProperties = { ...tdMono, textAlign: 'right' }
 const numTh: React.CSSProperties = { ...th, textAlign: 'right' }
@@ -306,7 +308,7 @@ export function AdminDashboard() {
   // Keep the Messages nav badge current: poll the unread support-message count.
   useEffect(() => {
     let alive = true
-    const poll = () => fetch('/api/admin/chat').then(r => r.json()).then(d => { if (alive && d?.success) setMsgUnread(d.data.totalUnread) }).catch(() => {})
+    const poll = () => fetch('/api/admin/chat?countOnly=1').then(r => r.json()).then(d => { if (alive && d?.success) setMsgUnread(d.data.totalUnread) }).catch(() => {})
     poll()
     const t = setInterval(poll, 15000)
     // "Mark all read" in Messages: refresh the sidebar badge right away.
@@ -425,6 +427,12 @@ export function AdminDashboard() {
     [extRows, extPage],
   )
 
+  // Tracking numbers: unknown (not loaded, or not counted yet) shows "-", never a fake 0.
+  const tv = (v: number | null | undefined) => (typeof v === 'number' ? v : null)
+  const measuredSub = (what: string) => !track ? undefined
+    : track.measuredAt ? `${what} · as of ${new Date(track.measuredAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+    : 'counting in the background, check back later'
+
   // ─── Overview derived series (computed server-side, mapped for the charts) ───
   const signups = stats?.signups ?? []
   const planDist = useMemo(() => {
@@ -523,7 +531,7 @@ export function AdminDashboard() {
               <div className="rsplit" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16, alignItems: 'start' }}>
                 <div style={{ ...cardStyle, padding: '20px 22px' }}>
                   <SectionTitle>New signups · last 14 days</SectionTitle>
-                  <Bars data={signups} height={170} accent={C.orange} />
+                  <Bars data={signups} height={220} accent={C.orange} name="Signups" />
                 </div>
                 <div style={{ ...cardStyle, padding: '20px 22px' }}>
                   <SectionTitle>Plan distribution</SectionTitle>
@@ -534,26 +542,26 @@ export function AdminDashboard() {
               {usage && (
                 <div style={{ ...cardStyle, padding: '20px 22px' }}>
                   <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>searches / day</span>}>API usage · last 7 days</SectionTitle>
-                  <Bars data={[...usage.last7Days].reverse().map(d => ({ label: fmtDay(d.day).split(',')[0], value: d.searches }))} height={150} accent="#2563EB" />
+                  <Bars data={[...usage.last7Days].sort((a, b) => a.day.localeCompare(b.day)).map(d => ({ label: dayLabel(d.day), value: d.searches }))} height={220} accent="#2563EB" name="Searches" />
                 </div>
               )}
 
               {/* ─── Snapshot tracking (crowd-sourced listing history) ─────────── */}
               <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
-                <Kpi label="Listings tracked" value={track?.trackedListings ?? 0} accent={C.orange} delay={0} sub="on the watchlist" />
-                <Kpi label="Measured listings" value={track ? track.measuredListings : 0} accent="#0D9488" delay={60} sub={track && track.measuredListings == null ? 'calculating, check back in a few minutes' : 'real sales velocity'} />
-                <Kpi label="Listing snapshots" value={track?.listingSnapshots ?? 0} accent={C.ink} delay={120} />
-                <Kpi label="Snapshots today" value={track?.snapshotsToday ?? 0} accent="#2563EB" delay={180} />
+                <Kpi label="Listings tracked" value={tv(track?.trackedListings)} accent={C.orange} delay={0} sub="on the watchlist" />
+                <Kpi label="Measured listings" value={tv(track?.measuredListings)} accent="#0D9488" delay={60} sub={measuredSub('real sales velocity')} />
+                <Kpi label="Listing snapshots" value={tv(track?.listingSnapshots)} accent={C.ink} delay={120} />
+                <Kpi label="Snapshots today" value={tv(track?.snapshotsToday)} accent="#2563EB" delay={180} sub="new today (UTC)" />
               </div>
 
               {/* ─── Keyword rank tracking (extension capture) ──────────────────
                   Etsy has no rank-history endpoint, so these rows only exist
                   because the extension recorded the live results order. */}
               <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
-                <Kpi label="Keywords tracked" value={track?.keywordsTracked ?? 0} accent={C.orange} delay={0} sub="with rank history" />
-                <Kpi label="Rank movement" value={track ? (track.measuredRankPairs ?? null) : 0} accent="#0D9488" delay={60} sub={track && track.measuredRankPairs == null ? 'calculating, check back in a few minutes' : 'listing + keyword pairs'} />
-                <Kpi label="Rank snapshots" value={track?.rankSnapshots ?? 0} accent={C.ink} delay={120} />
-                <Kpi label="Ranks today" value={track?.rankSnapshotsToday ?? 0} accent="#2563EB" delay={180} />
+                <Kpi label="Keywords tracked" value={tv(track?.keywordsTracked)} accent={C.orange} delay={0} sub="with rank history · updated daily" />
+                <Kpi label="Rank movement" value={tv(track?.measuredRankPairs)} accent="#0D9488" delay={60} sub={measuredSub('listing + keyword pairs')} />
+                <Kpi label="Rank snapshots" value={tv(track?.rankSnapshots)} accent={C.ink} delay={120} />
+                <Kpi label="Ranks today" value={tv(track?.rankSnapshotsToday)} accent="#2563EB" delay={180} sub="new today (UTC)" />
               </div>
 
               {track && track.recent.length > 0 && (
@@ -765,7 +773,7 @@ export function AdminDashboard() {
 
                 <div style={{ ...cardStyle, padding: '20px 22px' }}>
                   <SectionTitle right={<span style={{ fontSize: 10.5, fontFamily: MONO, color: '#808080' }}>Etsy + Google calls / day</span>}>API calls · last 7 days</SectionTitle>
-                  <Bars data={[...usage.last7Days].reverse().map(d => ({ label: fmtDay(d.day).split(',')[0], value: d.etsyCalls + d.googleCalls }))} height={160} accent={C.orange} />
+                  <Bars data={[...usage.last7Days].sort((a, b) => a.day.localeCompare(b.day)).map(d => ({ label: dayLabel(d.day), value: d.etsyCalls + d.googleCalls }))} height={240} accent={C.orange} name="API calls" />
                 </div>
 
                 <div>

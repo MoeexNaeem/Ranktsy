@@ -80,7 +80,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<RegisterRespo
 
     // SEBT NEXT education cohort: signups via the SEBT link (?cohort=sebt) are
     // stamped with the live batch number and, while the trial is on, granted the
-    // Enterprise plan for the configured number of days. That runs on the comp
+    // plan the admin picked (Settings, SEBT NEXT) for the configured number of days. That runs on the comp
     // clock (compExpiresAt), so it auto-reverts to free with no webhook - see
     // plan-lifecycle. Only honoured while registration is open: defence in depth,
     // since the SEBT pages already show a "Batch N has ended" screen.

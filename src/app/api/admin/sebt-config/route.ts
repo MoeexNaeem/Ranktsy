@@ -3,7 +3,8 @@ import { connectDB } from '@/lib/db'
 import { User, LocalPayment } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin } from '@/lib/auth/roles'
-import { getSebtConfig, setSebtConfig, clampBatch, clampDays, type SebtConfig } from '@/lib/sebt'
+import { getSebtConfig, setSebtConfig, clampBatch, clampDays, isSebtTrialPlan, type SebtConfig } from '@/lib/sebt'
+import { PLAN_LABELS } from '@/lib/plans'
 import type { ApiResponse } from '@/types'
 
 export const runtime = 'nodejs'
@@ -54,7 +55,7 @@ export async function GET(): Promise<NextResponse<ApiResponse<ConfigPayload>>> {
 
 /**
  * Save settings, or run a bulk grant.
- *   { batch?, registrationOpen?, trialEnabled?, trialDays? }  → save
+ *   { batch?, registrationOpen?, trialEnabled?, trialDays?, trialPlan? }  → save
  *   { applyToAll: true, scope?: 'batch' | 'all' }             → (re)grant the trial
  *   { endTrials: true }                                        → end every live trial now
  *
@@ -99,15 +100,17 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<C
     if (body?.applyToAll) {
       const cfg = await getSebtConfig()
       if (!cfg.trialEnabled) {
-        return NextResponse.json({ success: false, error: 'Turn the Enterprise trial on before granting it.' }, { status: 400 })
+        return NextResponse.json({ success: false, error: `Turn the ${PLAN_LABELS[cfg.trialPlan]} trial on before granting it.` }, { status: 400 })
       }
       await connectDB()
       const scope = body.scope === 'batch' ? { sebtBatch: cfg.batch } : {}
+      // Never touch a student who paid: a real subscription, or a bank/JazzCash
+      // payment still running. Their paid plan must not be swapped for a comp grant
+      // (with a lower trial plan that would be a downgrade).
+      const paidLocally = await LocalPayment.distinct('userId', { status: 'approved', grantedUntil: { $gt: new Date() } }) as string[]
       const r = await User.updateMany(
-        // Never touch a student who has since bought a real subscription: their
-        // paid plan must not be overwritten by a comp grant.
-        { sebtStudent: true, ...scope, lsSubscriptionId: null, subscriptionStatus: { $nin: ['active', 'on_trial'] } },
-        { $set: { plan: 'enterprise', compExpiresAt: new Date(Date.now() + cfg.trialDays * DAY) } },
+        { sebtStudent: true, ...scope, lsSubscriptionId: null, subscriptionStatus: { $nin: ['active', 'on_trial'] }, _id: { $nin: paidLocally } },
+        { $set: { plan: cfg.trialPlan, compExpiresAt: new Date(Date.now() + cfg.trialDays * DAY) } },
       )
       return NextResponse.json({ success: true, data: { ...(await payload()), affected: r.modifiedCount ?? 0 } })
     }
@@ -117,6 +120,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<C
     if (body?.registrationOpen !== undefined) patch.registrationOpen = !!body.registrationOpen
     if (body?.trialEnabled !== undefined)     patch.trialEnabled = !!body.trialEnabled
     if (body?.trialDays !== undefined)        patch.trialDays = clampDays(body.trialDays)
+    if (body?.trialPlan !== undefined) {
+      if (!isSebtTrialPlan(body.trialPlan)) return NextResponse.json({ success: false, error: 'Unknown plan.' }, { status: 400 })
+      patch.trialPlan = body.trialPlan
+    }
 
     if (!Object.keys(patch).length) {
       return NextResponse.json({ success: false, error: 'Nothing to update.' }, { status: 400 })

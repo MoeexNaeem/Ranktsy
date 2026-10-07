@@ -190,7 +190,7 @@ export function UserDetailPanel({ userId, onClose }: { userId: string | null; on
 
               <Group title="Searches · last 14 days">
                 {d.usage.some(u => u.searches > 0)
-                  ? <Bars data={d.usage.map(u => ({ label: u.day.slice(8), value: u.searches }))} height={120} accent={C.orange} />
+                  ? <Bars data={d.usage.map(u => ({ label: String(Number(u.day.slice(8))), value: u.searches }))} height={160} accent={C.orange} name="Searches" />
                   : <p style={{ fontSize: 12.5, color: C.graphite }}>No searches recorded in the last 14 days.</p>}
               </Group>
 

@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Spinner, LoadingBlock } from './ui'
 import { C } from '@/utils'
 import { MONO, SectionTitle, EmptyState, cardStyle, tableCard, tableHead, th, tableRow, Pagination } from '@/components/dashboard/kit'
-import { Bars } from './AdminCharts'
+import { StackedBars } from './AdminCharts'
 import type { RevenueReport, CardMonth, LocalMonth, Customer } from '@/lib/revenue-report'
 
 const usd = (n: number) => `$${(n ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -82,7 +82,18 @@ export function AdminEarnings() {
   const rate = data?.pkrToUsd ?? null
   const yr = data?.years.find(y => y.year === year) ?? null
   const months = useMemo(() => (data?.months ?? []).filter(m => m.month.startsWith(year)), [data, year])
-  const chart = useMemo(() => [...months].reverse().map(m => ({ label: monthShort(m.month), value: Math.round(totalUsd(m.card, m.local, rate) * 100) / 100 })), [months, rate])
+  // Every month of the year (empty ones at 0) so the bars line up Jan..Dec, card and
+  // local stacked. Local is in USD only when a PKR rate is known.
+  const chart = useMemo(() => {
+    const byMonth = new Map(months.map(m => [m.month, m]))
+    return Array.from({ length: 12 }, (_, i) => {
+      const key = `${year}-${String(i + 1).padStart(2, '0')}`
+      const m = byMonth.get(key)
+      const card = m ? Math.round(m.card.revenueUsd * 100) / 100 : 0
+      const local = m && rate ? Math.round(m.local.revenuePkr * rate * 100) / 100 : 0
+      return { label: monthShort(key), card, local }
+    })
+  }, [months, rate, year])
 
   if (state === 'error' && !data) return <div style={cardStyle}><EmptyState icon="⚠️" title="Could not load earnings" sub="Please try again." /></div>
 
@@ -121,7 +132,8 @@ export function AdminEarnings() {
           {/* Monthly chart */}
           <div style={{ ...cardStyle, padding: '18px 22px' }}>
             <SectionTitle right={<span style={{ fontSize: 12, fontFamily: MONO, color: C.stone }}>{year} · card + local, USD</span>}>Revenue by month</SectionTitle>
-            <Bars data={chart} height={170} accent="#1F7A44" valueFormat={usd0} />
+            <StackedBars data={chart} height={280} valueFormat={usd0}
+              series={[{ key: 'card', name: 'Card (Lemon Squeezy)', color: '#2563EB' }, ...(rate ? [{ key: 'local', name: 'Local (bank / JazzCash)', color: C.orange }] : [])]} />
           </div>
 
           {/* Month by month */}

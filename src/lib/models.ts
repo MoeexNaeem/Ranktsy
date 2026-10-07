@@ -800,6 +800,8 @@ const ChatMessageSchema = new Schema<IChatMessageDoc>({
   broadcast:   { type: String, enum: ['all', 'sebt', null], default: null },
 }, { timestamps: true })
 ChatMessageSchema.index({ userId: 1, createdAt: 1 })
+// The admin's unread badge counts { sender: 'user', readByAdmin: false } every 15 s.
+ChatMessageSchema.index({ sender: 1, readByAdmin: 1 })
 
 // Attachment bytes for a chat message, stored base64 in their own collection so
 // the chat message docs stay small. Served only through the auth-gated

@@ -9,9 +9,10 @@
  *     on. While it is on, /register/sebtnext and /login/sebtnext are live and each
  *     signup is stamped with that batch number. Flip it off and the links show
  *     "Batch N has ended". Nothing expires on its own any more; the admin decides.
- *  2. ENTERPRISE TRIAL - a toggle plus a day count. While on, every SEBT signup
- *     gets the Enterprise plan free for that many days, counted from THEIR signup
- *     via the comp clock (compExpiresAt), after which they auto-revert to free.
+ *  2. FREE TRIAL - a toggle, a plan (Starter … Enterprise, chosen by the admin) and
+ *     a day count. While on, every SEBT signup gets that plan free for that many
+ *     days, counted from THEIR signup via the comp clock (compExpiresAt), after
+ *     which they auto-revert to free.
  *     See plan-lifecycle.ts, which does the reverting.
  *
  * The two are deliberately independent: registration can be open with the trial
@@ -21,12 +22,16 @@
 import { connectDB } from '@/lib/db'
 import { AppSetting } from '@/lib/models'
 import { memCache } from '@/lib/cache'
+import type { PlanSlug } from '@/lib/plans'
+import { isSebtTrialPlan, type SebtTrialPlan } from '@/lib/sebt-plans'
+export { SEBT_TRIAL_PLANS, isSebtTrialPlan, type SebtTrialPlan } from '@/lib/sebt-plans'
 
 export const SEBT_KEYS = {
   batch:      'sebt_batch',
   open:       'sebt_registration_open',
   trialOn:    'sebt_trial_enabled',
   trialDays:  'sebt_trial_days',
+  trialPlan:  'sebt_trial_plan',
 } as const
 
 export interface SebtConfig {
@@ -34,8 +39,10 @@ export interface SebtConfig {
   batch: number
   /** Are /register/sebtnext and /login/sebtnext live right now? */
   registrationOpen: boolean
-  /** Do new SEBT signups get the free Enterprise grant? */
+  /** Do new SEBT signups get the free plan grant? */
   trialEnabled: boolean
+  /** Which plan that grant gives. */
+  trialPlan: SebtTrialPlan
   /** Length of that grant, in days. */
   trialDays: number
 }
@@ -45,6 +52,7 @@ export const SEBT_DEFAULTS: SebtConfig = {
   batch: 1,
   registrationOpen: false,
   trialEnabled: true,
+  trialPlan: 'enterprise',
   trialDays: 7,
 }
 
@@ -74,12 +82,13 @@ export async function getSebtConfig(): Promise<SebtConfig> {
   try {
     await connectDB()
     const rows = await AppSetting.find({ key: { $in: Object.values(SEBT_KEYS) } })
-      .lean<{ key: string; bool?: boolean; num?: number }[]>()
+      .lean<{ key: string; bool?: boolean; num?: number; str?: string }[]>()
     const by = new Map(rows.map(r => [r.key, r]))
     const cfg: SebtConfig = {
       batch:            clampBatch(by.get(SEBT_KEYS.batch)?.num ?? SEBT_DEFAULTS.batch),
       registrationOpen: by.get(SEBT_KEYS.open)?.bool ?? SEBT_DEFAULTS.registrationOpen,
       trialEnabled:     by.get(SEBT_KEYS.trialOn)?.bool ?? SEBT_DEFAULTS.trialEnabled,
+      trialPlan:        isSebtTrialPlan(by.get(SEBT_KEYS.trialPlan)?.str) ? by.get(SEBT_KEYS.trialPlan)!.str as SebtTrialPlan : SEBT_DEFAULTS.trialPlan,
       trialDays:        clampDays(by.get(SEBT_KEYS.trialDays)?.num ?? SEBT_DEFAULTS.trialDays),
     }
     memCache.set(CACHE_KEY, cfg, CACHE_TTL_S)
@@ -95,13 +104,14 @@ export async function getSebtConfig(): Promise<SebtConfig> {
 export async function setSebtConfig(patch: Partial<SebtConfig>): Promise<SebtConfig> {
   await connectDB()
   const writes: Promise<unknown>[] = []
-  const put = (key: string, value: { bool?: boolean; num?: number }) =>
+  const put = (key: string, value: { bool?: boolean; num?: number; str?: string }) =>
     writes.push(AppSetting.updateOne({ key }, { $set: value }, { upsert: true }))
 
   if (patch.batch !== undefined)            put(SEBT_KEYS.batch,     { num: clampBatch(patch.batch) })
   if (patch.registrationOpen !== undefined) put(SEBT_KEYS.open,      { bool: !!patch.registrationOpen })
   if (patch.trialEnabled !== undefined)     put(SEBT_KEYS.trialOn,   { bool: !!patch.trialEnabled })
   if (patch.trialDays !== undefined)        put(SEBT_KEYS.trialDays, { num: clampDays(patch.trialDays) })
+  if (patch.trialPlan !== undefined && isSebtTrialPlan(patch.trialPlan)) put(SEBT_KEYS.trialPlan, { str: patch.trialPlan })
 
   await Promise.all(writes)
   memCache.delete(CACHE_KEY)
@@ -119,8 +129,8 @@ export function sebtBatchName(batch: number): string {
 }
 
 /** The fields to set on a new SEBT signup, or null when no grant applies. */
-export function sebtGrantFields(cfg: SebtConfig): { plan: 'enterprise'; compExpiresAt: Date; sebtStudent: true; sebtBatch: number } | { sebtStudent: true; sebtBatch: number } {
+export function sebtGrantFields(cfg: SebtConfig): { plan: PlanSlug; compExpiresAt: Date; sebtStudent: true; sebtBatch: number } | { sebtStudent: true; sebtBatch: number } {
   const base = { sebtStudent: true as const, sebtBatch: cfg.batch }
   if (!cfg.trialEnabled) return base
-  return { ...base, plan: 'enterprise' as const, compExpiresAt: new Date(Date.now() + cfg.trialDays * 24 * 60 * 60 * 1000) }
+  return { ...base, plan: cfg.trialPlan, compExpiresAt: new Date(Date.now() + cfg.trialDays * 24 * 60 * 60 * 1000) }
 }

@@ -4,6 +4,7 @@ import { ListingSnapshot, ShopSnapshot, TrackedListing, SearchRankSnapshot, Keyw
 import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin } from '@/lib/auth/roles'
 import { singleFlight } from '@/lib/concurrency'
+import { readDaily } from '@/lib/dailyCounters'
 import type { ApiResponse } from '@/types'
 
 export const runtime = 'nodejs'
@@ -13,19 +14,24 @@ export const runtime = 'nodejs'
  * sourced tracking dataset grow. `measuredListings` is the payoff metric: listings
  * with >= 2 dated review-count snapshots, i.e. ones now yielding REAL sales velocity.
  *
- * Everything here must stay cheap: the dashboard loads it on every visit, and the old
- * version scanned all ~3.6M snapshots twice per load (49s for "today" alone), which
- * timed out (the dashboard showed zeros) and slowed the database for every user.
- *   - "today" counts use the capturedAt index (each day's row is stamped that day);
- *   - the two "measured" totals need a full group-by, so they are computed in the
- *     background at most every HEAVY_TTL_MS and served from the last saved result.
+ * Everything here must stay cheap: the dashboard loads it on every visit. With ~19M
+ * listing snapshots, counting "today" took 60 s+ and "keywords tracked" (a distinct)
+ * 23 s, so the request timed out and the Overview showed zeros (2026-10-08).
+ *   - "today" counts come from daily counters bumped by the snapshot writers;
+ *   - "keywords tracked" and the two "measured" totals need full scans, so they run
+ *     in the background at most once a day (one worker, via a lease) and the last
+ *     saved result is served instantly.
  */
 const HEAVY_KEY = 'snapshot-stats-heavy'
 const HEAVY_LOCK_KEY = 'snapshot-stats-heavy-lock'
 // Once a day is plenty for an admin growth number; each run scans millions of rows.
 const HEAVY_TTL_MS = 24 * 3600_000
-// A run holds this lease; another worker can only start once it has expired.
-const HEAVY_LEASE_MS = 30 * 60_000
+// A run holds this lease; another worker can only start once it has expired. As long
+// as the TTL: a scan that fails (it timed out daily from 2026-09-27) is retried once
+// a day, not restarted on every admin visit (it was every 30 min, slowing the DB).
+const HEAVY_LEASE_MS = HEAVY_TTL_MS
+const KW_KEY = 'snapshot-stats-keywords'
+const KW_LOCK_KEY = 'snapshot-stats-keywords-lock'
 
 interface HeavyStats { measuredListings: number; measuredRankPairs: number; computedAt: string }
 
@@ -34,12 +40,12 @@ interface HeavyStats { measuredListings: number; measuredRankPairs: number; comp
  * covers one process: with 4 workers, admin dashboard visits started several full
  * scans at once and slowed the database for every user, 2026-10-03).
  */
-async function claimHeavyLease(): Promise<boolean> {
+async function claimLease(lockKey: string, ms: number): Promise<boolean> {
   const now = Date.now()
   try {
     const r = await AppSetting.updateOne(
-      { key: HEAVY_LOCK_KEY, $or: [{ num: { $lt: now } }, { num: { $exists: false } }] },
-      { $set: { num: now + HEAVY_LEASE_MS } },
+      { key: lockKey, $or: [{ num: { $lt: now } }, { num: { $exists: false } }] },
+      { $set: { num: now + ms } },
       { upsert: true },
     )
     return r.modifiedCount === 1 || r.upsertedCount === 1
@@ -49,7 +55,7 @@ async function claimHeavyLease(): Promise<boolean> {
 }
 
 async function computeHeavy(): Promise<HeavyStats | null> {
-  if (!(await claimHeavyLease())) return null
+  if (!(await claimLease(HEAVY_LOCK_KEY, HEAVY_LEASE_MS))) return null
   const [measuredAgg, rankMeasuredAgg] = await Promise.all([
     // Listings with >= 2 review-count snapshots → real measured sales velocity.
     ListingSnapshot.aggregate<{ n: number }>([
@@ -84,6 +90,20 @@ async function heavyStats(): Promise<HeavyStats | null> {
   return saved
 }
 
+/** Distinct keywords with rank history: saved once a day, served from the last run. */
+async function keywordsTrackedCount(): Promise<number | null> {
+  const doc = await AppSetting.findOne({ key: KW_KEY }).lean<{ num?: number; updatedAt?: Date; str?: string }>()
+  const at = doc?.str ? Number(doc.str) : 0
+  if (!doc || Date.now() - at > HEAVY_TTL_MS) {
+    void singleFlight(KW_KEY, async () => {
+      if (!(await claimLease(KW_LOCK_KEY, HEAVY_TTL_MS))) return
+      const n = await SearchRankSnapshot.distinct('keyword').maxTimeMS(5 * 60_000).then(k => k.length)
+      await AppSetting.updateOne({ key: KW_KEY }, { $set: { num: n, str: String(Date.now()) } }, { upsert: true })
+    }).catch(e => console.error('[Admin] keywords-tracked count failed:', e))
+  }
+  return typeof doc?.num === 'number' ? doc.num : null
+}
+
 export async function GET(): Promise<NextResponse<ApiResponse<unknown>>> {
   const auth = await getCurrentUser().catch(() => null)
   if (!auth) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
@@ -91,7 +111,6 @@ export async function GET(): Promise<NextResponse<ApiResponse<unknown>>> {
 
   try {
     await connectDB()
-    const startOfDay = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00Z')
 
     const [
       trackedListings, listingSnapshots, snapshotsToday, shopSnapshots,
@@ -99,12 +118,12 @@ export async function GET(): Promise<NextResponse<ApiResponse<unknown>>> {
     ] = await Promise.all([
       TrackedListing.estimatedDocumentCount(),
       ListingSnapshot.estimatedDocumentCount(),
-      ListingSnapshot.countDocuments({ capturedAt: { $gte: startOfDay } }),
+      readDaily('listingSnapshots'),
       ShopSnapshot.estimatedDocumentCount(),
       // Keyword rank history - the dataset no Etsy endpoint can ever backfill.
       SearchRankSnapshot.estimatedDocumentCount(),
-      SearchRankSnapshot.countDocuments({ capturedAt: { $gte: startOfDay } }),
-      SearchRankSnapshot.distinct('keyword').then(k => k.length).catch(() => 0),
+      readDaily('rankSnapshots'),
+      keywordsTrackedCount(),
       KeywordMarketSnapshot.estimatedDocumentCount(),
       heavyStats(),
     ])

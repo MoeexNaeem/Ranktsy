@@ -1,10 +1,11 @@
 'use client'
 /**
- * Small, dependency-free chart + motion primitives for the admin dashboard.
- * All animate ONCE on mount (count-up numbers, growing bars, sweeping donut) -
- * lively but not distracting. Colours come from the app's `C`/`D` tokens.
+ * Chart + motion primitives for the admin dashboard: count-up KPI cards, a
+ * donut, and Recharts bar charts (axis, gridlines, hover tooltip). Colours come
+ * from the app's `C`/`D` tokens.
  */
 import { useEffect, useRef, useState } from 'react'
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts'
 import { C } from '@/utils'
 import { cardStyle, MONO } from '@/components/dashboard/kit'
 
@@ -55,33 +56,69 @@ export function Kpi({ label, value, accent = C.ink, sub, format, delay = 0 }: {
   )
 }
 
-// ─── Vertical bar chart ───────────────────────────────────────────────────────
-export function Bars({ data, height = 150, accent = C.orange, valueFormat = (n) => n.toLocaleString('en-US') }: {
-  data: { label: string; value: number }[]; height?: number; accent?: string; valueFormat?: (n: number) => string
-}) {
-  const [grown, setGrown] = useState(false)
-  useEffect(() => { const t = setTimeout(() => setGrown(true), 60); return () => clearTimeout(t) }, [])
-  const max = Math.max(1, ...data.map(d => d.value))
-  const gap = 'clamp(4px, 1.6%, 14px)'
+// ─── Bar charts (Recharts) ────────────────────────────────────────────────────
+const AXIS = '#9a9a92'
+const GRID = 'rgba(0,0,0,0.07)'
+const compact = (n: number) => Math.abs(n) >= 1e6 ? `${+(n / 1e6).toFixed(1)}M` : Math.abs(n) >= 1e3 ? `${+(n / 1e3).toFixed(1)}k` : String(Math.round(n))
+
+interface TipRow { name?: string; value?: number; color?: string; fill?: string }
+function ChartTip({ active, payload, label, format, showTotal }: { active?: boolean; payload?: TipRow[]; label?: string; format: (n: number) => string; showTotal?: boolean }) {
+  if (!active || !payload?.length) return null
+  const total = payload.reduce((t, p) => t + (Number(p.value) || 0), 0)
   return (
-    <div>
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap, height, paddingTop: 8, borderBottom: `1px solid ${C.ash}` }}>
-      {data.map((d, i) => {
-        const h = grown ? Math.max(2, (d.value / max) * (height - 34)) : 2
-        return (
-          <div key={i} title={`${d.label}: ${valueFormat(d.value)}`} style={{ flex: '1 1 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 0 }}>
-            <span style={{ fontSize: 10.5, fontFamily: MONO, color: C.graphite, opacity: grown ? 1 : 0, transition: 'opacity 0.5s', whiteSpace: 'nowrap' }}>{d.value > 0 ? valueFormat(d.value) : ''}</span>
-            <div style={{ width: '100%', maxWidth: 44, height: h, background: accent, opacity: d.value > 0 ? 0.85 : 0.2, borderRadius: '4px 4px 0 0', transition: `height 0.6s cubic-bezier(.2,.7,.2,1) ${i * 25}ms` }} />
-          </div>
-        )
-      })}
-    </div>
-    <div style={{ display: 'flex', gap, marginTop: 6 }}>
-      {data.map((d, i) => (
-        <span key={i} style={{ flex: '1 1 0', minWidth: 0, textAlign: 'center', fontSize: 10.5, fontFamily: MONO, color: C.stone, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.label}</span>
+    <div style={{ background: '#fff', border: `1px solid ${C.ash}`, borderRadius: 10, boxShadow: '0 8px 28px rgba(20,18,14,0.12)', padding: '9px 12px', minWidth: 140 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: C.ink, marginBottom: 4 }}>{label}</div>
+      {payload.map((p, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: C.graphite, lineHeight: 1.75 }}>
+          <span style={{ width: 9, height: 9, borderRadius: 2, background: p.color ?? p.fill, flexShrink: 0 }} />
+          <span style={{ flex: 1 }}>{p.name}</span>
+          <strong style={{ color: C.ink, fontWeight: 600 }}>{format(Number(p.value) || 0)}</strong>
+        </div>
       ))}
+      {showTotal && payload.length > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, borderTop: `1px solid ${C.hair}`, marginTop: 4, paddingTop: 4, fontSize: 12.5, color: C.ink, fontWeight: 600 }}>
+          <span>Total</span><span>{format(total)}</span>
+        </div>
+      )}
     </div>
-    </div>
+  )
+}
+
+/** Single-series bar chart with a y-axis, gridlines and a hover tooltip. */
+export function Bars({ data, height = 200, accent = C.orange, valueFormat = (n) => n.toLocaleString('en-US'), name = 'Value' }: {
+  data: { label: string; value: number }[]; height?: number; accent?: string; valueFormat?: (n: number) => string; name?: string
+}) {
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} margin={{ top: 6, right: 6, bottom: 0, left: 0 }} barCategoryGap="28%">
+        <CartesianGrid stroke={GRID} strokeDasharray="3 4" vertical={false} />
+        <XAxis dataKey="label" tick={{ fontSize: 11.5, fill: AXIS }} tickLine={false} axisLine={{ stroke: C.ash }} interval="preserveStartEnd" minTickGap={8} />
+        <YAxis tick={{ fontSize: 11.5, fill: AXIS }} tickLine={false} axisLine={false} width={46} allowDecimals={false} tickFormatter={v => compact(Number(v))} />
+        <Tooltip cursor={{ fill: 'rgba(0,0,0,0.04)' }} content={(p) => <ChartTip active={p.active} payload={p.payload as unknown as TipRow[]} label={String(p.label ?? '')} format={valueFormat} />} />
+        <Bar dataKey="value" name={name} fill={accent} radius={[5, 5, 0, 0]} maxBarSize={44} animationDuration={600} />
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}
+
+/** Stacked bars for several series (e.g. card + local revenue), with a legend. */
+export function StackedBars({ data, series, height = 240, valueFormat = (n) => n.toLocaleString('en-US') }: {
+  data: Record<string, number | string>[]; series: { key: string; name: string; color: string }[]; height?: number; valueFormat?: (n: number) => string
+}) {
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} margin={{ top: 6, right: 6, bottom: 0, left: 0 }} barCategoryGap="26%">
+        <CartesianGrid stroke={GRID} strokeDasharray="3 4" vertical={false} />
+        <XAxis dataKey="label" tick={{ fontSize: 11.5, fill: AXIS }} tickLine={false} axisLine={{ stroke: C.ash }} interval={0} />
+        <YAxis tick={{ fontSize: 11.5, fill: AXIS }} tickLine={false} axisLine={false} width={52} tickFormatter={v => valueFormat(Number(v)).replace(/\.\d+$/, '')} />
+        <Tooltip cursor={{ fill: 'rgba(0,0,0,0.04)' }} content={(p) => <ChartTip active={p.active} payload={p.payload as unknown as TipRow[]} label={String(p.label ?? '')} format={valueFormat} showTotal />} />
+        <Legend verticalAlign="top" align="right" height={28} iconType="square" iconSize={9} wrapperStyle={{ fontSize: 12, color: C.graphite }} />
+        {series.map((sr, i) => (
+          <Bar key={sr.key} dataKey={sr.key} name={sr.name} stackId="s" fill={sr.color} maxBarSize={44} animationDuration={600}
+            radius={i === series.length - 1 ? [5, 5, 0, 0] : [0, 0, 0, 0]} />
+        ))}
+      </BarChart>
+    </ResponsiveContainer>
   )
 }
 

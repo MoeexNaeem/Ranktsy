@@ -21,6 +21,7 @@ import { connectDB } from '@/lib/db'
 import { ShopSnapshot, ListingSnapshot, TrackedListing, SearchRankSnapshot, KeywordMarketSnapshot, KeywordSuggestion } from '@/lib/models'
 import { reviewRate } from '@/lib/salesEstimate'
 import { memCache } from '@/lib/cache'
+import { bumpDaily } from '@/lib/dailyCounters'
 import type { EtsyListing, SalesPoint, ShopVelocity, ListingVelocity, ListingSalesPoint, ListingRankHistory, ListingRankPoint } from '@/types'
 
 /** UTC day key - the dedupe unit. Local time would double-count across zones. */
@@ -180,7 +181,7 @@ export function recordListingSnapshots(listings: EtsyListing[]): void {
       const day = dayKey()
       const known = await knownTitleTags(rows.map(l => l.listing_id))
       const changedTracked: { listingId: number; title?: string; tags?: string[] }[] = []
-      await ListingSnapshot.bulkWrite(
+      const written = await ListingSnapshot.bulkWrite(
         rows.map(l => {
           const set: Record<string, unknown> = {
             shopId:   l.shop_id,
@@ -205,6 +206,7 @@ export function recordListingSnapshots(listings: EtsyListing[]): void {
         }),
         { ordered: false },
       )
+      bumpDaily('listingSnapshots', written.upsertedCount)   // new rows today, for the admin
       // Keep TrackedListing's title/tags = the latest seen value, so the next
       // comparison is against what the snapshots actually hold. Existing rows only:
       // this path must not add listings to the extension's watchlist.
@@ -478,7 +480,8 @@ export async function recordObservedListings(rows: ObservedListing[]): Promise<n
       }
     })
 
-    await ListingSnapshot.bulkWrite(snapOps, { ordered: false })
+    const written = await ListingSnapshot.bulkWrite(snapOps, { ordered: false })
+    bumpDaily('listingSnapshots', written.upsertedCount)
     await TrackedListing.bulkWrite(trackOps, { ordered: false })
     for (const r of valid) rememberObservation(r, day)
     return accepted.length
@@ -600,7 +603,7 @@ export function recordSearchRanks(keywordRaw: string, rows: ObservedRank[], mark
       const now = new Date()
 
       if (valid.length) {
-        await SearchRankSnapshot.bulkWrite(
+        const ranked = await SearchRankSnapshot.bulkWrite(
           valid.map(r => ({
             updateOne: {
               // Country is part of the key: the same listing legitimately holds
@@ -618,6 +621,7 @@ export function recordSearchRanks(keywordRaw: string, rows: ObservedRank[], mark
           })),
           { ordered: false },
         )
+        bumpDaily('rankSnapshots', ranked.upsertedCount)
       }
 
       if (market) {
