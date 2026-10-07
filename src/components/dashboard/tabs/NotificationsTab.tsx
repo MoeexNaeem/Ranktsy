@@ -10,7 +10,8 @@ import { C, withAlpha } from '@/utils'
 import { Card, EmptyState, MONO } from '../kit'
 import { Shimmer } from '../skeletons'
 import { ICON } from '@/components/ui/AnimIcon'
-import { useRealtime, relTime, notifAction, takePendingNotifFocus, type Notif } from '../Realtime'
+import { useRealtime, relTime, notifAction, takePendingNotifFocus, notifIsFormatted, type Notif } from '../Realtime'
+import { ChatText } from '@/components/chat/ChatText'
 
 type Filter = 'all' | 'unread' | 'messages' | 'alerts' | 'deals' | 'updates'
 
@@ -224,7 +225,9 @@ export function NotificationsTab() {
                         <span title={fullDate(n.createdAt)} style={{ fontSize: 12, color: C.stone, fontFamily: MONO, whiteSpace: 'nowrap', flexShrink: 0, marginTop: 2 }}>{relTime(n.createdAt)}</span>
                       </div>
                       {n.body && (
-                        <p style={{ fontSize: 14, color: C.graphite, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxWidth: 760 }}>{n.body}</p>
+                        notifIsFormatted(n)
+                          ? <div style={{ fontSize: 14, color: C.graphite, lineHeight: 1.6, wordBreak: 'break-word', maxWidth: 760 }}><ChatText text={n.body} /></div>
+                          : <p style={{ fontSize: 14, color: C.graphite, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxWidth: 760 }}>{n.body}</p>
                       )}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 8, flexWrap: 'wrap' }}>
                         <span style={{ fontSize: 11, fontWeight: 600, color: kind.color, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{kind.label}</span>

@@ -5,6 +5,8 @@
  * the SSE stream, so a reply or broadcast reaches them live.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { ChatText, chatPlainText } from '@/components/chat/ChatText'
+import { FormatToolbar, pasteFormatted } from '@/components/chat/FormatComposer'
 import { useConfirm, Spinner } from './ui'
 import { C } from '@/utils'
 import { MONO, SectionTitle, cardStyle, EmptyState } from '@/components/dashboard/kit'
@@ -94,6 +96,7 @@ export function AdminMessages() {
 
   // Message-everyone composer (writes into chat threads, not the notification bell).
   const [castText, setCastText] = useState('')
+  const castRef = useRef<HTMLTextAreaElement>(null)
   const [castAudience, setCastAudience] = useState<Audience>('all')
   const [castBusy, setCastBusy] = useState(false)
   const [castConfirm, setCastConfirm] = useState(false)
@@ -365,7 +368,8 @@ export function AdminMessages() {
               )
             })}
           </div>
-          <textarea value={castText} onChange={e => setCastText(e.target.value)} rows={3} maxLength={4000}
+          <FormatToolbar textareaRef={castRef} value={castText} onChange={setCastText} />
+          <textarea ref={castRef} value={castText} onChange={e => setCastText(e.target.value)} onPaste={e => pasteFormatted(e, castText, setCastText)} rows={6} maxLength={4000}
             placeholder={castAudience === 'sebt' ? 'Message to every SEBT student...' : 'Message to every user...'}
             style={{ ...field, resize: 'vertical' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -455,7 +459,7 @@ export function AdminMessages() {
                     <span style={{ fontSize: 10.5, color: C.stone, fontFamily: MONO, flexShrink: 0 }}>{rel(t.lastAt)}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', marginTop: 2 }}>
-                    <p style={{ fontSize: 12.5, color: t.unread > 0 ? C.ink : C.graphite, fontWeight: t.unread > 0 ? 500 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{t.lastSender === 'admin' ? 'You: ' : ''}{t.lastBody}</p>
+                    <p style={{ fontSize: 12.5, color: t.unread > 0 ? C.ink : C.graphite, fontWeight: t.unread > 0 ? 500 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{t.lastSender === 'admin' ? 'You: ' : ''}{t.lastSender === 'admin' ? chatPlainText(t.lastBody) : t.lastBody}</p>
                     {t.unread > 0 && <span style={{ background: C.orange, color: '#fff', fontSize: 10, fontWeight: 700, fontFamily: MONO, borderRadius: 100, minWidth: 18, textAlign: 'center', padding: '1px 6px', flexShrink: 0 }}>{t.unread}</span>}
                   </div>
                 </div>
@@ -497,7 +501,7 @@ export function AdminMessages() {
                     style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '76%', minWidth: editing ? '60%' : undefined, opacity: busy ? 0.55 : 1 }}>
                     {editing ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 7, background: C.paper, border: `2px solid ${C.orange}`, borderRadius: 14, padding: 9 }}>
-                        <textarea value={editText} onChange={e => setEditText(e.target.value)} autoFocus rows={3} maxLength={4000}
+                        <textarea value={editText} onChange={e => setEditText(e.target.value)} onPaste={e => pasteFormatted(e, editText, setEditText)} autoFocus rows={3} maxLength={4000}
                           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit() } else if (e.key === 'Escape') cancelEdit() }}
                           style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', border: 'none', outline: 'none', background: 'transparent', color: C.ink, fontSize: 13.5, fontFamily: 'inherit', lineHeight: 1.5 }} />
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 7 }}>
@@ -515,7 +519,7 @@ export function AdminMessages() {
                       {m.attachmentUrl && m.attachmentKind && (
                         <ChatAttachmentView url={m.attachmentUrl} name={m.attachmentName || 'file'} kind={m.attachmentKind} size={m.attachmentSize} />
                       )}
-                      {m.body && <span style={{ padding: m.attachmentKind === 'image' ? '2px 8px 4px' : 0 }}>{m.body}</span>}
+                      {m.body && <span style={{ padding: m.attachmentKind === 'image' ? '2px 8px 4px' : 0 }}>{m.sender === 'admin' ? <ChatText text={m.body} /> : m.body}</span>}
                     </div>
                     </>)}
                     <p title={exactTime(m.createdAt)} style={{ fontSize: 10.5, color: C.stone, fontFamily: MONO, marginTop: 3, textAlign: m.sender === 'admin' ? 'right' : 'left', cursor: 'default', display: 'flex', alignItems: 'center', gap: 6, justifyContent: mine ? 'flex-end' : 'flex-start', minHeight: 20 }}>
@@ -549,7 +553,8 @@ export function AdminMessages() {
                   style={{ display: 'grid', placeItems: 'center', width: 42, height: 42, background: C.snow, color: C.graphite, border: `1px solid ${C.hair}`, borderRadius: '50%', cursor: sending ? 'default' : 'pointer', flexShrink: 0 }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                 </button>
-                <textarea value={reply} onChange={e => { setReply(e.target.value); if (sel) drafts.current[sel] = e.target.value }} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply() } }}
+                <textarea value={reply} onChange={e => { setReply(e.target.value); if (sel) drafts.current[sel] = e.target.value }}
+                  onPaste={e => pasteFormatted(e, reply, v => { setReply(v); if (sel) drafts.current[sel] = v })} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply() } }}
                   placeholder="Write a reply…  (Enter to send, Shift+Enter for a new line)" rows={1} maxLength={4000}
                   style={{ flex: 1, resize: 'none', border: `1px solid ${C.hair}`, borderRadius: 22, background: C.snow, color: C.ink, fontSize: 13.5, fontFamily: 'inherit', padding: '11px 16px', outline: 'none', maxHeight: 120, lineHeight: 1.4 }} />
                 <button onClick={sendReply} disabled={!reply.trim() || sending} title="Send reply"

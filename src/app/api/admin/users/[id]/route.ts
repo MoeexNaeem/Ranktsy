@@ -9,6 +9,8 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin, resolveRole } from '@/lib/auth/roles'
 import { PLAN_SLUGS, effectivePlan } from '@/lib/plans'
 import { reconcileUserPlan } from '@/lib/plan-lifecycle'
+import { getSebtConfig, sebtCreditFields } from '@/lib/sebt'
+import { PLAN_LABELS } from '@/lib/plans'
 import { addMonths, grantMonthsFor } from '@/lib/local-payments'
 import { dailyLimitFor, activeBonus } from '@/lib/credits'
 import type { IApiUsage } from '@/types'
@@ -93,6 +95,30 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if ((PLAN_SLUGS as string[]).includes(body.plan)) update.plan = body.plan
   if (typeof body.isVerified === 'boolean') update.isVerified = body.isVerified
   if (typeof body.restricted === 'boolean') update.restricted = body.restricted
+  // SEBT NEXT group. Adding someone treats them like a new SEBT signup: the current
+  // batch number, plus the current free credits if they are switched on (only when
+  // they have none running, so a re-add never extends someone's credits). Removing
+  // ends their free credits today; their own plan is never touched either way.
+  let sebtNote = ''
+  if (typeof body.sebtStudent === 'boolean') {
+    await connectDB()
+    const now = new Date()
+    if (body.sebtStudent) {
+      const cfg = await getSebtConfig()
+      const cur = await User.findById(id).select('sebtCreditsExpiresAt').lean<{ sebtCreditsExpiresAt?: Date | null }>()
+      update.sebtStudent = true
+      update.sebtBatch = cfg.batch
+      const running = cur?.sebtCreditsExpiresAt && new Date(cur.sebtCreditsExpiresAt) > now
+      if (cfg.trialEnabled && !running) {
+        Object.assign(update, sebtCreditFields(cfg.trialPlan, cfg.trialDays))
+        sebtNote = ` (+${PLAN_LABELS[cfg.trialPlan]} free credits for ${cfg.trialDays} days)`
+      }
+    } else {
+      update.sebtStudent = false
+      update.sebtBatch = null
+      update.sebtCreditsExpiresAt = now
+    }
+  }
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ success: false, error: 'Nothing to update' }, { status: 400 })
   }
@@ -121,6 +147,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     logFromRequest('admin_action', req, { userId: auth?.id, email: auth?.email, detail: `${update.restricted ? 'restricted' : 'unrestricted'} ${u.email}` })
   }
   if ('role' in update) logFromRequest('admin_action', req, { userId: auth?.id, email: auth?.email, detail: `role of ${u.email} set to ${String(update.role)}` })
+  if ('sebtStudent' in update) logFromRequest('admin_action', req, { userId: auth?.id, email: auth?.email, detail: `${update.sebtStudent ? `added ${u.email} to SEBT batch ${String(update.sebtBatch)}${sebtNote}` : `removed ${u.email} from SEBT`}` })
   return NextResponse.json({ success: true, data: { id, ...update } })
 }
 

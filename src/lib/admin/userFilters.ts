@@ -9,12 +9,14 @@ import { PLAN_SLUGS, type PlanSlug } from '@/lib/plans'
  */
 export type EmailTypeFilter = 'all' | 'temp' | 'real'
 export type AccountFilter = 'all' | 'paying' | 'granted' | 'restricted' | 'pending'
-export interface UserFilters { q?: string; plan?: PlanSlug | 'all'; emailType?: EmailTypeFilter; account?: AccountFilter }
+export type GroupFilter = 'all' | 'sebt' | 'notsebt'
+export interface UserFilters { q?: string; plan?: PlanSlug | 'all'; emailType?: EmailTypeFilter; account?: AccountFilter; group?: GroupFilter }
 
 export function parseUserFilters(sp: URLSearchParams | Record<string, unknown>): UserFilters {
   const get = (k: string) => (sp instanceof URLSearchParams ? sp.get(k) : (sp[k] as string | undefined)) ?? undefined
   const plan = get('plan')
   const emailType = get('emailType')
+  const group = get('group')
   // `view=pending` is the older name for account=pending.
   const account = get('account') ?? (get('view') === 'pending' ? 'pending' : undefined)
   return {
@@ -22,6 +24,7 @@ export function parseUserFilters(sp: URLSearchParams | Record<string, unknown>):
     plan: plan && (PLAN_SLUGS as readonly string[]).includes(plan) ? plan as PlanSlug : 'all',
     emailType: emailType === 'temp' || emailType === 'real' ? emailType : 'all',
     account: account === 'paying' || account === 'granted' || account === 'restricted' || account === 'pending' ? account : 'all',
+    group: group === 'sebt' || group === 'notsebt' ? group : 'all',
   }
 }
 
@@ -62,9 +65,11 @@ export async function buildUserFilter(f: UserFilters): Promise<Q> {
   if (f.account === 'paying') and.push({ lsSubscriptionId: { $exists: true, $ne: null }, plan: { $ne: 'free' } })
   if (f.account === 'granted') and.push({ compExpiresAt: { $gt: now }, $or: [{ lsSubscriptionId: null }, { lsSubscriptionId: { $exists: false } }] })
   if (f.account === 'restricted') and.push({ restricted: true })
+  if (f.group === 'sebt') and.push({ sebtStudent: true })
+  if (f.group === 'notsebt') and.push({ sebtStudent: { $ne: true } })
   return { $and: and }
 }
 
 /** True when any filter beyond the default is active (search or a dropdown). */
 export const isFiltered = (f: UserFilters) =>
-  !!f.q || (f.plan && f.plan !== 'all') || (f.emailType && f.emailType !== 'all') || (f.account && f.account !== 'all')
+  !!f.q || (f.plan && f.plan !== 'all') || (f.emailType && f.emailType !== 'all') || (f.account && f.account !== 'all') || (f.group && f.group !== 'all')

@@ -7,7 +7,7 @@ import { connectDB } from '@/lib/db'
 import { User, KeywordHistory, ConnectedShop, LocalPayment } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin, resolveRole } from '@/lib/auth/roles'
-import { dailyLimitFor, activeBonus } from '@/lib/credits'
+import { dailyLimitFor, activeBonus, activeSebtCredits, creditLimitFor } from '@/lib/credits'
 import { effectivePlan } from '@/lib/plans'
 import { isFreeToProPromoOn } from '@/lib/promo'
 import { sweepComps } from '@/lib/plan-lifecycle'
@@ -66,7 +66,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const weekAgo = new Date(now.getTime() - 7 * DAY)
   const since14 = new Date(now.getTime() - 13 * DAY)   // 14-day window incl. today
 
-  const [total, verified, admins, payingCard, newThisWeek, searches, signupAgg, planAgg, matched, docs, promoOn, pending, tempMail] = await Promise.all([
+  const [sebtCount, total, verified, admins, payingCard, newThisWeek, searches, signupAgg, planAgg, matched, docs, promoOn, pending, tempMail] = await Promise.all([
+    User.countDocuments({ ...real, sebtStudent: true }),
     User.countDocuments(real),
     User.countDocuments({ isVerified: true }),
     User.countDocuments({ role: 'admin' }),
@@ -100,7 +101,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       { $sort: { _paid: -1, _planRank: -1, createdAt: -1 } },
       { $skip: (page - 1) * limit },
       { $limit: limit },
-      { $project: { name: 1, email: 1, role: 1, plan: 1, subscriptionStatus: 1, planRenewsAt: 1, compExpiresAt: 1, isVerified: 1, restricted: 1, lsSubscriptionId: 1, createdAt: 1, listingImageCount: 1, creditsResetAt: 1, creditsUsedToday: 1, creditsUsedTotal: 1, bonusCredits: 1, bonusCreditsGranted: 1, bonusExpiresAt: 1 } },
+      { $project: { name: 1, email: 1, role: 1, plan: 1, subscriptionStatus: 1, planRenewsAt: 1, compExpiresAt: 1, isVerified: 1, restricted: 1, lsSubscriptionId: 1, createdAt: 1, listingImageCount: 1, creditsResetAt: 1, creditsUsedToday: 1, creditsUsedTotal: 1, bonusCredits: 1, bonusCreditsGranted: 1, bonusExpiresAt: 1, sebtStudent: 1, sebtBatch: 1, sebtCreditsPerDay: 1, sebtCreditsPlan: 1, sebtCreditsExpiresAt: 1 } },
     ]),
     isFreeToProPromoOn(),
     User.countDocuments(PENDING_SIGNUP),
@@ -155,6 +156,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       creditsRemaining: Math.max(0, creditsLimit - creditsUsedToday),
       creditsUsedTotal: u.creditsUsedTotal ?? 0,
       bonus: activeBonus(u, now),
+      // SEBT NEXT: group membership, and the free daily credits on top of the plan.
+      sebtStudent: !!u.sebtStudent,
+      sebtBatch: u.sebtBatch ?? null,
+      planCredits: creditLimitFor(plan),
+      sebtCredits: activeSebtCredits(u, now),
     }
   })
 
@@ -172,7 +178,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Paying = card (Lemon Squeezy) + bank/JazzCash customers whose paid time is still running.
   const payingLocal = await countLocalPayers(now)
   const paying = payingCard + payingLocal
-  const stats = { total, admins, verified, searches, paying, payingCard, payingLocal, newThisWeek, signups, planDist, pending, tempMail }
+  const stats = { total, admins, verified, searches, paying, payingCard, payingLocal, newThisWeek, signups, planDist, pending, tempMail, sebt: sebtCount }
 
   return NextResponse.json({
     success: true,

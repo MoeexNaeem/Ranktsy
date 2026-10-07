@@ -22,6 +22,7 @@ import { CodeFlow } from './CodeFlow'
 import { RealtimeProvider, NotificationBell } from '@/components/dashboard/Realtime'
 import { copyWithToast, toast } from '@/components/ui/toast'
 import { useConfirm, Spinner, adminBtn, ModalShell, LoadingBlock } from './ui'
+import { CREDITS_PER_DAY } from '@/lib/credit-amounts'
 
 interface AUser {
   id: string; name: string; email: string; role: 'user' | 'admin'; plan: string
@@ -31,6 +32,10 @@ interface AUser {
   creditsUsedToday: number; creditsLimit: number; creditsRemaining: number; creditsUsedTotal: number
   bonus?: BonusInfo | null   // admin-granted bonus pool, only while still valid
   tempMail?: boolean         // signed up with a throwaway / temp-mail address
+  sebtStudent?: boolean      // in the SEBT NEXT student group
+  sebtBatch?: number | null
+  planCredits?: number       // the plan's own daily credits (creditsLimit adds SEBT free credits)
+  sebtCredits?: { perDay: number; plan: string | null; expiresAt: string } | null
 }
 const isRealPaid = (u: AUser) => u.paidViaLemonSqueezy && u.plan !== 'free'
 interface Stats {
@@ -42,6 +47,8 @@ interface Stats {
   pending?: number
   /** Real (not pending) accounts on a throwaway / temp-mail domain. */
   tempMail?: number
+  /** Accounts in the SEBT NEXT student group. */
+  sebt?: number
   signups: { label: string; value: number }[]
   planDist: { plan: string; value: number }[]
 }
@@ -67,7 +74,7 @@ interface UsageData {
   last7Days: { day: string; etsyCalls: number; googleCalls: number; searches: number; imageCalls: number; imageCostUsd: number; creditsSpent: number }[]
 }
 
-const GRID = '0.4fr 1.5fr 0.6fr 0.8fr 0.6fr 0.55fr 0.75fr 0.8fr 1.2fr'
+const GRID = '0.4fr 1.4fr 0.6fr 0.8fr 0.6fr 0.55fr 0.75fr 1fr 1.2fr'
 const PAID_GOLD = '#B7791F'
 const UGRID = '1.7fr 0.7fr 0.7fr 0.8fr 0.9fr 0.85fr 0.9fr'
 const D7GRID = '1.4fr 0.8fr 0.8fr 1fr 0.8fr 0.8fr 0.9fr'
@@ -179,9 +186,10 @@ export function AdminDashboard() {
   const [fPlan, setFPlan] = useState('all')
   const [fEmail, setFEmail] = useState<'all' | 'temp' | 'real'>('all')
   const [fAccount, setFAccount] = useState<'all' | 'paying' | 'granted' | 'restricted' | 'pending'>('all')
-  const filtersRef = useRef({ plan: 'all', emailType: 'all', account: 'all' })
+  const [fGroup, setFGroup] = useState<'all' | 'sebt' | 'notsebt'>('all')
+  const filtersRef = useRef({ plan: 'all', emailType: 'all', account: 'all', group: 'all' })
   // Synced before the list effect below runs (effects run in declaration order).
-  useEffect(() => { filtersRef.current = { plan: fPlan, emailType: fEmail, account: fAccount } }, [fPlan, fEmail, fAccount])
+  useEffect(() => { filtersRef.current = { plan: fPlan, emailType: fEmail, account: fAccount, group: fGroup } }, [fPlan, fEmail, fAccount, fGroup])
   // Bulk selection: ticked rows, or "every user matching the filters".
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [selectAllMatching, setSelectAllMatching] = useState(false)
@@ -208,7 +216,7 @@ export function AdminDashboard() {
     setUsersLoading(true)
     try {
       const f = filtersRef.current
-      const r = await fetch(`/api/admin/users?page=${page}&limit=${USERS_PAGE_SIZE}&q=${encodeURIComponent(q)}&plan=${f.plan}&emailType=${f.emailType}&account=${f.account}`)
+      const r = await fetch(`/api/admin/users?page=${page}&limit=${USERS_PAGE_SIZE}&q=${encodeURIComponent(q)}&plan=${f.plan}&emailType=${f.emailType}&account=${f.account}&group=${f.group}`)
       if (r.status === 401) { window.location.href = '/login?redirect=/admin'; return }
       if (r.status === 403) { setState('forbidden'); return }
       const d = await r.json().catch(() => null)
@@ -251,7 +259,7 @@ export function AdminDashboard() {
 
   // (Re)load the users page on mount and whenever the page or search changes.
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void loadUsers(usersPage, debouncedQuery) }, [loadUsers, usersPage, debouncedQuery, fPlan, fEmail, fAccount])
+  useEffect(() => { void loadUsers(usersPage, debouncedQuery) }, [loadUsers, usersPage, debouncedQuery, fPlan, fEmail, fAccount, fGroup])
 
   // Bulk delete: the ticked rows, or every user matching the current filters.
   const bulkCount = selectAllMatching ? usersTotal : selected.size
@@ -259,7 +267,7 @@ export function AdminDashboard() {
     setBulkBusy(true); setBulkError('')
     try {
       const body = selectAllMatching
-        ? { action: 'delete', filters: { q: debouncedQuery, plan: fPlan, emailType: fEmail, account: fAccount }, expected: usersTotal, password: bulkPassword }
+        ? { action: 'delete', filters: { q: debouncedQuery, plan: fPlan, emailType: fEmail, account: fAccount, group: fGroup }, expected: usersTotal, password: bulkPassword }
         : { action: 'delete', ids: [...selected], expected: selected.size, password: bulkPassword }
       const r = await fetch('/api/admin/users/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const d = await r.json().catch(() => null)
@@ -276,7 +284,7 @@ export function AdminDashboard() {
       setUsersPage(1)
       await loadUsers(1, debouncedQuery)
     } catch { setBulkError('Network error. Please try again.') } finally { setBulkBusy(false) }
-  }, [selectAllMatching, selected, debouncedQuery, fPlan, fEmail, fAccount, usersTotal, loadUsers, bulkPassword])
+  }, [selectAllMatching, selected, debouncedQuery, fPlan, fEmail, fAccount, fGroup, usersTotal, loadUsers, bulkPassword])
 
   // Manual refresh (spins the icon) and an optional 30s live auto-refresh.
   const refresh = useCallback(async () => { setRefreshing(true); await Promise.all([load(), loadUsers(usersPage, debouncedQuery)]); setRefreshing(false) }, [load, loadUsers, usersPage, debouncedQuery])
@@ -325,7 +333,7 @@ export function AdminDashboard() {
       if (!r.ok || !d?.success) return d?.error || 'Update failed. Please try again.'
       setUsers(us => us.map(u => u.id === id ? { ...u, ...patch } : u))
       if ('plan' in patch) await loadUsers(usersPage, debouncedQuery)
-      toast.success('User updated', 'plan' in patch ? `Plan set to ${PLAN_LABEL[patch.plan as string] ?? patch.plan}.` : 'role' in patch ? `Role set to ${patch.role}.` : 'restricted' in patch ? (patch.restricted ? 'Account restricted.' : 'Restriction removed.') : undefined)
+      toast.success('User updated', 'plan' in patch ? `Plan set to ${PLAN_LABEL[patch.plan as string] ?? patch.plan}.` : 'role' in patch ? `Role set to ${patch.role}.` : 'sebtStudent' in patch ? (patch.sebtStudent ? 'Added to SEBT.' : 'Removed from SEBT.') : 'restricted' in patch ? (patch.restricted ? 'Account restricted.' : 'Restriction removed.') : undefined)
       return null
     } catch { return 'Network error. Please try again.' } finally { setBusy(null) }
   }, [loadUsers, usersPage, debouncedQuery])
@@ -390,6 +398,31 @@ export function AdminDashboard() {
       : <>{strong(u.email)} loses access to the admin panel.</>,
     action: () => patchUser(u.id, { role }),
   })
+  const askSebt = async (u: AUser) => {
+    if (u.sebtStudent) {
+      void confirm({
+        title: 'Remove from SEBT?', tone: 'danger', confirmLabel: 'Remove', busyLabel: 'Saving…',
+        body: <>{strong(u.email)} leaves the SEBT student group{u.sebtCredits ? <> and their free credits (+{exact(u.sebtCredits.perDay)} a day) stop today</> : null}. Their own plan does not change.</>,
+        action: async () => { const err = await patchUser(u.id, { sebtStudent: false } as Partial<AUser>); if (!err) await loadUsers(usersPage, debouncedQuery); return err },
+      })
+      return
+    }
+    // What a new SEBT signup gets right now (Settings → SEBT NEXT).
+    const cfg = await fetch('/api/admin/sebt-config').then(r => r.json()).then(d => d?.success ? d.data as { batch: number; trialEnabled: boolean; trialPlan: string; trialDays: number } : null).catch(() => null)
+    const running = !!u.sebtCredits
+    void confirm({
+      title: 'Add to SEBT?', confirmLabel: 'Add to SEBT', busyLabel: 'Saving…',
+      body: <>
+        {strong(u.email)} joins the SEBT student group{cfg ? <> in {strong(`Batch ${cfg.batch}`)}</> : null}.{' '}
+        {cfg?.trialEnabled && !running
+          ? <>They also get the SEBT free credits now: <strong style={{ color: '#1F7A44' }}>+{exact(CREDITS_PER_DAY[cfg.trialPlan as keyof typeof CREDITS_PER_DAY] ?? 0)} credits a day ({PLAN_LABEL[cfg.trialPlan] ?? cfg.trialPlan}) for {cfg.trialDays} days</strong>, on top of their own plan.</>
+          : running ? <>They already have SEBT free credits running; those stay as they are.</>
+          : <>SEBT free credits are switched off, so they get no extra credits (Settings → SEBT NEXT).</>}
+        {' '}Their own plan does not change.
+      </>,
+      action: async () => { const err = await patchUser(u.id, { sebtStudent: true } as Partial<AUser>); if (!err) await loadUsers(usersPage, debouncedQuery); return err },
+    })
+  }
   const askPlan = (u: AUser, plan: string) => void confirm({
     title: `Change plan to ${PLAN_LABEL[plan] ?? plan}?`, confirmLabel: 'Change plan', busyLabel: 'Saving…',
     body: <>{strong(u.email)} moves from {strong(PLAN_LABEL[u.plan] ?? u.plan)} to {strong(PLAN_LABEL[plan] ?? plan)}.{plan !== 'free' ? ` A plan you grant here lasts ${plan === 'pro-1yr' ? '12 months' : '1 month'} unless they pay.` : ''}</>,
@@ -603,8 +636,10 @@ export function AdminDashboard() {
                   options={[['all', 'All plans'], ...['free', 'starter', 'basic', 'pro', 'pro-1yr', 'business', 'agency', 'enterprise', 'custom'].map(pl => [pl, PLAN_LABEL[pl] ?? pl] as [string, string])]} />
                 <FilterSelect label="Account" value={fAccount} onChange={v => { setFAccount(v as typeof fAccount); setUsersPage(1); clearSelection() }}
                   options={[['all', 'All accounts'], ['paying', 'Paying (card)'], ['granted', 'Granted by admin'], ['restricted', 'Restricted'], ['pending', `Waiting for email code (${exact(stats?.pending ?? 0)})`]]} />
-                {(fEmail !== 'all' || fPlan !== 'all' || fAccount !== 'all') && (
-                  <button onClick={() => { setFEmail('all'); setFPlan('all'); setFAccount('all'); setUsersPage(1); clearSelection() }}
+                <FilterSelect label="Group" value={fGroup} onChange={v => { setFGroup(v as typeof fGroup); setUsersPage(1); clearSelection() }}
+                  options={[['all', 'All users'], ['sebt', `SEBT students (${exact(stats?.sebt ?? 0)})`], ['notsebt', 'Not SEBT']]} />
+                {(fEmail !== 'all' || fPlan !== 'all' || fAccount !== 'all' || fGroup !== 'all') && (
+                  <button onClick={() => { setFEmail('all'); setFPlan('all'); setFAccount('all'); setFGroup('all'); setUsersPage(1); clearSelection() }}
                     style={{ background: 'none', border: 'none', color: C.orange, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Clear filters</button>
                 )}
               </div>
@@ -690,6 +725,7 @@ export function AdminDashboard() {
                         </button>
                         <p style={{ fontSize: 13, color: '#6E6E64', fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 3 }}>{u.email}</p>
                         {u.tempMail && <span title="Signed up with a throwaway / temp-mail address" style={{ display: 'inline-block', fontSize: 10, fontWeight: 700, fontFamily: MONO, color: '#9A3412', background: '#FFEDD5', padding: '2.5px 8px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 5 }}>Temp mail</span>}
+                        {u.sebtStudent && <span title="In the SEBT NEXT student group" style={{ display: 'inline-block', fontSize: 10, fontWeight: 700, fontFamily: MONO, color: '#3730A3', background: '#E0E7FF', padding: '2.5px 8px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 5, marginLeft: u.tempMail ? 6 : 0 }}>SEBT{u.sebtBatch ? ` · Batch ${u.sebtBatch}` : ''}</span>}
                         <button onClick={() => copyId(u.id)} title="Click to copy user ID"
                           style={{ display: 'inline-flex', alignItems: 'center', gap: 5, maxWidth: '100%', marginTop: 4, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: MONO, fontSize: 11, color: copiedId === u.id ? '#1F8A4C' : '#a2a29a', overflow: 'hidden' }}>
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>ID {u.id}</span>
@@ -722,12 +758,21 @@ export function AdminDashboard() {
                         <div style={{ fontSize: 13.5, color: C.ink, fontWeight: 500 }}>{exact(u.searches)} searches</div>
                         <div style={{ fontSize: 12, color: '#8a8a82', marginTop: 2 }}>{u.imagesThisMonth} img · {u.connectedShops} shop{u.connectedShops === 1 ? '' : 's'} · {timeAgo(u.lastActive)}</div>
                       </div>
-                      <div style={{ fontFamily: MONO, minWidth: 0, lineHeight: 1.6 }} title={`${exact(u.creditsUsedTotal)} credits spent lifetime`}>
-                        <div style={{ fontSize: 13.5, color: u.creditsRemaining <= 0 ? C.danger : C.ink, fontWeight: 600 }}>{exact(u.creditsUsedToday)} <span style={{ color: '#8a8a82', fontWeight: 500 }}>/ {exact(u.creditsLimit)}</span></div>
+                      <div style={{ fontFamily: MONO, minWidth: 0, lineHeight: 1.6, paddingRight: 10 }} title={`${exact(u.creditsUsedTotal)} credits spent lifetime`}>
+                        <div style={{ fontSize: 13.5, color: u.creditsRemaining <= 0 ? C.danger : C.ink, fontWeight: 600 }}>
+                          {exact(u.creditsUsedToday)} <span style={{ color: '#8a8a82', fontWeight: 500 }}>/ {exact(u.planCredits ?? u.creditsLimit)}</span>
+                          {u.sebtCredits && <span style={{ color: '#1F7A44', fontWeight: 600 }}> + {exact(u.sebtCredits.perDay)} free</span>}
+                        </div>
+                        {u.sebtCredits && (
+                          <div title={`SEBT free credits (${PLAN_LABEL[u.sebtCredits.plan ?? ''] ?? 'SEBT'}) on top of the plan, until ${fmtDate(u.sebtCredits.expiresAt)}`}
+                            style={{ fontSize: 11.5, color: '#1F7A44', marginTop: 2, lineHeight: 1.4, overflowWrap: 'anywhere' }}>
+                            SEBT {PLAN_LABEL[u.sebtCredits.plan ?? ''] ?? ''} · <span style={{ whiteSpace: 'nowrap' }}>until {fmtDate(u.sebtCredits.expiresAt)}</span>
+                          </div>
+                        )}
                         <div style={{ fontSize: 12, color: '#8a8a82', marginTop: 2 }}>{exact(u.creditsUsedTotal)} lifetime</div>
                         {u.bonus && (
                           <div title={`Admin bonus: ${exact(u.bonus.remaining)} of ${exact(u.bonus.granted)} left, expires ${fmtDate(u.bonus.expiresAt)}`}
-                            style={{ fontSize: 11.5, color: '#1F6B3A', fontWeight: 600, marginTop: 2, whiteSpace: 'nowrap' }}>
+                            style={{ fontSize: 11.5, color: '#1F6B3A', fontWeight: 600, marginTop: 2, lineHeight: 1.4, overflowWrap: 'anywhere' }}>
                             +{exact(u.bonus.remaining)} bonus · {daysLeft(u.bonus.expiresAt)}d left
                           </div>
                         )}
@@ -737,6 +782,10 @@ export function AdminDashboard() {
                           <span role="status" aria-label="Saving" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 30 }}><Spinner size={16} /></span>
                         ) : (<>
                           <button onClick={() => setCreditsFor(u)} title="Give this user extra credits for a number of days" style={adminBtn('good')}>+ Credits</button>
+                          <button onClick={() => askSebt(u)} title={u.sebtStudent ? 'Take this user out of the SEBT student group' : 'Add this user to the SEBT student group'}
+                            style={{ ...adminBtn('plain'), color: '#3730A3', borderColor: 'rgba(55,48,163,0.35)' }}>
+                            {u.sebtStudent ? 'Remove SEBT' : '+ SEBT'}
+                          </button>
                           <button onClick={() => askRestrict(u)} title={u.restricted ? 'Lift restriction' : 'Restrict this user'} style={adminBtn(u.restricted ? 'good' : 'warn')}>
                             {u.restricted ? 'Unrestrict' : 'Restrict'}
                           </button>
@@ -935,7 +984,7 @@ export function AdminDashboard() {
             <h3 style={{ fontSize: 17, fontWeight: 600, color: C.ink, marginBottom: 8 }}>Delete {exact(bulkCount)} user{bulkCount === 1 ? '' : 's'}?</h3>
             <p style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.6, marginBottom: 10 }}>
               {selectAllMatching
-                ? <>Every user matching the current filters ({[fEmail === 'temp' ? 'temp mail' : fEmail === 'real' ? 'real email' : null, fPlan !== 'all' ? (PLAN_LABEL[fPlan] ?? fPlan) : null, fAccount !== 'all' ? fAccount : null, debouncedQuery ? `"${debouncedQuery}"` : null].filter(Boolean).join(', ') || 'all users'}) will be deleted with their search history.</>
+                ? <>Every user matching the current filters ({[fEmail === 'temp' ? 'temp mail' : fEmail === 'real' ? 'real email' : null, fPlan !== 'all' ? (PLAN_LABEL[fPlan] ?? fPlan) : null, fAccount !== 'all' ? fAccount : null, fGroup === 'sebt' ? 'SEBT students' : fGroup === 'notsebt' ? 'not SEBT' : null, debouncedQuery ? `"${debouncedQuery}"` : null].filter(Boolean).join(', ') || 'all users'}) will be deleted with their search history.</>
                 : <>The selected users will be deleted with their search history.</>}
               {' '}This cannot be undone.
             </p>

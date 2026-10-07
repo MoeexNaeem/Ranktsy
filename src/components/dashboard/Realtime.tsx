@@ -8,6 +8,7 @@
  * are ignored here (their SSE chat branch is scoped to all users, not one thread).
  */
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
+import { ChatText, chatPlainText } from '@/components/chat/ChatText'
 import { C } from '@/utils'
 import { MONO } from './kit'
 import { pushToast, errorToast } from '@/components/ui/toast'
@@ -18,6 +19,9 @@ import { ChatAttachmentView } from '@/components/ui/ChatAttachmentView'
 const ANNOUNCE_BLUE = '#2563EB'
 
 export interface Notif { id: string; type: string; title: string; body: string | null; link: string | null; createdAt: string | null; read: boolean }
+/** Written by Rankkw (an admin or the system), so its formatting is shown. The admin's
+ *  "New message from <user>" alerts carry USER text and stay plain. */
+export const notifIsFormatted = (n: Pick<Notif, 'type' | 'title'>) => n.type !== 'chat' || n.title === 'Message from Rankkw'
 interface ChatMsg {
   id: string; userId: string; sender: 'user' | 'admin'; body: string; createdAt: string | null; editedAt?: string | null
   // Set when this came from an admin announcement rather than a personal reply.
@@ -187,7 +191,7 @@ export function RealtimeProvider({ isAdmin, children }: { isAdmin: boolean; chil
         // An admin reply arriving live → toast it; clicking opens the chat widget.
         if (m.sender === 'admin' && !toastedRef.current.has(`chat:${m.id}`)) {
           toastedRef.current.add(`chat:${m.id}`)
-          const preview = m.body || (m.attachmentName ? `📎 ${m.attachmentName}` : 'Sent an attachment')
+          const preview = (m.body ? chatPlainText(m.body) : '') || (m.attachmentName ? `📎 ${m.attachmentName}` : 'Sent an attachment')
           pushToast({ title: m.broadcast ? 'Message from Rankkw' : 'New reply from support', body: preview, kind: 'info', onClick: () => window.dispatchEvent(new Event('rk-open-chat')) })
         }
         setChatMessages(list => list.some(x => x.id === m.id) ? list : [...list, m])
@@ -307,7 +311,7 @@ export function NotificationBell() {
                 <span style={{ minWidth: 0, flex: 1, display: 'block' }}>
                   <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: C.ink, marginBottom: 2 }}>{n.title}</span>
                   {n.body && (
-                    <span style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.5, wordBreak: 'break-word', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{n.body}</span>
+                    <span style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.5, wordBreak: 'break-word', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{chatPlainText(n.body)}</span>
                   )}
                   <span style={{ display: 'block', fontSize: 11, color: C.stone, fontFamily: MONO, marginTop: 4 }}>{relTime(n.createdAt)}</span>
                 </span>
@@ -464,7 +468,7 @@ export function ChatWidget() {
                   {m.attachmentUrl && m.attachmentKind && (
                     <ChatAttachmentView url={m.attachmentUrl} name={m.attachmentName || 'file'} kind={m.attachmentKind} size={m.attachmentSize} />
                   )}
-                  {m.body && <span style={{ padding: m.attachmentKind === 'image' ? '2px 8px 4px' : 0 }}>{m.body}</span>}
+                  {m.body && <span style={{ padding: m.attachmentKind === 'image' ? '2px 8px 4px' : 0 }}>{m.sender === 'admin' ? <ChatText text={m.body} /> : m.body}</span>}
                 </div>
                 <p style={{ fontSize: 10.5, color: C.stone, fontFamily: MONO, marginTop: 3, textAlign: m.sender === 'user' ? 'right' : 'left' }}>{m.editedAt ? 'edited · ' : ''}{relTime(m.createdAt)}</p>
               </div>
