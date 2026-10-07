@@ -89,6 +89,9 @@ export function validateProof(type: string, size: number): { ok: boolean; error?
 }
 
 /** Plan end for an approval: `months` calendar months from `from`. */
+/** How long an admin grant of `plan` lasts: its own period (Pro · 1-Year = 12 months), else 1 month. */
+export const grantMonthsFor = (plan: string): number => localPlanFor(plan)?.months ?? 1
+
 export function addMonths(months: number, from: Date = new Date()): Date {
   const d = new Date(from)
   d.setMonth(d.getMonth() + months)

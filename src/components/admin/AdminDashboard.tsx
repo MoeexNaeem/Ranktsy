@@ -392,7 +392,7 @@ export function AdminDashboard() {
   })
   const askPlan = (u: AUser, plan: string) => void confirm({
     title: `Change plan to ${PLAN_LABEL[plan] ?? plan}?`, confirmLabel: 'Change plan', busyLabel: 'Saving…',
-    body: <>{strong(u.email)} moves from {strong(PLAN_LABEL[u.plan] ?? u.plan)} to {strong(PLAN_LABEL[plan] ?? plan)}.{plan !== 'free' ? ' A plan you grant here expires after 1 month unless they pay.' : ''}</>,
+    body: <>{strong(u.email)} moves from {strong(PLAN_LABEL[u.plan] ?? u.plan)} to {strong(PLAN_LABEL[plan] ?? plan)}.{plan !== 'free' ? ` A plan you grant here lasts ${plan === 'pro-1yr' ? '12 months' : '1 month'} unless they pay.` : ''}</>,
     action: () => patchUser(u.id, { plan }),
   })
 
@@ -749,7 +749,7 @@ export function AdminDashboard() {
               </div>
               <Pagination page={usersPage} pageCount={usersPageCount} onChange={setUsersPage} loading={usersLoading} />
               <p style={{ fontSize: 12.5, color: '#808080', marginTop: 12, lineHeight: 1.5 }}>
-                Click a name to open the full profile. Role/plan changes save instantly. &ldquo;★ Paid&rdquo; marks a real Lemon Squeezy purchase; changing a plan here does not add it. Emails in <code style={{ fontFamily: MONO }}>ADMIN_EMAILS</code> are always admin.
+                Click a name to open the full profile. Role and plan changes ask you to confirm first. &ldquo;★ Paid&rdquo; marks a real Lemon Squeezy purchase; changing a plan here does not add it. Emails in <code style={{ fontFamily: MONO }}>ADMIN_EMAILS</code> are always admin.
               </p>
             </div>
           )}

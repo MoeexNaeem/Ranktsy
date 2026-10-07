@@ -8,7 +8,8 @@ import { User, KeywordHistory, ConnectedShop, ApiUsage } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin, resolveRole } from '@/lib/auth/roles'
 import { PLAN_SLUGS, effectivePlan } from '@/lib/plans'
-import { addOneMonth, reconcileUserPlan } from '@/lib/plan-lifecycle'
+import { reconcileUserPlan } from '@/lib/plan-lifecycle'
+import { addMonths, grantMonthsFor } from '@/lib/local-payments'
 import { dailyLimitFor, activeBonus } from '@/lib/credits'
 import type { IApiUsage } from '@/types'
 
@@ -98,9 +99,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   await connectDB()
 
-  // An admin PLAN change is a comp grant: setting a paid plan gives a 1-MONTH
-  // gift (compExpiresAt) so it auto-reverts to free unless the user actually
-  // pays; setting 'free' clears it. A genuinely-active PAID subscriber is left
+  // An admin PLAN change is a comp grant: setting a paid plan gives a gift for that
+  // plan's own period (1 month; Pro · 1-Year 12 months, it was 1 month by mistake
+  // until 2026-10-08) on compExpiresAt, so it auto-reverts to free unless the user
+  // actually pays; setting 'free' clears it. A genuinely-active PAID subscriber is left
   // alone (no comp clock) - their plan is governed by the Lemon Squeezy webhook.
   if ('plan' in update) {
     if (update.plan === 'free') {
@@ -108,7 +110,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     } else {
       const existing = await User.findById(id).select('subscriptionStatus').lean()
       const activePaid = existing?.subscriptionStatus === 'active' || existing?.subscriptionStatus === 'on_trial'
-      if (!activePaid) update.compExpiresAt = addOneMonth()
+      if (!activePaid) update.compExpiresAt = addMonths(grantMonthsFor(String(update.plan)))
     }
   }
 

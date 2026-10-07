@@ -245,7 +245,7 @@ export function AdminLocalPayments() {
           <p style={{ fontSize: 17, fontWeight: 600, color: C.ink, marginBottom: 4 }}>Approve payment</p>
           <p style={{ fontSize: 13, color: C.graphite, marginBottom: 14 }}>{approving.userName || approving.userEmail} paid {formatPkr(approving.amountPkr)} for {localPlanFor(approving.plan)?.label ?? planName(approving.plan)}.</p>
           <label style={{ fontSize: 12.5, fontWeight: 600, color: C.ink }}>Plan to give</label>
-          <select value={plan} onChange={e => setPlan(e.target.value)}
+          <select value={plan} onChange={e => { setPlan(e.target.value); setMonths(localPlanFor(e.target.value)?.months ?? 1) }}
             style={{ width: '100%', margin: '6px 0 12px', padding: '10px 12px', borderRadius: 10, border: `1px solid ${C.ash}`, background: C.paper, fontFamily: 'inherit', fontSize: 14 }}>
             {PAID_PLANS.map(p => <option key={p} value={p}>{PLAN_LABELS[p]}</option>)}
           </select>
