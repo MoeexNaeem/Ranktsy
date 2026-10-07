@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
-import { countriesForGeo, isGoogleAdsConfigured, normalizeGeo, googleStatusOf, type GoogleMetricsMeta } from '@/lib/google-ads'
+import { countriesForGeo, googleBroaderKeyword, isGoogleAdsConfigured, normalizeGeo, googleStatusOf, type GoogleMetricsMeta } from '@/lib/google-ads'
 import { guardSearch } from '@/lib/searchGate'
 import { withUsage } from '@/lib/track'
 import { singleFlight } from '@/lib/concurrency'
@@ -40,8 +40,18 @@ async function getHandler(req: NextRequest) {
     // One breakdown per keyword at a time: repeat polls attach to the running one.
     const work = singleFlight(key, async () => {
       const gmeta: GoogleMetricsMeta = {}
-      const countries = await countriesForGeo(query, geo, gmeta)
-      const data = { countries, googleStatus: googleStatusOf(gmeta), googleRetryAt: gmeta.retryAt ?? null }
+      let countries = await countriesForGeo(query, geo, gmeta)
+      // No Google volume for the exact phrase: split the closest broader phrase Google
+      // tracks instead, named on the page (see googleBroaderKeyword).
+      let fallbackKeyword: string | null = null
+      if (!countries.length && !gmeta.failed) {
+        const broader = await googleBroaderKeyword(query, 'GLO', gmeta).catch(() => null)
+        if (broader) {
+          countries = await countriesForGeo(broader.keyword, geo, gmeta)
+          if (countries.length) fallbackKeyword = broader.keyword
+        }
+      }
+      const data = { countries, fallbackKeyword, googleStatus: googleStatusOf(gmeta), googleRetryAt: gmeta.retryAt ?? null }
       // Only a complete answer is cached here. A busy/failed one used to be held for
       // 90 s, so the client's retry got the same failure back. The per-country rows
       // that did arrive are stored in the Google cache, so a retry only fills the gaps.

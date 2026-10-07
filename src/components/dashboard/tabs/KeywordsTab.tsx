@@ -279,6 +279,18 @@ function googleGapNote(status?: string | null, retryAt?: string | null): string 
   return null
 }
 
+/** Says the graph is for the closest broader phrase Google tracks, with a one-click search for it. */
+function BroaderNote({ exact, broader, onSearch }: { exact: string; broader: string; onSearch: (q: string) => void }) {
+  return (
+    <p role="note" style={{ fontSize: 12, lineHeight: 1.5, color: C.graphite, background: C.canvas, border: `1px solid ${C.ash}`, borderRadius: 8, padding: '7px 10px', margin: '0 0 10px' }}>
+      Google has no search data for &ldquo;{exact}&rdquo;. Showing the closest broader search it tracks:{' '}
+      <button onClick={() => onSearch(broader)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, color: C.orange, textDecoration: 'underline', textUnderlineOffset: 2 }}>
+        {broader}
+      </button>
+    </p>
+  )
+}
+
 function GoogleGapNote({ status, retryAt }: { status?: string | null; retryAt?: string | null }) {
   const text = googleGapNote(status, retryAt)
   if (!text) return null
@@ -462,11 +474,10 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
   const deckImages = listingImgs.data?.length && !listingImgs.isPlaceholderData ? listingImgs.data : null
   const deckListings = deckImages ?? kw?.listings ?? []
   const { data: tr } = useTrends(query, country)
-  // Starts as soon as the keyword's main results are in. It used to wait for the
-  // graphs AND the slow related-keywords stage (minutes at peak) so its 7 Google
-  // requests would not compete; the server now runs them in a background priority
-  // lane (google-ads.ts adsRequest), so they never delay the page's own numbers.
-  const cq = useTrendCountries(query, country, !!kw)
+  // Starts WITH the search (it used to wait ~6 s for the main results first). Its 7
+  // Google requests run in their own priority lane on the server, so they never
+  // delay the keyword's own numbers. Not after a failed search (e.g. out of credits).
+  const cq = useTrendCountries(query, country, !isError)
   const countryData = tr?.countries?.length ? tr.countries : cq.data?.countries
   // Google-suggested keywords (generateKeywordIdeas) - real discovery beyond Etsy tags.
   const ideas = useKeywordIdeas(query, country)
@@ -632,8 +643,13 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
             Search Trends (12 months)
           </SectionTitle>
           <div style={{ flex: 1, minHeight: 240, display: 'flex', flexDirection: 'column' }}>
-          {!tr ? <Shimmer h={240} r={8} />
-            : tr.trends?.length ? <TrendChart data={tr.trends} activePlatforms={plats} />
+          {!tr || (!tr.trends?.length && tr.retrying) ? <Shimmer h={240} r={8} />
+            : tr.trends?.length ? (
+              <>
+                {tr.googleFallback && <BroaderNote exact={query} broader={tr.googleFallback} onSearch={run} />}
+                <TrendChart data={tr.trends} activePlatforms={plats} />
+              </>
+            )
             : (
               /* Etsy publishes no search volume over time. The chart here used to
                  be a hardcoded curve - identical for every keyword - so this now
@@ -654,7 +670,12 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
         <Card>
           <SectionTitle>Searchers by Country</SectionTitle>
           {countryData && countryData.length > 0
-            ? <CountryChart data={countryData} />
+            ? (
+              <>
+                {cq.data?.fallbackKeyword && <BroaderNote exact={query} broader={cq.data.fallbackKeyword} onSearch={run} />}
+                <CountryChart data={countryData} />
+              </>
+            )
             // Still loading, or Google was busy and the hook is quietly retrying (up to ~2 min).
             : cq.isPending || (cq.isFetching && !cq.data) || cq.data?.retrying ? <CountrySkeleton />
             : googleGapNote(cq.data?.googleStatus, cq.data?.googleRetryAt)

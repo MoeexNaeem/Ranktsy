@@ -250,6 +250,17 @@ export function etsyQuotaLow(fraction = 0.3): boolean {
   return limit > 0 && remaining / limit < fraction
 }
 
+/** True only when the switched-on keys are KNOWN to have at least `fraction` of today's calls left. */
+export function etsyQuotaPlenty(fraction = 0.6): boolean {
+  let remaining = 0, limit = 0
+  for (const k of usableKeys(disabledEtsyKeyIdsNow())) {
+    if (k.remainingToday == null || k.limitPerDay == null) return false
+    remaining += Math.max(0, k.remainingToday)
+    limit += k.limitPerDay
+  }
+  return limit > 0 && remaining / limit >= fraction
+}
+
 /** Keys currently locked out for the day (index is 1-based), for the admin health view. */
 export function etsyKeyLocks(): { index: number; blockedUntil: string }[] {
   const now = Date.now()
@@ -615,6 +626,26 @@ export async function searchEtsyListingsPaged(query: string, limit = 24, offset 
   const mapped = (data.results ?? []).map(mapListing)
   const listings = opts.skipImages ? mapped : await attachImages(mapped)
   return { listings, count: Number(data.count ?? 0) }
+}
+
+/**
+ * The top 100 listings for a keyword, in Etsy's order. Etsy answers one 100-listing
+ * page in ~3.5 s cold but four 25-listing pages, asked at once, in ~1.3 s (measured
+ * 2026-10-08), so while the key pool has plenty of quota left we ask for four pages
+ * in parallel (3 extra calls). Low on quota, or if a page fails: one call as before.
+ */
+export async function searchEtsyTop100(query: string, opts: SearchOpts = {}): Promise<{ listings: EtsyListing[]; count: number }> {
+  if (!etsyQuotaPlenty()) return searchEtsyListingsPaged(query, 100, 0, opts)
+  try {
+    const pages = await Promise.all([0, 25, 50, 75].map(o => searchEtsyListingsPaged(query, 25, o, opts)))
+    // Ranking can shift between the four answers: keep Etsy's order, no listing twice.
+    const seen = new Set<number>()
+    const listings: EtsyListing[] = []
+    for (const p of pages) for (const l of p.listings) if (!seen.has(l.listing_id)) { seen.add(l.listing_id); listings.push(l) }
+    return { listings: listings.slice(0, 100), count: pages[0].count }
+  } catch {
+    return searchEtsyListingsPaged(query, 100, 0, opts)
+  }
 }
 
 export async function searchEtsyListings(query: string, limit = 25): Promise<EtsyListing[]> {

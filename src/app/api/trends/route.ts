@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { memCache, cacheKey, CACHE_TTL } from '@/lib/cache'
 import { buildTrendData, buildListingSupplyByMonth, buildListingMarketStats } from '@/lib/etsy'
 import { keywordListings } from '@/lib/keywords'
-import { googleKeywordMetrics, isGoogleAdsConfigured, normalizeGeo, googleStatusOf, type GoogleMetricsMeta } from '@/lib/google-ads'
+import { googleKeywordMetrics, googleBroaderKeyword, isGoogleAdsConfigured, normalizeGeo, googleStatusOf, type GoogleMetricsMeta } from '@/lib/google-ads'
 import { guardSearch } from '@/lib/searchGate'
 import { getCollectivePackage } from '@/lib/collective-read'
 import { withUsage } from '@/lib/track'
@@ -12,6 +12,8 @@ export const runtime = 'nodejs'
 export const GET = withUsage(getHandler)
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+/** Longest the graph waits for Google before answering 'pending'. */
+const TREND_GOOGLE_WAIT_MS = 6000
 
 /**
  * v3 - the fabricated Etsy seasonality curve is gone (see buildTrendData).
@@ -61,21 +63,34 @@ async function getHandler(req: NextRequest) {
     const gmeta: GoogleMetricsMeta = {}
     let marketplaceAvailable = true
     const countries: CountryData[] = []
+    // Google can sit in its queue at busy hours. Wait a few seconds at most: the graph
+    // then answers 'pending' and the page asks again (the lookup keeps running and
+    // lands in the shared Google cache, so the next ask is quick).
+    let googlePending = false
+    const googleP = isGoogleAdsConfigured() ? googleKeywordMetrics([query], geo, gmeta) : Promise.resolve(null)
     const [listings, metrics] = await Promise.all([
       keywordListings(query).catch(e => {   // shared with the core search, no extra Etsy call
         marketplaceAvailable = false
         console.error('[Trends] marketplace sample unavailable:', e instanceof Error ? e.message : e)
         return [] as EtsyListing[]
       }),
-      isGoogleAdsConfigured() ? googleKeywordMetrics([query], geo, gmeta) : Promise.resolve(null),
+      Promise.race([googleP, new Promise<null>(r => setTimeout(() => { googlePending = true; r(null) }, TREND_GOOGLE_WAIT_MS))]),
     ])
+    if (googlePending) googleP.catch(() => {})
     const trends: TrendData[] = buildTrendData()
     const supplyByMonth = marketplaceAvailable ? buildListingSupplyByMonth(listings) : []
     // Real market detail measured from the same 100-listing sample.
     const market = marketplaceAvailable ? buildListingMarketStats(listings) : null
 
     let googleAvailable = false
-    const gm = metrics?.get(query)
+    let gm = metrics?.get(query)
+    // Google tracks no volume for this exact phrase (about half of sellers' longer
+    // searches): graph the closest broader phrase it does track, named on the page.
+    let googleFallback: string | null = null
+    if (!gm && !googlePending && !gmeta.failed && isGoogleAdsConfigured()) {
+      const broader = await googleBroaderKeyword(query, geo, gmeta).catch(() => null)
+      if (broader) { gm = broader.metric; googleFallback = broader.keyword }
+    }
     const monthly = gm?.monthly ?? []
     if (monthly.length) {
       // Google returns 12 months oldest→newest, ending at its newest PUBLISHED month,
@@ -102,17 +117,21 @@ async function getHandler(req: NextRequest) {
       supplyByMonth,
       market,
       googleAvailable,
+      // The phrase the Google line is for, when it is not the keyword itself.
+      googleFallback,
       // Stated explicitly so the UI never has to guess why a series is missing.
       note: googleAvailable
         ? 'Search-volume seasonality is real Google Ads monthly data. Etsy publishes no search volume.'
         : 'Etsy publishes no search volume or history, so no Etsy demand curve is shown. “Listings created by month” is real, but reflects seller behaviour, not buyer demand.',
-      googleStatus: googleStatusOf(gmeta),
+      googleStatus: googlePending && !googleAvailable ? 'pending' : googleStatusOf(gmeta),
       googleRetryAt: gmeta.retryAt ?? null,
       marketplaceAvailable,
     }
-    // Never cache a partial result for hours: retry soon so the missing half fills in.
+    // Incomplete answers are not kept: the page re-asks and gets the Google line.
+    // Never cache a partial result for hours. Google still answering: not kept at all,
+    // the page re-asks in a few seconds and gets the Google line.
     const partial = (gmeta.failed && !googleAvailable) || !marketplaceAvailable
-    memCache.set(key, data, partial ? 90 : CACHE_TTL.TRENDING)
+    if (!(googlePending && !googleAvailable)) memCache.set(key, data, partial ? 90 : CACHE_TTL.TRENDING)
     return NextResponse.json({ success: true, data })
   } catch (err) {
     console.error('[Trends] failed:', err)

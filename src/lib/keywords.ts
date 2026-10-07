@@ -19,10 +19,11 @@
  */
 import { connectDB } from '@/lib/db'
 import { KeywordCache } from '@/lib/models'
+import { packCache, unpackCache } from '@/lib/keyword-cache-codec'
 import { getCollectivePackage } from '@/lib/collective-read'
 import { memCache, cacheKey, CACHE_TTL, cachedFlight } from '@/lib/cache'
 import { singleFlight } from '@/lib/concurrency'
-import { searchEtsyListingsPaged, buildKeywordStats, buildSearchAnalysis, warmTaxonomy } from '@/lib/etsy'
+import { buildKeywordStats, buildSearchAnalysis, warmTaxonomy, searchEtsyTop100 } from '@/lib/etsy'
 import { googleKeywordMetrics, googleAccountCurrency, isGoogleAdsConfigured, googleStatusOf, type GoogleMetricsMeta, type GoogleMetric } from '@/lib/google-ads'
 import type { KeywordSearchResponse, EtsyListing } from '@/types'
 
@@ -119,7 +120,7 @@ function rememberKeywordListings(query: string, listings?: EtsyListing[]) {
 /** The keyword's top-100 Etsy listings (relevance order, no images). */
 export function keywordListings(query: string): Promise<EtsyListing[]> {
   return cachedFlight(kwListKey(query), CACHE_TTL.KEYWORD, async () =>
-    (await searchEtsyListingsPaged(query, 100, 0, { skipImages: true })).listings)
+    (await searchEtsyTop100(query, { skipImages: true })).listings)
 }
 
 // A failed lookup that still produced numbers (served from the stored Google cache)
@@ -141,6 +142,8 @@ async function computeKeywordCore(query: string, geo: string, key: string): Prom
   // the keyword is there, serve the complete package with ZERO API calls. This is
   // a full package - its related keywords are already enriched and its listings
   // carry images + reviews - a superset of the normal core, which the page renders.
+  // Both stores are read at once (each is a ~150 ms round trip to the database).
+  const dbHitP = connectDB().then(() => KeywordCache.findOne({ keyword: query, geo }).lean()).catch(e => { console.error('[Keywords] DB lookup:', e); return null })
   const shared = await getCollectivePackage(query, geo)
   if (shared) {
     // The shared package can predate Google enrichment (or have been saved while
@@ -170,10 +173,9 @@ async function computeKeywordCore(query: string, geo: string, key: string): Prom
   }
 
   try {
-    await connectDB()
-    const dbHit = await KeywordCache.findOne({ keyword: query, geo }).lean()
-    if (dbHit) {
-      const data = dbHit.data as KeywordSearchResponse
+    const dbHit = await dbHitP
+    const data = dbHit ? await unpackCache<KeywordSearchResponse>(dbHit) : null
+    if (data) {
       if (!isStaleCore(data)) {
         memCache.set(key, data, CACHE_TTL.KEYWORD)
         return data
@@ -186,7 +188,14 @@ async function computeKeywordCore(query: string, geo: string, key: string): Prom
   // No images on the fast path: the image batch is a second ~1.5s round-trip and
   // only the Top Listings sub-tab renders them. /api/keywords/listings fetches
   // them on demand when that tab is opened.
-  const { listings, count } = await searchEtsyListingsPaged(query, 100, 0, { skipImages: true })
+  // Google's volume is asked for NOW, alongside Etsy, not after it: at busy hours it
+  // queues for a few seconds, and that wait now overlaps Etsy's instead of following it.
+  const gmeta: GoogleMetricsMeta = {}
+  const google = isGoogleAdsConfigured()
+    ? Promise.all([googleKeywordMetrics([query], geo, gmeta), googleAccountCurrency()])
+    : null
+  google?.catch(() => {})
+  const { listings, count } = await searchEtsyTop100(query, { skipImages: true })
   let data = buildKeywordStats(query, listings, count)
 
   // Analysis is computed from listings we already have. `false` = don't block on
@@ -198,9 +207,7 @@ async function computeKeywordCore(query: string, geo: string, key: string): Prom
   // transient blip isn't cached for hours as permanent blanks.
   let googleFailed = false
   let googlePending = false
-  if (isGoogleAdsConfigured()) {
-    const gmeta: GoogleMetricsMeta = {}
-    const google = Promise.all([googleKeywordMetrics([query], geo, gmeta), googleAccountCurrency()])
+  if (google) {
     const applyGoogle = (d: KeywordSearchResponse, [metrics, currency]: [Map<string, GoogleMetric>, string | null]) => {
       d.stats.googleStatus = googleStatusOf(gmeta)
       d.stats.googleRetryAt = gmeta.retryAt ?? null
@@ -256,11 +263,12 @@ const GOOGLE_CORE_WAIT_MS = 2500
 /** Persist a complete core package without blocking the response. */
 function persistCore(query: string, geo: string, data: KeywordSearchResponse) {
   const expiresAt = new Date(Date.now() + CACHE_TTL.KEYWORD * 1000)
-  connectDB()
-    .then(() => KeywordCache.findOneAndUpdate(
+  Promise.all([connectDB(), packCache(data)])
+    .then(([, dataZ]) => KeywordCache.updateOne(
       { keyword: query, geo },
-      { keyword: query, geo, data, expiresAt },
-      { upsert: true, returnDocument: 'after' },
+      // Compressed (keyword-cache-codec.ts); drop any old uncompressed copy.
+      { $set: { keyword: query, geo, dataZ, expiresAt }, $unset: { data: '' } },
+      { upsert: true },
     ))
     .catch(e => console.error('[Keywords] DB write:', e))
 }

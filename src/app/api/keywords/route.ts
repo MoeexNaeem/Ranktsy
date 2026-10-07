@@ -44,6 +44,13 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
   // Two meters, both CHECKED here and only COUNTED once a result is delivered, so
   // an upstream failure never costs the user anything: the per-plan searches/day
   // cap, and CREDIT_COST (1) credit, the same flat price as every other metered tool.
+  // The search starts NOW, while the limit and credit checks below run (each is a
+  // database round trip). If a check says no, nothing is charged and the result is
+  // simply cached for the next person who searches this keyword.
+  const before = peekApiCalls()
+  const coreP = getKeywordCore(query, geo)
+  coreP.catch(() => {})
+
   const authUser = await getCurrentUser().catch(() => null)
   // Paid once per keyword per day: the page re-runs the search whenever it opens or
   // is refreshed, and that must not charge again (or be blocked by an empty balance).
@@ -55,10 +62,15 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
   // user TYPES (or taps) in the extension sends intent=search and is charged like
   // one made on rankkw.com. The hourly search gate above applies to both.
   const passive = detectExtension(req).isExt && searchParams.get('intent') !== 'search'
-  const paidAlready = authUser && !passive ? (await connectDB(), await alreadyPaidToday(authUser.id, paidKey)) : false
+  // The three checks at once instead of one after another.
+  const [paidAlready, q, afford] = authUser && !passive
+    ? await connectDB().then(() => Promise.all([
+        alreadyPaidToday(authUser.id, paidKey),
+        peekDailySearch(authUser.id),
+        canAfford(authUser.id, CREDIT_COST),
+      ]))
+    : [false, null, null] as const
   if (authUser && !paidAlready && !passive) {
-    await connectDB()
-    const q = await peekDailySearch(authUser.id)
     if (q && !q.allowed) {
       return NextResponse.json(
         { success: false, code: 'plan_limit', metric: 'searches', plan: q.plan, limit: q.limit,
@@ -66,7 +78,6 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
         { status: 402 },
       )
     }
-    const afford = await canAfford(authUser.id, CREDIT_COST)
     if (afford && !afford.ok) {
       return NextResponse.json({
         success: false, code: 'credit_limit', plan: afford.plan,
@@ -77,8 +88,7 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
   }
 
   try {
-    const before = peekApiCalls()
-    const data = await getKeywordCore(query, geo)
+    const data = await coreP
 
     // Seed tracking: every search enrolls this keyword's ranking listings into the
     // snapshot set, so they start accruing history TODAY (not only when someone

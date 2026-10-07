@@ -204,29 +204,47 @@ export function useKeywordIdeas(query: string, geo = 'US') {
 }
 
 // ─── useTrends ────────────────────────────────────────────────────────────────
+// While Google is still answering ('pending') or was busy ('error'), ask again every
+// few seconds (for up to ~4 minutes) so the Google line appears by itself instead of
+// the graph staying empty until the user searches again.
+const TREND_MAX_TRIES = 40
+const trendTries = new Map<string, number>()
 export function useTrends(query: string, geo = 'US') {
+  const k = `${query.toLowerCase().trim()}|${geo}`
   return useQuery({
     queryKey:  [...queryKeys.trends(query), geo] as const,
     queryFn:   async ({ signal }) => {
       const { data } = await api.get(`/trends?q=${encodeURIComponent(query)}&geo=${geo}`, { signal })
       if (!data.success) throw new Error(data.error)
-      return data.data
+      const d = data.data as { googleStatus?: string }
+      const waiting = d.googleStatus === 'pending' || d.googleStatus === 'error'
+      const tries = waiting ? (trendTries.get(k) ?? 0) + 1 : 0
+      trendTries.set(k, tries)
+      return { ...data.data, retrying: waiting && tries < TREND_MAX_TRIES }
     },
     enabled:   query.trim().length >= 2,
     staleTime: q => (googleGap(q.state.data) ? 60_000 : 1000 * 60 * 60), // 1 hour, 1 min when Google was unavailable
+    refetchInterval: q => {
+      const d = q.state.data as { retrying?: boolean; googleStatus?: string } | undefined
+      return d?.retrying ? (d.googleStatus === 'pending' ? 3_000 : 6_000) : false
+    },
+    retry: dontRetry4xx,
   })
 }
 
 // ─── useTrendCountries - Searchers by Country, loaded beside the graphs ───────
 export interface TrendCountries {
   countries: { country: string; percentage: number; color: string; selected?: boolean }[]
+  /** Set when the split is for the closest broader phrase (no Google data for the exact one). */
+  fallbackKeyword?: string | null
   googleStatus?: string
   googleRetryAt?: string | null
   /** Client-side: true while Google was busy and an automatic re-ask is still pending. */
   retrying?: boolean
 }
-// Busy answers in a row per keyword+country, so the automatic re-ask gives up after a while.
-const COUNTRY_MAX_TRIES = 20
+// Busy answers in a row per keyword+country, so the automatic re-ask gives up after a
+// while (~4 minutes: at busy hours Google's queue can take a couple of minutes).
+const COUNTRY_MAX_TRIES = 50
 const countryTries = new Map<string, number>()
 export function useTrendCountries(query: string, geo = 'US', enabled = true) {
   const k = `${query.toLowerCase().trim()}|${geo}`
@@ -249,7 +267,7 @@ export function useTrendCountries(query: string, geo = 'US', enabled = true) {
     // 'pending' = the server is still collecting the 7 countries: check back soon.
     refetchInterval: q => {
       const d = q.state.data as TrendCountries | undefined
-      return d?.retrying ? (d.googleStatus === 'pending' ? 3_000 : 15_000) : false
+      return d?.retrying ? (d.googleStatus === 'pending' ? 3_000 : 8_000) : false
     },
     retry: dontRetry4xx,
   })

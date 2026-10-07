@@ -656,14 +656,16 @@ async function claimSharedSlot(cid: string, spacingMs: number): Promise<number> 
     if (!db) return -1
     const col = db.collection<{ _id: string; nextAt: number }>('plannerslots')
     const now = Date.now()
-    const claimed = await col.findOneAndUpdate({ _id: cid, nextAt: { $lte: now } }, { $set: { nextAt: now + spacingMs } })
-    if (claimed) return 0
-    const doc = await col.findOne({ _id: cid })
-    if (!doc) {
-      // First use of this account: create its clock (another worker may win the race).
-      try { await col.insertOne({ _id: cid, nextAt: now + spacingMs }); return 0 } catch { return 50 }
-    }
-    return Math.max(20, doc.nextAt - now)
+    // ONE round trip (the server is far from the database, ~150 ms each): take the
+    // slot if it is free, and read the clock as it was, which says whether we got it
+    // and, if not, how long until it frees up. Upsert creates a new account's clock.
+    const before = await col.findOneAndUpdate(
+      { _id: cid },
+      [{ $set: { nextAt: { $cond: [{ $lte: [{ $ifNull: ['$nextAt', 0] }, now] }, now + spacingMs, '$nextAt'] } } }],
+      { upsert: true, returnDocument: 'before' },
+    )
+    if (!before || (before.nextAt ?? 0) <= now) return 0
+    return Math.max(20, before.nextAt - now)
   } catch {
     return -1
   }
@@ -756,12 +758,17 @@ const microsToCurrency = (v?: string | number | null): number | null =>
   v == null ? null : Number(v) / 1_000_000
 
 // Cached row: `m` is null when Google has no data for the keyword (so we don't re-ask daily).
-interface StoredMetric { m: GoogleMetric | null; at: number }
+// `v` 2 = written since close variants are read (see parseHistorical).
+interface StoredMetric { m: GoogleMetric | null; at: number; v?: number }
+const ROW_V = 2
 const metricKey = (geoId: string, kw: string) => `m|${geoId}|${kw}`
 const normKws = (keywords: string[]) => [...new Set(keywords.map(k => k.toLowerCase().trim()).filter(Boolean))]
 const isFresh = (s: StoredMetric) =>
   // A stored series without its end month can't be placed on the calendar: refresh it once.
   !(s.m && s.m.monthly?.length && !s.m.monthlyEnd) &&
+  // An empty row written before close variants were read may be a variant Google DID
+  // answer (under another spelling): ask once more instead of showing "no data".
+  !(!s.m && s.v !== ROW_V) &&
   Date.now() - s.at < (s.m ? FRESH_MS : EMPTY_FRESH_MS)
 
 const GOOGLE_MONTHS = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER']
@@ -787,9 +794,9 @@ async function readStored(keys: string[]): Promise<Map<string, StoredMetric>> {
   if (!need.length) return out
   try {
     await connectDB()
-    const docs = await GoogleAdsCache.find({ key: { $in: need } }).lean<{ key: string; data: GoogleMetric | null; fetchedAt: Date }[]>()
+    const docs = await GoogleAdsCache.find({ key: { $in: need } }).lean<{ key: string; data: GoogleMetric | null; fetchedAt: Date; v?: number }[]>()
     for (const d of docs) {
-      const s: StoredMetric = { m: d.data ?? null, at: new Date(d.fetchedAt).getTime() }
+      const s: StoredMetric = { m: d.data ?? null, at: new Date(d.fetchedAt).getTime(), v: d.v }
       out.set(d.key, s)
       memCache.set(`gads:${d.key}`, s, 6 * 3600)
     }
@@ -800,12 +807,68 @@ async function readStored(keys: string[]): Promise<Map<string, StoredMetric>> {
 function writeStored(rows: { key: string; m: GoogleMetric | null }[]) {
   if (!rows.length) return
   const at = new Date()
-  for (const r of rows) memCache.set(`gads:${r.key}`, { m: r.m, at: at.getTime() } satisfies StoredMetric, 6 * 3600)
+  for (const r of rows) memCache.set(`gads:${r.key}`, { m: r.m, at: at.getTime(), v: ROW_V } satisfies StoredMetric, 6 * 3600)
   connectDB()
     .then(() => GoogleAdsCache.bulkWrite(rows.map(r => ({
-      updateOne: { filter: { key: r.key }, update: { $set: { data: r.m, fetchedAt: at } }, upsert: true },
+      updateOne: { filter: { key: r.key }, update: { $set: { data: r.m, fetchedAt: at, v: ROW_V } }, upsert: true },
     })), { ordered: false }))
     .catch(e => console.error('[GoogleAds] cache write failed:', e))
+}
+
+// ── Cross-worker "already asked" markers ───────────────────────────────────────
+// Each PM2 worker batches its own Google requests. Without these, a keyword another
+// worker had already queued (the page polling for countries lands on a different
+// worker each time, the core and the trends graph ask on different workers) was sent
+// to Google again, spending the single request-per-second on duplicates. A worker
+// that finds a marker waits for the other worker's answer in the shared cache.
+const INFLIGHT_MS = 50_000
+let inflightIndexed = false
+async function inflightCol() {
+  await connectDB()
+  const c = mongoose.connection.db!.collection<{ _id: string; until: Date }>('gadsinflight')
+  if (!inflightIndexed) {
+    inflightIndexed = true
+    c.createIndex({ until: 1 }, { expireAfterSeconds: 0 }).catch(() => { inflightIndexed = false })
+  }
+  return c
+}
+function markInflight(keys: string[]) {
+  if (!keys.length) return
+  const until = new Date(Date.now() + INFLIGHT_MS)
+  void inflightCol()
+    .then(c => c.bulkWrite(keys.map(k => ({ updateOne: { filter: { _id: k }, update: { $set: { until } }, upsert: true } })), { ordered: false }))
+    .catch(() => {})
+}
+function clearInflight(keys: string[]) {
+  if (!keys.length) return
+  void inflightCol().then(c => c.deleteMany({ _id: { $in: keys } })).catch(() => {})
+}
+/** Keys another worker is asking Google for right now. */
+async function inflightElsewhere(keys: string[]): Promise<Set<string>> {
+  if (!keys.length) return new Set()
+  try {
+    const c = await inflightCol()
+    const docs = await c.find({ _id: { $in: keys }, until: { $gt: new Date() } }, { projection: { _id: 1 } }).toArray()
+    return new Set(docs.map(d => d._id))
+  } catch { return new Set() }
+}
+/** Wait (until `deadline`) for answers another worker is fetching to land in the shared cache. */
+async function awaitStored(keys: string[], since: number, deadline: number): Promise<Map<string, GoogleMetric | null>> {
+  const out = new Map<string, GoogleMetric | null>()
+  let left = keys
+  while (left.length && Date.now() < deadline) {
+    await sleep(700)
+    try {
+      const docs = await GoogleAdsCache.find({ key: { $in: left }, fetchedAt: { $gte: new Date(since - 2000) } })
+        .lean<{ key: string; data: GoogleMetric | null; fetchedAt: Date; v?: number }[]>()
+      for (const d of docs) {
+        out.set(d.key, d.data ?? null)
+        memCache.set(`gads:${d.key}`, { m: d.data ?? null, at: new Date(d.fetchedAt).getTime(), v: d.v } satisfies StoredMetric, 6 * 3600)
+      }
+      left = left.filter(k => !out.has(k))
+    } catch { /* keep waiting; the deadline still applies */ }
+  }
+  return out
 }
 
 function noteFailure(meta: GoogleMetricsMeta | undefined, e: unknown) {
@@ -831,6 +894,8 @@ const histBatches: Map<string, HistBatch> = bg.__rkHistBatches ??= new Map()
 /** `${cacheGeo}|${keyword}` → the sent request's answer (null = no data, undefined = it failed). */
 const histInflight: Map<string, Promise<GoogleMetric | null | undefined>> = bg.__rkHistInflight ??= new Map()
 
+const normText = (t: unknown) => String(t ?? '').toLowerCase().replace(/\s+/g, ' ').trim()
+
 function parseHistorical(results: unknown[] | undefined): Map<string, GoogleMetric> {
   const got = new Map<string, GoogleMetric>()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -839,7 +904,7 @@ function parseHistorical(results: unknown[] | undefined): Map<string, GoogleMetr
     if (!m) continue
     const monthly = (m.monthlySearchVolumes ?? []).map((v: { monthlySearches?: string }) => Number(v.monthlySearches ?? 0))
     const monthlyEnd = seriesEnd(m.monthlySearchVolumes)
-    got.set(String(r.text).toLowerCase(), {
+    const metric = {
       keyword:     String(r.text),
       searches:    Number(m.avgMonthlySearches ?? 0),
       competition: String(m.competition ?? 'UNSPECIFIED'),
@@ -848,7 +913,16 @@ function parseHistorical(results: unknown[] | undefined): Map<string, GoogleMetr
       cpcHigh:     microsToCurrency(m.highTopOfPageBidMicros),
       monthly,
       monthlyEnd,
-    })
+    }
+    got.set(normText(r.text), metric)
+    // Requested keywords Google counts as the SAME search (plural, word order, ...)
+    // come back as one row, listed in `closeVariants`, with these exact numbers.
+    // Reading only `text` stored every other variant as "no data" (2026-10-08: why
+    // trends and countries were blank for so many keywords).
+    for (const v of (r.closeVariants ?? []) as unknown[]) {
+      const k = normText(v)
+      if (k && !got.has(k)) got.set(k, { ...metric, keyword: String(v) })
+    }
   }
   return got
 }
@@ -955,14 +1029,32 @@ async function fetchMetrics(keywords: string[], geoIds: string[], cacheGeo: stri
     // A keyword already on its way to Google (another user, or this keyword's main
     // stats a moment ago) is awaited rather than asked for again.
     const pending = misses.filter(kw => histInflight.has(`${cacheGeo}|${kw}`))
-    const fresh = misses.filter(kw => !histInflight.has(`${cacheGeo}|${kw}`))
-    const [joined, fetched] = await Promise.all([
+    let fresh = misses.filter(kw => !histInflight.has(`${cacheGeo}|${kw}`))
+    // Already being asked by ANOTHER worker: wait for that answer instead of asking again.
+    const lane = priority ?? (fresh.length <= 2 ? 'high' : 'normal')
+    const elsewhere = await inflightElsewhere(fresh.map(kw => metricKey(cacheGeo, kw)))
+    const remote = fresh.filter(kw => elsewhere.has(metricKey(cacheGeo, kw)))
+    fresh = fresh.filter(kw => !elsewhere.has(metricKey(cacheGeo, kw)))
+    const freshKeys = fresh.map(kw => metricKey(cacheGeo, kw))
+    markInflight(freshKeys)
+    const started = Date.now()
+    const [joined, fetched, remoteGot] = await Promise.all([
       Promise.all(pending.map(async kw => [kw, await histInflight.get(`${cacheGeo}|${kw}`)!] as const)),
-      fresh.length ? batchedHistorical(fresh, geoIds, cacheGeo, priority ?? (fresh.length <= 2 ? 'high' : 'normal')) : Promise.resolve(new Map<string, GoogleMetric>()),
+      fresh.length
+        ? batchedHistorical(fresh, geoIds, cacheGeo, lane).finally(() => clearInflight(freshKeys))
+        : Promise.resolve(new Map<string, GoogleMetric>()),
+      remote.length
+        ? awaitStored(remote.map(kw => metricKey(cacheGeo, kw)), started, started + MAX_WAIT_MS[lane] + 5_000)
+        : Promise.resolve(new Map<string, GoogleMetric | null>()),
     ])
     let joinFailed = false
     for (const [kw, r] of joined) { if (r === undefined) joinFailed = true; else if (r) out.set(kw, r) }
     for (const [k, v] of fetched) out.set(k, v)
+    for (const kw of remote) {
+      const k = metricKey(cacheGeo, kw)
+      if (!remoteGot.has(k)) joinFailed = true
+      else { const m = remoteGot.get(k); if (m) out.set(kw, m) }
+    }
     if (joinFailed) throw new GoogleAdsError('Google is busy right now. Try again in a moment.', 'rate')
   } catch (e) {
     // The lockout is logged once when it trips; don't repeat it for every country/keyword.
@@ -1074,6 +1166,67 @@ export async function googleKeywordMetrics(
     noteFailure(meta, e)
     return new Map()
   }
+}
+
+// ─── Closest broader phrase Google tracks ─────────────────────────────────────
+// Google reports no volume for about half the phrases sellers search (mostly 4+
+// words: "macrame plant hanger boho"). Their trend graph and country chart then had
+// nothing to show. This finds the most specific SHORTER phrase inside the keyword
+// that Google does track ("macrame plant hanger"), so the page can show that, clearly
+// labelled with the phrase it is for. Real data for a named phrase, never a stand-in
+// number presented as the original keyword's.
+const FILLER_WORDS = new Set(['a', 'an', 'the', 'and', 'or', 'for', 'of', 'with', 'in', 'on', 'to', 'by', 'at', 'from', 'my', 'your', 'set', 'gift', 'gifts'])
+const MIN_BROADER_SEARCHES = 10
+
+/** Contiguous shorter phrases of `kw`, most specific (longest) first; filler-only ones skipped. */
+function broaderCandidates(kw: string, limit = 14): string[][] {
+  const words = kw.split(' ').filter(Boolean)
+  const levels: string[][] = []
+  let count = 0
+  for (let len = words.length - 1; len >= 1 && count < limit; len--) {
+    const level: string[] = []
+    for (let i = 0; i + len <= words.length && count < limit; i++) {
+      const part = words.slice(i, i + len)
+      // Skip phrases with no real product word (only filler, years, numbers).
+      if (part.every(w => FILLER_WORDS.has(w) || /^[\d.,+%#-]+$/.test(w))) continue
+      // A single word must be a real word, not "boho" alone deciding a "macrame" chart.
+      if (len === 1 && words.length > 2) continue
+      level.push(part.join(' '))
+      count++
+    }
+    if (level.length) levels.push(level)
+  }
+  return levels
+}
+
+/**
+ * The most specific shorter phrase of `keyword` that Google has search volume for
+ * (one batched lookup, cached like every Google answer), or null. Within the longest
+ * length that has any volume, the phrase with the most searches wins.
+ */
+export async function googleBroaderKeyword(keyword: string, geoIso = 'GLO', meta?: GoogleMetricsMeta): Promise<{ keyword: string; metric: GoogleMetric } | null> {
+  if (!isGoogleAdsConfigured()) return null
+  const kw = keyword.toLowerCase().replace(/\s+/g, ' ').trim()
+  const geo = normalizeGeo(geoIso)
+  const ck = `gads-broader:${geo}:${kw}`
+  const hit = memCache.get<{ keyword: string; metric: GoogleMetric } | 'none'>(ck)
+  if (hit) return hit === 'none' ? null : hit
+  const levels = broaderCandidates(kw)
+  if (!levels.length) return null
+  const local: GoogleMetricsMeta = {}
+  const metrics = await googleKeywordMetrics(levels.flat(), geo, local)
+  if (meta) Object.assign(meta, { failed: meta.failed || local.failed, quota: meta.quota || local.quota, retryAt: meta.retryAt ?? local.retryAt })
+  for (const level of levels) {
+    let best: { keyword: string; metric: GoogleMetric } | null = null
+    for (const k of level) {
+      const m = metrics.get(k)
+      if (m && m.searches >= MIN_BROADER_SEARCHES && (!best || m.searches > best.metric.searches)) best = { keyword: k, metric: m }
+    }
+    if (best) { memCache.set(ck, best, 6 * 3600); return best }
+  }
+  // Only remember "none" when Google actually answered.
+  if (!local.failed) memCache.set(ck, 'none', 3600)
+  return null
 }
 
 /** Per-country search distribution for a single keyword, as CountryData[] (%). */

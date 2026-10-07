@@ -12,6 +12,7 @@ A full verified backup taken before these changes is at
 | 1 | `slim-collective.cjs` | any time | ~440 MB of data |
 | 2 | `drop-unused-indexes.cjs` | **after** deploying the models.ts change | ~290 MB of indexes |
 | 3 | `compact-snapshot-text.cjs` | **after** deploying the snapshots.ts change | ~1.4 GB of data |
+| 4 | `compact-collections.cjs` | about a day **after** deploying the keyword-cache compression (2026-10-08) | ~0.65 GB per member (file space back to the disk) |
 
 ```bash
 node scripts/db-maintenance/slim-collective.cjs            # preview

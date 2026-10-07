@@ -547,6 +547,8 @@ export interface ITrackedListing {
   createdAt?: Date
   // Stable attributes - describe the listing, not a given day.
   shopName?: string | null
+  /** Fingerprint of the sorted tag list (current); `tags` is the older full list. */
+  tagsFp?: string
   tags?: string[]
   /** Etsy top-level category, e.g. "Home & Living" - picks the conversion rate. */
   categoryTop?: string | null
@@ -777,7 +779,10 @@ export interface IKeywordCache {
   _id?: string
   keyword: string
   geo?: string
-  data: KeywordSearchResponse
+  /** gzip-compressed JSON of the package (current format). */
+  dataZ?: Buffer
+  /** Old uncompressed form, read until those rows expire. */
+  data?: KeywordSearchResponse
   createdAt: Date
   expiresAt: Date
 }

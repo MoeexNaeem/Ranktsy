@@ -17,6 +17,7 @@
  * This is NOT the Etsy caching rule in cache.ts. We never re-serve stale Etsy
  * content as current; a snapshot is a dated measurement presented as history.
  */
+import { createHash } from 'node:crypto'
 import { connectDB } from '@/lib/db'
 import { ShopSnapshot, ListingSnapshot, TrackedListing, SearchRankSnapshot, KeywordMarketSnapshot, KeywordSuggestion } from '@/lib/models'
 import { reviewRate } from '@/lib/salesEstimate'
@@ -162,13 +163,19 @@ export function recordShopSnapshots(shops: ShopSnapshotInput[]): void {
 // forward, so the change log reads exactly as before. Views, favorites, reviews and
 // price are still stored every day.
 const tagsKey = (t?: string[] | null) => (t && t.length ? [...t].sort().join('\u0001') : '')
+/** Short, order-independent fingerprint of a tag list ('' for none). Same tags, same value. */
+const tagsFp = (t?: string[] | null) => {
+  const k = tagsKey(t)
+  return k ? createHash('sha1').update(k).digest('base64url').slice(0, 16) : ''
+}
 
-async function knownTitleTags(ids: number[]): Promise<Map<number, { title: string; tagsKey: string }>> {
+async function knownTitleTags(ids: number[]): Promise<Map<number, { title: string; tagsFp: string }>> {
   if (!ids.length) return new Map()
   const rows = await TrackedListing.find({ listingId: { $in: ids } })
-    .select('listingId title tags')
-    .lean<{ listingId: number; title?: string; tags?: string[] }[]>()
-  return new Map(rows.map(r => [r.listingId, { title: r.title ?? '', tagsKey: tagsKey(r.tags) }]))
+    .select('listingId title tags tagsFp')
+    .lean<{ listingId: number; title?: string; tags?: string[]; tagsFp?: string }[]>()
+  // Rows written before 2026-10-08 still hold the full list: fingerprint it the same way.
+  return new Map(rows.map(r => [r.listingId, { title: r.title ?? '', tagsFp: r.tagsFp ?? tagsFp(r.tags) }]))
 }
 
 /** Record listing state for change-tracking. Fire-and-forget. */
@@ -194,7 +201,7 @@ export function recordListingSnapshots(listings: EtsyListing[]): void {
           const k = known.get(l.listing_id)
           const change: { listingId: number; title?: string; tags?: string[] } = { listingId: l.listing_id }
           if (l.title && l.title !== k?.title) { set.title = l.title; change.title = l.title }
-          if (l.tags?.length && tagsKey(l.tags) !== k?.tagsKey) { set.tags = l.tags; change.tags = l.tags }
+          if (l.tags?.length && tagsFp(l.tags) !== k?.tagsFp) { set.tags = l.tags; change.tags = l.tags }
           if (k && (change.title || change.tags)) changedTracked.push(change)
           return {
             updateOne: {
@@ -214,7 +221,10 @@ export function recordListingSnapshots(listings: EtsyListing[]): void {
         await TrackedListing.bulkWrite(changedTracked.map(c => ({
           updateOne: {
             filter: { listingId: c.listingId },
-            update: { $set: { ...(c.title ? { title: c.title } : {}), ...(c.tags ? { tags: c.tags } : {}) } },
+            update: {
+              $set: { ...(c.title ? { title: c.title } : {}), ...(c.tags ? { tagsFp: tagsFp(c.tags) } : {}) },
+              ...(c.tags ? { $unset: { tags: '' } } : {}),
+            },
           },
         })), { ordered: false })
       }
@@ -414,7 +424,7 @@ export async function recordObservedListings(rows: ObservedListing[]): Promise<n
       // upsert below records them as the new known value.
       const k = known.get(r.listingId)
       if (r.title && r.title !== k?.title) set.title = r.title
-      if (r.tags?.length && tagsKey(r.tags) !== k?.tagsKey) set.tags = r.tags
+      if (r.tags?.length && tagsFp(r.tags) !== k?.tagsFp) set.tags = r.tags
       if (r.price != null) { set.price = r.price; if (r.currency) set.currency = r.currency }
       if (r.views != null) set.views = r.views
       if (r.favorers != null) set.favorers = r.favorers
@@ -443,7 +453,8 @@ export async function recordObservedListings(rows: ObservedListing[]): Promise<n
       // richer later observation fills gaps, but only for fields we actually saw.
       const set: Record<string, unknown> = { shopId: r.shopId, lastSeenAt: now }
       if (r.title != null) set.title = r.title
-      if (r.tags != null && r.tags.length) set.tags = r.tags
+      // The fingerprint replaces the full tag list (and drops an old one, below).
+      if (r.tags != null && r.tags.length) set.tagsFp = tagsFp(r.tags)
       if (r.shopName != null) set.shopName = r.shopName
       if (r.categoryTop != null) set.categoryTop = r.categoryTop
       if (r.isDigital != null) set.isDigital = r.isDigital
@@ -474,6 +485,7 @@ export async function recordObservedListings(rows: ObservedListing[]): Promise<n
             $set: set,
             $setOnInsert: { listingId: r.listingId, firstSeenAt: now },
             $inc: { observeCount: 1 },
+            ...(set.tagsFp ? { $unset: { tags: '' } } : {}),
           },
           upsert: true,
         },

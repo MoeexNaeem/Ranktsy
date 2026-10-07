@@ -168,7 +168,11 @@ const KeywordCacheSchema = new Schema<IKeywordCache>({
   // Country filter - Google volume/CPC/competition are geo-specific, so each
   // country caches its own document for the same keyword. Defaults to US.
   geo:       { type: String, default: 'US', uppercase: true, trim: true },
-  data:      { type: Schema.Types.Mixed, required: true },
+  // The result package, gzip-compressed (~87 KB of JSON -> ~19 KB). Since
+  // 2026-10-08; `data` is the old uncompressed form, still read until those rows
+  // expire (TTL). lib/keyword-cache-codec.ts packs/unpacks.
+  dataZ:     { type: Buffer },
+  data:      { type: Schema.Types.Mixed },
   expiresAt: { type: Date, required: true, index: { expireAfterSeconds: 0 } },
 }, { timestamps: true })
 
@@ -365,6 +369,10 @@ const TrackedListingSchema = new Schema<ITrackedListing>({
   // the right conversion rate, to group by shop or category, and to answer
   // "what do we already know about this listing" without an Etsy call.
   shopName:     { type: String, default: null },
+  // Only used to notice "tags changed" (snapshots.ts knownTitleTags), so a short
+  // fingerprint is enough: `tagsFp` replaces the full list (~320 B per listing)
+  // as listings are seen again (2026-10-08). Old rows keep `tags` until then.
+  tagsFp:       { type: String, default: undefined },
   tags:         { type: [String], default: undefined },
   categoryTop:  { type: String, default: null },
   isDigital:    { type: Boolean, default: null },
@@ -505,11 +513,15 @@ export interface IGoogleAdsCacheDoc extends Document {
   key: string
   data: unknown
   fetchedAt: Date
+  v?: number
 }
 const GoogleAdsCacheSchema = new Schema<IGoogleAdsCacheDoc>({
   key:       { type: String, required: true, unique: true },
   data:      { type: Schema.Types.Mixed, default: null },
   fetchedAt: { type: Date, required: true, default: () => new Date() },
+  // Row format. 2 = written since Google's close variants are read (2026-10-08); an
+  // older EMPTY row may be a close-variant miss, so it is asked again once.
+  v:         { type: Number },
 })
 GoogleAdsCacheSchema.index({ fetchedAt: 1 }, { expireAfterSeconds: 180 * 86400 })
 

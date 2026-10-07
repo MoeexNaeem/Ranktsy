@@ -6,10 +6,10 @@
  * index in lib/models reads this, so the number the public page states and the
  * number the database enforces cannot drift apart.
  */
-// 150 = the longest window any screen reads (120 days: velocity batch; 90 for velocity,
-// change log, market activity, rank history) plus a 30-day margin. Set 2026-09-26
-// (was 400, which kept ~280 days no feature showed while the dataset grew ~6 GB/month).
-export const SNAPSHOT_RETENTION_DAYS = 150
+// 90 = the longest window any screen shows (shop/listing velocity "3 months", change
+// log, market activity, rank history). Owner's call 2026-10-08 to stop the disk filling
+// (was 150 from 2026-09-26, 400 before). Rolling: each day's rows go when 90 days old.
+export const SNAPSHOT_RETENTION_DAYS = 90
 
 export const C = {
   // ── Brand palette - ONLY orange #FB5E09, dark #3D3E3B, parchment #F5F5EB ─
