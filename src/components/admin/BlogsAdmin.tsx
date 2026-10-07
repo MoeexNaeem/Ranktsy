@@ -1,5 +1,6 @@
 'use client'
 import { Icon } from '@/components/ui/Icon'
+import { useConfirm } from './ui'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import axios from 'axios'
@@ -37,6 +38,7 @@ const GRID = '2.4fr 0.8fr 0.9fr 0.8fr 1.1fr'
 
 export function BlogsAdmin() {
   const [view, setView] = useState<'list' | 'edit'>('list')
+  const { confirm, dialog: confirmDialog } = useConfirm()
   const [posts, setPosts] = useState<PostRow[]>([])
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(true)
@@ -139,16 +141,20 @@ export function BlogsAdmin() {
     finally { setSaving(false) }
   }
 
-  const del = async (pid: string) => {
-    if (!window.confirm('Delete this post permanently?')) return
-    try { await axios.delete(`/api/admin/blogs/${pid}`); await load(); toast.success('Post deleted') }
-    catch (e) { const m = axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Delete failed'; setErr(m); toast.error('Delete failed', m) }
-  }
+  const del = (id: string) => void confirm({
+    title: 'Delete this post?', tone: 'danger', confirmLabel: 'Delete', busyLabel: 'Deleting…',
+    body: 'It is removed permanently. This cannot be undone.',
+    action: async () => {
+      try { await axios.delete(`/api/admin/blogs/${id}`); await load(); toast.success('Post deleted'); return null }
+      catch (e) { const m = axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Delete failed'; setErr(m); return m }
+    },
+  })
 
   // ─── List view ─────────────────────────────────────────────────────────────
   if (view === 'list') {
     return (
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '110px 24px 60px' }}>
+        {confirmDialog}
         <SectionTitle right={
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <Link href="/admin" style={{ ...chip, textDecoration: 'none' }}>← Admin</Link>

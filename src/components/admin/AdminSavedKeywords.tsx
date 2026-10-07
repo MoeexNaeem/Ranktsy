@@ -7,7 +7,8 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { C } from '@/utils'
-import { MONO, SectionTitle, StatCard, EmptyState, tableCard, tableHead, th, tableRow } from '@/components/dashboard/kit'
+import { MONO, SectionTitle, EmptyState, tableCard, tableHead, th, tableRow } from '@/components/dashboard/kit'
+import { StatCard } from './ui'
 
 interface DayCount { day: string; count: number }
 interface KeywordRow { keyword: string; count: number; countries: string[]; users: string[]; lastAt: string | null; day?: string }

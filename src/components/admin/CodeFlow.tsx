@@ -16,6 +16,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useConfirm } from './ui'
 import {
   ReactFlow, ReactFlowProvider, Background, BackgroundVariant, Controls, MiniMap,
   Handle, Position, MarkerType, useStoreApi,
@@ -187,6 +188,7 @@ function EtsyQuotaPanel({ rows, now, busyId, msg, onToggle }: { rows: EtsyQuotaR
 
 function CodeFlowInner() {
   const storeApi = useStoreApi()
+  const { confirm, dialog: confirmDialog } = useConfirm()
   const [health, setHealth] = useState<HealthMap | null>(null)
   const [checkedAt, setCheckedAt] = useState<string | null>(null)
   const [etsyQuota, setEtsyQuota] = useState<EtsyQuotaRow[]>([])
@@ -348,7 +350,15 @@ function CodeFlowInner() {
         ))}
       </div>
 
-      {etsyQuota.length > 0 && <EtsyQuotaPanel rows={etsyQuota} now={checkedAt ? Date.parse(checkedAt) : 0} busyId={keyBusy} msg={keyMsg} onToggle={toggleKey} />}
+      {etsyQuota.length > 0 && <EtsyQuotaPanel rows={etsyQuota} now={checkedAt ? Date.parse(checkedAt) : 0} busyId={keyBusy} msg={keyMsg} onToggle={(id, enabled) => {
+        if (enabled) { void toggleKey(id, true); return }
+        void confirm({
+          title: 'Turn this Etsy key OFF?', tone: 'danger', confirmLabel: 'Turn off', busyLabel: 'Switching…',
+          body: 'It stops serving Etsy tools so its quota can recover. The other keys carry every search until you turn it back on.',
+          action: () => toggleKey(id, false),
+        })
+      }} />}
+      {confirmDialog}
 
       {(health?.google?.status === 'down' || gRecheck.msg) && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '10px 14px', borderRadius: 12,

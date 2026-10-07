@@ -27,6 +27,14 @@ async function requireAdmin() {
   return { res: null, auth }
 }
 
+/** Page number + size from the query (size capped), and the skip for it. */
+function paging(sp: URLSearchParams, size: number) {
+  const page = Math.max(1, Number(sp.get('page')) || 1)
+  return { page, limit: size, skip: (page - 1) * size }
+}
+const pageOut = <T,>(rows: T[], total: number, page: number, limit: number) =>
+  ({ rows, total, page, pages: Math.max(1, Math.ceil(total / limit)) })
+
 const sinceFor = (range: string | null) => new Date(Date.now() - (range === '7d' ? 7 * DAY : range === '1h' ? HOUR : DAY))
 
 /**
@@ -100,8 +108,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (view === 'events') {
-    const page = Math.max(1, Number(sp.get('page')) || 1)
-    const limit = 30
+    const { page, limit, skip } = paging(sp, 25)
     const match: Record<string, unknown> = { last: { $gte: since } }
     const type = sp.get('type'); if (type && (SECURITY_TYPES as string[]).includes(type)) match.type = type
     const severity = sp.get('severity'); if (severity === 'info' || severity === 'warn' || severity === 'high') match.severity = severity
@@ -110,59 +117,83 @@ export async function GET(req: NextRequest) {
     if (q) match.$or = [{ email: { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') } }, { ip: q }]
     const [total, rows] = await Promise.all([
       col.countDocuments(match),
-      col.find(match).sort({ last: -1 }).skip((page - 1) * limit).limit(limit).toArray(),
+      col.find(match).sort({ last: -1 }).skip(skip).limit(limit).toArray(),
     ])
-    return NextResponse.json({ success: true, data: { rows, total, page, pages: Math.max(1, Math.ceil(total / limit)) } })
+    return NextResponse.json({ success: true, data: pageOut(rows, total, page, limit) })
   }
 
   if (view === 'ips') {
-    const [rows, blocks] = await Promise.all([
-      col.aggregate<{ _id: string; n: number; high: number; warn: number; types: string[]; emails: string[]; country: string | null; first: Date; last: Date }>([
-        { $match: { last: { $gte: since }, ip: { $ne: 'unknown' }, type: { $ne: 'admin_action' } } },
-        { $group: {
-          _id: '$ip', n: { $sum: '$count' },
-          high: { $sum: { $cond: [{ $eq: ['$severity', 'high'] }, '$count', 0] } },
-          warn: { $sum: { $cond: [{ $eq: ['$severity', 'warn'] }, '$count', 0] } },
-          types: { $addToSet: '$type' }, emails: { $addToSet: '$email' },
-          country: { $max: '$country' }, first: { $min: '$first' }, last: { $max: '$last' },
-        } },
-        { $sort: { high: -1, warn: -1, n: -1 } }, { $limit: 100 },
-      ]).toArray(),
-      listIpBlocks(),
+    const { page, limit, skip } = paging(sp, 20)
+    const [facet] = await col.aggregate<{ rows: { _id: string; n: number; high: number; warn: number; types: string[]; emails: string[]; country: string | null; first: Date; last: Date }[]; total: { n: number }[] }>([
+      { $match: { last: { $gte: since }, ip: { $ne: 'unknown' }, type: { $ne: 'admin_action' } } },
+      { $group: {
+        _id: '$ip', n: { $sum: '$count' },
+        high: { $sum: { $cond: [{ $eq: ['$severity', 'high'] }, '$count', 0] } },
+        warn: { $sum: { $cond: [{ $eq: ['$severity', 'warn'] }, '$count', 0] } },
+        types: { $addToSet: '$type' }, emails: { $addToSet: '$email' },
+        country: { $max: '$country' }, first: { $min: '$first' }, last: { $max: '$last' },
+      } },
+      { $sort: { high: -1, warn: -1, n: -1, _id: 1 } },
+      { $facet: { rows: [{ $skip: skip }, { $limit: limit }], total: [{ $count: 'n' }] } },
+    ]).toArray()
+    const rows = facet?.rows ?? []
+    const [signups, blocked] = await Promise.all([
+      User.aggregate<{ _id: string; n: number }>([
+        { $match: { signupIp: { $in: rows.map(r => r._id) } } }, { $group: { _id: '$signupIp', n: { $sum: 1 } } },
+      ]),
+      blockedIps(),
     ])
-    const signups = await User.aggregate<{ _id: string; n: number }>([
-      { $match: { signupIp: { $in: rows.map(r => r._id) } } }, { $group: { _id: '$signupIp', n: { $sum: 1 } } },
-    ])
-    const signupsBy = new Map(signups.map(s => [s._id, s.n]))
-    const blockedSet = new Set(blocks.filter(b => !b.until || b.until > new Date()).map(b => b._id))
-    return NextResponse.json({ success: true, data: {
-      ips: rows.map(r => ({ ip: r._id, n: r.n, high: r.high, warn: r.warn, types: r.types, emails: r.emails.filter(Boolean).slice(0, 8), country: r.country, first: r.first, last: r.last, accounts: signupsBy.get(r._id) ?? 0, blocked: blockedSet.has(r._id) })),
-      blocks,
-    } })
+    const signupsBy = new Map(signups.map(x => [x._id, x.n]))
+    return NextResponse.json({ success: true, data: pageOut(
+      rows.map(r => ({ ip: r._id, n: r.n, high: r.high, warn: r.warn, types: r.types, emails: r.emails.filter(Boolean).slice(0, 8), country: r.country, first: r.first, last: r.last, accounts: signupsBy.get(r._id) ?? 0, blocked: blocked.has(r._id) })),
+      facet?.total[0]?.n ?? 0, page, limit,
+    ) })
+  }
+
+  if (view === 'blocks') {
+    const { page, limit, skip } = paging(sp, 10)
+    const all = await listIpBlocks()
+    return NextResponse.json({ success: true, data: pageOut(all.slice(skip, skip + limit), all.length, page, limit) })
   }
 
   if (view === 'accounts') {
-    const day = new Date().toISOString().slice(0, 10)
-    const [farms, heavy, targeted, restrictedUsers, tempMail] = await Promise.all([
-      User.aggregate<{ _id: string; n: number; emails: string[]; last: Date }>([
+    const list = sp.get('list') ?? 'farms'
+    const { page, limit, skip } = paging(sp, 8)
+    if (list === 'farms') {
+      const [facet] = await User.aggregate<{ rows: { _id: string; n: number; emails: string[]; last: Date }[]; total: { n: number }[] }>([
         { $match: { signupIp: { $ne: null } } },
         { $group: { _id: '$signupIp', n: { $sum: 1 }, emails: { $push: '$email' }, last: { $max: '$createdAt' } } },
-        { $match: { n: { $gte: 2 } } }, { $sort: { n: -1, last: -1 } }, { $limit: 30 },
-      ]),
-      ApiUsage.find({ day }).sort({ etsyCalls: -1 }).limit(15).select('userEmail userId etsyCalls searches googleCalls').lean<{ userEmail?: string; userId: string; etsyCalls: number; searches: number; googleCalls: number }[]>(),
-      col.aggregate<{ _id: string; n: number; ips: string[]; last: Date }>([
+        { $match: { n: { $gte: 2 } } }, { $sort: { n: -1, last: -1 } },
+        { $facet: { rows: [{ $skip: skip }, { $limit: limit }], total: [{ $count: 'n' }] } },
+      ])
+      return NextResponse.json({ success: true, data: pageOut((facet?.rows ?? []).map(f => ({ ip: f._id, n: f.n, emails: f.emails.slice(0, 10), last: f.last })), facet?.total[0]?.n ?? 0, page, limit) })
+    }
+    if (list === 'heavy') {
+      const day = new Date().toISOString().slice(0, 10)
+      const match = { day, etsyCalls: { $gt: 0 } }
+      const [rows, total] = await Promise.all([
+        ApiUsage.find(match).sort({ etsyCalls: -1 }).skip(skip).limit(limit).select('userEmail userId etsyCalls searches googleCalls').lean(),
+        ApiUsage.countDocuments(match),
+      ])
+      return NextResponse.json({ success: true, data: pageOut(rows, total, page, limit) })
+    }
+    if (list === 'targeted') {
+      const [facet] = await col.aggregate<{ rows: { _id: string; n: number; ips: string[]; last: Date }[]; total: { n: number }[] }>([
         { $match: { type: { $in: ['login_failed', 'login_rate_limited'] }, email: { $ne: null }, last: { $gte: new Date(Date.now() - 7 * DAY) } } },
         { $group: { _id: '$email', n: { $sum: '$count' }, ips: { $addToSet: '$ip' }, last: { $max: '$last' } } },
-        { $sort: { n: -1 } }, { $limit: 15 },
-      ]).toArray(),
-      User.find({ restricted: true }).select('email name plan createdAt').sort({ createdAt: -1 }).limit(50).lean(),
-      buildUserFilter({ emailType: 'temp' }).then(f => User.countDocuments(f)),
-    ])
-    return NextResponse.json({ success: true, data: {
-      farms: farms.map(f => ({ ip: f._id, n: f.n, emails: f.emails.slice(0, 10), last: f.last })),
-      heavy, targeted: targeted.map(t => ({ email: t._id, n: t.n, ips: t.ips.slice(0, 5), last: t.last })),
-      restricted: restrictedUsers, tempMail,
-    } })
+        { $sort: { n: -1 } },
+        { $facet: { rows: [{ $skip: skip }, { $limit: limit }], total: [{ $count: 'n' }] } },
+      ]).toArray()
+      return NextResponse.json({ success: true, data: pageOut((facet?.rows ?? []).map(t => ({ email: t._id, n: t.n, ips: t.ips.slice(0, 5), last: t.last })), facet?.total[0]?.n ?? 0, page, limit) })
+    }
+    if (list === 'restricted') {
+      const [rows, total] = await Promise.all([
+        User.find({ restricted: true }).select('email name plan createdAt').sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+        User.countDocuments({ restricted: true }),
+      ])
+      return NextResponse.json({ success: true, data: pageOut(rows, total, page, limit) })
+    }
+    return NextResponse.json({ success: false, error: 'Unknown list' }, { status: 400 })
   }
 
   if (view === 'health') {

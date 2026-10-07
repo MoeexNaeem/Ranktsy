@@ -7,8 +7,9 @@
  * commission - each of which the admin can move to approved / paid / refunded.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useConfirm, LoadingBlock, StatCard } from './ui'
 import { C } from '@/utils'
-import { MONO, SectionTitle, StatCard, EmptyState, cardStyle, tableCard, tableHead, th, tableRow, tdMono, Pagination } from '@/components/dashboard/kit'
+import { MONO, SectionTitle, EmptyState, cardStyle, tableCard, tableHead, th, tableRow, tdMono, Pagination } from '@/components/dashboard/kit'
 import { toast } from '@/components/ui/toast'
 
 interface Row {
@@ -42,6 +43,7 @@ export function AdminAffiliates() {
   const [sel, setSel] = useState<string | null>(null)
   const [detail, setDetail] = useState<Detail | null>(null)
   const [busy, setBusy] = useState(false)
+  const { confirm, dialog: confirmDialog } = useConfirm()
   const [listPage, setListPage] = useState(1)
   const [convPage, setConvPage] = useState(1)
   const [refPage, setRefPage] = useState(1)
@@ -74,14 +76,18 @@ export function AdminAffiliates() {
 
   // ── Detail view ────────────────────────────────────────────────────────────
   if (sel) {
-    if (!detail) return <div style={cardStyle}><div className="shimmer" style={{ height: 220, borderRadius: 8, background: '#e8e7e2' }} /></div>
+    if (!detail) return <div style={cardStyle}><LoadingBlock label="Loading affiliate…" height={220} /></div>
     const owed = Math.max(0, detail.earnedTotal - detail.paidTotal)
     const convCount = Math.max(1, Math.ceil(detail.conversionList.length / PAGE))
     const refCount = Math.max(1, Math.ceil(detail.referredUsers.length / PAGE))
     const convRows = detail.conversionList.slice((convPage - 1) * PAGE, convPage * PAGE)
     const refRows = detail.referredUsers.slice((refPage - 1) * PAGE, refPage * PAGE)
+    const ask = (title: string, body: string, label: string, run: () => Promise<void>, danger = false) => void confirm({
+      title, body, confirmLabel: label, tone: danger ? 'danger' : 'primary', busyLabel: 'Saving…', action: run,
+    })
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {confirmDialog}
         <button onClick={() => { setSel(null); setDetail(null) }} style={{ alignSelf: 'flex-start', background: 'transparent', border: `1px solid ${C.ash}`, color: C.graphite, borderRadius: 8, padding: '7px 14px', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' }}>← All affiliates</button>
 
         {/* Header */}
@@ -92,7 +98,9 @@ export function AdminAffiliates() {
               <p style={{ fontSize: 13.5, color: C.graphite, margin: '4px 0 0' }}>{detail.ownerEmail}</p>
               <p style={{ fontSize: 12.5, fontFamily: MONO, color: C.stone, marginTop: 7 }}>code: {detail.code} · {Math.round(detail.commissionRate * 100)}% recurring · {detail.conversions} paying referral{detail.conversions === 1 ? '' : 's'} {detail.status === 'suspended' && <span style={{ color: C.danger }}>· suspended</span>}</p>
             </div>
-            <button onClick={() => patch(detail.id, { affiliateStatus: detail.status === 'active' ? 'suspended' : 'active' })} disabled={busy}
+            <button onClick={() => detail.status === 'active'
+              ? ask('Suspend this affiliate?', `${detail.ownerEmail} stops earning commission on new sales until you reactivate them.`, 'Suspend', () => patch(detail.id, { affiliateStatus: 'suspended' }), true)
+              : ask('Reactivate this affiliate?', `${detail.ownerEmail} earns commission again on new sales.`, 'Reactivate', () => patch(detail.id, { affiliateStatus: 'active' }))} disabled={busy}
               style={{ alignSelf: 'flex-start', background: detail.status === 'active' ? C.dangerBg : '#E4F3E9', color: detail.status === 'active' ? C.danger : '#1F7A44', border: `1px solid ${detail.status === 'active' ? C.danger : '#1F7A44'}`, borderRadius: 8, padding: '8px 16px', fontSize: 12.5, fontWeight: 600, fontFamily: MONO, cursor: 'pointer' }}>
               {detail.status === 'active' ? 'Suspend' : 'Reactivate'}
             </button>
@@ -121,7 +129,7 @@ export function AdminAffiliates() {
             </div>
           ) : <p style={{ fontSize: 14, color: C.stone, margin: 0 }}>This affiliate has not added payout details yet.</p>}
           {owed > 0 && (
-            <button onClick={() => patch(detail.id, { action: 'markAllPaid' })} disabled={busy}
+            <button onClick={() => ask(`Mark ${money(owed)} as paid?`, `Only do this after you have actually sent ${money(owed)} to ${detail.ownerName || detail.ownerEmail}. Every owed commission is marked paid.`, 'Mark as paid', () => patch(detail.id, { action: 'markAllPaid' }))} disabled={busy}
               style={{ marginTop: 16, background: C.orange, color: '#fff', border: 'none', borderRadius: 100, padding: '10px 20px', fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
               {busy ? 'Working…' : `Mark all owed (${money(owed)}) as paid`}
             </button>
@@ -145,8 +153,8 @@ export function AdminAffiliates() {
                       <span style={{ justifySelf: 'start', fontSize: 11.5, fontWeight: 600, color: s.fg, background: s.bg, borderRadius: 100, padding: '4px 11px' }}>{s.label}</span>
                       <div style={{ display: 'flex', gap: 6, justifySelf: 'end', flexWrap: 'wrap' }}>
                         {c.status !== 'approved' && c.status !== 'paid' && <ActBtn label="Approve" onClick={() => patch(detail.id, { conversionId: c.id, status: 'approved' })} busy={busy} />}
-                        {c.status !== 'paid' && <ActBtn label="Paid" primary onClick={() => patch(detail.id, { conversionId: c.id, status: 'paid' })} busy={busy} />}
-                        {c.status !== 'refunded' && c.status !== 'paid' && <ActBtn label="Void" danger onClick={() => patch(detail.id, { conversionId: c.id, status: 'refunded' })} busy={busy} />}
+                        {c.status !== 'paid' && <ActBtn label="Paid" primary onClick={() => ask('Mark this commission as paid?', 'Only after you have sent the money to the affiliate.', 'Mark as paid', () => patch(detail.id, { conversionId: c.id, status: 'paid' }))} busy={busy} />}
+                        {c.status !== 'refunded' && c.status !== 'paid' && <ActBtn label="Void" danger onClick={() => ask('Void this commission?', 'The affiliate will not be paid for this sale (use it for refunds).', 'Void', () => patch(detail.id, { conversionId: c.id, status: 'refunded' }), true)} busy={busy} />}
                       </div>
                     </div>
                   )

@@ -1,5 +1,6 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
+import { useConfirm } from './ui'
 import Link from 'next/link'
 import axios from 'axios'
 import { C } from '@/utils'
@@ -19,6 +20,7 @@ const BLANK: Partial<IPopupAd> = { mode: 'card', enabled: false, ctaLabel: 'Lear
 
 export function PopupAdsAdmin() {
   const [view, setView] = useState<'list' | 'edit'>('list')
+  const { confirm, dialog: confirmDialog } = useConfirm()
   const [ads, setAds] = useState<AdRow[]>([])
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(true)
@@ -57,16 +59,20 @@ export function PopupAdsAdmin() {
     catch (e) { const m = axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Failed'; setErr(m); toast.error('Update failed', m) }
   }
 
-  const del = async (adId: string) => {
-    if (!window.confirm('Delete this ad permanently?')) return
-    try { await axios.delete(`/api/admin/popup-ads/${adId}`); await load(); toast.success('Popup ad deleted') }
-    catch (e) { const m = axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Delete failed'; setErr(m); toast.error('Delete failed', m) }
-  }
+  const del = (id: string) => void confirm({
+    title: 'Delete this ad?', tone: 'danger', confirmLabel: 'Delete', busyLabel: 'Deleting…',
+    body: 'It is removed permanently. This cannot be undone.',
+    action: async () => {
+      try { await axios.delete(`/api/admin/popup-ads/${id}`); await load(); toast.success('Popup ad deleted'); return null }
+      catch (e) { const m = axios.isAxiosError(e) ? (e.response?.data?.error ?? e.message) : 'Delete failed'; setErr(m); return m }
+    },
+  })
 
   // ─── List ──────────────────────────────────────────────────────────────────
   if (view === 'list') {
     return (
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '110px 24px 60px' }}>
+        {confirmDialog}
         <SectionTitle right={
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <Link href="/admin" style={{ ...chip, textDecoration: 'none' }}>← Admin</Link>

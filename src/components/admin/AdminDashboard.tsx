@@ -21,6 +21,7 @@ import { AddCreditsModal, daysLeft, type BonusInfo } from './AddCreditsModal'
 import { CodeFlow } from './CodeFlow'
 import { RealtimeProvider, NotificationBell } from '@/components/dashboard/Realtime'
 import { copyWithToast, toast } from '@/components/ui/toast'
+import { useConfirm, Spinner, adminBtn, ModalShell, LoadingBlock } from './ui'
 
 interface AUser {
   id: string; name: string; email: string; role: 'user' | 'admin'; plan: string
@@ -31,7 +32,6 @@ interface AUser {
   bonus?: BonusInfo | null   // admin-granted bonus pool, only while still valid
   tempMail?: boolean         // signed up with a throwaway / temp-mail address
 }
-type ConfirmAction = { user: AUser; kind: 'delete' | 'restrict' | 'unrestrict' }
 const isRealPaid = (u: AUser) => u.paidViaLemonSqueezy && u.plan !== 'free'
 interface Stats {
   total: number; admins: number; verified: number; searches: number
@@ -181,12 +181,13 @@ export function AdminDashboard() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [selectAllMatching, setSelectAllMatching] = useState(false)
   const [bulkConfirm, setBulkConfirm] = useState(false)
-  const [bulkText, setBulkText] = useState('')
+  const [bulkPassword, setBulkPassword] = useState('')
+  const [bulkError, setBulkError] = useState('')
   const [bulkBusy, setBulkBusy] = useState(false)
   // A selection belongs to one view: any filter or search change clears it.
   const clearSelection = useCallback(() => { setSelected(new Set()); setSelectAllMatching(false) }, [])
   const [copiedId, setCopiedId] = useState<string | null>(null)
-  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
+  const { confirm, dialog: confirmDialog } = useConfirm()
   const [creditsFor, setCreditsFor] = useState<AUser | null>(null)   // "Add Credits" dialog target
   const [promoOn, setPromoOn] = useState(false)
   const [promoBusy, setPromoBusy] = useState(false)
@@ -250,23 +251,27 @@ export function AdminDashboard() {
   // Bulk delete: the ticked rows, or every user matching the current filters.
   const bulkCount = selectAllMatching ? usersTotal : selected.size
   const runBulkDelete = useCallback(async () => {
-    setBulkBusy(true)
+    setBulkBusy(true); setBulkError('')
     try {
       const body = selectAllMatching
-        ? { action: 'delete', filters: { q: debouncedQuery, plan: fPlan, emailType: fEmail, account: fAccount }, expected: usersTotal }
-        : { action: 'delete', ids: [...selected], expected: selected.size }
+        ? { action: 'delete', filters: { q: debouncedQuery, plan: fPlan, emailType: fEmail, account: fAccount }, expected: usersTotal, password: bulkPassword }
+        : { action: 'delete', ids: [...selected], expected: selected.size, password: bulkPassword }
       const r = await fetch('/api/admin/users/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const d = await r.json().catch(() => null)
-      if (!r.ok || !d?.success) { toast.error('Bulk delete failed', d?.error ?? 'Please try again.'); return }
+      if (!r.ok || !d?.success) {
+        // A wrong password stays in the dialog so it can be retyped.
+        if (d?.code === 'password') { setBulkError(d.error); setBulkPassword(''); return }
+        toast.error('Bulk delete failed', d?.error ?? 'Please try again.'); return
+      }
       const sk = d.data.skipped as { self: number; admin: number; paying: number }
       const skippedN = sk.self + sk.admin + sk.paying
       toast.success(`Deleted ${exact(d.data.deleted)} user${d.data.deleted === 1 ? '' : 's'}`,
         skippedN ? `Kept ${skippedN}: ${[sk.paying && `${sk.paying} paying`, sk.admin && `${sk.admin} admin`, sk.self && 'your own account'].filter(Boolean).join(', ')}.` : 'Their search history was removed too.')
-      setSelected(new Set()); setSelectAllMatching(false); setBulkConfirm(false); setBulkText('')
+      setSelected(new Set()); setSelectAllMatching(false); setBulkConfirm(false); setBulkPassword(''); setBulkError('')
       setUsersPage(1)
       await loadUsers(1, debouncedQuery)
-    } finally { setBulkBusy(false) }
-  }, [selectAllMatching, selected, debouncedQuery, fPlan, fEmail, fAccount, usersTotal, loadUsers])
+    } catch { setBulkError('Network error. Please try again.') } finally { setBulkBusy(false) }
+  }, [selectAllMatching, selected, debouncedQuery, fPlan, fEmail, fAccount, usersTotal, loadUsers, bulkPassword])
 
   // Manual refresh (spins the icon) and an optional 30s live auto-refresh.
   const refresh = useCallback(async () => { setRefreshing(true); await Promise.all([load(), loadUsers(usersPage, debouncedQuery)]); setRefreshing(false) }, [load, loadUsers, usersPage, debouncedQuery])
@@ -306,19 +311,28 @@ export function AdminDashboard() {
     return () => { alive = false; clearInterval(t); window.removeEventListener('rk-admin-chat-read', poll) }
   }, [])
 
-  const patchUser = useCallback(async (id: string, patch: Partial<AUser>) => {
+  /** Save a change to one user. Returns an error message, or null when saved. */
+  const patchUser = useCallback(async (id: string, patch: Partial<AUser>): Promise<string | null> => {
     setBusy(id)
-    const r = await fetch(`/api/admin/users/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) })
-    const d = await r.json().catch(() => null)
-    if (r.ok && d?.success) {
+    try {
+      const r = await fetch(`/api/admin/users/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) })
+      const d = await r.json().catch(() => null)
+      if (!r.ok || !d?.success) return d?.error || 'Update failed. Please try again.'
       setUsers(us => us.map(u => u.id === id ? { ...u, ...patch } : u))
-      if ('plan' in patch) loadUsers(usersPage, debouncedQuery)
-      toast.success('User updated', 'plan' in patch ? `Plan set to ${patch.plan}.` : 'restricted' in patch ? (patch.restricted ? 'Account restricted.' : 'Restriction removed.') : undefined)
-    } else toast.error('Update failed', d?.error || 'Please try again.')
-    setBusy(null)
+      if ('plan' in patch) await loadUsers(usersPage, debouncedQuery)
+      toast.success('User updated', 'plan' in patch ? `Plan set to ${PLAN_LABEL[patch.plan as string] ?? patch.plan}.` : 'role' in patch ? `Role set to ${patch.role}.` : 'restricted' in patch ? (patch.restricted ? 'Account restricted.' : 'Restriction removed.') : undefined)
+      return null
+    } catch { return 'Network error. Please try again.' } finally { setBusy(null) }
   }, [loadUsers, usersPage, debouncedQuery])
 
   const callPromo = useCallback(async (body: { enabled?: boolean; refresh?: boolean }) => {
+    if (body.enabled !== false) {
+      const ok = await confirm({
+        title: body.refresh ? 'Convert new free users to Pro?' : 'Convert ALL free users to Pro?', tone: 'danger', confirmLabel: 'Convert to Pro',
+        body: 'Every user on the Free plan is upgraded to Pro right now. This changes many accounts at once.',
+      })
+      if (!ok) return
+    }
     setPromoBusy(true); setPromoMsg('')
     try {
       const r = await fetch('/api/admin/free-to-pro', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -332,24 +346,50 @@ export function AdminDashboard() {
     } catch { setPromoMsg('Failed.'); toast.error('Promo failed', 'Network error. Please try again.') }
     setPromoBusy(false)
     setTimeout(() => setPromoMsg(''), 6000)
-  }, [loadUsers, usersPage, debouncedQuery])
+  }, [loadUsers, usersPage, debouncedQuery, confirm])
 
-  const deleteUser = useCallback(async (u: AUser) => {
+  /** Delete one user. Returns an error message, or null when deleted. */
+  const deleteUser = useCallback(async (u: AUser): Promise<string | null> => {
     setBusy(u.id); setErr('')
-    const r = await fetch(`/api/admin/users/${u.id}`, { method: 'DELETE' })
-    const d = await r.json().catch(() => null)
-    if (r.ok && d?.success) { await loadUsers(usersPage, debouncedQuery); toast.success('User deleted', u.email) }   // refresh page + stats
-    else { setErr(d?.error || 'Delete failed'); toast.error('Delete failed', d?.error || 'Please try again.') }
-    setBusy(null)
+    try {
+      const r = await fetch(`/api/admin/users/${u.id}`, { method: 'DELETE' })
+      const d = await r.json().catch(() => null)
+      if (!r.ok || !d?.success) return d?.error || 'Delete failed. Please try again.'
+      await loadUsers(usersPage, debouncedQuery)   // refresh page + stats
+      toast.success('User deleted', u.email)
+      return null
+    } catch { return 'Network error. Please try again.' } finally { setBusy(null) }
   }, [loadUsers, usersPage, debouncedQuery])
 
-  const runConfirmed = useCallback(async () => {
-    if (!confirmAction) return
-    const { user: u, kind } = confirmAction
-    setConfirmAction(null)
-    if (kind === 'delete') await deleteUser(u)
-    else await patchUser(u.id, { restricted: kind === 'restrict' })
-  }, [confirmAction, deleteUser, patchUser])
+  // Every change to a user goes through a confirm dialog that shows a spinner
+  // until the server answers (and keeps any error inside the dialog).
+  const strong = (t: string) => <strong style={{ color: C.ink }}>{t}</strong>
+  const askDelete = (u: AUser) => void confirm({
+    title: 'Delete this user?', tone: 'danger', confirmLabel: 'Delete user', busyLabel: 'Deleting…',
+    body: <>Permanently delete {strong(u.email)}? Their account and search history are removed. This cannot be undone.</>,
+    action: () => deleteUser(u),
+  })
+  const askRestrict = (u: AUser) => void confirm({
+    title: u.restricted ? 'Lift the restriction?' : 'Restrict this user?', tone: u.restricted ? 'primary' : 'danger',
+    confirmLabel: u.restricted ? 'Unrestrict' : 'Restrict', busyLabel: 'Saving…',
+    body: u.restricted
+      ? <>{strong(u.email)} gets full access to the dashboard and tools again right away.</>
+      : <>{strong(u.email)} is refused on every tool and the dashboard until you lift it.</>,
+    action: () => patchUser(u.id, { restricted: !u.restricted }),
+  })
+  const askRole = (u: AUser, role: AUser['role']) => void confirm({
+    title: role === 'admin' ? 'Make this user an admin?' : 'Remove admin access?', tone: role === 'admin' ? 'danger' : 'primary',
+    confirmLabel: role === 'admin' ? 'Make admin' : 'Remove admin', busyLabel: 'Saving…',
+    body: role === 'admin'
+      ? <>{strong(u.email)} will get the full admin panel: every user, payment, message and setting. Only do this for people you fully trust.</>
+      : <>{strong(u.email)} loses access to the admin panel.</>,
+    action: () => patchUser(u.id, { role }),
+  })
+  const askPlan = (u: AUser, plan: string) => void confirm({
+    title: `Change plan to ${PLAN_LABEL[plan] ?? plan}?`, confirmLabel: 'Change plan', busyLabel: 'Saving…',
+    body: <>{strong(u.email)} moves from {strong(PLAN_LABEL[u.plan] ?? u.plan)} to {strong(PLAN_LABEL[plan] ?? plan)}.{plan !== 'free' ? ' A plan you grant here expires after 1 month unless they pay.' : ''}</>,
+    action: () => patchUser(u.id, { plan }),
+  })
 
   // The list is already the server-returned page, ordered newest-first; sort only
   // within the page so paying customers surface at the top of what's shown.
@@ -396,7 +436,7 @@ export function AdminDashboard() {
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>{children}</div>
     </main>
   )
-  if (state === 'loading') return gate(<div className="shimmer" style={{ height: 420, borderRadius: 12, background: '#e8e7e2' }} />)
+  if (state === 'loading') return gate(<LoadingBlock label="Loading the admin panel…" height={420} />)
   if (state === 'forbidden') return gate(<EmptyState icon="🔒" title="Admins only" sub="You don't have access to this page." />)
   if (state === 'error') return gate(<EmptyState icon="⚠️" title="Couldn't load the admin data" sub="Please try again." />)
 
@@ -532,7 +572,7 @@ export function AdminDashboard() {
 
           {section === 'users' && (
             <div>
-              <SectionTitle right={err ? <span style={{ fontSize: 12, color: C.danger }}>{err}</span> : <span style={{ fontSize: 11, fontFamily: MONO, color: '#808080' }}>{debouncedQuery ? `${exact(usersTotal)} match${usersTotal === 1 ? '' : 'es'}` : `${exact(paidCount)} paying · ${exact(stats?.total ?? 0)} total`} · page {usersPage}/{usersPageCount}{usersLoading ? ' · …' : ''}</span>}>All users</SectionTitle>
+              <SectionTitle right={err ? <span style={{ fontSize: 12, color: C.danger }}>{err}</span> : <span style={{ fontSize: 11, fontFamily: MONO, color: '#808080' }}>{debouncedQuery ? `${exact(usersTotal)} match${usersTotal === 1 ? '' : 'es'}` : `${exact(paidCount)} paying · ${exact(stats?.total ?? 0)} total`} · page {usersPage}/{usersPageCount}</span>}>All users</SectionTitle>
 
               <div style={{ position: 'relative', marginBottom: 12, maxWidth: 420 }}>
                 <span aria-hidden style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: '#8a8a82', pointerEvents: 'none', display: 'flex' }}><Icon name="search" size={13} color="#8a8a82" /></span>
@@ -573,14 +613,21 @@ export function AdminDashboard() {
                   )}
                   <button onClick={() => { setSelected(new Set()); setSelectAllMatching(false) }}
                     style={{ background: 'none', border: 'none', color: '#6E6E64', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Clear</button>
-                  <button onClick={() => { setBulkText(''); setBulkConfirm(true) }}
-                    style={{ marginLeft: 'auto', background: C.danger, border: 'none', color: '#fff', borderRadius: 100, padding: '8px 18px', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
+                  <button onClick={() => { setBulkPassword(''); setBulkError(''); setBulkConfirm(true) }}
+                    style={{ ...adminBtn('primary', 'md'), marginLeft: 'auto', background: C.danger, borderColor: C.danger }}>
                     Delete {exact(bulkCount)} user{bulkCount === 1 ? '' : 's'}
                   </button>
                 </div>
               )}
 
-              <div className="rtable admin-users" style={{ ...tableCard, overflow: 'hidden' }}>
+              <div className="rtable admin-users" aria-busy={usersLoading} style={{ ...tableCard, overflow: 'hidden', position: 'relative' }}>
+                {usersLoading && users.length > 0 && (
+                  <div style={{ position: 'absolute', inset: 0, zIndex: 2, background: 'rgba(255,255,255,0.55)', display: 'flex', justifyContent: 'center', paddingTop: 90 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9, height: 36, padding: '0 14px', borderRadius: 10, background: C.paper, border: `1px solid ${C.ash}`, boxShadow: '0 6px 20px rgba(0,0,0,0.08)', fontSize: 13, color: C.ink }}>
+                      <Spinner size={15} color={C.orange} /> Loading users…
+                    </span>
+                  </div>
+                )}
                 <div className="admin-user-head" style={{ ...tableHead(GRID), padding: '15px 22px' }}>
                   <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} title="Select every user on this page">
                     <input type="checkbox" aria-label="Select all users on this page"
@@ -597,6 +644,9 @@ export function AdminDashboard() {
                   </label>
                   {['User', 'Role', 'Plan', 'Status', 'Joined', 'Activity', 'Credits', ''].map((h, i) => <span key={i} style={{ ...th, fontSize: 12 }}>{h}</span>)}
                 </div>
+                {usersPageRows.length === 0 && (usersLoading
+                  ? <LoadingBlock label="Loading users…" height={220} />
+                  : <EmptyState title="No users found" sub="Nothing matches this search and these filters." />)}
                 {usersPageRows.map((u, i) => {
                   const sp = statusPill(u.subscriptionStatus)
                   const paid = isRealPaid(u)
@@ -606,7 +656,7 @@ export function AdminDashboard() {
                   const barColor = u.restricted ? C.danger : paid ? PAID_GOLD : 'transparent'
                   return (
                     <div key={u.id} className="admin-user-row"
-                      style={{ ...tableRow(GRID), padding: '18px 22px', opacity: busy === u.id ? 0.5 : 1, transition: 'background 0.12s', background: rowBg, borderLeft: `4px solid ${barColor}` }}
+                      style={{ ...tableRow(GRID), padding: '18px 22px', transition: 'background 0.12s', background: rowBg, borderLeft: `4px solid ${barColor}` }}
                       onMouseEnter={e => (e.currentTarget.style.background = rowBgHover)}
                       onMouseLeave={e => (e.currentTarget.style.background = rowBg)}>
                       <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
@@ -634,12 +684,12 @@ export function AdminDashboard() {
                         </button>
                         {u.restricted && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, fontFamily: MONO, color: C.danger, background: C.dangerBg, padding: '3px 9px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 6 }}><Icon name="lock" size={11} color={C.danger} />Restricted</span>}
                       </div>
-                      <select value={u.role} onChange={e => patchUser(u.id, { role: e.target.value as AUser['role'] })} style={selectStyle}>
+                      <select value={u.role} onChange={e => askRole(u, e.target.value as AUser['role'])} disabled={busy === u.id} style={selectStyle}>
                         <option value="user">user</option>
                         <option value="admin">admin</option>
                       </select>
                       <div style={{ position: 'relative', minWidth: 0 }}>
-                        <select value={u.plan} onChange={e => patchUser(u.id, { plan: e.target.value })}
+                        <select value={u.plan} onChange={e => askPlan(u, e.target.value)} disabled={busy === u.id}
                           style={{ width: '100%', appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer', outline: 'none', fontSize: 11.5, fontWeight: 700, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.04em', color: paid ? '#fff' : hue, background: paid ? hue : 'transparent', border: paid ? 'none' : `1px solid ${hue}`, borderRadius: 100, padding: '6px 22px 6px 12px' }}>
                           {['free', 'starter', 'basic', 'pro', 'pro-1yr', 'business', 'agency', 'enterprise', 'custom'].map(pl => (
                             <option key={pl} value={pl} style={{ color: C.ink, background: C.paper }}>{PLAN_LABEL[pl] ?? pl}</option>
@@ -669,25 +719,22 @@ export function AdminDashboard() {
                           </div>
                         )}
                       </div>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button onClick={() => setCreditsFor(u)} title="Give this user extra credits for a number of days"
-                          style={{ background: 'rgba(46,125,70,0.10)', border: '1px solid #2E7D46', color: '#1F6B3A', borderRadius: 100, padding: '8px 14px', fontSize: 12.5, fontWeight: 500, fontFamily: MONO, cursor: 'pointer', width: 'fit-content', whiteSpace: 'nowrap' }}>
-                          + Add Credits
-                        </button>
-                        <button onClick={() => setConfirmAction({ user: u, kind: u.restricted ? 'unrestrict' : 'restrict' })} title={u.restricted ? 'Lift restriction' : 'Restrict this user'}
-                          style={{ background: u.restricted ? 'rgba(31,138,76,0.10)' : 'rgba(194,129,17,0.12)', border: `1px solid ${u.restricted ? '#1F8A4C' : '#C28111'}`, color: u.restricted ? '#1F8A4C' : '#C28111', borderRadius: 100, padding: '8px 14px', fontSize: 12.5, fontWeight: 500, fontFamily: MONO, cursor: 'pointer', width: 'fit-content' }}>
-                          {u.restricted ? 'Unrestrict' : 'Restrict'}
-                        </button>
-                        <button onClick={() => setConfirmAction({ user: u, kind: 'delete' })} title="Delete user"
-                          style={{ background: C.dangerBg, border: `1px solid ${C.danger}`, color: C.danger, borderRadius: 100, padding: '8px 16px', fontSize: 12.5, fontWeight: 500, fontFamily: MONO, cursor: 'pointer', width: 'fit-content' }}>
-                          Delete
-                        </button>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                        {busy === u.id ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: C.graphite }}><Spinner size={14} color={C.orange} /> Saving…</span>
+                        ) : (<>
+                          <button onClick={() => setCreditsFor(u)} title="Give this user extra credits for a number of days" style={adminBtn('good')}>+ Credits</button>
+                          <button onClick={() => askRestrict(u)} title={u.restricted ? 'Lift restriction' : 'Restrict this user'} style={adminBtn(u.restricted ? 'good' : 'warn')}>
+                            {u.restricted ? 'Unrestrict' : 'Restrict'}
+                          </button>
+                          <button onClick={() => askDelete(u)} title="Delete user" style={adminBtn('danger')}>Delete</button>
+                        </>)}
                       </div>
                     </div>
                   )
                 })}
               </div>
-              <Pagination page={usersPage} pageCount={usersPageCount} onChange={setUsersPage} />
+              <Pagination page={usersPage} pageCount={usersPageCount} onChange={setUsersPage} loading={usersLoading} />
               <p style={{ fontSize: 12.5, color: '#808080', marginTop: 12, lineHeight: 1.5 }}>
                 Click a name to open the full profile. Role/plan changes save instantly. &ldquo;★ Paid&rdquo; marks a real Lemon Squeezy purchase; changing a plan here does not add it. Emails in <code style={{ fontFamily: MONO }}>ADMIN_EMAILS</code> are always admin.
               </p>
@@ -866,50 +913,35 @@ export function AdminDashboard() {
         <AddCreditsModal user={creditsFor} onClose={() => setCreditsFor(null)} onSaved={() => { void loadUsers(usersPage, debouncedQuery) }} />
       )}
 
-      {/* Confirm modal */}
-      {confirmAction && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,18,14,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: 20 }} onClick={() => setConfirmAction(null)}>
-          <div style={{ background: C.paper, borderRadius: 16, padding: '26px 28px', maxWidth: 420, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ fontSize: 18, fontWeight: 600, color: C.ink, marginBottom: 10 }}>{confirmAction.kind === 'delete' ? 'Delete this user?' : confirmAction.kind === 'restrict' ? 'Restrict this user?' : 'Lift restriction?'}</h3>
-            <p style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.6, marginBottom: 22 }}>
-              {confirmAction.kind === 'delete' && <>Permanently delete <strong style={{ color: C.ink }}>{confirmAction.user.email}</strong>? This removes their account and search history and cannot be undone.</>}
-              {confirmAction.kind === 'restrict' && <>Restrict <strong style={{ color: C.ink }}>{confirmAction.user.email}</strong>? They&apos;ll be signed out of the dashboard immediately until you lift it.</>}
-              {confirmAction.kind === 'unrestrict' && <>Lift the restriction on <strong style={{ color: C.ink }}>{confirmAction.user.email}</strong>? They&apos;ll regain dashboard access right away.</>}
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button onClick={() => setConfirmAction(null)} style={{ background: 'transparent', border: `1px solid ${C.hairInk}`, color: C.ink, borderRadius: 100, padding: '9px 18px', fontSize: 13.5, fontFamily: 'inherit', cursor: 'pointer' }}>Cancel</button>
-              <button onClick={runConfirmed} style={{ background: confirmAction.kind === 'unrestrict' ? C.orange : C.danger, border: 'none', color: '#fff', borderRadius: 100, padding: '9px 18px', fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', cursor: 'pointer' }}>{confirmAction.kind === 'delete' ? 'Delete' : confirmAction.kind === 'restrict' ? 'Restrict' : 'Unrestrict'}</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {confirmDialog}
 
-      {/* Bulk delete confirmation: type DELETE to confirm. */}
+      {/* Bulk delete: needs the admin danger password (checked on the server). */}
       {bulkConfirm && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,18,14,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: 20 }} onClick={() => !bulkBusy && setBulkConfirm(false)}>
-          <div style={{ background: C.paper, borderRadius: 16, padding: '26px 28px', maxWidth: 460, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ fontSize: 18, fontWeight: 600, color: C.ink, marginBottom: 10 }}>Delete {exact(bulkCount)} user{bulkCount === 1 ? '' : 's'}?</h3>
-            <p style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.6, marginBottom: 12 }}>
+        <ModalShell width={460} onClose={() => !bulkBusy && setBulkConfirm(false)}>
+          <form onSubmit={e => { e.preventDefault(); if (bulkPassword && !bulkBusy) void runBulkDelete() }}>
+            <h3 style={{ fontSize: 17, fontWeight: 600, color: C.ink, marginBottom: 8 }}>Delete {exact(bulkCount)} user{bulkCount === 1 ? '' : 's'}?</h3>
+            <p style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.6, marginBottom: 10 }}>
               {selectAllMatching
                 ? <>Every user matching the current filters ({[fEmail === 'temp' ? 'temp mail' : fEmail === 'real' ? 'real email' : null, fPlan !== 'all' ? (PLAN_LABEL[fPlan] ?? fPlan) : null, fAccount !== 'all' ? fAccount : null, debouncedQuery ? `"${debouncedQuery}"` : null].filter(Boolean).join(', ') || 'all users'}) will be deleted with their search history.</>
                 : <>The selected users will be deleted with their search history.</>}
               {' '}This cannot be undone.
             </p>
-            <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.55, marginBottom: 14 }}>
+            <p style={{ fontSize: 12.5, color: C.graphite, lineHeight: 1.55, marginBottom: 16 }}>
               Always kept, even if selected: admin accounts, your own account, and customers paying by card.
             </p>
-            <label style={{ display: 'block', fontSize: 12.5, color: C.ink, fontWeight: 600, marginBottom: 6 }}>Type DELETE to confirm</label>
-            <input value={bulkText} onChange={e => setBulkText(e.target.value)} autoFocus placeholder="DELETE"
-              style={{ width: '100%', boxSizing: 'border-box', border: `1px solid ${C.ash}`, borderRadius: 10, padding: '10px 12px', fontSize: 14, fontFamily: MONO, marginBottom: 18, outline: 'none', background: C.canvas, color: C.ink }} />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button onClick={() => setBulkConfirm(false)} disabled={bulkBusy} style={{ background: 'transparent', border: `1px solid ${C.hairInk}`, color: C.ink, borderRadius: 100, padding: '9px 18px', fontSize: 13.5, fontFamily: 'inherit', cursor: 'pointer' }}>Cancel</button>
-              <button onClick={runBulkDelete} disabled={bulkText !== 'DELETE' || bulkBusy}
-                style={{ background: C.danger, border: 'none', color: '#fff', borderRadius: 100, padding: '9px 18px', fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: bulkText === 'DELETE' && !bulkBusy ? 'pointer' : 'not-allowed', opacity: bulkText === 'DELETE' && !bulkBusy ? 1 : 0.5 }}>
-                {bulkBusy ? 'Deleting…' : `Delete ${exact(bulkCount)}`}
+            <label htmlFor="bulk-pw" style={{ display: 'block', fontSize: 12.5, color: C.ink, fontWeight: 600, marginBottom: 6 }}>Admin password for bulk delete</label>
+            <input id="bulk-pw" type="password" value={bulkPassword} onChange={e => { setBulkPassword(e.target.value); setBulkError('') }} autoFocus autoComplete="new-password" disabled={bulkBusy}
+              style={{ width: '100%', boxSizing: 'border-box', border: `1px solid ${bulkError ? C.danger : C.ash}`, borderRadius: 9, padding: '10px 12px', fontSize: 14, outline: 'none', background: C.canvas, color: C.ink }} />
+            {bulkError && <p role="alert" style={{ fontSize: 13, color: C.danger, marginTop: 8 }}>{bulkError}</p>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+              <button type="button" onClick={() => setBulkConfirm(false)} disabled={bulkBusy} style={{ ...adminBtn('plain', 'md'), opacity: bulkBusy ? 0.5 : 1 }}>Cancel</button>
+              <button type="submit" disabled={!bulkPassword || bulkBusy}
+                style={{ ...adminBtn('primary', 'md'), background: C.danger, borderColor: C.danger, minWidth: 130, cursor: bulkPassword && !bulkBusy ? 'pointer' : 'not-allowed', opacity: bulkPassword || bulkBusy ? 1 : 0.5 }}>
+                {bulkBusy ? <><Spinner size={13} color="#fff" /> Deleting…</> : `Delete ${exact(bulkCount)}`}
               </button>
             </div>
-          </div>
-        </div>
+          </form>
+        </ModalShell>
       )}
     </main>
     </RealtimeProvider>

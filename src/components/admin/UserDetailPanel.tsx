@@ -8,6 +8,7 @@ import { C } from '@/utils'
 import { MONO } from '@/components/dashboard/kit'
 import { Bars } from './AdminCharts'
 import { toast } from '@/components/ui/toast'
+import { LoadingBlock, Spinner } from './ui'
 
 interface Detail {
   id: string; name: string; email: string; authProvider: string | null
@@ -79,7 +80,8 @@ function SendEmailForm({ userId, email }: { userId: string; email: string }) {
           background: busy || !subject.trim() || !message.trim() ? C.ash : C.orange, color: '#fff', border: 'none', borderRadius: 9,
           padding: '9px 18px', fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit',
           cursor: busy || !subject.trim() || !message.trim() ? 'default' : 'pointer',
-        }}>{busy ? 'Sending…' : 'Send email'}</button>
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+        }}>{busy ? <><Spinner size={13} color="#fff" /> Sending…</> : 'Send email'}</button>
         {note && <span style={{ fontSize: 12.5, color: note.ok ? C.orange : C.danger }}>{note.text}</span>}
       </div>
     </div>
@@ -136,7 +138,7 @@ export function UserDetailPanel({ userId, onClose }: { userId: string | null; on
         </div>
 
         <div style={{ overflowY: 'auto', padding: '22px 24px 40px', flex: 1 }}>
-          {state === 'loading' && <div className="shimmer" style={{ height: 400, borderRadius: 10, background: '#e8e7e2' }} />}
+          {state === 'loading' && <LoadingBlock label="Loading user…" height={320} />}
           {state === 'error' && <p style={{ fontSize: 14, color: C.graphite }}>Couldn&apos;t load this user. Please close and try again.</p>}
           {state === 'ok' && d && (
             <>

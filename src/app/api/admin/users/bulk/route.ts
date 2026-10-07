@@ -6,6 +6,7 @@ import { isAdmin, resolveRole } from '@/lib/auth/roles'
 import { parseUserFilters, buildUserFilter } from '@/lib/admin/userFilters'
 import { rememberDeletedTempAccounts } from '@/lib/auth/deletedAccounts'
 import { logFromRequest } from '@/lib/security/events'
+import { checkDangerPassword } from '@/lib/admin/dangerPassword'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -19,7 +20,7 @@ const MAX_PER_ACTION = 5000
  * account, or a customer paying through Lemon Squeezy. Same cleanup as the single
  * Delete (user + search history), plus any pending email codes.
  *
- * Body: { action: 'delete', ids?: string[], filters?: {...}, expected: number }
+ * Body: { action: 'delete', ids?: string[], filters?: {...}, expected: number, password: string }
  * `expected` must equal the count the admin confirmed, so a list that changed in
  * the meantime can't delete more than they saw.
  */
@@ -28,8 +29,12 @@ export async function POST(req: NextRequest) {
   if (!auth) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
   if (!isAdmin(auth)) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
 
-  const body = await req.json().catch(() => ({})) as { action?: string; ids?: unknown; filters?: Record<string, unknown>; expected?: number }
+  const body = await req.json().catch(() => ({})) as { action?: string; ids?: unknown; filters?: Record<string, unknown>; expected?: number; password?: unknown }
   if (body.action !== 'delete') return NextResponse.json({ success: false, error: 'Unknown action' }, { status: 400 })
+
+  // Bulk delete also needs the admin danger password (checked here, never on the client).
+  const pw = await checkDangerPassword(req, auth, body.password)
+  if (!pw.ok) return NextResponse.json({ success: false, code: 'password', error: pw.error }, { status: pw.status })
 
   await connectDB()
   let target: Record<string, unknown>

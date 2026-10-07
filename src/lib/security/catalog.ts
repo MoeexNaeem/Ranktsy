@@ -105,6 +105,11 @@ export const SECURITY_EVENTS = {
     meaning: 'A non-admin tried to open the admin panel or admin API. Could be curiosity or someone probing.',
     fix: 'Repeated attempts from one IP: block it.',
   },
+  danger_password_wrong: {
+    label: 'Wrong bulk-delete password', severity: 'high', category: 'admin',
+    meaning: 'Someone signed in as an admin typed the wrong password for bulk delete. After 5 wrong tries in 15 minutes it locks.',
+    fix: 'If it was not you, an admin session may be stolen: change that admin\'s password and log out everywhere.',
+  },
   admin_action: {
     label: 'Admin action', severity: 'info', category: 'admin',
     meaning: 'An admin changed something important (bulk delete, IP block, restriction).',

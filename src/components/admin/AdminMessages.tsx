@@ -5,6 +5,7 @@
  * the SSE stream, so a reply or broadcast reaches them live.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useConfirm } from './ui'
 import { C } from '@/utils'
 import { MONO, SectionTitle, cardStyle, EmptyState } from '@/components/dashboard/kit'
 import { errorToast, toast } from '@/components/ui/toast'
@@ -63,6 +64,7 @@ function Avatar({ name, email, seed, size = 38 }: { name: string; email?: string
 }
 
 export function AdminMessages() {
+  const { confirm, dialog: confirmDialog } = useConfirm()
   const [threads, setThreads] = useState<Thread[]>([])
   const [sel, setSel] = useState<string | null>(null)
   // The thread selected RIGHT NOW. Every async response checks it before touching the
@@ -171,7 +173,7 @@ export function AdminMessages() {
 
   const deleteMessage = useCallback(async (id: string) => {
     if (!sel) return
-    if (!window.confirm('Delete this message? The user will no longer see it.')) return
+    if (!await confirm({ title: 'Delete this message?', tone: 'danger', confirmLabel: 'Delete', body: 'The user will no longer see it.' })) return
     setBusyMsgId(id)
     try {
       const r = await fetch(`/api/admin/chat/${sel}/${id}`, { method: 'DELETE' })
@@ -184,7 +186,7 @@ export function AdminMessages() {
       } else errorToast('Could not delete message', j?.error || 'Please try again.')
     } catch { errorToast('Could not delete message', 'Network error. Please try again.') }
     finally { setBusyMsgId(null) }
-  }, [sel, editingId, cancelEdit, loadThreads])
+  }, [sel, editingId, cancelEdit, loadThreads, confirm])
 
   const onPickFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -211,17 +213,23 @@ export function AdminMessages() {
 
   const deleteThread = useCallback(async () => {
     if (!sel) return
-    if (!window.confirm('Delete this entire conversation? This cannot be undone.')) return
     const id = sel
-    try {
-      const r = await fetch(`/api/admin/chat/${id}`, { method: 'DELETE' })
-      if (!r.ok) throw new Error()
-      setThreads(ts => ts.filter(t => t.userId !== id))
-      selRef.current = null; delete drafts.current[id]
-      setSel(null); setMessages([]); setReply('')
-      toast.success('Conversation deleted')
-    } catch { errorToast('Could not delete conversation', 'Please try again.') }
-  }, [sel])
+    await confirm({
+      title: 'Delete this conversation?', tone: 'danger', confirmLabel: 'Delete conversation', busyLabel: 'Deleting…',
+      body: 'Every message in it is removed for you and the user. This cannot be undone.',
+      action: async () => {
+        try {
+          const r = await fetch(`/api/admin/chat/${id}`, { method: 'DELETE' })
+          if (!r.ok) throw new Error()
+          setThreads(ts => ts.filter(t => t.userId !== id))
+          selRef.current = null; delete drafts.current[id]
+          setSel(null); setMessages([]); setReply('')
+          toast.success('Conversation deleted')
+          return null
+        } catch { return 'Could not delete the conversation. Please try again.' }
+      },
+    })
+  }, [sel, confirm])
 
   const sendBroadcast = useCallback(async () => {
     if (!bTitle.trim() || bBusy) return
@@ -336,6 +344,7 @@ export function AdminMessages() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {confirmDialog}
       {/* Message everyone at once - lands in each person's support chat. */}
       <div style={{ ...cardStyle, padding: '20px 22px', borderColor: 'rgba(37,99,235,0.35)', background: 'rgba(37,99,235,0.035)' }}>
         <SectionTitle>Message users directly</SectionTitle>

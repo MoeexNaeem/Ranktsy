@@ -7,7 +7,8 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { C } from '@/utils'
-import { MONO, SectionTitle, StatCard, EmptyState, tableCard, tableHead, th, tableRow } from '@/components/dashboard/kit'
+import { MONO, SectionTitle, EmptyState, tableCard, tableHead, th, tableRow } from '@/components/dashboard/kit'
+import { StatCard } from './ui'
 
 interface StudentRow {
   id: string; name: string; email: string; plan: string

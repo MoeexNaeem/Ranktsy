@@ -12,7 +12,8 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { C } from '@/utils'
-import { MONO, StatCard, cardStyle } from '@/components/dashboard/kit'
+import { MONO, cardStyle } from '@/components/dashboard/kit'
+import { StatCard } from './ui'
 import { errorToast, toast, copyWithToast } from '@/components/ui/toast'
 
 interface Config {

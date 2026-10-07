@@ -5,6 +5,7 @@
  * after the day's plan credits run out, and disappears on its own when it expires.
  */
 import { useState } from 'react'
+import { useConfirm } from './ui'
 import { C } from '@/utils'
 import { MONO } from '@/components/dashboard/kit'
 import { toast } from '@/components/ui/toast'
@@ -24,6 +25,7 @@ const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'n
 export const daysLeft = (iso: string) => Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000))
 
 export function AddCreditsModal({ user, onClose, onSaved }: Props) {
+  const { confirm, dialog: confirmDialog } = useConfirm()
   const [credits, setCredits] = useState('100')
   const [days, setDays] = useState('7')
   const [busy, setBusy] = useState(false)
@@ -52,7 +54,7 @@ export function AddCreditsModal({ user, onClose, onSaved }: Props) {
   }
 
   const remove = async () => {
-    if (busy || !window.confirm(`Remove ${user.email}'s remaining bonus credits now?`)) return
+    if (busy || !await confirm({ title: 'Remove bonus credits?', tone: 'danger', confirmLabel: 'Remove', body: `${user.email} loses the bonus credits they have left, right now.` })) return
     setBusy(true); setErr('')
     try {
       const r = await fetch(`/api/admin/users/${user.id}/credits`, { method: 'DELETE' })
@@ -70,6 +72,7 @@ export function AddCreditsModal({ user, onClose, onSaved }: Props) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,18,14,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: 20 }} onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-labelledby="add-credits-title" style={{ background: C.paper, borderRadius: 16, padding: '26px 28px', maxWidth: 440, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
+        {confirmDialog}
         <h3 id="add-credits-title" style={{ fontSize: 18, fontWeight: 600, color: C.ink, marginBottom: 6 }}>Add bonus credits</h3>
         <p style={{ fontSize: 13, color: C.graphite, lineHeight: 1.55, marginBottom: 16 }}>
           For <strong style={{ color: C.ink }}>{user.name || user.email}</strong>. A one-time pool on top of their plan&apos;s {user.creditsLimit.toLocaleString('en-US')} daily credits. It does not reset, is used after the daily credits run out, and is removed automatically when it expires.

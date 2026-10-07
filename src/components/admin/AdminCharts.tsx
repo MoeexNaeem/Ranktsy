@@ -32,6 +32,7 @@ export function AnimatedNumber({ value, format = (n) => Math.round(n).toLocaleSt
 }
 
 // ─── KPI card ─────────────────────────────────────────────────────────────────
+// Calm on purpose: neutral number, the accent only as a small dot by the label.
 export function Kpi({ label, value, accent = C.ink, sub, format, delay = 0 }: {
   // null = not known yet (still being computed): shown as "-", never as a fake 0.
   label: string; value: number | null; accent?: string; sub?: string; format?: (n: number) => string; delay?: number
@@ -40,16 +41,17 @@ export function Kpi({ label, value, accent = C.ink, sub, format, delay = 0 }: {
   useEffect(() => { const t = setTimeout(() => setShown(true), delay); return () => clearTimeout(t) }, [delay])
   return (
     <div style={{
-      ...cardStyle, position: 'relative', padding: '18px 20px 20px', overflow: 'hidden',
-      transform: shown ? 'translateY(0)' : 'translateY(10px)', opacity: shown ? 1 : 0,
-      transition: 'transform 0.5s cubic-bezier(.2,.7,.2,1), opacity 0.5s',
+      ...cardStyle, padding: '16px 18px 18px',
+      transform: shown ? 'translateY(0)' : 'translateY(6px)', opacity: shown ? 1 : 0,
+      transition: 'transform 0.4s cubic-bezier(.2,.7,.2,1), opacity 0.4s',
     }}>
-      <span style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: accent }} />
-      <p style={{ fontSize: 11.5, fontFamily: MONO, fontWeight: 500, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>{label}</p>
-      <p style={{ fontSize: 34, fontWeight: 700, color: accent, letterSpacing: '-0.03em', lineHeight: 1 }}>
+      <p style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, fontFamily: MONO, fontWeight: 600, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
+        <span style={{ width: 7, height: 7, borderRadius: 2, background: accent, flexShrink: 0 }} />{label}
+      </p>
+      <p style={{ fontSize: 27, fontWeight: 650, color: C.ink, letterSpacing: '-0.02em', lineHeight: 1 }}>
         {value == null ? '-' : <AnimatedNumber value={value} format={format} />}
       </p>
-      {sub && <p style={{ fontSize: 12.5, color: C.graphite, marginTop: 7 }}>{sub}</p>}
+      {sub && <p style={{ fontSize: 12, color: C.stone, marginTop: 7 }}>{sub}</p>}
     </div>
   )
 }
@@ -61,18 +63,25 @@ export function Bars({ data, height = 150, accent = C.orange, valueFormat = (n) 
   const [grown, setGrown] = useState(false)
   useEffect(() => { const t = setTimeout(() => setGrown(true), 60); return () => clearTimeout(t) }, [])
   const max = Math.max(1, ...data.map(d => d.value))
+  const gap = 'clamp(4px, 1.6%, 14px)'
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 'clamp(6px, 2.2%, 20px)', height, paddingTop: 8 }}>
+    <div>
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap, height, paddingTop: 8, borderBottom: `1px solid ${C.ash}` }}>
       {data.map((d, i) => {
-        const h = grown ? Math.max(2, (d.value / max) * (height - 24)) : 2
+        const h = grown ? Math.max(2, (d.value / max) * (height - 34)) : 2
         return (
-          <div key={i} title={`${d.label}: ${valueFormat(d.value)}`} style={{ flex: '1 1 0', maxWidth: 64, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 0 }}>
-            <span style={{ fontSize: 10, fontFamily: MONO, color: C.graphite, opacity: grown ? 1 : 0, transition: 'opacity 0.5s', whiteSpace: 'nowrap' }}>{d.value > 0 ? valueFormat(d.value) : ''}</span>
-            <div style={{ width: '100%', height: h, background: `linear-gradient(180deg, ${accent}, ${accent}bb)`, borderRadius: '7px 7px 3px 3px', transition: `height 0.7s cubic-bezier(.2,.7,.2,1) ${i * 30}ms` }} />
-            <span style={{ fontSize: 9.5, fontFamily: MONO, color: '#9a9a92', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{d.label}</span>
+          <div key={i} title={`${d.label}: ${valueFormat(d.value)}`} style={{ flex: '1 1 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 0 }}>
+            <span style={{ fontSize: 10.5, fontFamily: MONO, color: C.graphite, opacity: grown ? 1 : 0, transition: 'opacity 0.5s', whiteSpace: 'nowrap' }}>{d.value > 0 ? valueFormat(d.value) : ''}</span>
+            <div style={{ width: '100%', maxWidth: 44, height: h, background: accent, opacity: d.value > 0 ? 0.85 : 0.2, borderRadius: '4px 4px 0 0', transition: `height 0.6s cubic-bezier(.2,.7,.2,1) ${i * 25}ms` }} />
           </div>
         )
       })}
+    </div>
+    <div style={{ display: 'flex', gap, marginTop: 6 }}>
+      {data.map((d, i) => (
+        <span key={i} style={{ flex: '1 1 0', minWidth: 0, textAlign: 'center', fontSize: 10.5, fontFamily: MONO, color: C.stone, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.label}</span>
+      ))}
+    </div>
     </div>
   )
 }

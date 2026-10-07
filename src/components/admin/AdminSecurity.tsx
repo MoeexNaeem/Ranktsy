@@ -4,16 +4,20 @@
  * Overview (threat level, what is happening and how to deal with it), the live
  * event feed, suspicious IPs (block / unblock), risky accounts (signup farms,
  * scrapers, targeted emails) and a health checklist with fixes.
- * Data: /api/admin/security. Event meanings and fixes: lib/security/catalog.ts.
+ * Every list is paginated on the server (/api/admin/security). Event meanings and
+ * fixes live in lib/security/catalog.ts.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { C, D } from '@/utils'
-import { cardStyle, EmptyState, MONO, Pagination, SectionTitle, tableCard, tableHead, th, tableRow } from '@/components/dashboard/kit'
+import { cardStyle, EmptyState, MONO, Pagination, tableCard, tableHead, th, tableRow } from '@/components/dashboard/kit'
 import { SECURITY_EVENTS, SECURITY_TYPES, type SecurityEventType, type Severity } from '@/lib/security/catalog'
 import { toast } from '@/components/ui/toast'
+import { useConfirm, Spinner } from './ui'
 
 type Range = '1h' | '24h' | '7d'
 type Tab = 'overview' | 'events' | 'ips' | 'accounts' | 'health'
+interface Paged<T> { rows: T[]; total: number; page: number; pages: number }
 
 interface EventRow { _id: string; type: SecurityEventType; severity: Severity; ip: string; email: string | null; userId: string | null; path: string | null; detail: string | null; country: string | null; ua: string | null; count: number; first: string; last: string }
 interface Overview {
@@ -23,85 +27,150 @@ interface Overview {
   hours: { hour: string; info: number; warn: number; high: number }[]
   topIps: { ip: string; n: number; high: number; types: string[]; emails: string[]; country: string | null; last: string; blocked: boolean }[]
   countries: { country: string; n: number }[]
-  recentHigh: EventRow[]
   totals: { blockedIps: number; restricted: number; tempMail: number; pending: number; signupFarms: number }
 }
 interface IpRow { ip: string; n: number; high: number; warn: number; types: string[]; emails: string[]; country: string | null; first: string; last: string; accounts: number; blocked: boolean }
 interface BlockRow { _id: string; reason: string; by: string; at: string; until: string | null }
-interface Accounts {
-  farms: { ip: string; n: number; emails: string[]; last: string }[]
-  heavy: { userEmail?: string; userId: string; etsyCalls: number; searches: number; googleCalls: number }[]
-  targeted: { email: string; n: number; ips: string[]; last: string }[]
-  restricted: { _id: string; email: string; name: string; plan: string; createdAt: string }[]
-  tempMail: number
-}
 interface Check { id: string; label: string; status: 'ok' | 'warn' | 'bad' | 'manual'; detail: string; fix?: string }
 
-const SEV: Record<Severity, { label: string; fg: string; bg: string }> = {
-  high: { label: 'High', fg: '#B42318', bg: 'rgba(207,70,58,0.13)' },
-  warn: { label: 'Warning', fg: '#9A5B00', bg: 'rgba(232,160,40,0.18)' },
-  info: { label: 'Info', fg: '#475467', bg: 'rgba(71,84,103,0.10)' },
+// ── Visual language: neutral surfaces, colour only for meaning ────────────────
+const RED = '#C2362B', AMBER = '#B76E00', SLATE = '#64748B'
+const SEV: Record<Severity, { label: string; fg: string; bg: string; bar: string }> = {
+  high: { label: 'High', fg: RED, bg: 'rgba(194,54,43,0.10)', bar: '#D84B3F' },
+  warn: { label: 'Warning', fg: AMBER, bg: 'rgba(214,140,20,0.13)', bar: '#E8A33A' },
+  info: { label: 'Info', fg: SLATE, bg: 'rgba(100,116,139,0.10)', bar: '#AEB9C7' },
 }
-const LEVEL: Record<Overview['level'], { label: string; fg: string; bg: string; sub: string }> = {
-  normal: { label: 'All quiet', fg: D.good, bg: D.goodBg, sub: 'No high-risk activity in the last hour.' },
-  elevated: { label: 'Elevated', fg: '#9A5B00', bg: 'rgba(232,160,40,0.18)', sub: 'Some high-risk activity. Check the list below.' },
-  'under attack': { label: 'Under attack', fg: '#B42318', bg: 'rgba(207,70,58,0.14)', sub: '50+ high-risk events in the last hour. Block the top IPs now.' },
-}
+const LEVEL = {
+  normal: { label: 'All quiet', color: D.good, sub: 'No high-risk activity in the last hour.' },
+  elevated: { label: 'Elevated', color: AMBER, sub: 'Some high-risk activity. Review the list below.' },
+  'under attack': { label: 'Under attack', color: RED, sub: '50+ high-risk events in the last hour. Block the top IPs now.' },
+} as const
+
 const fmt = (d: string | null) => d ? new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'
 const n = (v: number) => v.toLocaleString('en-US')
 const flag = (cc: string | null) => !cc || cc.length !== 2 || cc === 'XX' || cc === 'T1' ? '🌐' : String.fromCodePoint(...[...cc.toUpperCase()].map(ch => 127397 + ch.charCodeAt(0)))
+const label = (t: string) => SECURITY_EVENTS[t as SecurityEventType]?.label ?? t
 
-function Pill({ sev }: { sev: Severity }) {
-  const s = SEV[sev]
-  return <span style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 700, fontFamily: MONO, color: s.fg, background: s.bg, padding: '3px 9px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{s.label}</span>
+const card: React.CSSProperties = { ...cardStyle, padding: 20 }
+const eyebrow: React.CSSProperties = { fontSize: 11, fontWeight: 600, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.07em', color: C.graphite }
+const btn = (tone: 'plain' | 'danger' | 'good' | 'dark' = 'plain', small = false): React.CSSProperties => {
+  const t = {
+    plain: { bg: C.paper, fg: C.ink, bd: C.ash },
+    danger: { bg: 'rgba(194,54,43,0.08)', fg: RED, bd: 'rgba(194,54,43,0.35)' },
+    good: { bg: D.goodBg, fg: D.good, bd: `${D.good}55` },
+    dark: { bg: C.ink, fg: '#fff', bd: C.ink },
+  }[tone]
+  return { background: t.bg, color: t.fg, border: `1px solid ${t.bd}`, borderRadius: 8, padding: small ? '5px 10px' : '7px 13px', fontSize: small ? 12 : 12.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap', lineHeight: 1.2 }
 }
-const btn = (bg: string, fg: string, border = bg): React.CSSProperties => ({ background: bg, color: fg, border: `1px solid ${border}`, borderRadius: 100, padding: '7px 14px', fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' })
+
+function SevTag({ sev }: { sev: Severity }) {
+  const s = SEV[sev]
+  return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: s.fg, background: s.bg, padding: '3px 9px', borderRadius: 6, whiteSpace: 'nowrap' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: s.fg }} />{s.label}</span>
+}
+
+function CardHead({ title, sub, right }: { title: string; sub?: string; right?: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+      <div>
+        <h3 style={{ fontSize: 15.5, fontWeight: 600, color: C.ink, letterSpacing: '-0.01em' }}>{title}</h3>
+        {sub && <p style={{ fontSize: 12.5, color: C.graphite, marginTop: 3, lineHeight: 1.45 }}>{sub}</p>}
+      </div>
+      {right}
+    </div>
+  )
+}
+
+/** Small "‹ 2 / 5 ›" pager for lists inside cards. */
+function MiniPager({ page, pages, total, onChange }: { page: number; pages: number; total: number; onChange: (p: number) => void }) {
+  if (pages <= 1) return null
+  const b = (disabled: boolean): React.CSSProperties => ({ ...btn('plain', true), opacity: disabled ? 0.4 : 1, cursor: disabled ? 'default' : 'pointer', minWidth: 30 })
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, gap: 10 }}>
+      <span style={{ fontSize: 12, color: C.graphite, fontFamily: MONO }}>{n(total)} total</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button style={b(page <= 1)} disabled={page <= 1} onClick={() => onChange(page - 1)} aria-label="Previous page">‹</button>
+        <span style={{ fontSize: 12.5, color: C.ink, fontFamily: MONO }}>{page} / {pages}</span>
+        <button style={b(page >= pages)} disabled={page >= pages} onClick={() => onChange(page + 1)} aria-label="Next page">›</button>
+      </div>
+    </div>
+  )
+}
 
 async function api<T>(url: string, init?: RequestInit): Promise<T | null> {
   try {
     const r = await fetch(url, { cache: 'no-store', ...init })
     const d = await r.json().catch(() => null)
-    if (!r.ok || !d?.success) { if (init?.method === 'POST') toast.error('Action failed', d?.error ?? 'Please try again.'); return null }
+    if (!r.ok || !d?.success) { if (init?.method && init.method !== 'GET') toast.error('Action failed', d?.error ?? 'Please try again.'); return null }
     return (d.data ?? true) as T
   } catch { return null }
 }
 
+/** Load one page of a server-paginated list; reloads on url/page/tick change. */
+function usePaged<T>(baseUrl: string, tick: number) {
+  const [page, setPage] = useState(1)
+  const [data, setData] = useState<Paged<T> | null>(null)
+  useEffect(() => { setPage(1) }, [baseUrl])   // eslint-disable-line react-hooks/set-state-in-effect
+  useEffect(() => {
+    let alive = true
+    void api<Paged<T>>(`${baseUrl}${baseUrl.includes('?') ? '&' : '?'}page=${page}`).then(x => { if (alive && x) setData(x) })
+    return () => { alive = false }
+  }, [baseUrl, page, tick])
+  return { data, page, setPage }
+}
+
+const Loading = ({ h = 260 }: { h?: number }) => (
+  <div role="status" style={{ height: h, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: C.graphite, fontSize: 13.5 }}><Spinner size={17} color={C.orange} /> Loading…</div>
+)
+
+// ─── Shell ────────────────────────────────────────────────────────────────────
 export function AdminSecurity() {
   const [tab, setTab] = useState<Tab>('overview')
   const [range, setRange] = useState<Range>('24h')
-  const [tick, setTick] = useState(0)                         // bump to reload the current tab
+  const [tick, setTick] = useState(0)
   const [blockFor, setBlockFor] = useState<{ ip: string; reason: string } | null>(null)
-  const [eventFilter, setEventFilter] = useState<{ type: string; severity: string; q: string }>({ type: '', severity: '', q: '' })
+  const [eventFilter, setEventFilter] = useState({ type: '', severity: '', q: '' })
   const reload = useCallback(() => setTick(t => t + 1), [])
-
-  // Live: refresh every 30 s while open.
   useEffect(() => { const t = setInterval(reload, 30_000); return () => clearInterval(t) }, [reload])
 
   const showEvents = (f: Partial<typeof eventFilter>) => { setEventFilter({ type: '', severity: '', q: '', ...f }); setTab('events') }
-  const unblock = async (ip: string) => { if (await api('/api/admin/security', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'unblock', ip }) })) { toast.success('IP unblocked', ip); reload() } }
+  const onBlock = (ip: string, reason: string) => setBlockFor({ ip, reason })
+  const unblock = async (ip: string) => {
+    if (await api('/api/admin/security', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'unblock', ip }) })) { toast.success('IP unblocked', ip); reload() }
+  }
 
-  const TABS: [Tab, string][] = [['overview', 'Overview'], ['events', 'Live events'], ['ips', 'IP addresses'], ['accounts', 'Risky accounts'], ['health', 'Health & fixes']]
+  const TABS: [Tab, string][] = [['overview', 'Overview'], ['events', 'Events'], ['ips', 'IP addresses'], ['accounts', 'Risky accounts'], ['health', 'Health & fixes']]
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <div role="tablist" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {TABS.map(([id, label]) => (
-            <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
-              style={{ ...btn(tab === id ? C.ink : C.paper, tab === id ? '#fff' : C.ink, tab === id ? C.ink : C.ash), padding: '9px 16px', fontSize: 13.5 }}>{label}</button>
-          ))}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {/* Tab strip + time range */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', borderBottom: `1px solid ${C.ash}` }}>
+        <div role="tablist" style={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          {TABS.map(([id, text]) => {
+            const on = tab === id
+            return (
+              <button key={id} role="tab" aria-selected={on} onClick={() => setTab(id)}
+                style={{ background: 'none', border: 'none', borderBottom: `2px solid ${on ? C.orange : 'transparent'}`, marginBottom: -1, padding: '10px 14px', fontSize: 14, fontWeight: on ? 600 : 500, color: on ? C.ink : C.graphite, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {text}
+              </button>
+            )
+          })}
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
-          {(['1h', '24h', '7d'] as Range[]).map(r => (
-            <button key={r} onClick={() => setRange(r)} style={{ ...btn(range === r ? `${C.orange}18` : C.paper, range === r ? C.orange : C.graphite, range === r ? C.orange : C.ash), padding: '6px 12px' }}>{r === '1h' ? 'Last hour' : r === '24h' ? '24 hours' : '7 days'}</button>
-          ))}
-          <button onClick={reload} title="Refresh now" style={{ ...btn(C.paper, C.ink, C.ash), padding: '6px 12px' }}>↻</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 8 }}>
+          <div style={{ display: 'inline-flex', background: C.bone, borderRadius: 9, padding: 3 }}>
+            {(['1h', '24h', '7d'] as Range[]).map(r => (
+              <button key={r} onClick={() => setRange(r)}
+                style={{ border: 'none', borderRadius: 7, padding: '5px 11px', fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', background: range === r ? C.paper : 'transparent', color: range === r ? C.ink : C.graphite, boxShadow: range === r ? '0 1px 2px rgba(0,0,0,0.08)' : 'none' }}>
+                {r === '1h' ? '1 hour' : r === '24h' ? '24 hours' : '7 days'}
+              </button>
+            ))}
+          </div>
+          <button onClick={reload} title="Refresh now (auto-refreshes every 30 s)" style={btn('plain', true)}>↻ Refresh</button>
         </div>
       </div>
 
-      {tab === 'overview' && <OverviewTab range={range} tick={tick} onEvents={showEvents} onBlock={(ip, reason) => setBlockFor({ ip, reason })} onUnblock={unblock} />}
-      {tab === 'events' && <EventsTab range={range} tick={tick} filter={eventFilter} setFilter={setEventFilter} onBlock={(ip, reason) => setBlockFor({ ip, reason })} />}
-      {tab === 'ips' && <IpsTab range={range} tick={tick} onEvents={showEvents} onBlock={(ip, reason) => setBlockFor({ ip, reason })} onUnblock={unblock} />}
-      {tab === 'accounts' && <AccountsTab tick={tick} reload={reload} onBlock={(ip, reason) => setBlockFor({ ip, reason })} onEvents={showEvents} />}
+      {tab === 'overview' && <OverviewTab range={range} tick={tick} onEvents={showEvents} onBlock={onBlock} onUnblock={unblock} onTab={setTab} />}
+      {tab === 'events' && <EventsTab range={range} tick={tick} filter={eventFilter} setFilter={setEventFilter} onBlock={onBlock} />}
+      {tab === 'ips' && <IpsTab range={range} tick={tick} onEvents={showEvents} onBlock={onBlock} onUnblock={unblock} />}
+      {tab === 'accounts' && <AccountsTab tick={tick} reload={reload} onBlock={onBlock} onEvents={showEvents} />}
       {tab === 'health' && <HealthTab tick={tick} />}
 
       {blockFor && <BlockModal ip={blockFor.ip} reason={blockFor.reason} onClose={() => setBlockFor(null)} onDone={() => { setBlockFor(null); reload() }} />}
@@ -109,89 +178,100 @@ export function AdminSecurity() {
   )
 }
 
-// ─── Overview ──────────────────────────────────────────────────────────────────
-function OverviewTab({ range, tick, onEvents, onBlock, onUnblock }: { range: Range; tick: number; onEvents: (f: { type?: string; severity?: string; q?: string }) => void; onBlock: (ip: string, reason: string) => void; onUnblock: (ip: string) => void }) {
+// ─── Overview ─────────────────────────────────────────────────────────────────
+function OverviewTab({ range, tick, onEvents, onBlock, onUnblock, onTab }: { range: Range; tick: number; onEvents: (f: { type?: string; q?: string }) => void; onBlock: (ip: string, reason: string) => void; onUnblock: (ip: string) => void; onTab: (t: Tab) => void }) {
   const [d, setD] = useState<Overview | null>(null)
   const [open, setOpen] = useState<string | null>(null)
   useEffect(() => { let alive = true; void api<Overview>(`/api/admin/security?view=overview&range=${range}`).then(x => { if (alive && x) setD(x) }); return () => { alive = false } }, [range, tick])
-  if (!d) return <div className="shimmer" style={{ height: 420, borderRadius: 16, background: '#e8e7e2' }} />
+  const chart = useMemo(() => (d?.hours ?? []).map(h => ({ ...h, label: `${h.hour.slice(11)}:00` })), [d])
+  if (!d) return <Loading h={460} />
 
   const lv = LEVEL[d.level]
   const active = SECURITY_TYPES.filter(t => d.counts[t]?.n).sort((a, b) => {
     const rank = { high: 0, warn: 1, info: 2 } as const
     return rank[SECURITY_EVENTS[a].severity] - rank[SECURITY_EVENTS[b].severity] || (d.counts[b]?.n ?? 0) - (d.counts[a]?.n ?? 0)
   })
-  const maxBar = Math.max(1, ...d.hours.map(h => h.info + h.warn + h.high))
-  const tiles: [string, number, string, string?][] = [
-    ['High-risk events', d.severity.high, '#B42318'], ['Warnings', d.severity.warn, '#9A5B00'], ['Info', d.severity.info, '#475467'],
-    ['Blocked IPs', d.totals.blockedIps, C.ink], ['Restricted accounts', d.totals.restricted, C.ink], ['Temp-mail accounts', d.totals.tempMail, '#9A3412', 'Delete them in Users: Email = Temp mail'],
-    ['Signup farms (7 days)', d.totals.signupFarms, '#9A3412', 'Connections that made 3+ accounts this week'], ['Waiting for email code', d.totals.pending, C.graphite],
+  const rangeText = range === '1h' ? 'last hour' : range === '24h' ? 'last 24 hours' : 'last 7 days'
+  const stats: { label: string; value: number; tone?: string; hint: string; go?: Tab }[] = [
+    { label: 'High-risk events', value: d.severity.high, tone: d.severity.high ? RED : undefined, hint: rangeText, go: 'events' },
+    { label: 'Warnings', value: d.severity.warn, tone: d.severity.warn ? AMBER : undefined, hint: rangeText, go: 'events' },
+    { label: 'Info events', value: d.severity.info, hint: rangeText, go: 'events' },
+    { label: 'Blocked IPs', value: d.totals.blockedIps, hint: 'currently blocked', go: 'ips' },
+    { label: 'Restricted accounts', value: d.totals.restricted, hint: 'refused on every tool', go: 'accounts' },
+    { label: 'Temp-mail accounts', value: d.totals.tempMail, tone: d.totals.tempMail ? AMBER : undefined, hint: 'delete in Users: Email = Temp mail' },
+    { label: 'Signup farms', value: d.totals.signupFarms, tone: d.totals.signupFarms ? AMBER : undefined, hint: 'IPs with 3+ accounts this week', go: 'accounts' },
+    { label: 'Waiting for email code', value: d.totals.pending, hint: 'deleted after 3 days' },
   ]
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ ...cardStyle, padding: '18px 22px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', background: lv.bg, borderColor: `${lv.fg}40` }}>
-        <span style={{ width: 14, height: 14, borderRadius: '50%', background: lv.fg, boxShadow: `0 0 0 6px ${lv.fg}22` }} />
-        <div>
-          <p style={{ fontSize: 22, fontWeight: 700, color: lv.fg, letterSpacing: '-0.02em' }}>{lv.label}</p>
-          <p style={{ fontSize: 13.5, color: C.ink, marginTop: 2 }}>{lv.sub} <span style={{ color: C.graphite }}>({n(d.highLastHour)} high-risk in the last hour)</span></p>
+      {/* Status line */}
+      <div style={{ ...cardStyle, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', borderLeft: `4px solid ${lv.color}` }}>
+        <span style={{ position: 'relative', width: 10, height: 10, borderRadius: '50%', background: lv.color, boxShadow: `0 0 0 4px ${lv.color}22`, flexShrink: 0 }} />
+        <span style={{ fontSize: 15.5, fontWeight: 650, color: C.ink }}>{lv.label}</span>
+        <span style={{ fontSize: 13.5, color: C.graphite }}>{lv.sub}</span>
+        <span style={{ marginLeft: 'auto', fontSize: 12.5, color: C.graphite, fontFamily: MONO }}>{n(d.highLastHour)} high-risk in the last hour</span>
+      </div>
+
+      {/* Numbers: one panel, 2 even rows of 4 */}
+      <div style={{ ...cardStyle, overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 1, background: C.ash }}>
+          {stats.map(s => (
+            <button key={s.label} onClick={() => s.go && onTab(s.go)} disabled={!s.go}
+              style={{ background: C.paper, border: 'none', textAlign: 'left', padding: '16px 18px', cursor: s.go ? 'pointer' : 'default', fontFamily: 'inherit' }}>
+              <p style={eyebrow}>{s.label}</p>
+              <p style={{ fontSize: 26, fontWeight: 650, color: s.tone ?? C.ink, marginTop: 8, letterSpacing: '-0.02em', lineHeight: 1 }}>{n(s.value)}</p>
+              <p style={{ fontSize: 12, color: C.stone, marginTop: 6 }}>{s.hint}</p>
+            </button>
+          ))}
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 }}>
-        {tiles.map(([label, v, color, hint]) => (
-          <div key={label} title={hint} style={{ ...cardStyle, padding: '14px 16px' }}>
-            <p style={{ fontSize: 11, fontWeight: 700, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.graphite }}>{label}</p>
-            <p style={{ fontSize: 26, fontWeight: 700, color, marginTop: 6, letterSpacing: '-0.02em' }}>{n(v)}</p>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ ...cardStyle, padding: 20 }}>
-        <SectionTitle right={<span style={{ fontSize: 11.5, color: C.graphite, fontFamily: MONO }}>last 24 hours, by hour</span>}>Activity</SectionTitle>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 120 }}>
-          {d.hours.map(h => {
-            const total = h.info + h.warn + h.high
-            return (
-              <div key={h.hour} title={`${h.hour.slice(11)}:00 UTC  high ${h.high} · warnings ${h.warn} · info ${h.info}`}
-                style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%', minWidth: 4 }}>
-                <div style={{ height: `${(h.high / maxBar) * 100}%`, background: '#D92D20', borderRadius: '3px 3px 0 0' }} />
-                <div style={{ height: `${(h.warn / maxBar) * 100}%`, background: '#F0A030' }} />
-                <div style={{ height: `${(h.info / maxBar) * 100}%`, background: '#B6C2CF', borderRadius: total && !h.high && !h.warn ? '3px 3px 0 0' : 0 }} />
-              </div>
-            )
-          })}
+      {/* Activity chart */}
+      <div style={card}>
+        <CardHead title="Activity" sub="Security events per hour, last 24 hours (UTC)"
+          right={<div style={{ display: 'flex', gap: 12 }}>{(['high', 'warn', 'info'] as Severity[]).map(s => <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: C.graphite }}><span style={{ width: 10, height: 10, borderRadius: 3, background: SEV[s].bar }} />{SEV[s].label}</span>)}</div>} />
+        <div style={{ height: 210 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chart} margin={{ top: 4, right: 4, left: -18, bottom: 0 }} barCategoryGap="22%">
+              <CartesianGrid vertical={false} stroke={C.hair} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: C.stone }} tickLine={false} axisLine={{ stroke: C.ash }} interval={2} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: C.stone }} tickLine={false} axisLine={false} />
+              <Tooltip cursor={{ fill: 'rgba(0,0,0,0.04)' }} contentStyle={{ borderRadius: 10, border: `1px solid ${C.ash}`, fontSize: 12.5 }} labelFormatter={l => `${l} UTC`} />
+              <Bar dataKey="info" name="Info" stackId="s" fill={SEV.info.bar} />
+              <Bar dataKey="warn" name="Warnings" stackId="s" fill={SEV.warn.bar} />
+              <Bar dataKey="high" name="High-risk" stackId="s" fill={SEV.high.bar} radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: C.stone, fontFamily: MONO, marginTop: 6 }}><span>24h ago</span><span>now</span></div>
       </div>
 
-      <div style={{ ...cardStyle, padding: 20 }}>
-        <SectionTitle>What is happening, and what to do</SectionTitle>
+      {/* What is happening */}
+      <div style={card}>
+        <CardHead title="What is happening, and what to do" sub={`Every kind of event in the ${rangeText}. Click one for an explanation and the fix.`} />
         {!active.length ? <EmptyState title="Nothing unusual" sub="No security events in this time range." /> : (
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {active.map(t => {
+          <div style={{ border: `1px solid ${C.ash}`, borderRadius: 12, overflow: 'hidden' }}>
+            {active.map((t, i) => {
               const info = SECURITY_EVENTS[t]
               const c = d.counts[t]
               const isOpen = open === t
               return (
-                <div key={t} style={{ borderBottom: `1px solid ${C.hair}`, padding: '12px 0' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', cursor: 'pointer' }} onClick={() => setOpen(isOpen ? null : t)}>
-                    <Pill sev={info.severity} />
-                    <span style={{ fontSize: 14.5, fontWeight: 600, color: C.ink }}>{info.label}</span>
-                    <span style={{ fontSize: 13, color: C.graphite, fontFamily: MONO }}>{n(c.n)} time{c.n === 1 ? '' : 's'} · {n(c.ips)} IP{c.ips === 1 ? '' : 's'}</span>
-                    <span style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-                      <button onClick={e => { e.stopPropagation(); onEvents({ type: t }) }} style={btn(C.paper, C.ink, C.ash)}>See events</button>
-                      <span style={{ fontSize: 13, color: C.graphite, alignSelf: 'center' }}>{isOpen ? '▴' : '▾'}</span>
-                    </span>
+                <div key={t} style={{ borderTop: i ? `1px solid ${C.hair}` : 'none', background: isOpen ? C.canvas : C.paper }}>
+                  <div onClick={() => setOpen(isOpen ? null : t)} style={{ display: 'grid', gridTemplateColumns: '96px 1fr auto auto', alignItems: 'center', gap: 12, padding: '12px 14px', cursor: 'pointer' }}>
+                    <SevTag sev={info.severity} />
+                    <span style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>{info.label}</span>
+                    <span style={{ fontSize: 12.5, color: C.graphite, fontFamily: MONO, whiteSpace: 'nowrap' }}>{n(c.n)}× · {n(c.ips)} IP{c.ips === 1 ? '' : 's'}</span>
+                    <span style={{ fontSize: 12, color: C.stone, width: 14, textAlign: 'center' }}>{isOpen ? '−' : '+'}</span>
                   </div>
                   {isOpen && (
-                    <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
-                      <div style={{ background: C.canvas, borderRadius: 10, padding: '10px 12px' }}>
-                        <p style={{ fontSize: 11, fontWeight: 700, fontFamily: MONO, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>What it means</p>
+                    <div style={{ padding: '0 14px 14px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
+                      <div style={{ background: C.paper, border: `1px solid ${C.hair}`, borderRadius: 10, padding: '10px 12px' }}>
+                        <p style={{ ...eyebrow, marginBottom: 5 }}>What it means</p>
                         <p style={{ fontSize: 13.5, color: C.ink, lineHeight: 1.55 }}>{info.meaning}</p>
                       </div>
-                      <div style={{ background: `${C.orange}0D`, borderRadius: 10, padding: '10px 12px' }}>
-                        <p style={{ fontSize: 11, fontWeight: 700, fontFamily: MONO, color: C.orange, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>What to do</p>
+                      <div style={{ background: C.paper, border: `1px solid ${C.hair}`, borderLeft: `3px solid ${C.orange}`, borderRadius: 10, padding: '10px 12px' }}>
+                        <p style={{ ...eyebrow, color: C.orange, marginBottom: 5 }}>What to do</p>
                         <p style={{ fontSize: 13.5, color: C.ink, lineHeight: 1.55 }}>{info.fix}</p>
+                        <button onClick={() => onEvents({ type: t })} style={{ ...btn('plain', true), marginTop: 10 }}>See these events →</button>
                       </div>
                     </div>
                   )}
@@ -202,34 +282,33 @@ function OverviewTab({ range, tick, onEvents, onBlock, onUnblock }: { range: Ran
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
-        <div style={{ ...cardStyle, padding: 20 }}>
-          <SectionTitle>Most suspicious IPs</SectionTitle>
-          {!d.topIps.length ? <EmptyState title="No suspicious IPs" /> : d.topIps.map(ip => (
-            <div key={ip.ip} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: `1px solid ${C.hair}`, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 16 }}>{flag(ip.country)}</span>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16 }}>
+        <div style={card}>
+          <CardHead title="Most suspicious IPs" sub="Top 10 by high-risk events." right={<button onClick={() => onTab('ips')} style={btn('plain', true)}>All IPs →</button>} />
+          {!d.topIps.length ? <EmptyState title="No suspicious IPs" /> : d.topIps.map((ip, i) => (
+            <div key={ip.ip} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: i ? `1px solid ${C.hair}` : 'none' }}>
+              <span style={{ fontSize: 15, width: 20 }}>{flag(ip.country)}</span>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <button onClick={() => onEvents({ q: ip.ip })} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: MONO, fontSize: 13.5, fontWeight: 600, color: C.ink, textDecoration: 'underline', textDecorationColor: C.ash }}>{ip.ip}</button>
+                <button onClick={() => onEvents({ q: ip.ip })} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: MONO, fontSize: 13.5, fontWeight: 600, color: C.ink }}>{ip.ip}</button>
                 <p style={{ fontSize: 12, color: C.graphite, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {n(ip.n)} events{ip.high ? `, ${n(ip.high)} high-risk` : ''} · {ip.types.map(t => SECURITY_EVENTS[t as SecurityEventType]?.label ?? t).slice(0, 2).join(', ')}{ip.emails.length ? ` · ${ip.emails.join(', ')}` : ''}
+                  {n(ip.n)} events{ip.high ? ` · ${n(ip.high)} high-risk` : ''} · {ip.types.map(label).slice(0, 2).join(', ')}
                 </p>
               </div>
-              {ip.blocked
-                ? <button onClick={() => onUnblock(ip.ip)} style={btn(D.goodBg, D.good, D.good)}>Unblock</button>
-                : <button onClick={() => onBlock(ip.ip, ip.types.map(t => SECURITY_EVENTS[t as SecurityEventType]?.label ?? t).join(', '))} style={btn(C.dangerBg, C.danger, C.danger)}>Block</button>}
+              {ip.blocked ? <button onClick={() => onUnblock(ip.ip)} style={btn('good', true)}>Unblock</button>
+                : <button onClick={() => onBlock(ip.ip, ip.types.map(label).join(', '))} style={btn('danger', true)}>Block</button>}
             </div>
           ))}
         </div>
-        <div style={{ ...cardStyle, padding: 20 }}>
-          <SectionTitle>Where it comes from</SectionTitle>
+        <div style={card}>
+          <CardHead title="Where it comes from" sub="Events by country." />
           {!d.countries.length ? <EmptyState title="No events" /> : d.countries.map(c => {
             const max = d.countries[0].n || 1
             return (
-              <div key={c.country} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0' }}>
-                <span style={{ fontSize: 16, width: 22 }}>{flag(c.country)}</span>
-                <span style={{ width: 36, fontFamily: MONO, fontSize: 13, color: C.ink }}>{c.country}</span>
-                <div style={{ flex: 1, height: 8, background: C.bone, borderRadius: 99 }}><div style={{ width: `${(c.n / max) * 100}%`, height: '100%', background: C.orange, borderRadius: 99 }} /></div>
-                <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.graphite, width: 60, textAlign: 'right' }}>{n(c.n)}</span>
+              <div key={c.country} style={{ display: 'grid', gridTemplateColumns: '22px 34px 1fr 64px', alignItems: 'center', gap: 10, padding: '7px 0' }}>
+                <span style={{ fontSize: 15 }}>{flag(c.country)}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.ink }}>{c.country}</span>
+                <div style={{ height: 6, background: C.bone, borderRadius: 99 }}><div style={{ width: `${(c.n / max) * 100}%`, height: '100%', background: C.ink, opacity: 0.75, borderRadius: 99 }} /></div>
+                <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.graphite, textAlign: 'right' }}>{n(c.n)}</span>
               </div>
             )
           })}
@@ -239,49 +318,45 @@ function OverviewTab({ range, tick, onEvents, onBlock, onUnblock }: { range: Ran
   )
 }
 
-// ─── Live events ──────────────────────────────────────────────────────────────
+// ─── Events ───────────────────────────────────────────────────────────────────
 function EventsTab({ range, tick, filter, setFilter, onBlock }: { range: Range; tick: number; filter: { type: string; severity: string; q: string }; setFilter: (f: { type: string; severity: string; q: string }) => void; onBlock: (ip: string, reason: string) => void }) {
-  const [page, setPage] = useState(1)
-  const [d, setD] = useState<{ rows: EventRow[]; total: number; pages: number } | null>(null)
   const [q, setQ] = useState(filter.q)
-  const url = useMemo(() => `/api/admin/security?view=events&range=${range}&page=${page}&type=${filter.type}&severity=${filter.severity}&q=${encodeURIComponent(filter.q)}`, [range, page, filter])
-  useEffect(() => { let alive = true; void api<{ rows: EventRow[]; total: number; pages: number }>(url).then(x => { if (alive && x) setD(x) }); return () => { alive = false } }, [url, tick])
-  const GRID = '0.9fr 0.7fr 1.6fr 1.3fr 1.4fr 1.6fr 0.5fr 0.6fr'
-  const sel: React.CSSProperties = { border: `1px solid ${C.ash}`, borderRadius: 100, padding: '8px 12px', fontSize: 13, fontFamily: 'inherit', background: C.paper, color: C.ink }
+  const base = `/api/admin/security?view=events&range=${range}&type=${filter.type}&severity=${filter.severity}&q=${encodeURIComponent(filter.q)}`
+  const { data: d, page, setPage } = usePaged<EventRow>(base, tick)
+  const GRID = '118px 92px 1.4fr 1.25fr 1.3fr 1.5fr 56px 70px'
+  const sel: React.CSSProperties = { border: `1px solid ${C.ash}`, borderRadius: 8, padding: '8px 10px', fontSize: 13, fontFamily: 'inherit', background: C.paper, color: C.ink }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <select value={filter.type} onChange={e => { setPage(1); setFilter({ ...filter, type: e.target.value }) }} style={sel}>
+        <select value={filter.type} onChange={e => setFilter({ ...filter, type: e.target.value })} style={sel}>
           <option value="">All event types</option>
           {SECURITY_TYPES.map(t => <option key={t} value={t}>{SECURITY_EVENTS[t].label}</option>)}
         </select>
-        <select value={filter.severity} onChange={e => { setPage(1); setFilter({ ...filter, severity: e.target.value }) }} style={sel}>
-          <option value="">All severities</option><option value="high">High-risk</option><option value="warn">Warnings</option><option value="info">Info</option>
+        <select value={filter.severity} onChange={e => setFilter({ ...filter, severity: e.target.value })} style={sel}>
+          <option value="">All risk levels</option><option value="high">High-risk</option><option value="warn">Warnings</option><option value="info">Info</option>
         </select>
-        <form onSubmit={e => { e.preventDefault(); setPage(1); setFilter({ ...filter, q: q.trim() }) }} style={{ display: 'flex', gap: 6 }}>
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search email or IP…" style={{ ...sel, minWidth: 220 }} />
-          <button type="submit" style={btn(C.ink, '#fff')}>Search</button>
+        <form onSubmit={e => { e.preventDefault(); setFilter({ ...filter, q: q.trim() }) }} style={{ display: 'flex', gap: 6 }}>
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search email or IP" style={{ ...sel, minWidth: 220 }} />
+          <button type="submit" style={btn('dark')}>Search</button>
         </form>
-        {(filter.type || filter.severity || filter.q) && <button onClick={() => { setQ(''); setPage(1); setFilter({ type: '', severity: '', q: '' }) }} style={{ background: 'none', border: 'none', color: C.orange, fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>Clear</button>}
-        <span style={{ marginLeft: 'auto', fontSize: 12, color: C.graphite, fontFamily: MONO }}>{d ? `${n(d.total)} event groups` : ''}</span>
+        {(filter.type || filter.severity || filter.q) && <button onClick={() => { setQ(''); setFilter({ type: '', severity: '', q: '' }) }} style={{ ...btn('plain', true), border: 'none', color: C.orange }}>Clear filters</button>}
+        <span style={{ marginLeft: 'auto', fontSize: 12.5, color: C.graphite, fontFamily: MONO }}>{d ? `${n(d.total)} results` : ''}</span>
       </div>
       <div className="rtable" style={tableCard}>
-        <div style={tableHead(GRID)}>{['When', 'Risk', 'Event', 'IP / country', 'Account', 'Details', 'Times', ''].map(h => <span key={h} style={th}>{h}</span>)}</div>
-        {!d ? <div className="shimmer" style={{ height: 300, background: '#e8e7e2' }} />
+        <div style={tableHead(GRID)}>{['When', 'Risk', 'Event', 'IP', 'Account', 'Details', 'Times', ''].map(h => <span key={h} style={th}>{h}</span>)}</div>
+        {!d ? <Loading h={320} />
           : !d.rows.length ? <EmptyState title="No events" sub="Nothing matches these filters in this time range." />
           : d.rows.map(r => (
             <div key={r._id} style={tableRow(GRID)}>
               <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.graphite }}>{fmt(r.last)}</span>
-              <Pill sev={r.severity} />
-              <span style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }} title={SECURITY_EVENTS[r.type]?.meaning}>{SECURITY_EVENTS[r.type]?.label ?? r.type}</span>
-              <button onClick={() => { setQ(r.ip); setPage(1); setFilter({ ...filter, q: r.ip }) }} title="Show everything from this IP"
+              <SevTag sev={r.severity} />
+              <span style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }} title={SECURITY_EVENTS[r.type]?.meaning}>{label(r.type)}</span>
+              <button onClick={() => { setQ(r.ip); setFilter({ ...filter, q: r.ip }) }} title="Show everything from this IP"
                 style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: MONO, fontSize: 12.5, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{flag(r.country)} {r.ip}</button>
               <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.graphite, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.email ?? ''}>{r.email ?? '-'}</span>
               <span style={{ fontSize: 12.5, color: C.graphite, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={[r.detail, r.path, r.ua].filter(Boolean).join(' · ')}>{[r.detail, r.path].filter(Boolean).join(' · ') || '-'}</span>
-              <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 600, color: r.count > 10 ? C.danger : C.ink }}>{n(r.count)}</span>
-              {r.ip !== 'unknown' && r.type !== 'admin_action'
-                ? <button onClick={() => onBlock(r.ip, SECURITY_EVENTS[r.type]?.label ?? r.type)} style={{ ...btn(C.dangerBg, C.danger, C.danger), padding: '5px 10px' }}>Block</button>
-                : <span />}
+              <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 600, color: r.count > 10 ? RED : C.ink }}>{n(r.count)}</span>
+              {r.ip !== 'unknown' && r.type !== 'admin_action' ? <button onClick={() => onBlock(r.ip, label(r.type))} style={btn('danger', true)}>Block</button> : <span />}
             </div>
           ))}
       </div>
@@ -292,123 +367,141 @@ function EventsTab({ range, tick, filter, setFilter, onBlock }: { range: Range; 
 
 // ─── IP addresses ─────────────────────────────────────────────────────────────
 function IpsTab({ range, tick, onEvents, onBlock, onUnblock }: { range: Range; tick: number; onEvents: (f: { q?: string }) => void; onBlock: (ip: string, reason: string) => void; onUnblock: (ip: string) => void }) {
-  const [d, setD] = useState<{ ips: IpRow[]; blocks: BlockRow[] } | null>(null)
+  const ips = usePaged<IpRow>(`/api/admin/security?view=ips&range=${range}`, tick)
+  const blocks = usePaged<BlockRow>('/api/admin/security?view=blocks', tick)
   const [manual, setManual] = useState('')
-  useEffect(() => { let alive = true; void api<{ ips: IpRow[]; blocks: BlockRow[] }>(`/api/admin/security?view=ips&range=${range}`).then(x => { if (alive && x) setD(x) }); return () => { alive = false } }, [range, tick])
-  const GRID = '1.3fr 0.9fr 1.8fr 1.6fr 0.6fr 0.9fr 0.8fr'
+  const GRID = '1.25fr 0.95fr 1.8fr 1.6fr 0.6fr 0.95fr 84px'
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ ...cardStyle, padding: 18, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>Block an IP manually</span>
-        <input value={manual} onChange={e => setManual(e.target.value)} placeholder="e.g. 77.239.124.77" style={{ border: `1px solid ${C.ash}`, borderRadius: 100, padding: '8px 14px', fontSize: 13.5, fontFamily: MONO, minWidth: 220, background: C.canvas, color: C.ink }} />
-        <button onClick={() => manual.trim() && onBlock(manual.trim(), 'Blocked manually')} style={btn(C.danger, '#fff')}>Block…</button>
-        <span style={{ fontSize: 12, color: C.graphite }}>Blocks the whole site (pages and API) for that address.</span>
+      <div style={{ ...card, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>Block an IP</span>
+        <input value={manual} onChange={e => setManual(e.target.value)} placeholder="e.g. 77.239.124.77" style={{ border: `1px solid ${C.ash}`, borderRadius: 8, padding: '8px 12px', fontSize: 13.5, fontFamily: MONO, minWidth: 220, background: C.canvas, color: C.ink }} />
+        <button onClick={() => manual.trim() && onBlock(manual.trim(), 'Blocked manually')} style={btn('danger')}>Block…</button>
+        <span style={{ fontSize: 12.5, color: C.graphite }}>The address gets an &quot;Access blocked&quot; page on the whole site, API included.</span>
       </div>
 
-      <div className="rtable" style={tableCard}>
-        <div style={tableHead(GRID)}>{['IP', 'Events', 'What it did', 'Accounts seen', 'Signups', 'Last seen', ''].map(h => <span key={h} style={th}>{h}</span>)}</div>
-        {!d ? <div className="shimmer" style={{ height: 300, background: '#e8e7e2' }} />
-          : !d.ips.length ? <EmptyState title="No suspicious IPs" sub="Nothing recorded in this time range." />
-          : d.ips.map(r => (
-            <div key={r.ip} style={{ ...tableRow(GRID), background: r.blocked ? 'rgba(207,70,58,0.05)' : undefined }}>
-              <button onClick={() => onEvents({ q: r.ip })} title="Show this IP's events" style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: MONO, fontSize: 13, fontWeight: 600, color: C.ink }}>
-                {flag(r.country)} {r.ip}{r.blocked && <span style={{ marginLeft: 6, fontSize: 10, color: C.danger, fontWeight: 700 }}>BLOCKED</span>}
-              </button>
-              <span style={{ fontFamily: MONO, fontSize: 12.5 }}>
-                <b style={{ color: r.high ? '#B42318' : C.ink }}>{n(r.n)}</b>{r.high ? <span style={{ color: '#B42318' }}> · {n(r.high)} high</span> : null}{r.warn ? <span style={{ color: '#9A5B00' }}> · {n(r.warn)} warn</span> : null}
-              </span>
-              <span style={{ fontSize: 12.5, color: C.graphite }}>{r.types.map(t => SECURITY_EVENTS[t as SecurityEventType]?.label ?? t).join(', ')}</span>
-              <span style={{ fontSize: 12, color: C.graphite, fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis' }} title={r.emails.join('\n')}>{r.emails.length ? r.emails.slice(0, 3).join(', ') + (r.emails.length > 3 ? ` +${r.emails.length - 3}` : '') : '-'}</span>
-              <span style={{ fontFamily: MONO, fontSize: 13, color: r.accounts >= 3 ? '#9A3412' : C.ink, fontWeight: r.accounts >= 3 ? 700 : 500 }}>{r.accounts || '-'}</span>
-              <span style={{ fontFamily: MONO, fontSize: 12, color: C.graphite }}>{fmt(r.last)}</span>
-              {r.blocked ? <button onClick={() => onUnblock(r.ip)} style={btn(D.goodBg, D.good, D.good)}>Unblock</button>
-                : <button onClick={() => onBlock(r.ip, r.types.map(t => SECURITY_EVENTS[t as SecurityEventType]?.label ?? t).join(', '))} style={btn(C.dangerBg, C.danger, C.danger)}>Block</button>}
-            </div>
-          ))}
+      <div>
+        <div className="rtable" style={tableCard}>
+          <div style={tableHead(GRID)}>{['IP', 'Events', 'What it did', 'Accounts seen', 'Signups', 'Last seen', ''].map(h => <span key={h} style={th}>{h}</span>)}</div>
+          {!ips.data ? <Loading h={320} />
+            : !ips.data.rows.length ? <EmptyState title="No suspicious IPs" sub="Nothing recorded in this time range." />
+            : ips.data.rows.map(r => (
+              <div key={r.ip} style={{ ...tableRow(GRID), background: r.blocked ? 'rgba(194,54,43,0.04)' : undefined }}>
+                <button onClick={() => onEvents({ q: r.ip })} title="Show this IP's events" style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: MONO, fontSize: 13, fontWeight: 600, color: C.ink }}>
+                  {flag(r.country)} {r.ip}{r.blocked && <span style={{ marginLeft: 6, fontSize: 10.5, color: RED, fontWeight: 700 }}>BLOCKED</span>}
+                </button>
+                <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.ink }}>
+                  {n(r.n)}{r.high ? <span style={{ color: RED }}> · {n(r.high)} high</span> : null}{r.warn ? <span style={{ color: AMBER }}> · {n(r.warn)} warn</span> : null}
+                </span>
+                <span style={{ fontSize: 12.5, color: C.graphite }}>{r.types.map(label).join(', ')}</span>
+                <span style={{ fontSize: 12, color: C.graphite, fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.emails.join('\n')}>{r.emails.length ? r.emails.slice(0, 2).join(', ') + (r.emails.length > 2 ? ` +${r.emails.length - 2}` : '') : '-'}</span>
+                <span style={{ fontFamily: MONO, fontSize: 13, color: r.accounts >= 3 ? AMBER : C.ink, fontWeight: r.accounts >= 3 ? 700 : 500 }}>{r.accounts || '-'}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.graphite }}>{fmt(r.last)}</span>
+                {r.blocked ? <button onClick={() => onUnblock(r.ip)} style={btn('good', true)}>Unblock</button>
+                  : <button onClick={() => onBlock(r.ip, r.types.map(label).join(', '))} style={btn('danger', true)}>Block</button>}
+              </div>
+            ))}
+        </div>
+        {ips.data && <Pagination page={ips.page} pageCount={ips.data.pages} onChange={ips.setPage} />}
       </div>
 
-      <div style={{ ...cardStyle, padding: 20 }}>
-        <SectionTitle right={<span style={{ fontSize: 12, color: C.graphite, fontFamily: MONO }}>{d ? `${d.blocks.length} total` : ''}</span>}>Blocked IPs</SectionTitle>
-        {!d?.blocks.length ? <EmptyState title="No blocked IPs" /> : d.blocks.map(b => {
+      <div style={card}>
+        <CardHead title="Blocked IPs" sub="Expired blocks are shown faded and no longer apply." />
+        {!blocks.data ? <Loading h={120} /> : !blocks.data.rows.length ? <EmptyState title="No blocked IPs" /> : blocks.data.rows.map((b, i) => {
           const expired = !!b.until && new Date(b.until) < new Date()
           return (
-            <div key={b._id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: `1px solid ${C.hair}`, flexWrap: 'wrap', opacity: expired ? 0.5 : 1 }}>
-              <span style={{ fontFamily: MONO, fontSize: 13.5, fontWeight: 600, color: C.ink, minWidth: 150 }}>{b._id}</span>
-              <span style={{ fontSize: 12.5, color: C.graphite, flex: 1, minWidth: 200 }}>{b.reason}</span>
-              <span style={{ fontSize: 12, color: C.graphite, fontFamily: MONO }}>{expired ? 'expired' : b.until ? `until ${fmt(b.until)}` : 'forever'} · by {b.by}</span>
-              <button onClick={() => onUnblock(b._id)} style={btn(D.goodBg, D.good, D.good)}>Unblock</button>
+            <div key={b._id} style={{ display: 'grid', gridTemplateColumns: '170px 1fr auto auto', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: i ? `1px solid ${C.hair}` : 'none', opacity: expired ? 0.5 : 1 }}>
+              <span style={{ fontFamily: MONO, fontSize: 13.5, fontWeight: 600, color: C.ink }}>{b._id}</span>
+              <span style={{ fontSize: 12.5, color: C.graphite, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={b.reason}>{b.reason}</span>
+              <span style={{ fontSize: 12, color: C.graphite, fontFamily: MONO, whiteSpace: 'nowrap' }}>{expired ? 'expired' : b.until ? `until ${fmt(b.until)}` : 'forever'}</span>
+              <button onClick={() => onUnblock(b._id)} style={btn('good', true)}>Unblock</button>
             </div>
           )
         })}
+        {blocks.data && <MiniPager page={blocks.page} pages={blocks.data.pages} total={blocks.data.total} onChange={blocks.setPage} />}
       </div>
     </div>
   )
 }
 
 // ─── Risky accounts ───────────────────────────────────────────────────────────
+interface Farm { ip: string; n: number; emails: string[]; last: string }
+interface Heavy { userEmail?: string; userId: string; etsyCalls: number; searches: number; googleCalls: number }
+interface Targeted { email: string; n: number; ips: string[]; last: string }
+interface Restricted { _id: string; email: string; name: string; plan: string }
+
 function AccountsTab({ tick, reload, onBlock, onEvents }: { tick: number; reload: () => void; onBlock: (ip: string, reason: string) => void; onEvents: (f: { q?: string }) => void }) {
-  const [d, setD] = useState<Accounts | null>(null)
-  useEffect(() => { let alive = true; void api<Accounts>('/api/admin/security?view=accounts').then(x => { if (alive && x) setD(x) }); return () => { alive = false } }, [tick])
-  const setRestricted = async (userId: string, restricted: boolean, email: string) => {
-    if (!confirm(`${restricted ? 'Restrict' : 'Unrestrict'} ${email}?`)) return
-    const ok = await api(`/api/admin/users/${userId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ restricted }) })
-    if (ok) { toast.success(restricted ? 'Account restricted' : 'Restriction lifted', email); reload() }
-    else toast.error('Could not update', email)
-  }
-  if (!d) return <div className="shimmer" style={{ height: 420, borderRadius: 16, background: '#e8e7e2' }} />
-  const card = (title: string, sub: string, children: React.ReactNode) => (
-    <div style={{ ...cardStyle, padding: 20 }}>
-      <SectionTitle>{title}</SectionTitle>
-      <p style={{ fontSize: 12.5, color: C.graphite, marginTop: -8, marginBottom: 10 }}>{sub}</p>
-      {children}
-    </div>
+  const farms = usePaged<Farm>('/api/admin/security?view=accounts&list=farms', tick)
+  const heavy = usePaged<Heavy>('/api/admin/security?view=accounts&list=heavy', tick)
+  const targeted = usePaged<Targeted>('/api/admin/security?view=accounts&list=targeted', tick)
+  const restricted = usePaged<Restricted>('/api/admin/security?view=accounts&list=restricted', tick)
+  const { confirm, dialog: confirmDialog } = useConfirm()
+  const setRestricted = (userId: string, value: boolean, email: string) => void confirm({
+    title: value ? 'Restrict this account?' : 'Lift the restriction?', tone: value ? 'danger' : 'primary',
+    confirmLabel: value ? 'Restrict' : 'Unrestrict', busyLabel: 'Saving…',
+    body: value ? `${email} is refused on every tool and the dashboard until you lift it.` : `${email} gets full access again right away.`,
+    action: async () => {
+      const ok = await api(`/api/admin/users/${userId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ restricted: value }) })
+      if (!ok) return 'Could not save. Please try again.'
+      toast.success(value ? 'Account restricted' : 'Restriction lifted', email); reload()
+    },
+  })
+  const row = (i: number, children: React.ReactNode) => <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: i ? `1px solid ${C.hair}` : 'none' }}>{children}</div>
+  const body = <T,>(p: { data: Paged<T> | null; page: number; setPage: (n: number) => void }, empty: string, render: (r: T, i: number) => React.ReactNode) => (
+    <>
+      {!p.data ? <Loading h={140} /> : !p.data.rows.length ? <EmptyState title={empty} /> : p.data.rows.map(render)}
+      {p.data && <MiniPager page={p.page} pages={p.data.pages} total={p.data.total} onChange={p.setPage} />}
+    </>
   )
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 16 }}>
-      {card('Signup farms', 'One connection that created several accounts (usually to farm free credits). Recorded for signups from now on.',
-        !d.farms.length ? <EmptyState title="None found" /> : d.farms.map(f => (
-          <div key={f.ip} style={{ padding: '10px 0', borderBottom: `1px solid ${C.hair}` }}>
+      {confirmDialog}
+      <div style={card}>
+        <CardHead title="Signup farms" sub="One connection that created several accounts, usually to farm free credits. Recorded for signups from 7 Oct on." />
+        {body(farms, 'None found', (f, i) => (
+          <div key={f.ip} style={{ padding: '10px 0', borderTop: i ? `1px solid ${C.hair}` : 'none' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontFamily: MONO, fontSize: 13.5, fontWeight: 600, color: C.ink }}>{f.ip}</span>
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: f.n >= 3 ? '#9A3412' : C.ink }}>{f.n} accounts</span>
-              <button onClick={() => onBlock(f.ip, `Signup farm: ${f.n} accounts`)} style={{ ...btn(C.dangerBg, C.danger, C.danger), marginLeft: 'auto' }}>Block IP</button>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: f.n >= 3 ? AMBER : C.graphite }}>{f.n} accounts</span>
+              <button onClick={() => onBlock(f.ip, `Signup farm: ${f.n} accounts`)} style={{ ...btn('danger', true), marginLeft: 'auto' }}>Block IP</button>
             </div>
-            <p style={{ fontSize: 12, color: C.graphite, fontFamily: MONO, marginTop: 4, wordBreak: 'break-all' }}>{f.emails.join(', ')}</p>
+            <p style={{ fontSize: 12, color: C.graphite, fontFamily: MONO, marginTop: 4, wordBreak: 'break-all', lineHeight: 1.5 }}>{f.emails.join(', ')}</p>
           </div>
-        )))}
-      {card('Heaviest Etsy data users today', 'Over ~5,000 Etsy calls in a day is not normal use. Over 15,000 is blocked automatically (scraping).',
-        !d.heavy.length ? <EmptyState title="No usage yet today" /> : d.heavy.map(h => (
-          <div key={h.userId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: `1px solid ${C.hair}` }}>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <p style={{ fontFamily: MONO, fontSize: 13, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.userEmail ?? h.userId}</p>
-              <p style={{ fontSize: 12, color: C.graphite }}>{n(h.searches)} searches · {n(h.googleCalls)} Google calls</p>
-            </div>
-            <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: h.etsyCalls >= 5000 ? '#B42318' : C.ink }}>{n(h.etsyCalls)}</span>
-            {h.etsyCalls >= 5000 && h.userId && !h.userId.startsWith('system') && h.userId !== 'anonymous' &&
-              <button onClick={() => setRestricted(h.userId, true, h.userEmail ?? h.userId)} style={btn('rgba(194,129,17,0.12)', '#C28111', '#C28111')}>Restrict</button>}
+        ))}
+      </div>
+      <div style={card}>
+        <CardHead title="Heaviest Etsy data users today" sub="Over ~5,000 Etsy calls a day is not normal use. 15,000 is blocked automatically." />
+        {body(heavy, 'No usage yet today', (h, i) => row(i, <>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <p style={{ fontFamily: MONO, fontSize: 13, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.userEmail ?? h.userId}</p>
+            <p style={{ fontSize: 12, color: C.graphite }}>{n(h.searches)} searches · {n(h.googleCalls)} Google calls</p>
           </div>
-        )))}
-      {card('Emails under password attack', 'Accounts with many wrong-password attempts in the last 7 days.',
-        !d.targeted.length ? <EmptyState title="None" /> : d.targeted.map(t => (
-          <div key={t.email} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: `1px solid ${C.hair}` }}>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <p style={{ fontFamily: MONO, fontSize: 13, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.email}</p>
-              <p style={{ fontSize: 12, color: C.graphite, fontFamily: MONO }}>from {t.ips.join(', ')}</p>
-            </div>
-            <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: t.n >= 10 ? '#B42318' : C.ink }}>{n(t.n)}</span>
-            <button onClick={() => onEvents({ q: t.email })} style={btn(C.paper, C.ink, C.ash)}>Events</button>
+          <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 650, color: h.etsyCalls >= 5000 ? RED : C.ink }}>{n(h.etsyCalls)}</span>
+          {h.etsyCalls >= 5000 && h.userId && !h.userId.startsWith('system') && h.userId !== 'anonymous'
+            ? <button onClick={() => setRestricted(h.userId, true, h.userEmail ?? h.userId)} style={btn('danger', true)}>Restrict</button> : null}
+        </>))}
+      </div>
+      <div style={card}>
+        <CardHead title="Emails under password attack" sub="Accounts with wrong-password attempts in the last 7 days." />
+        {body(targeted, 'None', (t, i) => row(i, <>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <p style={{ fontFamily: MONO, fontSize: 13, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.email}</p>
+            <p style={{ fontSize: 12, color: C.graphite, fontFamily: MONO, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>from {t.ips.join(', ')}</p>
           </div>
-        )))}
-      {card('Restricted accounts', `Refused on every tool request (checked on the server). Temp-mail accounts still active: ${n(d.tempMail)}.`,
-        !d.restricted.length ? <EmptyState title="No restricted accounts" /> : d.restricted.map(u => (
-          <div key={u._id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: `1px solid ${C.hair}` }}>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <p style={{ fontSize: 13.5, color: C.ink, fontWeight: 600 }}>{u.name}</p>
-              <p style={{ fontFamily: MONO, fontSize: 12, color: C.graphite, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email} · {u.plan}</p>
-            </div>
-            <button onClick={() => setRestricted(u._id, false, u.email)} style={btn(D.goodBg, D.good, D.good)}>Unrestrict</button>
+          <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 650, color: t.n >= 10 ? RED : C.ink }}>{n(t.n)}</span>
+          <button onClick={() => onEvents({ q: t.email })} style={btn('plain', true)}>Events</button>
+        </>))}
+      </div>
+      <div style={card}>
+        <CardHead title="Restricted accounts" sub="Refused on every tool request (checked on the server)." />
+        {body(restricted, 'No restricted accounts', (u, i) => row(i, <>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <p style={{ fontSize: 13.5, color: C.ink, fontWeight: 600 }}>{u.name}</p>
+            <p style={{ fontFamily: MONO, fontSize: 12, color: C.graphite, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email} · {u.plan}</p>
           </div>
-        )))}
+          <button onClick={() => setRestricted(u._id, false, u.email)} style={btn('good', true)}>Unrestrict</button>
+        </>))}
+      </div>
     </div>
   )
 }
@@ -417,39 +510,47 @@ function AccountsTab({ tick, reload, onBlock, onEvents }: { tick: number; reload
 function HealthTab({ tick }: { tick: number }) {
   const [checks, setChecks] = useState<Check[] | null>(null)
   useEffect(() => { let alive = true; void api<{ checks: Check[] }>('/api/admin/security?view=health').then(x => { if (alive && x) setChecks(x.checks) }); return () => { alive = false } }, [tick])
-  if (!checks) return <div className="shimmer" style={{ height: 420, borderRadius: 16, background: '#e8e7e2' }} />
+  if (!checks) return <Loading h={460} />
   const ST = {
+    bad: { icon: '✕', fg: RED, bg: 'rgba(194,54,43,0.10)', label: 'Fix this' },
+    warn: { icon: '!', fg: AMBER, bg: 'rgba(214,140,20,0.13)', label: 'Needs attention' },
+    manual: { icon: '?', fg: SLATE, bg: 'rgba(100,116,139,0.10)', label: 'Check yourself' },
     ok: { icon: '✓', fg: D.good, bg: D.goodBg, label: 'Good' },
-    warn: { icon: '!', fg: '#9A5B00', bg: 'rgba(232,160,40,0.18)', label: 'Needs attention' },
-    bad: { icon: '✕', fg: '#B42318', bg: 'rgba(207,70,58,0.13)', label: 'Fix this' },
-    manual: { icon: '?', fg: '#475467', bg: 'rgba(71,84,103,0.10)', label: 'Check yourself' },
   } as const
   const order = { bad: 0, warn: 1, manual: 2, ok: 3 } as const
   const sorted = [...checks].sort((a, b) => order[a.status] - order[b.status])
-  const counts = checks.reduce((m, c) => ({ ...m, [c.status]: (m[c.status] ?? 0) + 1 }), {} as Record<string, number>)
+  const counts = checks.reduce<Record<string, number>>((m, c) => ({ ...m, [c.status]: (m[c.status] ?? 0) + 1 }), {})
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        {(['bad', 'warn', 'manual', 'ok'] as const).map(s => (
-          <span key={s} style={{ ...cardStyle, padding: '10px 14px', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ width: 22, height: 22, borderRadius: '50%', display: 'grid', placeItems: 'center', background: ST[s].bg, color: ST[s].fg, fontWeight: 800, fontSize: 12 }}>{ST[s].icon}</span>
-            <span style={{ fontSize: 13, color: C.ink }}>{ST[s].label}: <b>{counts[s] ?? 0}</b></span>
-          </span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ ...cardStyle, overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 1, background: C.ash }}>
+          {(['bad', 'warn', 'manual', 'ok'] as const).map(s => (
+            <div key={s} style={{ background: C.paper, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ width: 26, height: 26, borderRadius: '50%', display: 'grid', placeItems: 'center', background: ST[s].bg, color: ST[s].fg, fontWeight: 800, fontSize: 12.5 }}>{ST[s].icon}</span>
+              <div><p style={eyebrow}>{ST[s].label}</p><p style={{ fontSize: 20, fontWeight: 650, color: C.ink }}>{counts[s] ?? 0}</p></div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ ...cardStyle, overflow: 'hidden' }}>
+        {sorted.map((c, i) => (
+          <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '30px 1fr', gap: 14, padding: '16px 18px', borderTop: i ? `1px solid ${C.hair}` : 'none' }}>
+            <span style={{ width: 28, height: 28, borderRadius: '50%', display: 'grid', placeItems: 'center', background: ST[c.status].bg, color: ST[c.status].fg, fontWeight: 800, fontSize: 13 }}>{ST[c.status].icon}</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                <p style={{ fontSize: 14.5, fontWeight: 600, color: C.ink }}>{c.label}</p>
+                <span style={{ fontSize: 11.5, fontWeight: 600, color: ST[c.status].fg }}>{ST[c.status].label}</span>
+              </div>
+              <p style={{ fontSize: 13.5, color: C.graphite, marginTop: 3, lineHeight: 1.55, wordBreak: 'break-word' }}>{c.detail}</p>
+              {c.fix && c.status !== 'ok' && (
+                <p style={{ fontSize: 13.5, color: C.ink, marginTop: 8, lineHeight: 1.55, borderLeft: `3px solid ${C.orange}`, background: C.canvas, borderRadius: '0 8px 8px 0', padding: '8px 12px' }}>
+                  <b style={{ color: C.orange }}>How to fix: </b>{c.fix}
+                </p>
+              )}
+            </div>
+          </div>
         ))}
       </div>
-      {sorted.map(c => (
-        <div key={c.id} style={{ ...cardStyle, padding: '16px 18px', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-          <span style={{ flexShrink: 0, width: 30, height: 30, borderRadius: '50%', display: 'grid', placeItems: 'center', background: ST[c.status].bg, color: ST[c.status].fg, fontWeight: 800 }}>{ST[c.status].icon}</span>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <p style={{ fontSize: 15, fontWeight: 600, color: C.ink }}>{c.label}</p>
-              <span style={{ fontSize: 10.5, fontWeight: 700, fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.05em', color: ST[c.status].fg }}>{ST[c.status].label}</span>
-            </div>
-            <p style={{ fontSize: 13.5, color: C.graphite, marginTop: 4, lineHeight: 1.55, wordBreak: 'break-word' }}>{c.detail}</p>
-            {c.fix && c.status !== 'ok' && <p style={{ fontSize: 13.5, color: C.ink, marginTop: 8, lineHeight: 1.55, background: `${C.orange}0D`, borderRadius: 8, padding: '8px 10px' }}><b style={{ color: C.orange }}>How to fix: </b>{c.fix}</p>}
-          </div>
-        </div>
-      ))}
     </div>
   )
 }
@@ -465,12 +566,12 @@ function BlockModal({ ip, reason: initialReason, onClose, onDone }: { ip: string
     setBusy(false)
     if (ok) { toast.success('IP blocked', `${ip} can no longer open Rankkw.`); onDone() }
   }
-  const field: React.CSSProperties = { width: '100%', boxSizing: 'border-box', border: `1px solid ${C.ash}`, borderRadius: 10, padding: '10px 12px', fontSize: 14, fontFamily: 'inherit', background: C.canvas, color: C.ink, marginBottom: 14 }
+  const field: React.CSSProperties = { width: '100%', boxSizing: 'border-box', border: `1px solid ${C.ash}`, borderRadius: 8, padding: '10px 12px', fontSize: 14, fontFamily: 'inherit', background: C.canvas, color: C.ink, marginBottom: 14 }
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,18,14,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: 20 }} onClick={() => !busy && onClose()}>
-      <div style={{ background: C.paper, borderRadius: 16, padding: '24px 26px', maxWidth: 440, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
-        <h3 style={{ fontSize: 18, fontWeight: 600, color: C.ink, marginBottom: 6 }}>Block {ip}?</h3>
-        <p style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.55, marginBottom: 16 }}>This address will get an &quot;Access blocked&quot; page for the whole site, including the API. Everyone sharing that connection is affected.</p>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,18,14,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: 20 }} onClick={() => !busy && onClose()}>
+      <div style={{ background: C.paper, borderRadius: 14, padding: '22px 24px', maxWidth: 440, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.22)' }} onClick={e => e.stopPropagation()}>
+        <h3 style={{ fontSize: 17, fontWeight: 600, color: C.ink, marginBottom: 6 }}>Block <span style={{ fontFamily: MONO }}>{ip}</span>?</h3>
+        <p style={{ fontSize: 13.5, color: C.graphite, lineHeight: 1.55, marginBottom: 16 }}>This address gets an &quot;Access blocked&quot; page for the whole site, API included. Everyone sharing that connection is affected.</p>
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: C.ink, marginBottom: 6 }}>Reason (for your records)</label>
         <input value={reason} onChange={e => setReason(e.target.value)} style={field} maxLength={300} />
         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: C.ink, marginBottom: 6 }}>For how long</label>
@@ -478,8 +579,8 @@ function BlockModal({ ip, reason: initialReason, onClose, onDone }: { ip: string
           <option value={1}>1 hour</option><option value={24}>24 hours</option><option value={24 * 7}>7 days</option><option value={24 * 30}>30 days</option><option value={0}>Forever</option>
         </select>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <button onClick={onClose} disabled={busy} style={btn(C.paper, C.ink, C.hairInk)}>Cancel</button>
-          <button onClick={submit} disabled={busy} style={btn(C.danger, '#fff')}>{busy ? 'Blocking…' : 'Block IP'}</button>
+          <button onClick={onClose} disabled={busy} style={btn('plain')}>Cancel</button>
+          <button onClick={submit} disabled={busy} style={{ ...btn('danger'), background: RED, color: '#fff', borderColor: RED }}>{busy ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}><Spinner size={12} color="#fff" /> Blocking…</span> : 'Block IP'}</button>
         </div>
       </div>
     </div>
