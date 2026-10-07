@@ -4,7 +4,7 @@ import { PENDING_SIGNUP, NOT_PENDING_SIGNUP, cleanupPendingSignups } from '@/lib
 import { parseUserFilters, buildUserFilter, isFiltered } from '@/lib/admin/userFilters'
 import { isDisposableEmail } from '@/lib/auth/disposable'
 import { connectDB } from '@/lib/db'
-import { User, KeywordHistory, ConnectedShop } from '@/lib/models'
+import { User, KeywordHistory, ConnectedShop, LocalPayment } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin, resolveRole } from '@/lib/auth/roles'
 import { creditLimitFor, activeBonus } from '@/lib/credits'
@@ -16,6 +16,21 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const DAY = 24 * 60 * 60 * 1000
+
+/**
+ * Customers who paid by bank / JazzCash (PKR) and whose paid period is still
+ * running: an approved local payment with grantedUntil in the future, on an account
+ * that still exists, is not on Free, and is not already counted as a card payer.
+ */
+async function countLocalPayers(now: Date): Promise<number> {
+  const ids = (await LocalPayment.distinct('userId', { status: 'approved', grantedUntil: { $gt: now } }))
+    .map(String).filter(id => /^[a-f0-9]{24}$/i.test(id))
+  if (!ids.length) return 0
+  return User.countDocuments({
+    _id: { $in: ids }, plan: { $ne: 'free' },
+    $or: [{ lsSubscriptionId: null }, { lsSubscriptionId: { $exists: false } }],
+  })
+}
 
 /**
  * Admin users list - server-side PAGINATED + searched, so opening the admin no
@@ -51,7 +66,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const weekAgo = new Date(now.getTime() - 7 * DAY)
   const since14 = new Date(now.getTime() - 13 * DAY)   // 14-day window incl. today
 
-  const [total, verified, admins, paying, newThisWeek, searches, signupAgg, planAgg, matched, docs, promoOn, pending, tempMail] = await Promise.all([
+  const [total, verified, admins, payingCard, newThisWeek, searches, signupAgg, planAgg, matched, docs, promoOn, pending, tempMail] = await Promise.all([
     User.countDocuments(real),
     User.countDocuments({ isVerified: true }),
     User.countDocuments({ role: 'admin' }),
@@ -154,7 +169,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const planDist = (planAgg as any[]).map(p => ({ plan: (p._id as string) ?? 'free', value: p.count as number }))
 
-  const stats = { total, admins, verified, searches, paying, newThisWeek, signups, planDist, pending, tempMail }
+  // Paying = card (Lemon Squeezy) + bank/JazzCash customers whose paid time is still running.
+  const payingLocal = await countLocalPayers(now)
+  const paying = payingCard + payingLocal
+  const stats = { total, admins, verified, searches, paying, payingCard, payingLocal, newThisWeek, signups, planDist, pending, tempMail }
 
   return NextResponse.json({
     success: true,

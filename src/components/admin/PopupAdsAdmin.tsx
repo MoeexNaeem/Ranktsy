@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
-import { useConfirm } from './ui'
+import { useConfirm, LoadingBlock, Spinner } from './ui'
 import Link from 'next/link'
 import axios from 'axios'
 import { C } from '@/utils'
@@ -86,7 +86,7 @@ export function PopupAdsAdmin() {
         {err && <p style={{ color: C.danger, fontSize: 13.5, marginBottom: 12 }}>{err}</p>}
 
         {loading ? (
-          <div className="shimmer" style={{ height: 200, borderRadius: 14, background: '#e8e7e2' }} />
+          <LoadingBlock height={200} />
         ) : ads.length === 0 ? (
           <EmptyState icon="📣" title="No ads yet" sub="Create your first popup ad." />
         ) : (
@@ -120,7 +120,7 @@ export function PopupAdsAdmin() {
       <SectionTitle right={
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <button onClick={() => setView('list')} style={chip}>← Back</button>
-          <button onClick={save} disabled={saving} style={{ ...primaryBtn, height: 38, opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving…' : 'Save ad'}</button>
+          <button onClick={save} disabled={saving} style={{ ...primaryBtn, height: 38, opacity: saving ? 0.6 : 1 }}>{saving ? <Spinner size={12} color="#fff" /> : 'Save ad'}</button>
         </div>
       }>{id ? 'Edit ad' : 'New ad'}</SectionTitle>
 

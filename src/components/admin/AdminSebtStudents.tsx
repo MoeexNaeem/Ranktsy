@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { C } from '@/utils'
 import { MONO, SectionTitle, EmptyState, tableCard, tableHead, th, tableRow } from '@/components/dashboard/kit'
-import { StatCard } from './ui'
+import { StatCard, LoadingBlock } from './ui'
 
 interface StudentRow {
   id: string; name: string; email: string; plan: string
@@ -87,7 +87,7 @@ export function AdminSebtStudents() {
           SEBT students
         </SectionTitle>
 
-        {state === 'loading' && <p style={{ fontSize: 13, color: '#808080', padding: '18px 2px' }}>Loading…</p>}
+        {state === 'loading' && <LoadingBlock label="Loading students" height={180} />}
         {state === 'error' && <EmptyState icon="⚠️" title="Could not load" sub="Please try again." />}
         {state === 'ok' && students.length === 0 && (
           <EmptyState icon="🎓" title={batch ? `No students in batch ${batch}` : 'No SEBT students yet'} sub={batch ? 'Try another batch, or clear the filter.' : 'They appear here once someone signs up through the SEBT link.'} />

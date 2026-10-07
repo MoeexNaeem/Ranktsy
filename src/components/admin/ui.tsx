@@ -13,17 +13,27 @@ import { C } from '@/utils'
 
 const RED = '#C2362B'
 
-export function Spinner({ size = 14, color = 'currentColor', width = 2 }: { size?: number; color?: string; width?: number }) {
+/** Heartbeat line loader (the one admin loader). Width sets the size; 4:3 ratio. */
+export function Loader({ width = 64, color = '#ff4d4f', label = 'Loading' }: { width?: number; color?: string; label?: string }) {
+  const pts = '0.157 23.954, 14 23.954, 21.843 48, 43 0, 50 24, 64 24'
   return (
-    <span aria-hidden style={{ display: 'inline-block', width: size, height: size, borderRadius: '50%', border: `${width}px solid ${color}`, borderRightColor: 'transparent', animation: 'rk-spin 0.7s linear infinite', flexShrink: 0, opacity: 0.85 }} />
+    <svg className="rk-pulse" role="img" aria-label={label} width={width} height={width * 0.75} viewBox="-2 -2 68 52" style={{ color }}>
+      <polyline className="rk-pulse-back" points={pts} />
+      <polyline className="rk-pulse-front" points={pts} />
+    </svg>
   )
 }
 
-/** A centered spinner + label, for areas still loading. */
-export function LoadingBlock({ label = 'Loading…', height = 160 }: { label?: string; height?: number }) {
+/** Small loader for buttons and rows (same heartbeat, sized to a line of text). */
+export function Spinner({ size = 14, color = '#ff4d4f' }: { size?: number; color?: string; width?: number }) {
+  return <Loader width={Math.round(size * 1.9)} color={color} />
+}
+
+/** A centered loader for areas still loading (no text, label is for screen readers). */
+export function LoadingBlock({ label = 'Loading', height = 160 }: { label?: string; height?: number }) {
   return (
-    <div role="status" aria-live="polite" style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: C.graphite, fontSize: 13.5 }}>
-      <Spinner size={18} color={C.orange} /> {label}
+    <div role="status" aria-live="polite" aria-label={label} style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Loader />
     </div>
   )
 }
@@ -47,14 +57,13 @@ export function adminBtn(tone: BtnTone = 'plain', size: 'sm' | 'md' = 'sm'): Rea
   }
 }
 
-/** Admin stat card: neutral number, the accent only as a small dot by the label.
+/** Admin stat card: coloured strip on top, neutral number.
  *  Same props as the dashboard kit's StatCard, which stays loud for the user tools. */
 export function StatCard({ label, value, sub, accent = C.ink }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
-    <div style={{ background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 16, padding: '16px 18px 18px' }}>
-      <p style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, fontWeight: 600, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-        <span style={{ width: 7, height: 7, borderRadius: 2, background: accent, flexShrink: 0 }} />{label}
-      </p>
+    <div style={{ position: 'relative', overflow: 'hidden', background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 16, padding: '18px 18px 18px' }}>
+      <span style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: accent }} />
+      <p style={{ fontSize: 11.5, fontWeight: 600, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>{label}</p>
       <p style={{ fontSize: 27, fontWeight: 650, color: C.ink, letterSpacing: '-0.02em', lineHeight: 1 }}>{value}</p>
       {sub && <p style={{ fontSize: 12, color: C.stone, marginTop: 7 }}>{sub}</p>}
     </div>
@@ -114,7 +123,7 @@ export function useConfirm() {
         <button onClick={() => close(false)} disabled={busy} style={{ ...adminBtn('plain', 'md'), opacity: busy ? 0.5 : 1 }}>Cancel</button>
         <button onClick={run} disabled={busy} autoFocus
           style={{ ...adminBtn('primary', 'md'), ...(opts.tone === 'danger' ? { background: RED, borderColor: RED } : {}), cursor: busy ? 'wait' : 'pointer', minWidth: 110 }}>
-          {busy ? <><Spinner size={13} color="#fff" /> {opts.busyLabel ?? 'Working…'}</> : (opts.confirmLabel ?? 'Confirm')}
+          {busy ? <Spinner size={13} color="#fff" /> : (opts.confirmLabel ?? 'Confirm')}
         </button>
       </div>
     </ModalShell>

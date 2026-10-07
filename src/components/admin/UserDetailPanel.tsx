@@ -81,7 +81,7 @@ function SendEmailForm({ userId, email }: { userId: string; email: string }) {
           padding: '9px 18px', fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit',
           cursor: busy || !subject.trim() || !message.trim() ? 'default' : 'pointer',
           display: 'inline-flex', alignItems: 'center', gap: 8,
-        }}>{busy ? <><Spinner size={13} color="#fff" /> Sending…</> : 'Send email'}</button>
+        }}>{busy ? <Spinner size={12} color="#fff" /> : 'Send email'}</button>
         {note && <span style={{ fontSize: 12.5, color: note.ok ? C.orange : C.danger }}>{note.text}</span>}
       </div>
     </div>
@@ -138,7 +138,7 @@ export function UserDetailPanel({ userId, onClose }: { userId: string | null; on
         </div>
 
         <div style={{ overflowY: 'auto', padding: '22px 24px 40px', flex: 1 }}>
-          {state === 'loading' && <LoadingBlock label="Loading user…" height={320} />}
+          {state === 'loading' && <LoadingBlock label="Loading user" height={320} />}
           {state === 'error' && <p style={{ fontSize: 14, color: C.graphite }}>Couldn&apos;t load this user. Please close and try again.</p>}
           {state === 'ok' && d && (
             <>

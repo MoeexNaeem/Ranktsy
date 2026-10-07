@@ -7,7 +7,7 @@
  * commission - each of which the admin can move to approved / paid / refunded.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useConfirm, LoadingBlock, StatCard } from './ui'
+import { useConfirm, LoadingBlock, StatCard, Spinner } from './ui'
 import { C } from '@/utils'
 import { MONO, SectionTitle, EmptyState, cardStyle, tableCard, tableHead, th, tableRow, tdMono, Pagination } from '@/components/dashboard/kit'
 import { toast } from '@/components/ui/toast'
@@ -76,7 +76,7 @@ export function AdminAffiliates() {
 
   // ── Detail view ────────────────────────────────────────────────────────────
   if (sel) {
-    if (!detail) return <div style={cardStyle}><LoadingBlock label="Loading affiliate…" height={220} /></div>
+    if (!detail) return <div style={cardStyle}><LoadingBlock label="Loading affiliate" height={220} /></div>
     const owed = Math.max(0, detail.earnedTotal - detail.paidTotal)
     const convCount = Math.max(1, Math.ceil(detail.conversionList.length / PAGE))
     const refCount = Math.max(1, Math.ceil(detail.referredUsers.length / PAGE))
@@ -131,7 +131,7 @@ export function AdminAffiliates() {
           {owed > 0 && (
             <button onClick={() => ask(`Mark ${money(owed)} as paid?`, `Only do this after you have actually sent ${money(owed)} to ${detail.ownerName || detail.ownerEmail}. Every owed commission is marked paid.`, 'Mark as paid', () => patch(detail.id, { action: 'markAllPaid' }))} disabled={busy}
               style={{ marginTop: 16, background: C.orange, color: '#fff', border: 'none', borderRadius: 100, padding: '10px 20px', fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
-              {busy ? 'Working…' : `Mark all owed (${money(owed)}) as paid`}
+              {busy ? <Spinner size={12} color="#fff" /> : `Mark all owed (${money(owed)}) as paid`}
             </button>
           )}
         </div>
@@ -190,7 +190,7 @@ export function AdminAffiliates() {
   }
 
   // ── List view ──────────────────────────────────────────────────────────────
-  if (!rows) return <div style={cardStyle}><div className="shimmer" style={{ height: 200, borderRadius: 8, background: '#e8e7e2' }} /></div>
+  if (!rows) return <div style={cardStyle}><LoadingBlock label="Loading affiliates" height={200} /></div>
   if (rows.length === 0) return <EmptyState icon="🤝" title="No affiliates yet" sub="When a user joins the affiliate program from their dashboard, they show up here." />
 
   const totalOwed = rows.reduce((s, r) => s + r.pendingUsd, 0)

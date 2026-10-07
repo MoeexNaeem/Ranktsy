@@ -6,6 +6,7 @@
  * Reject (user is notified with the reason) or move back to Pending.
  */
 import { useCallback, useEffect, useState } from 'react'
+import { Spinner, LoadingBlock } from './ui'
 import { C } from '@/utils'
 import { cardStyle, EmptyState, MONO, Pagination, SectionTitle, tableCard, tableHead, th, tableRow } from '@/components/dashboard/kit'
 import type { RevenueReport } from '@/lib/revenue-report'
@@ -175,7 +176,7 @@ export function AdminLocalPayments() {
       )}
 
       {rows == null ? (
-        <p style={{ fontSize: 13, color: C.graphite }}>Loading…</p>
+        <LoadingBlock label="Loading payments" height={220} />
       ) : rows.length === 0 ? (
         <div style={cardStyle}>{q
           ? <EmptyState title={`No payments match "${q}"`} sub="Search looks at the email, Transaction ID (TID) and name in this tab. Try All to search every payment." />
@@ -258,7 +259,7 @@ export function AdminLocalPayments() {
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button onClick={() => setApproving(null)} style={btn(C.paper, C.ink, C.ash)}>Cancel</button>
             <button disabled={busy} onClick={() => void act(approving, { action: 'approve', plan, months, note }, `${PLAN_LABELS[plan as PlanSlug]} plan activated`)} style={btn('#16A34A', '#fff')}>
-              {busy ? 'Saving…' : `Approve and give ${PLAN_LABELS[plan as PlanSlug]}`}
+              {busy ? <Spinner size={12} color="#fff" /> : `Approve and give ${PLAN_LABELS[plan as PlanSlug]}`}
             </button>
           </div>
         </Modal>
@@ -274,7 +275,7 @@ export function AdminLocalPayments() {
           </p>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button onClick={() => setDeleting(null)} style={btn(C.paper, C.ink, C.ash)}>Cancel</button>
-            <button disabled={busy} onClick={() => void remove(deleting)} style={btn('#B91C1C', '#fff')}>{busy ? 'Deleting…' : 'Delete request'}</button>
+            <button disabled={busy} onClick={() => void remove(deleting)} style={btn('#B91C1C', '#fff')}>{busy ? <Spinner size={12} color="#fff" /> : 'Delete request'}</button>
           </div>
         </Modal>
       )}
@@ -287,7 +288,7 @@ export function AdminLocalPayments() {
             style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, border: `1px solid ${C.ash}`, fontFamily: 'inherit', fontSize: 14, marginBottom: 14, resize: 'vertical' }} />
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button onClick={() => setRejecting(null)} style={btn(C.paper, C.ink, C.ash)}>Cancel</button>
-            <button disabled={busy} onClick={() => void act(rejecting, { action: 'reject', note }, 'Payment rejected')} style={btn('#B91C1C', '#fff')}>{busy ? 'Saving…' : 'Reject payment'}</button>
+            <button disabled={busy} onClick={() => void act(rejecting, { action: 'reject', note }, 'Payment rejected')} style={btn('#B91C1C', '#fff')}>{busy ? <Spinner size={12} color="#fff" /> : 'Reject payment'}</button>
           </div>
         </Modal>
       )}
@@ -313,7 +314,7 @@ function LocalMonthlyEarnings() {
     <div style={{ marginTop: 18 }}>
       <SectionTitle right={<span style={{ fontSize: 12, fontFamily: MONO, color: C.stone }}>approved payments · {formatPkr(total)} total</span>}>Local earnings by month</SectionTitle>
       {failed ? <p style={{ fontSize: 13, color: C.graphite }}>Could not load the monthly record.</p>
-      : !report ? <p style={{ fontSize: 13, color: C.graphite }}>Loading…</p>
+      : !report ? <LoadingBlock label="Loading report" height={160} />
       : months.length === 0 ? <p style={{ fontSize: 13, color: C.graphite }}>No approved local payments yet.</p>
       : (
         <div className="rtable" style={{ ...tableCard, overflowX: 'auto' }}>

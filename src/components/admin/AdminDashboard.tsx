@@ -36,6 +36,8 @@ const isRealPaid = (u: AUser) => u.paidViaLemonSqueezy && u.plan !== 'free'
 interface Stats {
   total: number; admins: number; verified: number; searches: number
   paying: number; newThisWeek: number
+  /** Split of `paying`: card (Lemon Squeezy) and bank / JazzCash (PKR). */
+  payingCard?: number; payingLocal?: number
   /** Signups still waiting for their email code (left out of every other count). */
   pending?: number
   /** Real (not pending) accounts on a throwaway / temp-mail domain. */
@@ -119,10 +121,11 @@ const selectStyle: React.CSSProperties = {
 }
 
 type Section = 'overview' | 'users' | 'security' | 'analytics' | 'earnings' | 'localpayments' | 'keywords' | 'sebt' | 'extension' | 'affiliates' | 'messages' | 'codeflow' | 'content' | 'settings'
-const NAV: { id: Section; label: string; icon: string }[] = [
+// `lockIcon`: drawn with the static lock icon (no verified animated lock in ICON).
+const NAV: { id: Section; label: string; icon: string; lockIcon?: boolean }[] = [
   { id: 'overview',  label: 'Overview',  icon: ICON.home },
   { id: 'users',     label: 'Users',     icon: ICON.account },
-  { id: 'security',  label: 'Security',  icon: ICON.eye },
+  { id: 'security',  label: 'Security',  icon: ICON.eye, lockIcon: true },
   { id: 'analytics', label: 'Analytics', icon: ICON.coins },
   { id: 'earnings',  label: 'Earnings',  icon: ICON.addCard },
   { id: 'localpayments', label: 'Local Payments', icon: ICON.coins },
@@ -436,7 +439,7 @@ export function AdminDashboard() {
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>{children}</div>
     </main>
   )
-  if (state === 'loading') return gate(<LoadingBlock label="Loading the admin panel…" height={420} />)
+  if (state === 'loading') return gate(<LoadingBlock label="Loading the admin panel" height={420} />)
   if (state === 'forbidden') return gate(<EmptyState icon="🔒" title="Admins only" sub="You don't have access to this page." />)
   if (state === 'error') return gate(<EmptyState icon="⚠️" title="Couldn't load the admin data" sub="Please try again." />)
 
@@ -452,7 +455,9 @@ export function AdminDashboard() {
         }}
         onMouseEnter={e => { if (!on) e.currentTarget.style.background = C.bone }}
         onMouseLeave={e => { if (!on) e.currentTarget.style.background = 'transparent' }}>
-        <AnimIcon src={item.icon} size={22} color={on ? C.orange : '#6E6E64'} active={on} />
+        {item.lockIcon
+          ? <span style={{ width: 22, height: 22, display: 'grid', placeItems: 'center', flexShrink: 0 }}><Icon name="lock" size={19} color={on ? C.orange : '#6E6E64'} /></span>
+          : <AnimIcon src={item.icon} size={22} color={on ? C.orange : '#6E6E64'} active={on} />}
         {item.label}
         {item.id === 'localpayments' && localPending > 0 && (
           <span style={{ marginLeft: 'auto', background: '#16A34A', color: '#fff', fontSize: 10.5, fontWeight: 700, fontFamily: MONO, borderRadius: 100, padding: '1px 7px', minWidth: 18, textAlign: 'center' }}>{localPending}</span>
@@ -504,7 +509,7 @@ export function AdminDashboard() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
               <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
                 <Kpi label="Total users" value={stats?.total ?? 0} accent={C.ink} delay={0} />
-                <Kpi label="Paying customers" value={paidCount} accent={C.orange} delay={60} sub={`${stats?.total ? Math.round((paidCount / stats.total) * 100) : 0}% of total`} />
+                <Kpi label="Paying customers" value={paidCount} accent={C.orange} delay={60} sub={`${exact(stats?.payingCard ?? 0)} card · ${exact(stats?.payingLocal ?? 0)} bank/JazzCash · ${stats?.total ? Math.round((paidCount / stats.total) * 100) : 0}% of total`} />
                 <Kpi label="New this week" value={newThisWeek} accent="#0D9488" delay={120} />
                 <Kpi label="Verified" value={stats?.verified ?? 0} accent="#2563EB" delay={180} />
               </div>
@@ -623,8 +628,8 @@ export function AdminDashboard() {
               <div className="rtable admin-users" aria-busy={usersLoading} style={{ ...tableCard, overflow: 'hidden', position: 'relative' }}>
                 {usersLoading && users.length > 0 && (
                   <div style={{ position: 'absolute', inset: 0, zIndex: 2, background: 'rgba(255,255,255,0.55)', display: 'flex', justifyContent: 'center', paddingTop: 90 }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9, height: 36, padding: '0 14px', borderRadius: 10, background: C.paper, border: `1px solid ${C.ash}`, boxShadow: '0 6px 20px rgba(0,0,0,0.08)', fontSize: 13, color: C.ink }}>
-                      <Spinner size={15} color={C.orange} /> Loading users…
+                    <span role="status" aria-label="Loading users" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', height: 52, padding: '0 16px', borderRadius: 12, background: C.paper, border: `1px solid ${C.ash}`, boxShadow: '0 6px 20px rgba(0,0,0,0.08)' }}>
+                      <Spinner size={15} />
                     </span>
                   </div>
                 )}
@@ -645,7 +650,7 @@ export function AdminDashboard() {
                   {['User', 'Role', 'Plan', 'Status', 'Joined', 'Activity', 'Credits', ''].map((h, i) => <span key={i} style={{ ...th, fontSize: 12 }}>{h}</span>)}
                 </div>
                 {usersPageRows.length === 0 && (usersLoading
-                  ? <LoadingBlock label="Loading users…" height={220} />
+                  ? <LoadingBlock label="Loading users" height={220} />
                   : <EmptyState title="No users found" sub="Nothing matches this search and these filters." />)}
                 {usersPageRows.map((u, i) => {
                   const sp = statusPill(u.subscriptionStatus)
@@ -721,7 +726,7 @@ export function AdminDashboard() {
                       </div>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                         {busy === u.id ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: C.graphite }}><Spinner size={14} color={C.orange} /> Saving…</span>
+                          <span role="status" aria-label="Saving" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 30 }}><Spinner size={16} /></span>
                         ) : (<>
                           <button onClick={() => setCreditsFor(u)} title="Give this user extra credits for a number of days" style={adminBtn('good')}>+ Credits</button>
                           <button onClick={() => askRestrict(u)} title={u.restricted ? 'Lift restriction' : 'Restrict this user'} style={adminBtn(u.restricted ? 'good' : 'warn')}>
@@ -937,7 +942,7 @@ export function AdminDashboard() {
               <button type="button" onClick={() => setBulkConfirm(false)} disabled={bulkBusy} style={{ ...adminBtn('plain', 'md'), opacity: bulkBusy ? 0.5 : 1 }}>Cancel</button>
               <button type="submit" disabled={!bulkPassword || bulkBusy}
                 style={{ ...adminBtn('primary', 'md'), background: C.danger, borderColor: C.danger, minWidth: 130, cursor: bulkPassword && !bulkBusy ? 'pointer' : 'not-allowed', opacity: bulkPassword || bulkBusy ? 1 : 0.5 }}>
-                {bulkBusy ? <><Spinner size={13} color="#fff" /> Deleting…</> : `Delete ${exact(bulkCount)}`}
+                {bulkBusy ? <Spinner size={12} color="#fff" /> : `Delete ${exact(bulkCount)}`}
               </button>
             </div>
           </form>

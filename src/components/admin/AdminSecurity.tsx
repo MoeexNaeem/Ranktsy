@@ -13,7 +13,7 @@ import { C, D } from '@/utils'
 import { cardStyle, EmptyState, MONO, Pagination, tableCard, tableHead, th, tableRow } from '@/components/dashboard/kit'
 import { SECURITY_EVENTS, SECURITY_TYPES, type SecurityEventType, type Severity } from '@/lib/security/catalog'
 import { toast } from '@/components/ui/toast'
-import { useConfirm, Spinner } from './ui'
+import { useConfirm, Spinner, Loader } from './ui'
 
 type Range = '1h' | '24h' | '7d'
 type Tab = 'overview' | 'events' | 'ips' | 'accounts' | 'health'
@@ -119,7 +119,7 @@ function usePaged<T>(baseUrl: string, tick: number) {
 }
 
 const Loading = ({ h = 260 }: { h?: number }) => (
-  <div role="status" style={{ height: h, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: C.graphite, fontSize: 13.5 }}><Spinner size={17} color={C.orange} /> Loading…</div>
+  <div role="status" aria-label="Loading" style={{ height: h, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader /></div>
 )
 
 // ─── Shell ────────────────────────────────────────────────────────────────────
@@ -192,15 +192,15 @@ function OverviewTab({ range, tick, onEvents, onBlock, onUnblock, onTab }: { ran
     return rank[SECURITY_EVENTS[a].severity] - rank[SECURITY_EVENTS[b].severity] || (d.counts[b]?.n ?? 0) - (d.counts[a]?.n ?? 0)
   })
   const rangeText = range === '1h' ? 'last hour' : range === '24h' ? 'last 24 hours' : 'last 7 days'
-  const stats: { label: string; value: number; tone?: string; hint: string; go?: Tab }[] = [
-    { label: 'High-risk events', value: d.severity.high, tone: d.severity.high ? RED : undefined, hint: rangeText, go: 'events' },
-    { label: 'Warnings', value: d.severity.warn, tone: d.severity.warn ? AMBER : undefined, hint: rangeText, go: 'events' },
-    { label: 'Info events', value: d.severity.info, hint: rangeText, go: 'events' },
-    { label: 'Blocked IPs', value: d.totals.blockedIps, hint: 'currently blocked', go: 'ips' },
-    { label: 'Restricted accounts', value: d.totals.restricted, hint: 'refused on every tool', go: 'accounts' },
-    { label: 'Temp-mail accounts', value: d.totals.tempMail, tone: d.totals.tempMail ? AMBER : undefined, hint: 'delete in Users: Email = Temp mail' },
-    { label: 'Signup farms', value: d.totals.signupFarms, tone: d.totals.signupFarms ? AMBER : undefined, hint: 'IPs with 3+ accounts this week', go: 'accounts' },
-    { label: 'Waiting for email code', value: d.totals.pending, hint: 'deleted after 3 days' },
+  const stats: { label: string; value: number; accent: string; hint: string; go?: Tab }[] = [
+    { label: 'High-risk events', value: d.severity.high, accent: RED, hint: rangeText, go: 'events' },
+    { label: 'Warnings', value: d.severity.warn, accent: '#E8A33A', hint: rangeText, go: 'events' },
+    { label: 'Info events', value: d.severity.info, accent: SLATE, hint: rangeText, go: 'events' },
+    { label: 'Blocked IPs', value: d.totals.blockedIps, accent: C.ink, hint: 'currently blocked', go: 'ips' },
+    { label: 'Restricted accounts', value: d.totals.restricted, accent: '#7C3AED', hint: 'refused on every tool', go: 'accounts' },
+    { label: 'Temp-mail accounts', value: d.totals.tempMail, accent: C.orange, hint: 'delete in Users: Email = Temp mail' },
+    { label: 'Signup farms', value: d.totals.signupFarms, accent: '#0D9488', hint: 'IPs with 3+ accounts this week', go: 'accounts' },
+    { label: 'Waiting for email code', value: d.totals.pending, accent: '#2563EB', hint: 'deleted after 3 days' },
   ]
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -212,18 +212,17 @@ function OverviewTab({ range, tick, onEvents, onBlock, onUnblock, onTab }: { ran
         <span style={{ marginLeft: 'auto', fontSize: 12.5, color: C.graphite, fontFamily: MONO }}>{n(d.highLastHour)} high-risk in the last hour</span>
       </div>
 
-      {/* Numbers: one panel, 2 even rows of 4 */}
-      <div style={{ ...cardStyle, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 1, background: C.ash }}>
-          {stats.map(s => (
-            <button key={s.label} onClick={() => s.go && onTab(s.go)} disabled={!s.go}
-              style={{ background: C.paper, border: 'none', textAlign: 'left', padding: '16px 18px', cursor: s.go ? 'pointer' : 'default', fontFamily: 'inherit' }}>
-              <p style={eyebrow}>{s.label}</p>
-              <p style={{ fontSize: 26, fontWeight: 650, color: s.tone ?? C.ink, marginTop: 8, letterSpacing: '-0.02em', lineHeight: 1 }}>{n(s.value)}</p>
-              <p style={{ fontSize: 12, color: C.stone, marginTop: 6 }}>{s.hint}</p>
-            </button>
-          ))}
-        </div>
+      {/* Numbers: separate cards, 2 rows of 4 */}
+      <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        {stats.map(s => (
+          <button key={s.label} onClick={() => s.go && onTab(s.go)} disabled={!s.go}
+            style={{ ...cardStyle, position: 'relative', overflow: 'hidden', textAlign: 'left', padding: '18px 18px', cursor: s.go ? 'pointer' : 'default', fontFamily: 'inherit', color: 'inherit' }}>
+            <span style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: s.accent }} />
+            <p style={eyebrow}>{s.label}</p>
+            <p style={{ fontSize: 27, fontWeight: 650, color: C.ink, marginTop: 10, letterSpacing: '-0.02em', lineHeight: 1 }}>{n(s.value)}</p>
+            <p style={{ fontSize: 12, color: C.stone, marginTop: 7 }}>{s.hint}</p>
+          </button>
+        ))}
       </div>
 
       {/* Activity chart */}
@@ -522,15 +521,14 @@ function HealthTab({ tick }: { tick: number }) {
   const counts = checks.reduce<Record<string, number>>((m, c) => ({ ...m, [c.status]: (m[c.status] ?? 0) + 1 }), {})
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ ...cardStyle, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 1, background: C.ash }}>
-          {(['bad', 'warn', 'manual', 'ok'] as const).map(s => (
-            <div key={s} style={{ background: C.paper, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ width: 26, height: 26, borderRadius: '50%', display: 'grid', placeItems: 'center', background: ST[s].bg, color: ST[s].fg, fontWeight: 800, fontSize: 12.5 }}>{ST[s].icon}</span>
-              <div><p style={eyebrow}>{ST[s].label}</p><p style={{ fontSize: 20, fontWeight: 650, color: C.ink }}>{counts[s] ?? 0}</p></div>
-            </div>
-          ))}
-        </div>
+      <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        {(['bad', 'warn', 'manual', 'ok'] as const).map(s => (
+          <div key={s} style={{ ...cardStyle, position: 'relative', overflow: 'hidden', padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: ST[s].fg }} />
+            <span style={{ width: 28, height: 28, borderRadius: '50%', display: 'grid', placeItems: 'center', background: ST[s].bg, color: ST[s].fg, fontWeight: 800, fontSize: 13, flexShrink: 0 }}>{ST[s].icon}</span>
+            <div><p style={eyebrow}>{ST[s].label}</p><p style={{ fontSize: 22, fontWeight: 650, color: C.ink, marginTop: 2 }}>{counts[s] ?? 0}</p></div>
+          </div>
+        ))}
       </div>
       <div style={{ ...cardStyle, overflow: 'hidden' }}>
         {sorted.map((c, i) => (
@@ -580,7 +578,7 @@ function BlockModal({ ip, reason: initialReason, onClose, onDone }: { ip: string
         </select>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
           <button onClick={onClose} disabled={busy} style={btn('plain')}>Cancel</button>
-          <button onClick={submit} disabled={busy} style={{ ...btn('danger'), background: RED, color: '#fff', borderColor: RED }}>{busy ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}><Spinner size={12} color="#fff" /> Blocking…</span> : 'Block IP'}</button>
+          <button onClick={submit} disabled={busy} style={{ ...btn('danger'), background: RED, color: '#fff', borderColor: RED }}>{busy ? <Spinner size={12} color="#fff" /> : 'Block IP'}</button>
         </div>
       </div>
     </div>

@@ -7,6 +7,7 @@
  * (new / renewed / did not renew), and every paying customer, searchable and paged.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Spinner, LoadingBlock } from './ui'
 import { C } from '@/utils'
 import { MONO, SectionTitle, EmptyState, cardStyle, tableCard, tableHead, th, tableRow, Pagination } from '@/components/dashboard/kit'
 import { Bars } from './AdminCharts'
@@ -92,12 +93,12 @@ export function AdminEarnings() {
         <span style={{ fontSize: 12.5, color: C.graphite, marginRight: 4 }}>Year</span>
         {(data?.years ?? []).map(y => <Pill key={y.year} on={year === y.year} onClick={() => setYear(y.year)}>{y.year}</Pill>)}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button onClick={() => void load(true)} disabled={state === 'loading'} style={ghostBtn}>{state === 'loading' ? 'Loading…' : 'Refresh'}</button>
+          <button onClick={() => void load(true)} disabled={state === 'loading'} style={ghostBtn}>{state === 'loading' ? <Spinner size={11} /> : 'Refresh'}</button>
           <button onClick={() => void download('/api/admin/earnings/report?format=csv', 'rankkw-earnings-by-month.csv')} disabled={!data} style={ghostBtn}>Export months (CSV)</button>
         </div>
       </div>
 
-      {!data ? <p style={{ fontSize: 13, color: C.graphite }}>Loading earnings…</p> : !yr ? (
+      {!data ? <LoadingBlock label="Loading earnings" height={220} /> : !yr ? (
         <div style={cardStyle}><EmptyState icon="💳" title="No payments yet" sub="Earnings appear here as soon as someone pays." /></div>
       ) : (
         <>
@@ -228,7 +229,7 @@ function Customers() {
         <button onClick={() => void download(csvUrl, 'rankkw-customers.csv')} style={{ ...ghostBtn, marginLeft: 'auto' }}>Export customers (CSV)</button>
       </div>
 
-      {!res && loading ? <p style={{ fontSize: 13, color: C.graphite }}>Loading customers…</p>
+      {!res && loading ? <LoadingBlock label="Loading customers" height={180} />
       : !res || res.rows.length === 0 ? <div style={cardStyle}><EmptyState title="No customers match" sub="Try another search or filter." /></div>
       : (
         <>

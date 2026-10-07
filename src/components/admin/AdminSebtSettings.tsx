@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { C } from '@/utils'
 import { MONO, cardStyle } from '@/components/dashboard/kit'
-import { StatCard } from './ui'
+import { StatCard, LoadingBlock } from './ui'
 import { errorToast, toast, copyWithToast } from '@/components/ui/toast'
 
 interface Config {
@@ -144,7 +144,7 @@ export function AdminSebtSettings() {
     }
   }
 
-  if (state === 'loading') return <div style={{ ...cardStyle, padding: 24, fontSize: 13.5, color: C.graphite }}>Loading SEBT settings…</div>
+  if (state === 'loading') return <div style={cardStyle}><LoadingBlock label="Loading SEBT settings" height={160} /></div>
   if (state === 'error' || !cfg) {
     return (
       <div style={{ ...cardStyle, padding: 24, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>

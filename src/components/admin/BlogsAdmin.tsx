@@ -1,6 +1,6 @@
 'use client'
 import { Icon } from '@/components/ui/Icon'
-import { useConfirm } from './ui'
+import { useConfirm, LoadingBlock, Spinner } from './ui'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import axios from 'axios'
@@ -165,7 +165,7 @@ export function BlogsAdmin() {
         {err && <p style={{ color: C.danger, fontSize: 13.5, marginBottom: 12 }}>{err}</p>}
 
         {loading ? (
-          <div className="shimmer" style={{ height: 200, borderRadius: 14, background: '#e8e7e2' }} />
+          <LoadingBlock height={200} />
         ) : posts.length === 0 ? (
           <EmptyState icon="📝" title="No posts yet" sub="Create your first Etsy SEO article." />
         ) : (
@@ -197,7 +197,7 @@ export function BlogsAdmin() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <button onClick={() => { setView('list'); resetForm() }} style={chip}>← Back</button>
           <button onClick={() => save(false)} disabled={saving} style={{ ...chip, opacity: saving ? 0.6 : 1 }}>Save draft</button>
-          <button onClick={() => save(true)} disabled={saving} style={{ ...primaryBtn, height: 38, opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving…' : 'Publish'}</button>
+          <button onClick={() => save(true)} disabled={saving} style={{ ...primaryBtn, height: 38, opacity: saving ? 0.6 : 1 }}>{saving ? <Spinner size={12} color="#fff" /> : 'Publish'}</button>
         </div>
       }>{id ? 'Edit post' : 'New post'}</SectionTitle>
 

@@ -32,7 +32,7 @@ export function AnimatedNumber({ value, format = (n) => Math.round(n).toLocaleSt
 }
 
 // ─── KPI card ─────────────────────────────────────────────────────────────────
-// Calm on purpose: neutral number, the accent only as a small dot by the label.
+// Coloured strip on top (the owner likes it), neutral number.
 export function Kpi({ label, value, accent = C.ink, sub, format, delay = 0 }: {
   // null = not known yet (still being computed): shown as "-", never as a fake 0.
   label: string; value: number | null; accent?: string; sub?: string; format?: (n: number) => string; delay?: number
@@ -41,13 +41,12 @@ export function Kpi({ label, value, accent = C.ink, sub, format, delay = 0 }: {
   useEffect(() => { const t = setTimeout(() => setShown(true), delay); return () => clearTimeout(t) }, [delay])
   return (
     <div style={{
-      ...cardStyle, padding: '16px 18px 18px',
+      ...cardStyle, position: 'relative', overflow: 'hidden', padding: '18px 18px 18px',
       transform: shown ? 'translateY(0)' : 'translateY(6px)', opacity: shown ? 1 : 0,
       transition: 'transform 0.4s cubic-bezier(.2,.7,.2,1), opacity 0.4s',
     }}>
-      <p style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, fontFamily: MONO, fontWeight: 600, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-        <span style={{ width: 7, height: 7, borderRadius: 2, background: accent, flexShrink: 0 }} />{label}
-      </p>
+      <span style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: accent }} />
+      <p style={{ fontSize: 11.5, fontFamily: MONO, fontWeight: 600, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>{label}</p>
       <p style={{ fontSize: 27, fontWeight: 650, color: C.ink, letterSpacing: '-0.02em', lineHeight: 1 }}>
         {value == null ? '-' : <AnimatedNumber value={value} format={format} />}
       </p>

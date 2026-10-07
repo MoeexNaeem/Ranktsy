@@ -5,7 +5,7 @@
  * after the day's plan credits run out, and disappears on its own when it expires.
  */
 import { useState } from 'react'
-import { useConfirm } from './ui'
+import { useConfirm, Spinner } from './ui'
 import { C } from '@/utils'
 import { MONO } from '@/components/dashboard/kit'
 import { toast } from '@/components/ui/toast'
@@ -111,7 +111,7 @@ export function AddCreditsModal({ user, onClose, onSaved }: Props) {
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ background: 'transparent', border: `1px solid ${C.hairInk}`, color: C.ink, borderRadius: 100, padding: '9px 18px', fontSize: 13.5, fontFamily: 'inherit', cursor: 'pointer' }}>Cancel</button>
           <button onClick={save} disabled={!valid || busy} style={{ background: C.orange, border: 'none', color: '#fff', borderRadius: 100, padding: '9px 18px', fontSize: 13.5, fontWeight: 500, fontFamily: 'inherit', cursor: valid && !busy ? 'pointer' : 'not-allowed', opacity: valid && !busy ? 1 : 0.55 }}>
-            {busy ? 'Saving…' : 'Add credits'}
+            {busy ? <Spinner size={12} color="#fff" /> : 'Add credits'}
           </button>
         </div>
       </div>

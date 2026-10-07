@@ -5,7 +5,7 @@
  * the SSE stream, so a reply or broadcast reaches them live.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useConfirm } from './ui'
+import { useConfirm, Spinner } from './ui'
 import { C } from '@/utils'
 import { MONO, SectionTitle, cardStyle, EmptyState } from '@/components/dashboard/kit'
 import { errorToast, toast } from '@/components/ui/toast'
@@ -390,7 +390,7 @@ export function AdminMessages() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button onClick={sendBroadcast} disabled={bBusy || !bTitle.trim()} style={{ background: bBusy || !bTitle.trim() ? C.ash : C.orange, color: '#fff', border: 'none', borderRadius: 9, padding: '9px 18px', fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: bBusy || !bTitle.trim() ? 'default' : 'pointer' }}>
-              {bBusy ? 'Sending…' : bTarget.trim() ? 'Send to user' : 'Broadcast to all'}
+              {bBusy ? <Spinner size={12} color="#fff" /> : bTarget.trim() ? 'Send to user' : 'Broadcast to all'}
             </button>
           </div>
         </div>
@@ -502,7 +502,7 @@ export function AdminMessages() {
                           style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', border: 'none', outline: 'none', background: 'transparent', color: C.ink, fontSize: 13.5, fontFamily: 'inherit', lineHeight: 1.5 }} />
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 7 }}>
                           <button onClick={cancelEdit} disabled={busy} style={{ background: C.snow, color: C.graphite, border: `1px solid ${C.hair}`, borderRadius: 8, padding: '5px 12px', fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>Cancel</button>
-                          <button onClick={saveEdit} disabled={busy} style={{ background: C.orange, color: '#fff', border: 'none', borderRadius: 8, padding: '5px 14px', fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit', cursor: busy ? 'default' : 'pointer' }}>{busy ? 'Saving…' : 'Save'}</button>
+                          <button onClick={saveEdit} disabled={busy} style={{ background: C.orange, color: '#fff', border: 'none', borderRadius: 8, padding: '5px 14px', fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit', cursor: busy ? 'default' : 'pointer' }}>{busy ? <Spinner size={11} color="#fff" /> : 'Save'}</button>
                         </div>
                       </div>
                     ) : (<>

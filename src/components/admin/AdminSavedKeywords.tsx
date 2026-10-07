@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { C } from '@/utils'
 import { MONO, SectionTitle, EmptyState, tableCard, tableHead, th, tableRow } from '@/components/dashboard/kit'
-import { StatCard } from './ui'
+import { StatCard, LoadingBlock } from './ui'
 
 interface DayCount { day: string; count: number }
 interface KeywordRow { keyword: string; count: number; countries: string[]; users: string[]; lastAt: string | null; day?: string }
@@ -118,7 +118,7 @@ export function AdminSavedKeywords() {
           Keywords searched
         </SectionTitle>
 
-        {state === 'loading' && <p style={{ fontSize: 13, color: '#808080', padding: '18px 2px' }}>Loading…</p>}
+        {state === 'loading' && <LoadingBlock label="Loading saved keywords" height={180} />}
         {state === 'error' && <EmptyState icon="⚠️" title="Could not load" sub="Please try again." />}
         {state === 'ok' && keywords.length === 0 && (
           <EmptyState icon="🔍" title="No keywords for this date" sub="Pick another date, or choose All dates." />
