@@ -28,7 +28,8 @@ export async function GET() {
   // lapses to free they look like any free user. The identity flag itself stays on
   // for the "SEBT Student" badge.
   const sebtStudent = !!doc.sebtStudent
-  const sebtActive = sebtStudent && plan !== 'free'
+  // Only an admin-granted (comp) plan gets the SEBT name, never a plan they bought.
+  const sebtActive = sebtStudent && plan !== 'free' && !doc.lsSubscriptionId && !!doc.compExpiresAt
   // One-time "your plan expired" popup, until the user dismisses it.
   const expired = plan === 'free' && doc.lastExpiredPlan && doc.planExpiryNoticeSeen === false
     ? {

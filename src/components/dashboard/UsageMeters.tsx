@@ -45,9 +45,13 @@ interface MeterProps {
   title: string
   /** Small extra tag after the label, e.g. "+100 bonus". */
   badge?: string
+  /** SEBT free credits left today, shown as "5 + 60 free credits". */
+  free?: number
 }
 
-function Meter({ icon: Icon, left, limit, label, accent, title, badge }: MeterProps) {
+const FREE_GREEN = '#1F7A44'
+
+function Meter({ icon: Icon, left, limit, label, accent, title, badge, free }: MeterProps) {
   const unlimited = limit == null || !Number.isFinite(limit)
   const out = !unlimited && left <= 0
   const low = !unlimited && !out && left <= limit * 0.2
@@ -60,9 +64,15 @@ function Meter({ icon: Icon, left, limit, label, accent, title, badge }: MeterPr
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, lineHeight: 1 }}>
         <Icon c={tone} />
         <strong style={{ fontSize: 14.5, fontWeight: 700, color: out || low ? tone : C.ink, fontFamily: SANS, letterSpacing: '-0.01em' }}>
-          {left.toLocaleString('en-US')}
+          {(free != null ? left - free : left).toLocaleString('en-US')}
         </strong>
-        <span style={{ fontSize: 12, color: C.graphite, fontFamily: SANS, fontWeight: 500 }}>{label}</span>
+        {free != null && (
+          <>
+            <span style={{ fontSize: 13, color: C.graphite, fontFamily: SANS, fontWeight: 600 }}>+</span>
+            <strong style={{ fontSize: 14.5, fontWeight: 700, color: FREE_GREEN, fontFamily: SANS, letterSpacing: '-0.01em' }}>{free.toLocaleString('en-US')}</strong>
+          </>
+        )}
+        <span style={{ fontSize: 12, color: C.graphite, fontFamily: SANS, fontWeight: 500 }}>{free != null ? <>free credits</> : label}</span>
         {badge && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#fff', background: accent, borderRadius: 100, padding: '2px 7px', fontFamily: SANS }}>{badge}</span>}
       </span>
       {/* Proportion at a glance, so the denominator need not be spelled out. An
@@ -85,6 +95,13 @@ export const UsageMeters = memo(function UsageMeters({ credits }: { credits: Cre
   const planName = PLAN_NAME[credits.plan] ?? 'your'
   const bonus = credits.bonus ?? null
   const bonusUntil = bonus ? new Date(bonus.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
+  // SEBT free daily credits ride on top of the plan's and are spent after them:
+  // "5 + 60 free credits" for a Free student given Basic, "120 + 60" for a Pro buyer.
+  const sebt = credits.sebt ?? null
+  const planLimit = credits.planLimit ?? credits.limit
+  const dailyLeft = Math.max(0, credits.limit - credits.usedToday)
+  const sebtLeft = sebt ? Math.max(0, dailyLeft - Math.max(0, planLimit - credits.usedToday)) : 0
+  const sebtUntil = sebt ? new Date(sebt.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
 
   return (
     <span className="rdash-badge" data-tour="credits"
@@ -97,7 +114,8 @@ export const UsageMeters = memo(function UsageMeters({ credits }: { credits: Cre
         label="credits"
         accent={accent}
         badge={bonus ? `+${bonus.remaining.toLocaleString('en-US')} bonus` : undefined}
-        title={`${Math.max(0, credits.credits - (bonus?.remaining ?? 0)).toLocaleString('en-US')} of ${credits.limit.toLocaleString('en-US')} daily credits left on the ${planName} plan${bonus ? ` + ${bonus.remaining.toLocaleString('en-US')} bonus credits (valid until ${bonusUntil}, used after the daily credits)` : ''} · 1 credit per search, charged only when it succeeds · daily credits reset every day at ${creditResetLabel()} your time`}
+        free={sebt ? sebtLeft : undefined}
+        title={`${Math.max(0, credits.credits - (bonus?.remaining ?? 0) - sebtLeft).toLocaleString('en-US')} of ${planLimit.toLocaleString('en-US')} daily credits left on the ${planName} plan${sebt ? ` + ${sebtLeft.toLocaleString('en-US')} of ${sebt.perDay.toLocaleString('en-US')} free SEBT NEXT credits a day (until ${sebtUntil}, used after your plan's credits)` : ''}${bonus ? ` + ${bonus.remaining.toLocaleString('en-US')} bonus credits (valid until ${bonusUntil}, used after the daily credits)` : ''} · 1 credit per search, charged only when it succeeds · daily credits reset every day at ${creditResetLabel()} your time`}
       />
       {s && (
         <>

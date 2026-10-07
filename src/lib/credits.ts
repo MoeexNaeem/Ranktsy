@@ -1,6 +1,8 @@
 import { User, PaidLookup } from './models'
 import { effectivePlan, type PlanSlug } from './plans'
 import { sameCreditDay, creditDayStart, creditDayKey } from './creditDay'
+import { CREDITS_PER_DAY } from './credit-amounts'
+export { CREDITS_PER_DAY } from './credit-amounts'
 
 /**
  * Credit system for the "other tools" - every dashboard feature that ISN'T
@@ -19,24 +21,24 @@ import { sameCreditDay, creditDayStart, creditDayKey } from './creditDay'
 /** Flat cost charged for one search / use of a credit-metered tool. */
 export const CREDIT_COST = 1
 
-/**
- * Daily credit allowance per plan (resets 12:00 AM Pakistan time). One credit = one search,
- * so these are also the plan's searches per day (planLimits.ts must match).
- */
-export const CREDITS_PER_DAY: Record<PlanSlug, number> = {
-  free:        5,
-  starter:     20,    // the $0.99 plan
-  basic:       60,
-  pro:         120,
-  'pro-1yr':   150,   // the 1-Year plan
-  business:    500,
-  agency:      1000,
-  enterprise:  2000,
-  custom:      2000,
-}
-
 export function creditLimitFor(plan: PlanSlug | undefined): number {
   return CREDITS_PER_DAY[plan ?? 'free'] ?? CREDITS_PER_DAY.free
+}
+
+/** SEBT NEXT free daily credits, while still valid. */
+export interface SebtCreditsState { perDay: number; plan: string | null; expiresAt: string }
+type SebtFields = { sebtCreditsPerDay?: number; sebtCreditsPlan?: string | null; sebtCreditsExpiresAt?: Date | null }
+
+/** The user's SEBT free daily credits if still valid, else null (expiry is lazy, no cron). */
+export function activeSebtCredits(u: SebtFields, now = new Date()): SebtCreditsState | null {
+  const perDay = u.sebtCreditsPerDay ?? 0
+  if (perDay <= 0 || !u.sebtCreditsExpiresAt || u.sebtCreditsExpiresAt <= now) return null
+  return { perDay, plan: u.sebtCreditsPlan ?? null, expiresAt: u.sebtCreditsExpiresAt.toISOString() }
+}
+
+/** Today's whole daily allowance: the plan's credits plus any SEBT free credits. */
+export function dailyLimitFor(plan: PlanSlug | undefined, u: SebtFields, now = new Date()): number {
+  return creditLimitFor(plan) + (activeSebtCredits(u, now)?.perDay ?? 0)
 }
 
 /**
@@ -73,11 +75,15 @@ export interface BonusState {
 }
 
 export interface CreditState {
-  credits: number      // spendable right now: today's plan credits left + bonus left
-  limit: number        // daily allowance for the current plan
-  usedToday: number    // plan credits used today (bonus spend is not counted here)
+  credits: number      // spendable right now: today's daily credits left + bonus left
+  limit: number        // whole daily allowance: plan credits + SEBT free credits
+  usedToday: number    // daily credits used today (bonus spend is not counted here)
   plan: PlanSlug
   bonus?: BonusState | null
+  /** The plan's own daily credits (limit minus SEBT free credits). */
+  planLimit?: number
+  /** SEBT free daily credits on top of the plan, while valid. Spent after the plan's. */
+  sebt?: SebtCreditsState | null
 }
 
 export interface ConsumeResult extends CreditState { allowed: boolean; fromBonus?: boolean }
@@ -85,7 +91,7 @@ export interface AffordResult extends CreditState { ok: boolean }
 
 /** The fields a client may see (strips ok/allowed/usedTotal etc). */
 export function publicState(s: CreditState): CreditState {
-  return { credits: s.credits, limit: s.limit, usedToday: s.usedToday, plan: s.plan, bonus: s.bonus ?? null }
+  return { credits: s.credits, limit: s.limit, usedToday: s.usedToday, plan: s.plan, bonus: s.bonus ?? null, planLimit: s.planLimit ?? s.limit, sebt: s.sebt ?? null }
 }
 
 type BonusFields = { bonusCredits?: number; bonusCreditsGranted?: number; bonusExpiresAt?: Date | null }
@@ -113,11 +119,13 @@ export async function getCreditState(userId: string): Promise<(CreditState & { u
   const user = await User.findById(userId)
   if (!user) return null
   const plan = effectivePlan(user)
-  const limit = creditLimitFor(plan)
   const now = new Date()
+  const planLimit = creditLimitFor(plan)
+  const sebt = activeSebtCredits(user, now)
+  const limit = planLimit + (sebt?.perDay ?? 0)
   const used = sameCreditDay(user.creditsResetAt, now) ? (user.creditsUsedToday ?? 0) : 0
   const bonus = activeBonus(user, now)
-  return { credits: Math.max(0, limit - used) + (bonus?.remaining ?? 0), limit, usedToday: used, plan, bonus, usedTotal: user.creditsUsedTotal ?? 0 }
+  return { credits: Math.max(0, limit - used) + (bonus?.remaining ?? 0), limit, usedToday: used, plan, bonus, planLimit, sebt, usedTotal: user.creditsUsedTotal ?? 0 }
 }
 
 /**
@@ -210,8 +218,11 @@ export async function consumeCredits(userId: string, cost = CREDIT_COST): Promis
   const user = await User.findById(userId)
   if (!user) return null
   const plan = effectivePlan(user)
-  const limit = creditLimitFor(plan)
   const now = new Date()
+  const planLimit = creditLimitFor(plan)
+  const sebt = activeSebtCredits(user, now)
+  // SEBT free credits extend the daily allowance (spent after the plan's own, by order).
+  const limit = planLimit + (sebt?.perDay ?? 0)
 
   // 1) Lazy daily reset (Pakistan midnight). Matches only a stale counter, so of
   //    several requests racing across midnight exactly one resets it.
@@ -233,7 +244,7 @@ export async function consumeCredits(userId: string, cost = CREDIT_COST): Promis
   if (after) {
     const used = after.creditsUsedToday ?? cost
     const bonus = activeBonus(after, now)
-    return { allowed: true, fromBonus: false, credits: Math.max(0, limit - used) + (bonus?.remaining ?? 0), limit, usedToday: used, plan, bonus }
+    return { allowed: true, fromBonus: false, credits: Math.max(0, limit - used) + (bonus?.remaining ?? 0), limit, usedToday: used, plan, bonus, planLimit, sebt }
   }
 
   // 3) Plan credits are gone: pay from a still-valid bonus pool, if any.
@@ -246,7 +257,7 @@ export async function consumeCredits(userId: string, cost = CREDIT_COST): Promis
   if (fromBonus) {
     const used = fromBonus.creditsUsedToday ?? limit
     const bonus = activeBonus(fromBonus, now)
-    return { allowed: true, fromBonus: true, credits: Math.max(0, limit - used) + (bonus?.remaining ?? 0), limit, usedToday: used, plan, bonus }
+    return { allowed: true, fromBonus: true, credits: Math.max(0, limit - used) + (bonus?.remaining ?? 0), limit, usedToday: used, plan, bonus, planLimit, sebt }
   }
 
   const s = await getCreditState(userId)

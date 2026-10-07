@@ -7,7 +7,7 @@ import { connectDB } from '@/lib/db'
 import { User, KeywordHistory, ConnectedShop, LocalPayment } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin, resolveRole } from '@/lib/auth/roles'
-import { creditLimitFor, activeBonus } from '@/lib/credits'
+import { dailyLimitFor, activeBonus } from '@/lib/credits'
 import { effectivePlan } from '@/lib/plans'
 import { isFreeToProPromoOn } from '@/lib/promo'
 import { sweepComps } from '@/lib/plan-lifecycle'
@@ -131,7 +131,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const id = u._id.toString()
     const a = act.get(id)
     const plan = effectivePlan(u)
-    const creditsLimit = creditLimitFor(plan)
+    const creditsLimit = dailyLimitFor(plan, u, now)
     const creditsUsedToday = sameCreditDay(u.creditsResetAt, now) ? (u.creditsUsedToday ?? 0) : 0
     return {
       id,

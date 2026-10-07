@@ -3,21 +3,19 @@ import { connectDB } from '@/lib/db'
 import { User, LocalPayment } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin } from '@/lib/auth/roles'
-import { getSebtConfig, setSebtConfig, clampBatch, clampDays, isSebtTrialPlan, type SebtConfig } from '@/lib/sebt'
+import { getSebtConfig, setSebtConfig, clampBatch, clampDays, isSebtTrialPlan, sebtCreditFields, type SebtConfig } from '@/lib/sebt'
 import { PLAN_LABELS } from '@/lib/plans'
 import type { ApiResponse } from '@/types'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const DAY = 24 * 60 * 60 * 1000
-
 interface ConfigPayload extends SebtConfig {
   /** Students carrying the batch number currently set. */
   batchStudents: number
   /** Everyone who ever signed up through a SEBT link. */
   totalStudents: number
-  /** How many of those still have a live trial. */
+  /** How many of those still have live free credits (or an older plan grant). */
   activeTrials: number
   /** Batch numbers already used, newest first, so an admin doesn't reuse one. */
   usedBatches: number[]
@@ -36,7 +34,7 @@ async function payload(): Promise<ConfigPayload> {
   const [batchStudents, totalStudents, activeTrials, usedBatches] = await Promise.all([
     User.countDocuments({ sebtStudent: true, sebtBatch: cfg.batch }),
     User.countDocuments({ sebtStudent: true }),
-    User.countDocuments({ sebtStudent: true, compExpiresAt: { $gt: new Date() } }),
+    User.countDocuments({ sebtStudent: true, $or: [{ sebtCreditsExpiresAt: { $gt: new Date() } }, { compExpiresAt: { $gt: new Date() } }] }),
     User.distinct('sebtBatch', { sebtStudent: true, sebtBatch: { $ne: null } }) as Promise<number[]>,
   ])
   return { ...cfg, batchStudents, totalStudents, activeTrials, usedBatches: usedBatches.sort((a, b) => b - a) }
@@ -56,7 +54,7 @@ export async function GET(): Promise<NextResponse<ApiResponse<ConfigPayload>>> {
 /**
  * Save settings, or run a bulk grant.
  *   { batch?, registrationOpen?, trialEnabled?, trialDays?, trialPlan? }  → save
- *   { applyToAll: true, scope?: 'batch' | 'all' }             → (re)grant the trial
+ *   { applyToAll: true, scope?: 'batch' | 'all', days? }      → give free credits now
  *   { endTrials: true }                                        → end every live trial now
  *
  * The bulk grant is deliberately a separate, explicit action rather than a side
@@ -75,6 +73,11 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<C
     if (body?.endTrials) {
       await connectDB()
       const now = new Date()
+      // Free credits (the current kind of grant) simply stop counting.
+      const credits = await User.updateMany(
+        { sebtStudent: true, sebtCreditsExpiresAt: { $gt: now } },
+        { $set: { sebtCreditsExpiresAt: now } },
+      )
       const paidLocally = await LocalPayment.distinct('userId', { status: 'approved', grantedUntil: { $gt: now } }) as string[]
       const r = await User.updateMany(
         {
@@ -94,23 +97,23 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<C
         } }],
         { updatePipeline: true },   // Mongoose 9 rejects update pipelines without this
       )
-      return NextResponse.json({ success: true, data: { ...(await payload()), affected: r.modifiedCount ?? 0 } })
+      return NextResponse.json({ success: true, data: { ...(await payload()), affected: (r.modifiedCount ?? 0) + (credits.modifiedCount ?? 0) } })
     }
 
     if (body?.applyToAll) {
       const cfg = await getSebtConfig()
       if (!cfg.trialEnabled) {
-        return NextResponse.json({ success: false, error: `Turn the ${PLAN_LABELS[cfg.trialPlan]} trial on before granting it.` }, { status: 400 })
+        return NextResponse.json({ success: false, error: `Turn the free ${PLAN_LABELS[cfg.trialPlan]} credits on before granting them.` }, { status: 400 })
       }
       await connectDB()
       const scope = body.scope === 'batch' ? { sebtBatch: cfg.batch } : {}
-      // Never touch a student who paid: a real subscription, or a bank/JazzCash
-      // payment still running. Their paid plan must not be swapped for a comp grant
-      // (with a lower trial plan that would be a downgrade).
-      const paidLocally = await LocalPayment.distinct('userId', { status: 'approved', grantedUntil: { $gt: new Date() } }) as string[]
+      // Free credits are ADDED to each student's own plan (their plan is never
+      // changed), so paying students get them too: a Pro buyer sees 120 + 60 free.
+      // `days` is chosen in the grant dialog; it starts from now for everyone.
+      const days = body.days !== undefined ? clampDays(body.days) : cfg.trialDays
       const r = await User.updateMany(
-        { sebtStudent: true, ...scope, lsSubscriptionId: null, subscriptionStatus: { $nin: ['active', 'on_trial'] }, _id: { $nin: paidLocally } },
-        { $set: { plan: cfg.trialPlan, compExpiresAt: new Date(Date.now() + cfg.trialDays * DAY) } },
+        { sebtStudent: true, ...scope },
+        { $set: sebtCreditFields(cfg.trialPlan, days) },
       )
       return NextResponse.json({ success: true, data: { ...(await payload()), affected: r.modifiedCount ?? 0 } })
     }

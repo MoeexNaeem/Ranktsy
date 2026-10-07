@@ -23,6 +23,10 @@ export interface CreditState {
   credits: number; limit: number; usedToday: number; plan: string
   /** Admin-granted one-time bonus pool, only while it is still valid. */
   bonus?: { remaining: number; granted: number; expiresAt: string } | null
+  /** The plan's own daily credits (`limit` also includes SEBT free credits). */
+  planLimit?: number
+  /** SEBT NEXT free daily credits on top of the plan, while valid. */
+  sebt?: { perDay: number; plan: string | null; expiresAt: string } | null
   /** Keyword searches used today against the plan's own daily cap. */
   searches?: SearchUsage
 }

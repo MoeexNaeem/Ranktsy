@@ -79,6 +79,12 @@ export interface IUserDoc extends Document {
   bonusCreditsGranted?: number    // total granted in the current pool (for "x of y left")
   bonusGrantedAt?: Date | null
   bonusExpiresAt?: Date | null
+  // SEBT NEXT free credits: EXTRA daily credits on top of the user's own plan (e.g.
+  // a Pro buyer given "Basic" sees 120 + 60 free a day). The plan itself is never
+  // changed. Counts only until sebtCreditsExpiresAt (checked lazily).
+  sebtCreditsPerDay?: number
+  sebtCreditsPlan?: string | null
+  sebtCreditsExpiresAt?: Date | null
   // Affiliate attribution - set once at signup if the visitor arrived through an
   // affiliate's ?ref link. `referredBy` is the affiliate code; the id is kept too
   // for integrity. Never changes after signup (first-touch at registration).
@@ -138,6 +144,9 @@ const UserSchema = new Schema<IUserDoc>({
   bonusCreditsGranted: { type: Number, default: 0 },
   bonusGrantedAt:      { type: Date, default: null },
   bonusExpiresAt:      { type: Date, default: null },
+  sebtCreditsPerDay:    { type: Number, default: 0 },
+  sebtCreditsPlan:      { type: String, default: null },
+  sebtCreditsExpiresAt: { type: Date, default: null },
   referredBy:            { type: String, default: null, index: true },
   referredByAffiliateId: { type: String, default: null },
 }, { timestamps: true })

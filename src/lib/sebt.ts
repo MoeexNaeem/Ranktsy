@@ -9,10 +9,13 @@
  *     on. While it is on, /register/sebtnext and /login/sebtnext are live and each
  *     signup is stamped with that batch number. Flip it off and the links show
  *     "Batch N has ended". Nothing expires on its own any more; the admin decides.
- *  2. FREE TRIAL - a toggle, a plan (Starter … Enterprise, chosen by the admin) and
- *     a day count. While on, every SEBT signup gets that plan free for that many
- *     days, counted from THEIR signup via the comp clock (compExpiresAt), after
- *     which they auto-revert to free.
+ *  2. FREE CREDITS - a toggle, a plan (Starter … Enterprise, chosen by the admin) and
+ *     a day count. While on, every SEBT signup gets that plan's DAILY CREDITS free,
+ *     on top of their own plan, for that many days (sebtCreditsPerDay/ExpiresAt on
+ *     the user; credits.ts adds them). Their plan is never changed, so a student
+ *     who buys Pro sees "120 + 60 free". Until 2026-10-08 the grant swapped the
+ *     plan to Enterprise on the comp clock instead; those older grants still run
+ *     out on their own via plan-lifecycle.
  *     See plan-lifecycle.ts, which does the reverting.
  *
  * The two are deliberately independent: registration can be open with the trial
@@ -22,7 +25,7 @@
 import { connectDB } from '@/lib/db'
 import { AppSetting } from '@/lib/models'
 import { memCache } from '@/lib/cache'
-import type { PlanSlug } from '@/lib/plans'
+import { CREDITS_PER_DAY } from '@/lib/credit-amounts'
 import { isSebtTrialPlan, type SebtTrialPlan } from '@/lib/sebt-plans'
 export { SEBT_TRIAL_PLANS, isSebtTrialPlan, type SebtTrialPlan } from '@/lib/sebt-plans'
 
@@ -128,9 +131,18 @@ export function sebtBatchName(batch: number): string {
   return `Batch ${batch}`
 }
 
-/** The fields to set on a new SEBT signup, or null when no grant applies. */
-export function sebtGrantFields(cfg: SebtConfig): { plan: PlanSlug; compExpiresAt: Date; sebtStudent: true; sebtBatch: number } | { sebtStudent: true; sebtBatch: number } {
+/** The SEBT free-credit fields for a grant of `plan`'s daily credits for `days` days. */
+export function sebtCreditFields(plan: SebtTrialPlan, days: number) {
+  return {
+    sebtCreditsPerDay: CREDITS_PER_DAY[plan],
+    sebtCreditsPlan: plan,
+    sebtCreditsExpiresAt: new Date(Date.now() + clampDays(days) * 24 * 60 * 60 * 1000),
+  }
+}
+
+/** The fields to set on a new SEBT signup: the student flag, plus free credits while the grant is on. */
+export function sebtGrantFields(cfg: SebtConfig) {
   const base = { sebtStudent: true as const, sebtBatch: cfg.batch }
   if (!cfg.trialEnabled) return base
-  return { ...base, plan: cfg.trialPlan, compExpiresAt: new Date(Date.now() + cfg.trialDays * 24 * 60 * 60 * 1000) }
+  return { ...base, ...sebtCreditFields(cfg.trialPlan, cfg.trialDays) }
 }

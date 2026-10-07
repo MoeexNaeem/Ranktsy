@@ -9,7 +9,7 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin, resolveRole } from '@/lib/auth/roles'
 import { PLAN_SLUGS, effectivePlan } from '@/lib/plans'
 import { addOneMonth, reconcileUserPlan } from '@/lib/plan-lifecycle'
-import { creditLimitFor, activeBonus } from '@/lib/credits'
+import { dailyLimitFor, activeBonus } from '@/lib/credits'
 import type { IApiUsage } from '@/types'
 
 export const runtime = 'nodejs'
@@ -46,7 +46,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   ])
 
   const plan = effectivePlan(u)
-  const creditsLimit = creditLimitFor(plan)
+  const creditsLimit = dailyLimitFor(plan, u)
   const creditsUsedToday = sameCreditDay(u.creditsResetAt, new Date()) ? (u.creditsUsedToday ?? 0) : 0
   const byDay = new Map(usageRows.map(r => [r.day, r]))
   const usage = days.slice().reverse().map(day => {

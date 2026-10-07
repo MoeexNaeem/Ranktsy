@@ -67,7 +67,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // A SEBT trial is "active" while its comp grant hasn't expired.
     const [total, activeCount, batches] = await Promise.all([
       User.countDocuments({ sebtStudent: true, ...batchFilter, ...NOT_PENDING_SIGNUP }),
-      User.countDocuments({ sebtStudent: true, ...batchFilter, ...NOT_PENDING_SIGNUP, compExpiresAt: { $gt: new Date(now) } }),
+      User.countDocuments({ sebtStudent: true, ...batchFilter, ...NOT_PENDING_SIGNUP, $or: [{ sebtCreditsExpiresAt: { $gt: new Date(now) } }, { compExpiresAt: { $gt: new Date(now) } }] }),
       User.distinct('sebtBatch', { sebtStudent: true, sebtBatch: { $ne: null } }) as Promise<number[]>,
     ])
 
@@ -78,15 +78,18 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     const students: StudentRow[] = docs.map(u => {
       const plan = effectivePlan(u)
-      const exp = u.compExpiresAt ? new Date(u.compExpiresAt).getTime() : 0
-      const active = exp > now && plan !== 'free'
+      // Free SEBT credits (current grants) or an older plan grant, whichever ends later.
+      const credExp = u.sebtCreditsExpiresAt ? new Date(u.sebtCreditsExpiresAt).getTime() : 0
+      const compExp = u.compExpiresAt && plan !== 'free' ? new Date(u.compExpiresAt).getTime() : 0
+      const exp = Math.max(credExp, compExp)
+      const active = exp > now
       return {
         id: String(u._id),
         name: u.name ?? '',
         email: u.email,
         plan,
         joinedAt: u.createdAt ? new Date(u.createdAt).toISOString() : null,
-        expiresAt: u.compExpiresAt ? new Date(u.compExpiresAt).toISOString() : null,
+        expiresAt: exp ? new Date(exp).toISOString() : null,
         daysLeft: active ? Math.ceil((exp - now) / DAY) : 0,
         active,
         batch: u.sebtBatch ?? null,
