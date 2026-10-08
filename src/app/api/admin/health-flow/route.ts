@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import mongoose from 'mongoose'
 import { getCurrentUser } from '@/lib/auth/session'
 import { isAdmin } from '@/lib/auth/roles'
-import { connectDB } from '@/lib/db'
+import { connectDB, trackingConnection } from '@/lib/db'
 import { etsyKeyPoolSize, probeEtsyKeys, etsyEndpointUsage, etsyKeyQuota, etsyTiming, type EtsyKeyQuota } from '@/lib/etsy'
 import { isGeminiConfigured, geminiKeyPoolSize } from '@/lib/gemini'
 import { isGoogleAdsConfigured, googleAdsStatus, recheckGoogleAdsQuota, googleQueueDepth } from '@/lib/google-ads'
@@ -39,7 +39,18 @@ async function pingMongo(): Promise<SystemHealth> {
     const t = Date.now()
     await db.admin().ping()
     const ms = Date.now() - t
-    return { status: 'ok', required: true, detail: `ping ${ms}ms${ms > 400 ? ' (slow tier)' : ''}` }
+    const main = `ping ${ms}ms${ms > 400 ? ' (slow tier)' : ''}`
+    // Tracking data (snapshots + caches) on the server's own MongoDB, when configured.
+    const tracking = trackingConnection()
+    if (tracking === mongoose.connection) return { status: 'ok', required: true, detail: main }
+    try {
+      const t2 = Date.now()
+      await tracking.asPromise()
+      await tracking.db!.admin().ping()
+      return { status: 'ok', required: true, detail: `${main}; tracking DB ping ${Date.now() - t2}ms` }
+    } catch (e) {
+      return { status: 'down', required: true, detail: `${main}; tracking DB unreachable: ${e instanceof Error ? e.message.slice(0, 100) : 'error'}` }
+    }
   } catch (e) {
     return { status: 'down', required: true, detail: e instanceof Error ? e.message.slice(0, 120) : 'unreachable' }
   }

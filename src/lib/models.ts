@@ -1,5 +1,6 @@
 import mongoose, { Schema, model, models, type Document } from 'mongoose'
 import { SNAPSHOT_RETENTION_DAYS } from '@/utils'
+import { trackingConnection } from '@/lib/db'
 import { PLAN_SLUGS, type PlanSlug } from '@/lib/plans'
 import type {
   IKeywordCache, IKeywordHistory, ISavedKeyword, IPayment, IOTP,
@@ -1061,27 +1062,39 @@ export const TrackedKeyword = (models.TrackedKeyword as mongoose.Model<ITrackedK
 export const Affiliate      = (models.Affiliate as mongoose.Model<IAffiliateDoc>)          ?? model<IAffiliateDoc>('Affiliate', AffiliateSchema)
 export const ReferralConversion = (models.ReferralConversion as mongoose.Model<IReferralConversionDoc>) ?? model<IReferralConversionDoc>('ReferralConversion', ReferralConversionSchema)
 
+// The heavy tracking collections (snapshots, tracked listings, keyword suggestions,
+// Etsy + keyword caches) live on the tracking connection: the app server's own MongoDB
+// when MONGODB_TRACKING_URI is set, otherwise the main database exactly as before.
+// Untyped like `models.X` (callers cast where they had a cast before): a fully typed
+// return here sent the type checker out of memory.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function trackingModel(name: string, schema: Schema<any>): mongoose.Model<any> {
+  const conn = trackingConnection()
+  if (conn === mongoose.connection) return models[name] ?? model(name, schema)
+  return conn.models[name] ?? conn.model(name, schema)
+}
+
 export const User          = models.User          ?? model<IUserDoc>('User', UserSchema)
 export const AutomationRun = (models.AutomationRun as mongoose.Model<IAutomationRun>) ?? model<IAutomationRun>('AutomationRun', AutomationRunSchema)
 export const Blog          = (models.Blog as mongoose.Model<IBlog>) ?? model<IBlog>('Blog', BlogSchema)
 export const Deal          = (models.Deal as mongoose.Model<IDeal>) ?? model<IDeal>('Deal', DealSchema)
 export const PopupAd       = (models.PopupAd as mongoose.Model<IPopupAd>) ?? model<IPopupAd>('PopupAd', PopupAdSchema)
 export const GoogleAdsConnection = (models.GoogleAdsConnection as mongoose.Model<IGoogleAdsConnectionDoc>) ?? model<IGoogleAdsConnectionDoc>('GoogleAdsConnection', GoogleAdsConnectionSchema)
-export const EtsyCache = (models.EtsyCache as mongoose.Model<IEtsyCacheDoc>) ?? model<IEtsyCacheDoc>('EtsyCache', EtsyCacheSchema)
+export const EtsyCache = trackingModel('EtsyCache', EtsyCacheSchema) as mongoose.Model<IEtsyCacheDoc>
 export const GoogleAdsCache = (models.GoogleAdsCache as mongoose.Model<IGoogleAdsCacheDoc>) ?? model<IGoogleAdsCacheDoc>('GoogleAdsCache', GoogleAdsCacheSchema)
 export const AppSetting     = (models.AppSetting as mongoose.Model<IAppSetting>) ?? model<IAppSetting>('AppSetting', AppSettingSchema)
 export const PaidLookup     = (models.PaidLookup as mongoose.Model<IPaidLookupDoc>) ?? model<IPaidLookupDoc>('PaidLookup', PaidLookupSchema)
 export const LocalPayment   = (models.LocalPayment as mongoose.Model<ILocalPaymentDoc>) ?? model<ILocalPaymentDoc>('LocalPayment', LocalPaymentSchema)
-export const ShopSnapshot    = models.ShopSnapshot    ?? model<IShopSnapshot>('ShopSnapshot', ShopSnapshotSchema)
-export const ListingSnapshot = models.ListingSnapshot ?? model<IListingSnapshot>('ListingSnapshot', ListingSnapshotSchema)
+export const ShopSnapshot    = trackingModel('ShopSnapshot', ShopSnapshotSchema)
+export const ListingSnapshot = trackingModel('ListingSnapshot', ListingSnapshotSchema)
 export const TrackedShop     = models.TrackedShop     ?? model<ITrackedShop>('TrackedShop', TrackedShopSchema)
-export const TrackedListing  = models.TrackedListing  ?? model<ITrackedListing>('TrackedListing', TrackedListingSchema)
-export const SearchRankSnapshot = (models.SearchRankSnapshot as mongoose.Model<ISearchRankSnapshot>) ?? model<ISearchRankSnapshot>('SearchRankSnapshot', SearchRankSnapshotSchema)
-export const KeywordMarketSnapshot = (models.KeywordMarketSnapshot as mongoose.Model<IKeywordMarketSnapshot>) ?? model<IKeywordMarketSnapshot>('KeywordMarketSnapshot', KeywordMarketSnapshotSchema)
-export const KeywordSuggestion     = (models.KeywordSuggestion as mongoose.Model<IKeywordSuggestion>) ?? model<IKeywordSuggestion>('KeywordSuggestion', KeywordSuggestionSchema)
+export const TrackedListing  = trackingModel('TrackedListing', TrackedListingSchema)
+export const SearchRankSnapshot = trackingModel('SearchRankSnapshot', SearchRankSnapshotSchema) as mongoose.Model<ISearchRankSnapshot>
+export const KeywordMarketSnapshot = trackingModel('KeywordMarketSnapshot', KeywordMarketSnapshotSchema) as mongoose.Model<IKeywordMarketSnapshot>
+export const KeywordSuggestion     = trackingModel('KeywordSuggestion', KeywordSuggestionSchema) as mongoose.Model<IKeywordSuggestion>
 export const ConnectedShop   = models.ConnectedShop   ?? model<IConnectedShop>('ConnectedShop', ConnectedShopSchema)
 export const OTP           = models.OTP           ?? model<IOTP>('OTP', OTPSchema)
-export const KeywordCache  = models.KeywordCache  ?? model<IKeywordCache>('KeywordCache', KeywordCacheSchema)
+export const KeywordCache  = trackingModel('KeywordCache', KeywordCacheSchema)
 export const CollectiveKeywordData = models.CollectiveKeywordData ?? model<ICollectiveKeywordData>('CollectiveKeywordData', CollectiveKeywordDataSchema)
 export const ApiUsage      = models.UserApiUsage  ?? model<IApiUsage>('UserApiUsage', ApiUsageSchema)
 export const KeywordHistory= models.KeywordHistory?? model<IKeywordHistory>('KeywordHistory', KeywordHistorySchema)

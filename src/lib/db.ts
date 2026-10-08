@@ -126,8 +126,48 @@ export async function connectDB(): Promise<typeof mongoose> {
 
   watchForStalePrimary(cached.conn)
   void reconcileTtlIndexes(cached.conn)
-  void reconcileRankIndex(cached.conn)
+  // With a separate tracking database these run against it instead (see trackingConnection).
+  if (!process.env.MONGODB_TRACKING_URI?.trim()) {
+    void reconcileRankIndex(cached.conn.connection)
+    void reconcileSnapshotTtls(cached.conn.connection)
+  }
   return cached.conn
+}
+
+/**
+ * Where the heavy tracking data lives: listing/shop/rank/keyword-market snapshots,
+ * tracked listings, keyword suggestions and the Etsy + keyword caches. They were about
+ * 90% of all database writes and kept the shared Atlas tier pinned at 95%+ CPU
+ * (2026-10-08), slowing users, payments and the admin with them.
+ *
+ * Set MONGODB_TRACKING_URI (e.g. the app server's own MongoDB on 127.0.0.1) and those
+ * collections use that database; everything else stays on MONGODB_URI. Unset, this is
+ * the default connection, so nothing changes. Connects on first use; queries made
+ * before it is open wait for it (Mongoose buffering) instead of failing.
+ */
+declare global {
+  // eslint-disable-next-line no-var
+  var _trackingConn: mongoose.Connection | undefined
+}
+
+export function trackingConnection(): mongoose.Connection {
+  const uri = process.env.MONGODB_TRACKING_URI?.trim()
+  if (!uri) return mongoose.connection
+  if (!global._trackingConn) {
+    const conn = mongoose.createConnection(uri, {
+      maxPoolSize: Number(process.env.MONGO_TRACKING_MAX_POOL_SIZE ?? 40),
+      minPoolSize: 2,
+      maxIdleTimeMS: 30_000,
+      serverSelectionTimeoutMS: 8000,
+      socketTimeoutMS: 45000,
+      family: 4,
+    })
+    global._trackingConn = conn
+    conn.asPromise()
+      .then(c => { void reconcileRankIndex(c); void reconcileSnapshotTtls(c) })
+      .catch(e => console.error('[db] tracking database unreachable:', e instanceof Error ? e.message : e))
+  }
+  return global._trackingConn
 }
 
 // Changing a schema's TTL `expireAfterSeconds` does NOT update an already-created
@@ -146,10 +186,10 @@ export async function connectDB(): Promise<typeof mongoose> {
  * or on a collection that does not exist yet, is not an error worth surfacing.
  */
 let rankIndexReconciled = false
-async function reconcileRankIndex(conn: typeof mongoose): Promise<void> {
+async function reconcileRankIndex(conn: mongoose.Connection): Promise<void> {
   if (rankIndexReconciled) return
   rankIndexReconciled = true
-  const db = conn.connection.db
+  const db = conn.db
   if (!db) return
   try {
     const coll = db.collection('searchranksnapshots')
@@ -175,6 +215,14 @@ async function reconcileTtlIndexes(conn: typeof mongoose): Promise<void> {
       await db.command({ collMod: coll, index: { keyPattern: { createdAt: 1 }, expireAfterSeconds: seconds } })
     } catch { /* index/collection not present yet, or command unsupported - ignore */ }
   }
+}
+
+let snapshotTtlReconciled = false
+async function reconcileSnapshotTtls(conn: mongoose.Connection): Promise<void> {
+  if (snapshotTtlReconciled) return
+  snapshotTtlReconciled = true
+  const db = conn.db
+  if (!db) return
 
   // History retention (SNAPSHOT_RETENTION_DAYS). Same reason as above: Mongoose never
   // alters an existing index, so a changed retention only reaches the database here.
@@ -192,6 +240,7 @@ async function reconcileTtlIndexes(conn: typeof mongoose): Promise<void> {
     try {
       await db.command({ collMod: coll, index: { keyPattern, expireAfterSeconds: snapSeconds } })
     } catch (e) {
+      if ((e as { code?: number })?.code === 26) continue   // collection not created yet: its schema index already has the TTL
       console.warn(`[db] could not set ${SNAPSHOT_RETENTION_DAYS}-day retention on ${coll}:`, e instanceof Error ? e.message : e)
     }
   }
