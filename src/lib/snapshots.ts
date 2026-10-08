@@ -776,12 +776,15 @@ export async function getKeywordRankMovers(keywordRaw: string, days = 30, limit 
     // market we hold the most captures for.
     let country = countryRaw ? normalizeCountry(countryRaw) : ''
     if (!country) {
-      const byCountry = await SearchRankSnapshot.aggregate<{ _id: string; n: number }>([
+      // Rank reads go through the history gate (few at once, time-limited): on
+      // popular keywords they read tens of thousands of rows, and with no limit they
+      // ran 10-44 s each and pinned the database CPU above 95% (2026-10-08).
+      const byCountry = await historyRead(() => SearchRankSnapshot.aggregate<{ _id: string; n: number }>([
         { $match: { keyword, day: { $gte: since } } },
         { $group: { _id: { $ifNull: ['$country', 'xx'] }, n: { $sum: 1 } } },
         { $sort: { n: -1 } },
         { $limit: 1 },
-      ])
+      ]).option({ maxTimeMS: HISTORY_MAX_MS }))
       country = byCountry[0]?._id ?? 'xx'
     }
 
@@ -794,10 +797,11 @@ export async function getKeywordRankMovers(keywordRaw: string, days = 30, limit 
 
     // Ads are excluded: a promoted placement is bought, not earned, and mixing it
     // with organic order turns "was an ad yesterday" into a fake 40-place drop.
-    const rows = await SearchRankSnapshot.find({ keyword, ...countryFilter, isAd: { $ne: true }, day: { $gte: since } })
+    const rows = await historyRead(() => SearchRankSnapshot.find({ keyword, ...countryFilter, isAd: { $ne: true }, day: { $gte: since } })
       .sort({ day: 1 })
       .select('listingId shopId day position')
-      .lean<{ listingId: number; shopId: number | null; day: string; position: number }[]>()
+      .maxTimeMS(HISTORY_MAX_MS)
+      .lean<{ listingId: number; shopId: number | null; day: string; position: number }[]>())
     if (!rows.length) return { movers: [], reliable: false, reason: 'none', country }
 
     // INTEGRITY GATE. A position is only a ranking if ONE listing held it that day.
@@ -873,6 +877,7 @@ export async function getKeywordRankMovers(keywordRaw: string, days = 30, limit 
     }
     return { movers: top, reliable: true, reason: 'ok', country }
   } catch (e) {
+    if (e instanceof HistoryBusyError) throw e   // caller keeps a busy answer only briefly
     console.error('[Snapshots] rank movers failed:', e)
     return { movers: [], reliable: false, reason: 'none' }
   }
@@ -995,9 +1000,9 @@ export async function getKeywordPageSignals(keywordRaw: string, days = 30): Prom
   if (!keyword) return null
   try {
     await connectDB()
-    const ids = await SearchRankSnapshot.distinct('listingId', {
+    const ids = await historyRead(() => SearchRankSnapshot.distinct('listingId', {
       keyword, isAd: { $ne: true }, day: { $gte: daysAgoKey(days) },
-    }) as number[]
+    }).maxTimeMS(HISTORY_MAX_MS)) as number[]
     if (!ids.length) return null
 
     const rows = await historyRead(() => TrackedListing.find({ listingId: { $in: ids.slice(0, 500) } })
@@ -1051,8 +1056,8 @@ export async function getKeywordRankCoverage(keywordRaw: string, days = 90): Pro
     await connectDB()
     const since = daysAgoKey(days)
     const [dayList, listings] = await Promise.all([
-      SearchRankSnapshot.distinct('day', { keyword, day: { $gte: since } }) as Promise<string[]>,
-      SearchRankSnapshot.distinct('listingId', { keyword, day: { $gte: since } }) as Promise<number[]>,
+      historyRead(() => SearchRankSnapshot.distinct('day', { keyword, day: { $gte: since } }).maxTimeMS(HISTORY_MAX_MS)) as Promise<string[]>,
+      historyRead(() => SearchRankSnapshot.distinct('listingId', { keyword, day: { $gte: since } }).maxTimeMS(HISTORY_MAX_MS)) as Promise<number[]>,
     ])
     if (!dayList.length) return { keyword, days: 0, listings: 0, fromDay: null }
     const sorted = [...dayList].sort()

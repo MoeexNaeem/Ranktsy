@@ -44,7 +44,10 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<Ra
   const data = await singleFlight(key, async () => {
     let busy = false
     const [result, coverage, signals] = await Promise.all([
-      getKeywordRankMovers(keyword, days, 40, country),
+      getKeywordRankMovers(keyword, days, 40, country).catch(e => {
+        if (e instanceof HistoryBusyError) { busy = true; return { movers: [], reliable: false, reason: 'none' as const, country } }
+        throw e
+      }),
       getKeywordRankCoverage(keyword, days),
       getKeywordPageSignals(keyword, days).catch(e => {
         if (e instanceof HistoryBusyError) { busy = true; return null }

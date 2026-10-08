@@ -37,3 +37,20 @@ export async function readDaily(name: string): Promise<number | null> {
   const doc = await c.findOne({ _id: `${name}|${utcDay()}` })
   return doc ? doc.n : null
 }
+
+/**
+ * True for the FIRST caller today (UTC) across every PM2 worker, false after that.
+ * One tiny insert on a unique _id. Used so per-day work (e.g. recording a searched
+ * keyword's listings for tracking) runs once a day for the site, not once per worker.
+ */
+export async function claimOncePerDay(name: string): Promise<boolean> {
+  const day = utcDay()
+  try {
+    const c = await counters()
+    await c.insertOne({ _id: `once|${name}|${day}`, n: 1, at: new Date(`${day}T00:00:00Z`) })
+    return true
+  } catch (e) {
+    if ((e as { code?: number })?.code === 11000) return false
+    return true   // bookkeeping failed for another reason: do the work as before
+  }
+}

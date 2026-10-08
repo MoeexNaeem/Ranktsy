@@ -156,6 +156,8 @@ UserSchema.index({ createdAt: -1 })
 UserSchema.index({ plan: 1 })
 UserSchema.index({ compExpiresAt: 1 })
 UserSchema.index({ sebtStudent: 1 })
+// Restricted-account check (security/restricted.ts) reads this every 30 s per worker.
+UserSchema.index({ restricted: 1 })
 
 // ─── OTP ──────────────────────────────────────────────────────────────────────
 const OTPSchema = new Schema<IOTP>({

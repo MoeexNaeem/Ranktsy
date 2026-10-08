@@ -14,6 +14,7 @@ import { PLAN_LABELS } from '@/lib/plans'
 import { withUsage } from '@/lib/track'
 import { recordSearch, recordCacheHit, recordApiHit, peekApiCalls } from '@/lib/usage'
 import { memCache } from '@/lib/cache'
+import { claimOncePerDay } from '@/lib/dailyCounters'
 import { upstreamFailure } from '@/lib/upstream-errors'
 import type { ApiResponse, KeywordSearchResponse } from '@/types'
 
@@ -100,7 +101,10 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
     const seedKey = `kwseeded:${new Date().toISOString().slice(0, 10)}:${query.toLowerCase()}`
     if (data.listings?.length && !memCache.get(seedKey)) {
       memCache.set(seedKey, 1, 24 * 3600)
-      void recordObservedListings(data.listings
+      // Once per keyword per day for the WHOLE site (claimOncePerDay), not once per
+      // worker: each worker re-recorded the same ~100 listings, a large share of the
+      // write load that pinned the database CPU (2026-10-08).
+      void claimOncePerDay(`kwseed|${query.toLowerCase()}`).then(first => (first ? recordObservedListings(data.listings
         .filter(l => l.listing_id && l.shop_id)
         .map(l => ({
           listingId: l.listing_id,
@@ -111,7 +115,7 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
           currency: l.price?.currency_code,
           views: l.views,
           favorers: l.num_favorers,
-        }))).catch(() => {})
+        }))) : 0)).catch(() => {})
     }
 
     // Usage analytics: one search, and whether it was served from cache/DB (no API

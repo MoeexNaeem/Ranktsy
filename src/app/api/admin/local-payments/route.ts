@@ -45,14 +45,22 @@ export async function GET(req: NextRequest) {
     : statusFilter
 
   const limit = Math.min(100, Math.max(5, Number(req.nextUrl.searchParams.get('limit')) || 20))
-  const total = await LocalPayment.countDocuments(filter)
+  // "Approved and still running" = all approved minus approved-and-ended. Both halves are
+  // answered from the { status, grantedUntil, userId } index; the direct form (grantedUntil
+  // null OR in the future) made the database open every row, each holding its ~115 KB
+  // proof screenshot (29 s, 2026-10-08).
+  const countApprovedActive = () => Promise.all([
+    LocalPayment.countDocuments({ status: 'approved' }),
+    LocalPayment.countDocuments({ status: 'approved', grantedUntil: { $lte: now } }),
+  ]).then(([all, ended]) => all - ended)
+  const total = status === 'approved' && !rx ? await countApprovedActive() : await LocalPayment.countDocuments(filter)
   const pages = Math.max(1, Math.ceil(total / limit))
   const page = Math.min(pages, Math.max(1, Number(req.nextUrl.searchParams.get('page')) || 1))
 
   const [rows, pending, approvedActive, expired, rejected] = await Promise.all([
     LocalPayment.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
     LocalPayment.countDocuments({ status: 'pending' }),
-    LocalPayment.countDocuments({ status: 'approved', $or: [{ grantedUntil: null }, { grantedUntil: { $gt: now } }] }),
+    countApprovedActive(),
     LocalPayment.countDocuments({ status: 'approved', grantedUntil: { $lte: now } }),
     LocalPayment.countDocuments({ status: 'rejected' }),
   ])
