@@ -27,8 +27,12 @@ command -v mongodump >/dev/null && command -v mongorestore >/dev/null \
 
 SRC_DB=${SRC_DB:-test}               # the app's database on Atlas
 DST_DB=${DST_DB:-rankkw_tracking}
-# mongodump refuses --db together with a database inside the URI, so drop it from the URI.
-ATLAS_HOST_URI=$(printf '%s' "$ATLAS_URI" | sed -E 's#^(mongodb(\+srv)?://[^/]+)/[^?]*#\1/#')
+# Drop the database from both URIs: mongodump refuses --db together with one, and
+# mongorestore treats a database in the URI as --db, which silently skips every
+# namespace in the archive (0 documents restored, seen 2026-10-08). authSource stays.
+strip_db() { printf '%s' "$1" | sed -E 's#^(mongodb(\+srv)?://[^/]+)/[^?]*#\1/#'; }
+ATLAS_HOST_URI=$(strip_db "$ATLAS_URI")
+TRACK_HOST_URI=$(strip_db "$TRACK_URI")
 
 # Smallest first, so a problem shows up early.
 COLLECTIONS=${COLLECTIONS:-"keywordsuggestions keywordmarketsnapshots shopsnapshots trackedlistings keywordcaches searchranksnapshots listingsnapshots"}
@@ -36,7 +40,7 @@ COLLECTIONS=${COLLECTIONS:-"keywordsuggestions keywordmarketsnapshots shopsnapsh
 for c in $COLLECTIONS; do
   echo "==> $(date '+%H:%M:%S') copying $c"
   mongodump --uri "$ATLAS_HOST_URI" --readPreference secondary --db "$SRC_DB" --collection "$c" --archive --gzip --quiet \
-    | mongorestore --uri "$TRACK_URI" --archive --gzip \
+    | mongorestore --uri "$TRACK_HOST_URI" --archive --gzip \
         --nsFrom "$SRC_DB.$c" --nsTo "$DST_DB.$c" \
         --noIndexRestore --numInsertionWorkersPerCollection 4 2>&1 \
     | grep -v "E11000 duplicate key" | tail -3
