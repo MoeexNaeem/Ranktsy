@@ -154,18 +154,27 @@ export function trackingConnection(): mongoose.Connection {
   const uri = process.env.MONGODB_TRACKING_URI?.trim()
   if (!uri) return mongoose.connection
   if (!global._trackingConn) {
-    const conn = mongoose.createConnection(uri, {
-      maxPoolSize: Number(process.env.MONGO_TRACKING_MAX_POOL_SIZE ?? 40),
-      minPoolSize: 2,
-      maxIdleTimeMS: 30_000,
-      serverSelectionTimeoutMS: 8000,
-      socketTimeoutMS: 45000,
-      family: 4,
-    })
+    const conn = mongoose.createConnection()
     global._trackingConn = conn
-    conn.asPromise()
-      .then(c => { void reconcileRankIndex(c); void reconcileSnapshotTtls(c) })
-      .catch(e => console.error('[db] tracking database unreachable:', e instanceof Error ? e.message : e))
+    // The driver reconnects by itself once connected, but a FAILED FIRST connect is
+    // final. After a server reboot PM2 can start the app before MongoDB is up, which
+    // left tracking down until the next app restart (2026-10-08). So keep retrying.
+    const open = () => {
+      conn.openUri(uri, {
+        maxPoolSize: Number(process.env.MONGO_TRACKING_MAX_POOL_SIZE ?? 40),
+        minPoolSize: 2,
+        maxIdleTimeMS: 30_000,
+        serverSelectionTimeoutMS: 8000,
+        socketTimeoutMS: 45000,
+        family: 4,
+      })
+        .then(c => { void reconcileRankIndex(c); void reconcileSnapshotTtls(c) })
+        .catch(e => {
+          console.error('[db] tracking database unreachable, retrying in 5 s:', e instanceof Error ? e.message : e)
+          setTimeout(open, 5000).unref()
+        })
+    }
+    open()
   }
   return global._trackingConn
 }
