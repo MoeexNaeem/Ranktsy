@@ -11,6 +11,8 @@ import { dailyLimitFor, activeBonus, activeSebtCredits, creditLimitFor } from '@
 import { effectivePlan } from '@/lib/plans'
 import { isFreeToProPromoOn } from '@/lib/promo'
 import { sweepComps } from '@/lib/plan-lifecycle'
+import { sharedCached } from '@/lib/sharedCache'
+import { memCache } from '@/lib/cache'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -47,8 +49,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (!isAdmin(auth)) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
 
   await connectDB()
-  // Persist plan lifecycle before listing so the plans shown are truthful.
-  await sweepComps().catch(() => null)
+  // Persist ended plans at most every 10 minutes per worker, in the background (the
+  // daily cron does it too). It used to run, and be waited for, on every list load
+  // (~4 s on a busy database). Plans shown are already correct: effectivePlan() below.
+  if (!memCache.get('admin-sweep-comps')) {
+    memCache.set('admin-sweep-comps', 1, 600)
+    void sweepComps().catch(() => null)
+  }
 
   const { searchParams } = new URL(req.url)
   const page = Math.max(1, Number(searchParams.get('page')) || 1)
@@ -66,19 +73,43 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const weekAgo = new Date(now.getTime() - 7 * DAY)
   const since14 = new Date(now.getTime() - 13 * DAY)   // 14-day window incl. today
 
-  const [sebtCount, total, verified, admins, payingCard, newThisWeek, searches, signupAgg, planAgg, matched, docs, promoOn, pending, tempMail] = await Promise.all([
-    User.countDocuments({ ...real, sebtStudent: true }),
-    User.countDocuments(real),
-    User.countDocuments({ isVerified: true }),
-    User.countDocuments({ role: 'admin' }),
-    User.countDocuments({ lsSubscriptionId: { $exists: true, $ne: null }, plan: { $ne: 'free' } }),
-    User.countDocuments({ ...real, createdAt: { $gte: weekAgo } }),
-    KeywordHistory.estimatedDocumentCount(),
-    User.aggregate([
-      { $match: { ...real, createdAt: { $gte: since14 } } },
-      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'UTC' } }, count: { $sum: 1 } } },
-    ]),
-    User.aggregate([{ $match: real }, { $group: { _id: '$plan', count: { $sum: 1 } } }]),
+  // The Overview numbers (counts, charts, paying customers) are computed at most once
+  // every 2 minutes for the whole site (sharedCached): recomputing them on every list
+  // load, in every worker, took 10-30 s on a busy database (2026-10-08).
+  const statsP = sharedCached('admin-users-stats', 2 * 60_000, async () => {
+    const [sebtCount, total, verified, admins, payingCard, newThisWeek, searches, signupAgg, planAgg, pending, tempMail, payingLocal] = await Promise.all([
+      User.countDocuments({ ...real, sebtStudent: true }),
+      User.countDocuments(real),
+      User.countDocuments({ isVerified: true }),
+      User.countDocuments({ role: 'admin' }),
+      User.countDocuments({ lsSubscriptionId: { $exists: true, $ne: null }, plan: { $ne: 'free' } }),
+      User.countDocuments({ ...real, createdAt: { $gte: weekAgo } }),
+      KeywordHistory.estimatedDocumentCount(),
+      User.aggregate([
+        { $match: { ...real, createdAt: { $gte: since14 } } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'UTC' } }, count: { $sum: 1 } } },
+      ]),
+      User.aggregate([{ $match: real }, { $group: { _id: '$plan', count: { $sum: 1 } } }]),
+      User.countDocuments(PENDING_SIGNUP),
+      buildUserFilter({ emailType: 'temp' }).then(f => User.countDocuments(f)),
+      // Paying = card (Lemon Squeezy) + bank/JazzCash customers whose paid time is still running.
+      countLocalPayers(now),
+    ])
+    // 14-day signups series (UTC days, gaps filled) for the Overview chart.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const byDay = new Map<string, number>((signupAgg as any[]).map(x => [String(x._id), x.count]))
+    const signups: { label: string; value: number }[] = []
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * DAY)
+      signups.push({ label: String(d.getUTCDate()), value: byDay.get(d.toISOString().slice(0, 10)) ?? 0 })
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const planDist = (planAgg as any[]).map(p => ({ plan: (p._id as string) ?? 'free', value: p.count as number }))
+    return { total, admins, verified, searches, paying: payingCard + payingLocal, payingCard, payingLocal, newThisWeek, signups, planDist, pending, tempMail, sebt: sebtCount }
+  })
+
+  const [stats, matched, docs, promoOn] = await Promise.all([
+    statsP,
     filtered ? User.countDocuments(filter) : null,
     // Paying customers FIRST (real Lemon Squeezy sub on a non-free plan), then by
     // plan tier, then newest - matching the old client sort but now applied
@@ -104,12 +135,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       { $project: { name: 1, email: 1, role: 1, plan: 1, subscriptionStatus: 1, planRenewsAt: 1, compExpiresAt: 1, isVerified: 1, restricted: 1, lsSubscriptionId: 1, createdAt: 1, listingImageCount: 1, creditsResetAt: 1, creditsUsedToday: 1, creditsUsedTotal: 1, bonusCredits: 1, bonusCreditsGranted: 1, bonusExpiresAt: 1, sebtStudent: 1, sebtBatch: 1, sebtCreditsPerDay: 1, sebtCreditsPlan: 1, sebtCreditsExpiresAt: 1 } },
     ]),
     isFreeToProPromoOn(),
-    User.countDocuments(PENDING_SIGNUP),
-    buildUserFilter({ emailType: 'temp' }).then(f => User.countDocuments(f)),
   ])
   void pendingView
 
-  const matchTotal = filtered ? (matched ?? 0) : total
+  const matchTotal = filtered ? (matched ?? 0) : stats.total
 
   // Per-user activity + shop counts, ONLY for the users on this page.
   const pageIds = docs.map(u => String(u._id))
@@ -164,21 +193,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
   })
 
-  // 14-day signups series (UTC days, gaps filled) for the Overview chart.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const byDay = new Map<string, number>((signupAgg as any[]).map(x => [String(x._id), x.count]))
-  const signups: { label: string; value: number }[] = []
-  for (let i = 13; i >= 0; i--) {
-    const d = new Date(now.getTime() - i * DAY)
-    signups.push({ label: String(d.getUTCDate()), value: byDay.get(d.toISOString().slice(0, 10)) ?? 0 })
-  }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const planDist = (planAgg as any[]).map(p => ({ plan: (p._id as string) ?? 'free', value: p.count as number }))
-
-  // Paying = card (Lemon Squeezy) + bank/JazzCash customers whose paid time is still running.
-  const payingLocal = await countLocalPayers(now)
-  const paying = payingCard + payingLocal
-  const stats = { total, admins, verified, searches, paying, payingCard, payingLocal, newThisWeek, signups, planDist, pending, tempMail, sebt: sebtCount }
 
   return NextResponse.json({
     success: true,

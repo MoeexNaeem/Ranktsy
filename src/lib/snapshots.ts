@@ -478,16 +478,30 @@ export async function recordObservedListings(rows: ObservedListing[]): Promise<n
       if (r.personalisable != null) set.personalisable = r.personalisable
       if (r.returnsAccepted != null) set.returnsAccepted = r.returnsAccepted
       if (r.reviewStars != null && r.reviewStars.length === 5) set.reviewStars = r.reviewStars
+      const update = {
+        $set: set,
+        $setOnInsert: { listingId: r.listingId, firstSeenAt: now },
+        $inc: { observeCount: 1 },
+        ...(set.tagsFp ? { $unset: { tags: '' } } : {}),
+      }
+      // Write pressure (2026-10-08: ~41 tracked-listing writes a second, mostly the
+      // same listings seen again minutes later by another worker or user, filled the
+      // database's memory and stalled every query). A listing we already track, seen
+      // again with nothing that any feature reads having changed (title, tags,
+      // listing-page signals), is only re-saved once per TRACK_REFRESH_MS. Its
+      // lastSeenAt / observeCount / last* figures are admin readouts and the 90-day
+      // expiry, which a 3-hour granularity does not change.
+      const k = known.get(r.listingId)
+      const changed = !k
+        || (r.title != null && r.title !== k.title)
+        || (!!r.tags?.length && tagsFp(r.tags) !== k.tagsFp)
+        || hasPageSignals(r)
+      if (changed) return { updateOne: { filter: { listingId: r.listingId }, update, upsert: true } }
       return {
         updateOne: {
-          filter: { listingId: r.listingId },
-          update: {
-            $set: set,
-            $setOnInsert: { listingId: r.listingId, firstSeenAt: now },
-            $inc: { observeCount: 1 },
-            ...(set.tagsFp ? { $unset: { tags: '' } } : {}),
-          },
-          upsert: true,
+          filter: { listingId: r.listingId, $or: [{ lastSeenAt: { $lt: new Date(now.getTime() - TRACK_REFRESH_MS) } }, { lastSeenAt: null }] },
+          update,
+          upsert: false,
         },
       }
     })
@@ -501,6 +515,16 @@ export async function recordObservedListings(rows: ObservedListing[]): Promise<n
     console.error('[Snapshots] observe capture failed:', e)
     return 0
   }
+}
+
+/** How often an unchanged, already-tracked listing has its TrackedListing row re-saved. */
+const TRACK_REFRESH_MS = 3 * 3600_000
+
+/** Did this observation come from a listing page (signals no search card carries)? */
+function hasPageSignals(r: ObservedListing): boolean {
+  return r.freeShipping != null || !!r.badges?.length || r.starSeller != null || r.hasVideo != null
+    || r.imageCount != null || r.inCarts != null || r.variationCount != null || r.priceMaxVariant != null
+    || r.personalisable != null || r.returnsAccepted != null || (r.reviewStars != null && r.reviewStars.length === 5)
 }
 
 // ─── Repeat-observation filter ─────────────────────────────────────────────────

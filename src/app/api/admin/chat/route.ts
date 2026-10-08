@@ -10,7 +10,7 @@ export const runtime = 'nodejs'
 // The thread list groups every chat message (9-14 s on a busy DB, 2026-10-08), and
 // several admin tabs poll it. One run is shared by all callers on this worker and
 // reused for a few seconds.
-const THREADS_TTL_MS = 5_000
+const THREADS_TTL_MS = 15_000
 let threadsCache: { at: number; data: unknown } | null = null
 
 // All support threads for the admin, one row per user, most recent activity first,
@@ -34,21 +34,47 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ success: true, data })
 }
 
+// The list used to group EVERY message (40k, mostly announcements) on each load: 30-44 s
+// on a busy database, with several running at once (2026-10-08). Now three light steps:
+//  1. the 200 most recently active users, read from the { userId, createdAt } index only
+//     (one index entry per user, no documents);
+//  2. the latest message and message count for just those users;
+//  3. unread counts from the { sender, readByAdmin } index.
 async function loadThreads() {
-  const threads = await ChatMessage.aggregate([
-    { $sort: { createdAt: -1 } },
-    { $group: {
-      _id: '$userId',
-      lastBody: { $first: '$body' },
-      lastAttachmentName: { $first: '$attachmentName' },
-      lastSender: { $first: '$sender' },
-      lastAt: { $first: '$createdAt' },
-      count: { $sum: 1 },
-      unread: { $sum: { $cond: [{ $and: [{ $eq: ['$sender', 'user'] }, { $eq: ['$readByAdmin', false] }] }, 1, 0] } },
-    } },
+  const recent = await ChatMessage.aggregate<{ _id: string; lastAt: Date }>([
+    // Same direction on both keys = the { userId, createdAt } index read backwards, which
+    // lets the database jump straight to each user's newest entry (DISTINCT_SCAN).
+    { $sort: { userId: -1, createdAt: -1 } },
+    { $group: { _id: '$userId', lastAt: { $first: '$createdAt' } } },
     { $sort: { lastAt: -1 } },
     { $limit: 200 },
+  ]).option({ maxTimeMS: 20_000 })
+  const recentIds = recent.map(r => r._id)
+  const [lastRows, unreadRows, totalUnread] = await Promise.all([
+    ChatMessage.aggregate<{ _id: string; lastBody: string; lastAttachmentName: string | null; lastSender: 'user' | 'admin'; lastAt: Date; count: number }>([
+      { $match: { userId: { $in: recentIds } } },
+      { $sort: { userId: -1, createdAt: -1 } },
+      { $group: {
+        _id: '$userId',
+        lastBody: { $first: '$body' },
+        lastAttachmentName: { $first: '$attachmentName' },
+        lastSender: { $first: '$sender' },
+        lastAt: { $first: '$createdAt' },
+        count: { $sum: 1 },
+      } },
+    ]).option({ maxTimeMS: 20_000 }),
+    ChatMessage.aggregate<{ _id: string; n: number }>([
+      { $match: { sender: 'user', readByAdmin: false } },
+      { $group: { _id: '$userId', n: { $sum: 1 } } },
+    ]).option({ maxTimeMS: 20_000 }),
+    ChatMessage.countDocuments({ sender: 'user', readByAdmin: false }),
   ])
+  const lastBy = new Map(lastRows.map(r => [String(r._id), r]))
+  const unreadBy = new Map(unreadRows.map(r => [String(r._id), r.n]))
+  const threads = recent.map(r => {
+    const l = lastBy.get(String(r._id))
+    return { _id: r._id, lastBody: l?.lastBody ?? '', lastAttachmentName: l?.lastAttachmentName ?? null, lastSender: l?.lastSender ?? 'admin', lastAt: l?.lastAt ?? r.lastAt, count: l?.count ?? 0, unread: unreadBy.get(String(r._id)) ?? 0 }
+  })
 
   const ids = threads.map(t => t._id)
   const users = await User.find({ _id: { $in: ids } }).select('name email').lean<{ _id: unknown; name: string; email: string }[]>()
@@ -68,7 +94,6 @@ async function loadThreads() {
     }
   })
 
-  const totalUnread = data.reduce((s, t) => s + t.unread, 0)
   return { threads: data, totalUnread }
 }
 

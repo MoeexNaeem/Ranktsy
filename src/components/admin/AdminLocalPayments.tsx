@@ -186,15 +186,16 @@ export function AdminLocalPayments() {
           {rows.map(r => {
             const st = STATUS[r.status]
             return (
-              <div key={r.id} style={{ ...cardStyle, padding: 16, display: 'grid', gridTemplateColumns: 'minmax(200px,1.4fr) minmax(170px,1fr) minmax(170px,1fr) auto', gap: 14, alignItems: 'center' }}>
+              // Columns come from .lp-row (globals.css): 4 on desktop, 2 on tablets, 1 on phones.
+              <div key={r.id} className="lp-row" style={{ ...cardStyle, padding: 16, display: 'grid', gap: 14, alignItems: 'center' }}>
                 <div style={{ minWidth: 0 }}>
-                  <p style={{ fontSize: 14.5, fontWeight: 600, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.userName || '(no name)'}</p>
-                  <p style={{ fontSize: 12.5, color: C.graphite, overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.userEmail}</p>
+                  <p style={{ fontSize: 14.5, fontWeight: 600, color: C.ink, overflowWrap: 'anywhere' }}>{r.userName || '(no name)'}</p>
+                  <p style={{ fontSize: 12.5, color: C.graphite, overflowWrap: 'anywhere' }}>{r.userEmail}</p>
                   <p style={{ fontSize: 11.5, color: C.stone, fontFamily: MONO, marginTop: 2 }}>sent {fmt(r.createdAt)}</p>
                 </div>
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <p style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>{localPlanFor(r.plan)?.label ?? planName(r.plan)} · {formatPkr(r.amountPkr)}</p>
-                  <p style={{ fontSize: 12.5, color: C.graphite }}>{METHOD_LABELS[r.method]}{r.reference ? ` · TID ${r.reference}` : ''}</p>
+                  <p style={{ fontSize: 12.5, color: C.graphite, overflowWrap: 'anywhere' }}>{METHOD_LABELS[r.method]}{r.reference ? ` · TID ${r.reference}` : ''}</p>
                   <button onClick={() => setProof(r)} disabled={!r.hasProof}
                     style={{ ...btn(C.paper, r.hasProof ? '#2563EB' : C.stone, C.ash), marginTop: 6, padding: '4px 10px' }}>
                     {r.hasProof ? '🖼 View proof' : 'No proof attached'}
@@ -209,7 +210,7 @@ export function AdminLocalPayments() {
                   {r.grantedUntil && <p style={{ fontSize: 11.5, color: C.stone }}>granted {planName(r.grantedPlan)} until {fmtDay(r.grantedUntil)}</p>}
                   {r.adminNote && <p style={{ fontSize: 11.5, color: C.stone }}>note: {r.adminNote}</p>}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div className="lp-actions" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {r.status !== 'approved' && <button onClick={() => openApprove(r)} style={btn('#16A34A', '#fff')}>{r.status === 'expired' ? 'Renew' : 'Approve'}</button>}
                   {r.status === 'approved' && <button onClick={() => openApprove(r)} style={btn(C.paper, C.ink, C.ash)}>Change plan</button>}
                   {r.status !== 'rejected' && r.status !== 'expired' && <button onClick={() => { setNote(''); setRejecting(r) }} style={btn(C.paper, '#B91C1C', '#FCA5A5')}>Reject</button>}

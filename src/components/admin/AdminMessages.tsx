@@ -284,7 +284,9 @@ export function AdminMessages() {
     // loadThreads setStates only after its fetch resolves (async), not synchronously.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadThreads()
-    const t = setInterval(loadThreads, 5000)
+    // Every 15 s, and only while this tab is in view (a hidden admin tab kept the
+    // database busy with thread lists nobody was looking at).
+    const t = setInterval(() => { if (document.visibilityState === 'visible') loadThreads() }, 15_000)
     return () => clearInterval(t)
   }, [loadThreads])
 

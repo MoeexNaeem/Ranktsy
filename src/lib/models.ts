@@ -150,6 +150,12 @@ const UserSchema = new Schema<IUserDoc>({
   referredBy:            { type: String, default: null, index: true },
   referredByAffiliateId: { type: String, default: null },
 }, { timestamps: true })
+// The admin Overview counts and lists users by these. Without indexes every count read
+// all 7.5k user documents from disk (~1 s each on a busy database, 2026-10-08).
+UserSchema.index({ createdAt: -1 })
+UserSchema.index({ plan: 1 })
+UserSchema.index({ compExpiresAt: 1 })
+UserSchema.index({ sebtStudent: 1 })
 
 // ─── OTP ──────────────────────────────────────────────────────────────────────
 const OTPSchema = new Schema<IOTP>({
@@ -900,6 +906,10 @@ const LocalPaymentSchema = new Schema<ILocalPaymentDoc>({
   reviewedBy:   { type: String, default: null },
 }, { timestamps: true })
 LocalPaymentSchema.index({ status: 1, createdAt: -1 })
+// "Paying customers" counts approved payments still running, by user. Every row also
+// holds its proof screenshot (~115 KB), so without this index the count read them all
+// (34 s, 2026-10-08); with it the database answers from the index alone.
+LocalPaymentSchema.index({ status: 1, grantedUntil: 1, userId: 1 })
 
 // ─── Keyword alerts ─────────────────────────────────────────────────────────────
 // A keyword a user is watching. We store the last-seen metrics as a baseline; a cron

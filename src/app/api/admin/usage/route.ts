@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { sharedCached } from '@/lib/sharedCache'
 import { connectDB } from '@/lib/db'
 import { ApiUsage } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
@@ -20,6 +21,9 @@ export async function GET(): Promise<NextResponse<ApiResponse<unknown>>> {
   if (!isAdmin(auth)) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
 
   try {
+    // Computed at most once a minute for the whole site (sharedCached): ~8 s on a busy
+    // database, and every admin page load in every worker used to redo it.
+    const data = await sharedCached('admin-usage', 60_000, async () => {
     await flushUsage()          // persist this instance's buffered counts first
     await connectDB()
 
@@ -63,7 +67,9 @@ export async function GET(): Promise<NextResponse<ApiResponse<unknown>>> {
     }
     const last7Days = [...byDay.values()].sort((a, b) => (a.day < b.day ? -1 : 1))
 
-    return NextResponse.json({ success: true, data: { today: { day: today, totals, perUser }, last7Days } })
+    return { today: { day: today, totals, perUser }, last7Days }
+    })
+    return NextResponse.json({ success: true, data })
   } catch (e) {
     console.error('[Admin/usage] failed:', e)
     return NextResponse.json({ success: false, error: 'Could not load usage' }, { status: 500 })

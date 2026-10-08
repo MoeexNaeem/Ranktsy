@@ -602,3 +602,14 @@ svg  { max-width: 100%; }
   .rk-guide-border { animation: none; }
 }
 
+
+/* Admin → Local Payments rows: 4 columns on desktop, 2 on tablets/small laptops
+   (actions move to a row underneath), 1 on phones. */
+.lp-row { grid-template-columns: minmax(200px, 1.4fr) minmax(170px, 1fr) minmax(170px, 1fr) auto; }
+@media (max-width: 1180px) {
+  .lp-row { grid-template-columns: 1fr 1fr; }
+  .lp-row .lp-actions { grid-column: 1 / -1; flex-direction: row !important; flex-wrap: wrap; border-top: 1px solid rgba(0,0,0,0.06); padding-top: 12px; }
+}
+@media (max-width: 640px) {
+  .lp-row { grid-template-columns: 1fr; }
+}

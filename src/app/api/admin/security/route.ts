@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { sharedCached } from '@/lib/sharedCache'
 import { resolveTxt } from 'node:dns/promises'
 import mongoose from 'mongoose'
 import { connectDB } from '@/lib/db'
@@ -52,6 +53,9 @@ export async function GET(req: NextRequest) {
   const col = await securityCollection()
 
   if (view === 'overview') {
+    // At most once a minute per time range for the whole site (sharedCached): ~5 s on a
+    // busy database, and the page refreshes itself every 30 s.
+    const data = await sharedCached(`admin-security-overview-${sp.get('range') ?? '24h'}`, 60_000, async () => {
     const now = Date.now()
     const [byType, timeline, topIps, countries, recentHigh, lastHourHigh, blocked, restricted, tempMail, pending, signupFarms] = await Promise.all([
       col.aggregate<{ _id: string; n: number; ips: string[] }>([
@@ -98,13 +102,15 @@ export async function GET(req: NextRequest) {
     }
     const highLastHour = lastHourHigh[0]?.n ?? 0
     const level = highLastHour >= 50 ? 'under attack' : highLastHour > 0 || sev.high > 20 ? 'elevated' : 'normal'
-    return NextResponse.json({ success: true, data: {
+    return {
       level, highLastHour, severity: sev, counts, hours,
       topIps: topIps.map(t => ({ ip: t._id, n: t.n, high: t.high, types: t.types, emails: t.emails.filter(Boolean).slice(0, 5), country: t.country, last: t.last, blocked: blocked.has(t._id) })),
       countries: countries.map(c => ({ country: c._id ?? '??', n: c.n })),
       recentHigh,
       totals: { blockedIps: blocked.size, restricted, tempMail, pending, signupFarms: signupFarms[0]?.n ?? 0 },
-    } })
+    }
+    })
+    return NextResponse.json({ success: true, data })
   }
 
   if (view === 'events') {
