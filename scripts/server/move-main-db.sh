@@ -80,19 +80,35 @@ copy_all() {
   echo "==> $(date '+%H:%M:%S') copy finished"
 }
 
-# Exact count of every copied collection on both sides; exits 1 on any difference.
+# Count every copied collection on both sides; exits 1 on any difference.
+# Rows that expire by themselves (TTL indexes: one-time codes, rate-limit marks, old
+# messages...) are compared only if they are still valid 2 minutes from now: Atlas
+# and this server each delete expired rows on their own clock, so counting those
+# would report a "difference" that is not missing data (seen 2026-10-09).
 verify() {
   require_atlas
-  echo "==> Comparing exact document counts (Atlas vs server)"
-  local a l
-  a=$(atlas_sh "const skip = $EXCL_JS; db.getCollectionInfos({ type: 'collection' }).map(c => c.name).filter(c => !c.startsWith('system.') && !skip.includes(c)).sort().forEach(c => print(c + ' ' + db.getCollection(c).countDocuments({})))")
-  l=$(local_sh "db.getCollectionNames().sort().forEach(c => print(c + ' ' + db.getCollection(c).countDocuments({})))")
-  local bad=0 name count lc
-  while read -r name count; do
+  echo "==> Comparing document counts (Atlas vs server); rows already expiring are left out on both sides"
+  local cutoff a l
+  cutoff=$(( $(date +%s) * 1000 + 120000 ))
+  local live_js="const T = $cutoff;
+    function counts(c) {
+      const coll = db.getCollection(c);
+      const all = coll.countDocuments({});
+      const ttl = coll.getIndexes().filter(i => typeof i.expireAfterSeconds === 'number' && Object.keys(i.key).length === 1);
+      if (!ttl.length) return [all, all];
+      const and = ttl.map(i => { const f = Object.keys(i.key)[0]; return { \$or: [ { [f]: { \$gt: new Date(T - i.expireAfterSeconds * 1000) } }, { [f]: { \$not: { \$type: 'date' } } } ] }; });
+      return [coll.countDocuments({ \$and: and }), all];
+    }"
+  a=$(atlas_sh "$live_js const skip = $EXCL_JS; db.getCollectionInfos({ type: 'collection' }).map(c => c.name).filter(c => !c.startsWith('system.') && !skip.includes(c)).sort().forEach(c => print(c + ' ' + counts(c).join(' ')))")
+  l=$(local_sh "$live_js db.getCollectionNames().sort().forEach(c => print(c + ' ' + counts(c).join(' ')))")
+  local bad=0 name live all lline llive lall note
+  while read -r name live all; do
     [ -n "$name" ] || continue
-    lc=$(printf '%s\n' "$l" | awk -v n="$name" '$1==n {print $2}')
-    if [ "$count" = "$lc" ]; then printf '  OK        %-34s %12s\n' "$name" "$count"
-    else printf '  MISMATCH  %-34s atlas=%s server=%s\n' "$name" "$count" "${lc:-missing}"; bad=1; fi
+    lline=$(printf '%s\n' "$l" | awk -v n="$name" '$1==n {print $2, $3}')
+    llive=${lline% *}; lall=${lline#* }
+    note=""; [ "$all" != "$live" ] || [ "${lall:-}" != "${llive:-}" ] && note="  (expiring rows left out: atlas $((all - live)), server $(( ${lall:-0} - ${llive:-0} )))"
+    if [ -n "$lline" ] && [ "$live" = "$llive" ]; then printf '  OK        %-34s %12s%s\n' "$name" "$live" "$note"
+    else printf '  MISMATCH  %-34s atlas=%s server=%s%s\n' "$name" "$live" "${llive:-missing}" "$note"; bad=1; fi
   done <<< "$a"
   [ "$bad" = 0 ] && echo "==> ALL COLLECTIONS MATCH" || { echo "==> SOME COLLECTIONS DIFFER"; return 1; }
 }
