@@ -58,7 +58,7 @@ export class HistoryBusyError extends Error {
 const hg = globalThis as typeof globalThis & { __rkHistoryGate?: { active: number; waiters: (() => void)[] } }
 const historyGate = hg.__rkHistoryGate ??= { active: 0, waiters: [] }
 
-async function historyRead<T>(fn: () => Promise<T>): Promise<T> {
+export async function historyRead<T>(fn: () => Promise<T>): Promise<T> {
   if (historyGate.active >= HISTORY_CONCURRENCY) {
     if (historyGate.waiters.length >= HISTORY_QUEUE_MAX) throw new HistoryBusyError()
     await new Promise<void>(r => historyGate.waiters.push(r))   // slot is handed over on release

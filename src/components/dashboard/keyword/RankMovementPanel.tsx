@@ -8,11 +8,12 @@
  * shopper saw on that day. A day nobody captured is gone for good, which is why
  * an untracked keyword says "tracking has started" instead of showing zeros.
  */
-import { memo, useMemo } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Card, SectionTitle, MONO } from '../kit'
 import { C, D } from '@/utils'
 import type { ApiResponse } from '@/types'
+import { RankWhyPanel, type WhySignals } from './RankWhyPanel'
 
 interface RankMover {
   listingId: number
@@ -140,13 +141,18 @@ function Change({ value }: { value: number }) {
   )
 }
 
-const GRID = '2.2fr 0.8fr 0.8fr 1fr 1.1fr 0.8fr'
+const GRID = '2.2fr 0.8fr 0.8fr 1fr 1.1fr 0.6fr 0.9fr'
 
-function Row({ m }: { m: RankMover }) {
+function Row({ m, query, country, signals }: { m: RankMover; query: string; country?: string; signals: WhySignals | null }) {
+  const [open, setOpen] = useState(false)
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: 12, alignItems: 'center', padding: '11px 14px', borderTop: `1px solid ${C.hair}` }}>
+    <div style={{ borderTop: `1px solid ${C.hair}` }}>
+    <div role="button" tabIndex={0} aria-expanded={open}
+      onClick={() => setOpen(o => !o)}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(o => !o) } }}
+      style={{ display: 'grid', gridTemplateColumns: GRID, gap: 12, alignItems: 'center', padding: '11px 14px', cursor: 'pointer', background: open ? C.canvas : undefined }}>
       <div style={{ minWidth: 0 }}>
-        <a href={`https://www.etsy.com/listing/${m.listingId}`} target="_blank" rel="noopener noreferrer"
+        <a href={`https://www.etsy.com/listing/${m.listingId}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
           title={m.title || `Listing ${m.listingId}`}
           style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.ink, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {m.title || `Listing ${m.listingId}`}
@@ -163,6 +169,13 @@ function Row({ m }: { m: RankMover }) {
         style={{ fontSize: 11.5, fontFamily: MONO, color: C.stone }}>
         {m.days}d
       </span>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, color: open ? C.ink : C.orange, whiteSpace: 'nowrap' }}>
+        Why it moved
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+          style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}><polyline points="6 9 12 15 18 9" /></svg>
+      </span>
+    </div>
+    {open && <RankWhyPanel query={query} country={country} mover={m} signals={signals} />}
     </div>
   )
 }
@@ -219,11 +232,11 @@ export const RankMovementPanel = memo(function RankMovementPanel({ query }: { qu
 
       <div className="rtable" style={{ border: `1px solid ${C.hair}`, borderRadius: 12, overflow: 'hidden' }}>
         <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: 12, padding: '9px 14px', background: C.canvas }}>
-          {['Listing', 'Was', 'Now', 'Change', '30-day trend', 'Days'].map(h => (
+          {['Listing', 'Was', 'Now', 'Change', '30-day trend', 'Days', ''].map(h => (
             <span key={h} style={{ fontSize: 10.5, fontFamily: MONO, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</span>
           ))}
         </div>
-        {movers.map(m => <Row key={m.listingId} m={m} />)}
+        {movers.map(m => <Row key={m.listingId} m={m} query={query} country={q.data?.country && q.data.country !== 'xx' ? q.data.country : undefined} signals={signals} />)}
       </div>
 
       <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6, marginTop: 10 }}>
