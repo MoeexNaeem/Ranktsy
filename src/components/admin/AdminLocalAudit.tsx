@@ -22,8 +22,8 @@ const pktTime = (iso: string) => new Intl.DateTimeFormat('en-GB', { timeZone: 'A
 const pktDay = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi' }).format(d)
 
 const FLAG: Record<AuditFlag, { label: string; color: string }> = {
-  'duplicate-tid': { label: 'TID used twice', color: '#B91C1C' },
-  'duplicate-screenshot': { label: 'Same screenshot', color: '#B91C1C' },
+  'duplicate-tid': { label: 'TID shared with another customer', color: '#B91C1C' },
+  'duplicate-screenshot': { label: 'Screenshot shared with another customer', color: '#B91C1C' },
   'amount-mismatch': { label: 'Amount ≠ plan price', color: '#C2410C' },
   'no-proof': { label: 'No screenshot', color: '#6B6B63' },
 }
@@ -109,19 +109,18 @@ function ProofThumb({ row, onOpen }: { row: AuditRow; onOpen: () => void }) {
   )
 }
 
-/** Who matches whom: every set of payments sharing a Transaction ID or screenshot. */
+/** Who matches whom: different customers who sent the same Transaction ID or screenshot. */
 function DupGroups({ groups }: { groups: DupGroup[] }) {
   const [open, setOpen] = useState(true)
   const [all, setAll] = useState(false)
-  const cross = groups.filter(g => g.crossUser).length
   const shown = all ? groups : groups.slice(0, 8)
   return (
     <div style={{ ...cardStyle, padding: '14px 16px' }}>
       <button onClick={() => setOpen(o => !o)} style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', gap: 10, border: 0, background: 'transparent', padding: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
         <span>
-          <span style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>Duplicate groups</span>
+          <span style={{ fontSize: 15, fontWeight: 700, color: '#B91C1C' }}>Shared between customers</span>
           <span style={{ fontSize: 12.5, color: C.graphite, marginLeft: 10 }}>
-            {groups.length} group{groups.length === 1 ? '' : 's'}{cross ? <> · <span style={{ color: '#B91C1C', fontWeight: 700 }}>{cross} with different customers</span></> : ''}
+            {groups.length} screenshot{groups.length === 1 ? '' : 's'} or Transaction ID{groups.length === 1 ? '' : 's'} used by more than one customer
           </span>
         </span>
         <span style={{ fontSize: 12, color: C.graphite }}>{open ? 'Hide' : 'Show'}</span>
@@ -131,13 +130,13 @@ function DupGroups({ groups }: { groups: DupGroup[] }) {
           {shown.map((g, i) => {
             const people = new Set(g.members.map(m => m.userId)).size
             return (
-              <div key={`${g.kind}-${g.key}-${i}`} style={{ border: `1px solid ${g.crossUser ? 'rgba(185,28,28,0.35)' : C.ash}`, borderRadius: 10, overflow: 'hidden' }}>
-                <div style={{ padding: '8px 12px', background: g.crossUser ? 'rgba(185,28,28,0.06)' : C.canvas, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'baseline' }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: g.crossUser ? '#B91C1C' : C.ink }}>
+              <div key={`${g.kind}-${g.key}-${i}`} style={{ border: '1px solid rgba(185,28,28,0.35)', borderRadius: 10, overflow: 'hidden' }}>
+                <div style={{ padding: '8px 12px', background: 'rgba(185,28,28,0.06)', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'baseline' }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#B91C1C' }}>
                     {g.kind === 'tid' ? <>Transaction ID <span style={{ fontFamily: MONO }}>{g.key}</span></> : 'Same screenshot'}
                   </span>
                   <span style={{ fontSize: 12, color: C.graphite }}>
-                    {g.members.length} payments · {g.crossUser ? <strong style={{ color: '#B91C1C' }}>{people} different customers</strong> : 'same customer'}
+                    <strong style={{ color: '#B91C1C' }}>{people} different customers</strong> · {g.members.length} payments
                   </span>
                 </div>
                 {g.members.map(m => (
@@ -266,13 +265,14 @@ export function AdminLocalAudit() {
           <StatCard label="Total received" value={pkr(s.totalPkr)} sub="bank + JazzCash" accent="#1F7A44" />
           <StatCard label="Bank transfer" value={pkr(s.bankPkr)} sub="to match with the bank statement" accent="#2563EB" />
           <StatCard label="JazzCash" value={pkr(s.jazzcashPkr)} sub="to match with JazzCash history" accent={C.orange} />
-          <StatCard label="With warnings" value={s.flagged.toLocaleString()} sub="reused TID or screenshot, odd amount" accent="#B91C1C" />
-          <StatCard label="Shared with another person" value={s.crossUser.toLocaleString()} sub="same proof as a different customer" accent="#B91C1C" />
-          <StatCard label="Possibly counted twice" value={pkr(s.repeatsPkr)} sub={`${s.repeats} payment${s.repeats === 1 ? '' : 's'} reuse an earlier screenshot`} accent="#92400E" />
+          <StatCard label="With warnings" value={s.flagged.toLocaleString()} sub="shared proof or odd amount" accent="#C2410C" />
+          <StatCard label="Shared with another customer" value={s.crossUser.toLocaleString()} sub="same screenshot or TID as a different customer" accent="#B91C1C" />
         </div>
       )}
 
-      {res && res.groups.length > 0 && <DupGroups groups={res.groups} />}
+      {res && (res.groups.length > 0
+        ? <DupGroups groups={res.groups} />
+        : <div style={{ ...cardStyle, padding: '12px 16px', fontSize: 13, color: '#1F7A44', fontWeight: 600 }}>✓ No screenshot or Transaction ID is shared between different customers in this list.</div>)}
 
       {/* Table */}
       {!res && loading ? <LoadingBlock label="Loading local payments" height={200} />
@@ -302,15 +302,15 @@ export function AdminLocalAudit() {
                     <span><span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 100, background: STATUS[r.status].bg, color: STATUS[r.status].fg }}>{r.status[0].toUpperCase() + r.status.slice(1)}</span></span>
                     <span style={{ display: 'flex', flexWrap: 'wrap', gap: 4, minWidth: 0 }}>
                       {r.flags.map(f => <span key={f} style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 7px', borderRadius: 6, color: FLAG[f].color, background: f === 'no-proof' ? C.canvas : 'rgba(185,28,28,0.08)' }}>{FLAG[f].label}</span>)}
-                      {r.dups.map((d, k) => (
-                        <span key={k} title={d.others.map(o => `${o.name || '(no name)'} <${o.email}> ${pktDate(o.paidAt)} ${o.status}`).join('\n')}
-                          style={{ flexBasis: '100%', fontSize: 11, lineHeight: 1.35, color: d.crossUser ? '#B91C1C' : '#92400E' }}>
-                          {d.crossUser ? 'Other person: ' : 'Same person, '}
-                          {d.crossUser
-                            ? d.others.filter(o => o.userId !== r.userId).slice(0, 2).map(o => o.name || o.email).join(', ') + (d.others.filter(o => o.userId !== r.userId).length > 2 ? ` +${d.others.filter(o => o.userId !== r.userId).length - 2}` : '')
-                            : `${d.others.length + 1} payments`}
-                        </span>
-                      ))}
+                      {r.dups.map((d, k) => {
+                        const people = [...new Map(d.others.map(o => [o.userId, o])).values()]
+                        return (
+                          <span key={k} title={d.others.map(o => `${o.name || '(no name)'} <${o.email}> ${pktDate(o.paidAt)} ${o.status}`).join('\n')}
+                            style={{ flexBasis: '100%', fontSize: 11, lineHeight: 1.35, color: '#B91C1C' }}>
+                            With: {people.slice(0, 2).map(o => o.name || o.email).join(', ')}{people.length > 2 ? ` +${people.length - 2}` : ''}
+                          </span>
+                        )
+                      })}
                     </span>
                     <ProofThumb row={r} onOpen={() => setView(r)} />
                   </div>

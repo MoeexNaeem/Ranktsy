@@ -86,10 +86,6 @@ export interface AuditSummary {
   flagged: number
   /** Payments sharing a proof with a DIFFERENT customer. */
   crossUser: number
-  /** Payments whose screenshot was already used by an earlier payment in this list:
-   *  approved more than once for one transfer, so the totals may count it twice. */
-  repeats: number
-  repeatsPkr: number
 }
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/
@@ -133,14 +129,16 @@ function mongoFilter(f: AuditFilters): Record<string, unknown> {
 const normTid = (s: string | null | undefined) => (s ?? '').replace(/[\s-]/g, '').toUpperCase()
 
 /**
- * Groups of payments that share a Transaction ID or a byte-identical screenshot,
- * across ALL local payments (a fake often reuses a real one), with who made each.
+ * Groups of payments where DIFFERENT customers share one Transaction ID or one
+ * byte-identical screenshot, across ALL local payments (a fake often reuses
+ * someone else's real proof). One customer re-sending their own proof is a
+ * resubmission, not a fake, so it is not a group (owner's rule, 2026-10-09).
  * Hashing every proof reads all screenshots once, so the result is kept 10 minutes.
  */
 interface DupIndex { groups: DupGroup[]; byPayment: Map<string, number[]> }
 
 async function duplicateIndex(): Promise<DupIndex> {
-  const key = 'local-audit:dupes:v2'
+  const key = 'local-audit:dupes:v3'
   const hit = memCache.get<{ groups: DupGroup[]; byPayment: [string, number[]][] }>(key)
   if (hit) return { groups: hit.groups, byPayment: new Map(hit.byPayment) }
 
@@ -163,15 +161,15 @@ async function duplicateIndex(): Promise<DupIndex> {
   const groups: DupGroup[] = []
   const add = (kind: DupGroup['kind'], map: Map<string, DupMember[]>) => {
     for (const [k, members] of map) {
-      if (members.length < 2) continue
+      if (new Set(members.map(x => x.userId)).size < 2) continue   // one customer only: a resubmission
       members.sort((a, b) => a.paidAt.localeCompare(b.paidAt))
-      groups.push({ kind, key: kind === 'tid' ? k : k.slice(0, 10), crossUser: new Set(members.map(x => x.userId)).size > 1, members })
+      groups.push({ kind, key: kind === 'tid' ? k : k.slice(0, 10), crossUser: true, members })
     }
   }
   add('tid', byTid)
   add('screenshot', byProof)
-  // Different customers first, then the biggest groups.
-  groups.sort((a, b) => Number(b.crossUser) - Number(a.crossUser) || b.members.length - a.members.length)
+  // Most customers involved first.
+  groups.sort((a, b) => new Set(b.members.map(m => m.userId)).size - new Set(a.members.map(m => m.userId)).size || b.members.length - a.members.length)
   const byPayment = new Map<string, number[]>()
   groups.forEach((g, i) => g.members.forEach(m => { const a = byPayment.get(m.id); if (a) a.push(i); else byPayment.set(m.id, [i]) }))
   memCache.set(key, { groups, byPayment: [...byPayment] }, 600)
@@ -207,7 +205,8 @@ function toRow(p: RawPayment, dup: DupIndex): AuditRow {
   const id = String(p._id)
   const dups: RowDup[] = (dup.byPayment.get(id) ?? []).map(i => {
     const g = dup.groups[i]
-    return { kind: g.kind, crossUser: g.crossUser, others: g.members.filter(m => m.id !== id) }
+    // Only the OTHER customers' payments: the point is who else used this proof.
+    return { kind: g.kind, crossUser: true, others: g.members.filter(m => m.userId !== p.userId) }
   })
   const flags: AuditFlag[] = []
   if (dups.some(d => d.kind === 'tid')) flags.push('duplicate-tid')
@@ -251,11 +250,8 @@ export async function auditRows(f: AuditFilters, opts: { page?: number; limit?: 
   ])
   let rows = raw.map(p => toRow(p, dup))
   const flagged = rows.filter(r => r.flags.some(fl => fl !== 'no-proof')).length
-  // A payment whose screenshot an EARLIER payment in this list already used: the
-  // same transfer counted again in the totals.
   const inList = new Set(rows.map(r => r.id))
-  const repeatRows = rows.filter(r => r.dups.some(d => d.kind === 'screenshot' && d.others.some(o => inList.has(o.id) && o.paidAt < r.paidAt)))
-  const crossUser = rows.filter(r => r.dups.some(d => d.crossUser)).length
+  const crossUser = rows.filter(r => r.dups.length > 0).length
   // Every duplicate group that touches the filtered list, for the "who with whom" view.
   const groups = dup.groups.filter(g => g.members.some(m => inList.has(m.id)))
   if (opts.flaggedOnly) rows = rows.filter(r => r.flags.some(fl => fl !== 'no-proof'))
@@ -267,8 +263,6 @@ export async function auditRows(f: AuditFilters, opts: { page?: number; limit?: 
     jazzcashPkr: by('jazzcash')?.pkr ?? 0,
     flagged,
     crossUser,
-    repeats: repeatRows.length,
-    repeatsPkr: repeatRows.reduce((a, r) => a + r.amountPkr, 0),
   }
   if (!opts.limit) return { rows, total: rows.length, summary, groups }
   const total = rows.length
@@ -295,13 +289,13 @@ export async function auditPayers(q: string) {
 const pktDate = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso))
 const pktTime = (iso: string) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(iso))
 export const FLAG_LABEL: Record<AuditFlag, string> = {
-  'duplicate-tid': 'Transaction ID used more than once',
-  'duplicate-screenshot': 'Same screenshot used more than once',
+  'duplicate-tid': 'Transaction ID also used by another customer',
+  'duplicate-screenshot': 'Screenshot also used by another customer',
   'amount-mismatch': 'Amount differs from plan price',
   'no-proof': 'No screenshot',
 }
 
-const dupKind = (d: RowDup) => `${d.kind === 'tid' ? 'Same Transaction ID' : 'Same screenshot'} (${d.crossUser ? 'different person' : 'same person'})`
+const dupKind = (d: RowDup) => (d.kind === 'tid' ? 'Same Transaction ID' : 'Same screenshot')
 /** "Same screenshot (different person): Asma <a@x.com> 2026-10-07 [id]; …" */
 export const dupText = (r: AuditRow) => r.dups.map(d =>
   `${dupKind(d)}: ${d.others.map(o => `${o.name || '(no name)'} <${o.email}> ${pktDate(o.paidAt)} ${o.status} [${o.id}]`).join(', ')}`).join(' | ')
@@ -371,12 +365,10 @@ export async function auditPdf(f: AuditFilters, rows: AuditRow[], summary: Audit
   text(page, fl, M, y, 9, font, grey); y -= 14
   text(page, `Generated ${pktDate(new Date().toISOString())} ${pktTime(new Date().toISOString())} PKT`, M, y, 9, font, grey); y -= 22
   text(page, `${summary.payments} payments   Total ${rs(summary.totalPkr)}   Bank ${rs(summary.bankPkr)}   JazzCash ${rs(summary.jazzcashPkr)}   With warnings: ${summary.flagged}`, M, y, 11, bold); y -= 16
-  if (summary.crossUser || summary.repeats) {
-    text(page, [
-      summary.crossUser ? `${summary.crossUser} share a proof with a DIFFERENT customer` : '',
-      summary.repeats ? `${summary.repeats} reuse an earlier screenshot in this list (${rs(summary.repeatsPkr)} may be counted twice)` : '',
-    ].filter(Boolean).join('   |   '), M, y, 10, bold, red); y -= 14
-    text(page, 'See "Duplicate groups" after this table for who matches whom.', M, y, 9, font, grey); y -= 10
+  if (summary.crossUser) {
+    text(page, `${summary.crossUser} payment${summary.crossUser === 1 ? '' : 's'} share a screenshot or Transaction ID with a DIFFERENT customer. See "Shared between customers" after this table.`, M, y, 10, bold, red); y -= 10
+  } else {
+    text(page, 'No screenshot or Transaction ID is shared between different customers.', M, y, 10, bold, rgb(0.12, 0.48, 0.27)); y -= 10
   }
   y -= 14
 
@@ -388,10 +380,12 @@ export async function auditPdf(f: AuditFilters, rows: AuditRow[], summary: Audit
   header()
   for (const r of rows) {
     if (y < M + 14) { page = pdf.addPage([W, H]); y = H - M; header() }
-    const dupWho = r.dups.length ? (r.dups.some(d => d.crossUser) ? ' (other)' : ' (same)') : ''
-    const warn = r.flags.filter(x => x !== 'no-proof').length
-      ? r.flags.filter(x => x !== 'no-proof').map(x => x === 'duplicate-tid' ? 'TID' : x === 'duplicate-screenshot' ? 'Img' : 'Amount').join('+') + dupWho
-      : (r.hasProof ? '' : 'No image')
+    const shared = r.flags.filter(x => x === 'duplicate-tid' || x === 'duplicate-screenshot').map(x => (x === 'duplicate-tid' ? 'TID' : 'Img')).join('+')
+    const warn = [
+      shared ? `${shared} shared` : '',
+      r.flags.includes('amount-mismatch') ? 'Amount' : '',
+      !r.hasProof ? 'No image' : '',
+    ].filter(Boolean).join(', ')
     const cells = [`${pktDate(r.paidAt)} ${pktTime(r.paidAt)}`, `${pdfName(r.name)} <${r.email}>`, r.planLabel, r.method === 'bank' ? 'Bank' : 'JazzCash',
       rs(r.amountPkr), r.reference || '-', r.status, warn]
     let x = M
@@ -399,16 +393,15 @@ export async function auditPdf(f: AuditFilters, rows: AuditRow[], summary: Audit
     y -= 14
   }
 
-  // ── Duplicate groups: who matches whom ──
+  // ── Shared between customers: who matches whom ──
   if (groups.length) {
     page = pdf.addPage([W, H]); y = H - M
-    text(page, 'Duplicate groups', M, y, 15, bold); y -= 16
-    text(page, 'Payments that share one Transaction ID or the exact same screenshot. Different customers sharing a proof is the strongest sign of a fake;', M, y, 8.5, font, grey); y -= 11
-    text(page, 'the same customer several times usually means one transfer was approved more than once.', M, y, 8.5, font, grey); y -= 18
+    text(page, 'Shared between customers', M, y, 15, bold); y -= 16
+    text(page, 'Different customers who sent the same Transaction ID or the exact same screenshot. At most one of them can be the real payer.', M, y, 8.5, font, grey); y -= 18
     for (const g of groups) {
       if (y < M + 30 + g.members.length * 13) { page = pdf.addPage([W, H]); y = H - M }
-      const title = `${g.kind === 'tid' ? `Transaction ID ${g.key}` : 'Same screenshot'}  -  ${g.members.length} payments  -  ${g.crossUser ? `${new Set(g.members.map(m => m.userId)).size} DIFFERENT customers` : 'same customer'}`
-      text(page, title, M, y, 10.5, bold, g.crossUser ? red : ink); y -= 14
+      const title = `${g.kind === 'tid' ? `Transaction ID ${g.key}` : 'Same screenshot'}  -  ${new Set(g.members.map(m => m.userId)).size} different customers  -  ${g.members.length} payments`
+      text(page, title, M, y, 10.5, bold, red); y -= 14
       for (const m of g.members) {
         const cells: [string, number][] = [[`${pktDate(m.paidAt)} ${pktTime(m.paidAt)}`, 95], [`${pdfName(m.name)} <${m.email}>`, 250], [rs(m.amountPkr), 72], [m.reference || '-', 120], [m.status, 64], [m.id, 150]]
         let x = M + 12
@@ -440,7 +433,7 @@ export async function auditPdf(f: AuditFilters, rows: AuditRow[], summary: Audit
     const warns = r.flags.filter(x => x !== 'no-proof')
     if (warns.length) { yy -= 2; text(p, `Warning: ${warns.map(x => FLAG_LABEL[x]).join('; ')}`, M, yy, 10, bold, red); yy -= 14 }
     for (const d of r.dups) {
-      text(p, `${dupKind(d)} as:`, M, yy, 9.5, bold, d.crossUser ? red : ink); yy -= 13
+      text(p, `${dupKind(d)} as another customer:`, M, yy, 9.5, bold, red); yy -= 13
       for (const o of d.others.slice(0, 6)) {
         text(p, fit(`${pktDate(o.paidAt)}  ${pdfName(o.name)} <${o.email}>  ${rs(o.amountPkr)}  ${o.status}`, font, 9, PW - M * 2 - 14), M + 14, yy, 9); yy -= 12
       }
