@@ -272,6 +272,11 @@ export const RankWhyPanel = memo(function RankWhyPanel({ query, country, mover, 
         {x.events.length
           ? x.events.map((e, i) => <EventRow key={`${e.kind}-${e.day}-${i}`} e={e} />)
           : <p style={{ margin: 0, fontSize: 13, color: C.graphite }}>No title, tag, sale, stock or rating changes measured ({x.measuredDays} days measured).</p>}
+        {x.sale && x.sale.daysOnSale > 0 && (
+          <p style={{ margin: '10px 0 0', paddingTop: 9, borderTop: `1px solid ${C.hair}`, fontSize: 12.5, color: C.graphite }}>
+            On sale on <strong style={{ color: C.ink }}>{x.sale.daysOnSale} of {x.sale.daysSeen}</strong> measured days{x.sale.maxPct != null ? ` (up to ${x.sale.maxPct}% off)` : ''}.
+          </p>
+        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>

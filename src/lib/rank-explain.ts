@@ -63,6 +63,8 @@ export interface RankExplanation {
   fitNow: KeywordFit | null
   fitAtStart: KeywordFit | null
   pace: { reviews: PaceMetric; favorites: PaceMetric; views: PaceMetric }
+  /** Days seen on sale out of days the sale flag was seen, in the window. */
+  sale: { daysOnSale: number; daysSeen: number; maxPct: number | null } | null
   /** Listings above it now that were below it (or not seen) on the first day. */
   passedBy: { count: number; notSeenBefore: number; sample: PassedListing[] }
   /** Listings below it now that were above it on the first day. */
@@ -151,20 +153,17 @@ export function buildEvents(keyword: string, snaps: SnapRow[], titleSeed: string
   const events: RankEvent[] = []
   // Sale, stock and rating are only recorded on days the page itself was seen, so
   // each is compared with the LAST day it was known, not with the previous row.
-  let lastSale: { v: boolean; day: string } | null = null
   let lastQty: { v: number; day: string } | null = null
   let lastRating: { v: number; day: string } | null = null
   const first = snaps[0]
   if (first) {
-    if (typeof first.onSale === 'boolean') lastSale = { v: first.onSale, day: first.day }
     if (typeof first.quantity === 'number') lastQty = { v: first.quantity, day: first.day }
     if (typeof first.rating === 'number') lastRating = { v: first.rating, day: first.day }
   }
   for (let i = 1; i < snaps.length; i++) {
     const a = snaps[i - 1], b = snaps[i]
     const inWindow = b.day >= windowStart
-    const sale = lastSale, qty = lastQty, rating = lastRating
-    if (typeof b.onSale === 'boolean') lastSale = { v: b.onSale, day: b.day }
+    const qty = lastQty, rating = lastRating
     if (typeof b.quantity === 'number') lastQty = { v: b.quantity, day: b.day }
     if (typeof b.rating === 'number') lastRating = { v: b.rating, day: b.day }
     if (!inWindow) continue
@@ -182,10 +181,6 @@ export function buildEvents(keyword: string, snaps: SnapRow[], titleSeed: string
         events.push({ kind: 'tags', ...base, added, removed, fitBefore: keywordFit(keyword, eb.title, ea.tags), fitAfter: keywordFit(keyword, eb.title, eb.tags) })
       }
     }
-    if (sale && typeof b.onSale === 'boolean' && sale.v !== b.onSale) {
-      const pct = b.onSale && b.priceOriginal && b.price ? Math.round((1 - b.price / b.priceOriginal) * 100) : null
-      events.push({ kind: 'sale', day: b.day, prevDay: sale.day, started: b.onSale, pct })
-    }
     if (qty && typeof b.quantity === 'number' && (qty.v === 0) !== (b.quantity === 0)) {
       events.push({ kind: 'stock', day: b.day, prevDay: qty.day, outOfStock: b.quantity === 0 })
     }
@@ -199,8 +194,45 @@ export function buildEvents(keyword: string, snaps: SnapRow[], titleSeed: string
   // prices), so on live data nearly every "change" was 2x/0.5x or a 1% FX drift
   // (2026-10-09). Sales still show, from the explicit onSale flag. Real price
   // changes need the list price recorded on its own first (see Phase 3).
+  events.push(...saleChanges(snaps, windowStart))
   events.sort((x, y) => (x.day < y.day ? -1 : x.day > y.day ? 1 : 0))
   return { events: events.reverse(), eff }
+}
+
+const salePct = (r: SnapRow) => (r.onSale && r.priceOriginal && r.price ? Math.round((1 - r.price / r.priceOriginal) * 100) : null)
+
+/**
+ * Sale starts and ends that held. Sellers can target a sale at some countries, so
+ * extension users in different places see different prices, and the daily
+ * on-sale flag flips (one listing "started" a 50% sale six times in 12 days,
+ * 2026-10-09). A change counts only when the state held for 3+ measured days on
+ * both sides of it.
+ */
+function saleChanges(snaps: SnapRow[], windowStart: string): RankEvent[] {
+  type Run = { v: boolean; firstDay: string; lastDay: string; n: number; pct: number | null }
+  const merge = (runs: Run[]) => runs.reduce<Run[]>((acc, r) => {
+    const last = acc[acc.length - 1]
+    if (last && last.v === r.v) { last.lastDay = r.lastDay; last.n += r.n; last.pct = last.pct ?? r.pct } else acc.push({ ...r })
+    return acc
+  }, [])
+  const pts = snaps.filter(r => typeof r.onSale === 'boolean')
+  const runs = merge(merge(pts.map(r => ({ v: r.onSale as boolean, firstDay: r.day, lastDay: r.day, n: 1, pct: salePct(r) }))).filter(r => r.n >= 3))
+  const out: RankEvent[] = []
+  for (let i = 1; i < runs.length; i++) {
+    const a = runs[i - 1], b = runs[i]
+    if (b.firstDay < windowStart) continue
+    out.push({ kind: 'sale', day: b.firstDay, prevDay: a.lastDay, started: b.v, pct: b.v ? b.pct : null })
+  }
+  return out
+}
+
+/** How often the listing was seen on sale in the window: always true, even when the flag flips. */
+function saleSummary(rows: SnapRow[]): RankExplanation['sale'] {
+  const seen = rows.filter(r => typeof r.onSale === 'boolean')
+  if (!seen.length) return null
+  const on = seen.filter(r => r.onSale)
+  const pcts = on.map(salePct).filter((v): v is number => v != null && v > 0 && v < 100)
+  return { daysOnSale: on.length, daysSeen: seen.length, maxPct: pcts.length ? Math.max(...pcts) : null }
 }
 
 export async function explainRankMove(
@@ -296,6 +328,7 @@ export async function explainRankMove(
     events,   // newest first
     fitNow: nowTitle || nowTags?.length ? keywordFit(keyword, nowTitle, nowTags) : null,
     fitAtStart: atStart && (atStart.title || atStart.tags?.length) ? keywordFit(keyword, atStart.title, atStart.tags) : null,
+    sale: saleSummary(windowRows),
     pace: {
       reviews: pace(windowRows, beforeRows, 'reviewCount'),
       favorites: pace(windowRows, beforeRows, 'favorers'),
