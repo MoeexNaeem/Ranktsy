@@ -35,11 +35,11 @@ export async function GET(req: NextRequest) {
   }
 
   if (format === 'pdf') {
-    const { rows, summary } = await auditRows(f, { flaggedOnly })
+    const { rows, summary, groups } = await auditRows(f, { flaggedOnly })
     if (rows.length > PDF_MAX) {
       return NextResponse.json({ success: false, error: `${rows.length} payments match. A PDF with screenshots holds up to ${PDF_MAX}: narrow the dates or filters, or export CSV.` }, { status: 400 })
     }
-    const bytes = await auditPdf(f, rows, summary)
+    const bytes = await auditPdf(f, rows, summary, groups)
     return new NextResponse(new Uint8Array(bytes), {
       headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="rankkw-local-payments-${stamp}.pdf"`, 'Cache-Control': 'no-store' },
     })

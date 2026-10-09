@@ -11,10 +11,10 @@ import { Spinner, LoadingBlock, ModalShell, StatCard } from './ui'
 import { C } from '@/utils'
 import { MONO, EmptyState, cardStyle, tableCard, tableHead, th, tableRow, Pagination } from '@/components/dashboard/kit'
 import { LOCAL_PLANS } from '@/lib/local-payments'
-import type { AuditRow, AuditSummary, AuditFlag } from '@/lib/local-payment-audit'
+import type { AuditRow, AuditSummary, AuditFlag, DupGroup } from '@/lib/local-payment-audit'
 
 interface Payer { userId: string; name: string; email: string; payments: number }
-interface Res { rows: AuditRow[]; total: number; pages: number; page: number; limit: number; summary: AuditSummary }
+interface Res { rows: AuditRow[]; total: number; pages: number; page: number; limit: number; summary: AuditSummary; groups: DupGroup[] }
 
 const pkr = (n: number) => `Rs ${Math.round(n ?? 0).toLocaleString('en-US')}`
 const pktDate = (iso: string) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Karachi', day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso))
@@ -106,6 +106,60 @@ function ProofThumb({ row, onOpen }: { row: AuditRow; onOpen: () => void }) {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={`/api/admin/local-payments/${row.id}/proof`} alt="Payment screenshot" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
     </button>
+  )
+}
+
+/** Who matches whom: every set of payments sharing a Transaction ID or screenshot. */
+function DupGroups({ groups }: { groups: DupGroup[] }) {
+  const [open, setOpen] = useState(true)
+  const [all, setAll] = useState(false)
+  const cross = groups.filter(g => g.crossUser).length
+  const shown = all ? groups : groups.slice(0, 8)
+  return (
+    <div style={{ ...cardStyle, padding: '14px 16px' }}>
+      <button onClick={() => setOpen(o => !o)} style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', gap: 10, border: 0, background: 'transparent', padding: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+        <span>
+          <span style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>Duplicate groups</span>
+          <span style={{ fontSize: 12.5, color: C.graphite, marginLeft: 10 }}>
+            {groups.length} group{groups.length === 1 ? '' : 's'}{cross ? <> · <span style={{ color: '#B91C1C', fontWeight: 700 }}>{cross} with different customers</span></> : ''}
+          </span>
+        </span>
+        <span style={{ fontSize: 12, color: C.graphite }}>{open ? 'Hide' : 'Show'}</span>
+      </button>
+      {open && (
+        <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
+          {shown.map((g, i) => {
+            const people = new Set(g.members.map(m => m.userId)).size
+            return (
+              <div key={`${g.kind}-${g.key}-${i}`} style={{ border: `1px solid ${g.crossUser ? 'rgba(185,28,28,0.35)' : C.ash}`, borderRadius: 10, overflow: 'hidden' }}>
+                <div style={{ padding: '8px 12px', background: g.crossUser ? 'rgba(185,28,28,0.06)' : C.canvas, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'baseline' }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: g.crossUser ? '#B91C1C' : C.ink }}>
+                    {g.kind === 'tid' ? <>Transaction ID <span style={{ fontFamily: MONO }}>{g.key}</span></> : 'Same screenshot'}
+                  </span>
+                  <span style={{ fontSize: 12, color: C.graphite }}>
+                    {g.members.length} payments · {g.crossUser ? <strong style={{ color: '#B91C1C' }}>{people} different customers</strong> : 'same customer'}
+                  </span>
+                </div>
+                {g.members.map(m => (
+                  <div key={m.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px,0.8fr) minmax(200px,2fr) minmax(80px,0.6fr) minmax(110px,0.9fr) minmax(80px,0.5fr)', gap: 10, padding: '7px 12px', borderTop: `1px solid ${C.hair}`, alignItems: 'center' }}>
+                    <span style={{ fontSize: 12.5, color: C.ink }}>{pktDate(m.paidAt)} <span style={{ fontFamily: MONO, color: C.stone, fontSize: 11.5 }}>{pktTime(m.paidAt)}</span></span>
+                    <span style={{ minWidth: 0, fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={m.email}>
+                      <strong style={{ color: C.ink }}>{m.name || '(no name)'}</strong> <span style={{ color: C.graphite }}>{m.email}</span>
+                    </span>
+                    <span style={{ fontSize: 12.5, fontFamily: MONO, color: C.ink }}>{pkr(m.amountPkr)}</span>
+                    <span style={{ fontSize: 12, fontFamily: MONO, color: C.graphite, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={m.reference}>{m.reference || '-'}</span>
+                    <span><span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: STATUS[m.status].bg, color: STATUS[m.status].fg }}>{m.status}</span></span>
+                  </div>
+                ))}
+              </div>
+            )
+          })}
+          {groups.length > 8 && (
+            <button onClick={() => setAll(a => !a)} style={{ ...ghostBtn, justifySelf: 'start' }}>{all ? 'Show fewer' : `Show all ${groups.length} groups`}</button>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -213,8 +267,12 @@ export function AdminLocalAudit() {
           <StatCard label="Bank transfer" value={pkr(s.bankPkr)} sub="to match with the bank statement" accent="#2563EB" />
           <StatCard label="JazzCash" value={pkr(s.jazzcashPkr)} sub="to match with JazzCash history" accent={C.orange} />
           <StatCard label="With warnings" value={s.flagged.toLocaleString()} sub="reused TID or screenshot, odd amount" accent="#B91C1C" />
+          <StatCard label="Shared with another person" value={s.crossUser.toLocaleString()} sub="same proof as a different customer" accent="#B91C1C" />
+          <StatCard label="Possibly counted twice" value={pkr(s.repeatsPkr)} sub={`${s.repeats} payment${s.repeats === 1 ? '' : 's'} reuse an earlier screenshot`} accent="#92400E" />
         </div>
       )}
+
+      {res && res.groups.length > 0 && <DupGroups groups={res.groups} />}
 
       {/* Table */}
       {!res && loading ? <LoadingBlock label="Loading local payments" height={200} />
@@ -242,8 +300,17 @@ export function AdminLocalAudit() {
                     <span style={{ fontFamily: MONO, fontSize: 13, textAlign: 'right', fontWeight: 600, color: odd ? '#C2410C' : C.ink }} title={odd && r.planPricePkr ? `Plan price is ${pkr(r.planPricePkr)}` : undefined}>{pkr(r.amountPkr)}</span>
                     <span style={{ fontFamily: MONO, fontSize: 12.5, color: tidDup ? '#B91C1C' : C.ink, fontWeight: tidDup ? 700 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.reference}>{r.reference || '-'}</span>
                     <span><span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 100, background: STATUS[r.status].bg, color: STATUS[r.status].fg }}>{r.status[0].toUpperCase() + r.status.slice(1)}</span></span>
-                    <span style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    <span style={{ display: 'flex', flexWrap: 'wrap', gap: 4, minWidth: 0 }}>
                       {r.flags.map(f => <span key={f} style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 7px', borderRadius: 6, color: FLAG[f].color, background: f === 'no-proof' ? C.canvas : 'rgba(185,28,28,0.08)' }}>{FLAG[f].label}</span>)}
+                      {r.dups.map((d, k) => (
+                        <span key={k} title={d.others.map(o => `${o.name || '(no name)'} <${o.email}> ${pktDate(o.paidAt)} ${o.status}`).join('\n')}
+                          style={{ flexBasis: '100%', fontSize: 11, lineHeight: 1.35, color: d.crossUser ? '#B91C1C' : '#92400E' }}>
+                          {d.crossUser ? 'Other person: ' : 'Same person, '}
+                          {d.crossUser
+                            ? d.others.filter(o => o.userId !== r.userId).slice(0, 2).map(o => o.name || o.email).join(', ') + (d.others.filter(o => o.userId !== r.userId).length > 2 ? ` +${d.others.filter(o => o.userId !== r.userId).length - 2}` : '')
+                            : `${d.others.length + 1} payments`}
+                        </span>
+                      ))}
                     </span>
                     <ProofThumb row={r} onOpen={() => setView(r)} />
                   </div>
