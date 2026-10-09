@@ -32,7 +32,6 @@ const fmtDay = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-
 const dayGap = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000)
 /** "Sep 28", or "Sep 26 to 28" when the change happened between two captures. */
 const when = (e: RankEvent) => (dayGap(e.prevDay, e.day) > 1 ? `${fmtDay(e.prevDay)} to ${fmtDay(e.day)}` : fmtDay(e.day))
-const money = (v: number, cur: string) => `${cur === 'USD' ? '$' : `${cur} `}${v.toFixed(2)}`
 
 const label: React.CSSProperties = { fontSize: 10.5, fontFamily: MONO, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 8px' }
 const box: React.CSSProperties = { border: `1px solid ${C.hair}`, borderRadius: 10, padding: '12px 14px', background: C.paper, minWidth: 0 }
@@ -89,9 +88,6 @@ function EventRow({ e }: { e: RankEvent }) {
     case 'sale':
       icon = '%'; head = e.started ? `Sale started${e.pct != null ? ` (${e.pct}% off)` : ''}` : 'Sale ended'
       break
-    case 'price':
-      icon = '$'; head = `Price ${money(e.from, e.currency)} → ${money(e.to, e.currency)} (${e.pct > 0 ? '+' : ''}${e.pct}%)`
-      break
     case 'stock':
       icon = '▣'; head = e.outOfStock ? 'Sold out' : 'Back in stock'; tone = e.outOfStock ? D.hard : D.good
       break
@@ -140,7 +136,8 @@ function Pace({ name, p }: { name: string; p: PaceMetric }) {
 
 function FitTable({ start, now }: { start: KeywordFit | null; now: KeywordFit | null }) {
   const rows: [string, (f: KeywordFit | null) => string][] = [
-    ['Keyword in title', titlePlace],
+    ['Exact phrase in title', titlePlace],
+    ['All keyword words in title', f => (f?.allWordsInTitle == null ? '-' : f.allWordsInTitle ? 'Yes' : 'No')],
     ['Exact keyword tag', f => (f?.exactTag == null ? '-' : f.exactTag ? 'Yes' : 'No')],
     ['Tags with the phrase', f => (f?.phraseTags == null ? '-' : String(f.phraseTags))],
     ['Tags with a keyword word', f => (f?.wordTags == null ? '-' : String(f.wordTags))],
@@ -214,7 +211,7 @@ function RankChart({ series, events }: { series: WhyMover['series']; events: Ran
     for (const e of events) {
       const at = series.find(p => p.day >= e.day)?.day
       if (!at) continue
-      const tag = e.kind === 'title' ? 'Title' : e.kind === 'tags' ? 'Tags' : e.kind === 'sale' ? 'Sale' : e.kind === 'price' ? 'Price' : e.kind === 'stock' ? 'Stock' : 'Rating'
+      const tag = e.kind === 'title' ? 'Title' : e.kind === 'tags' ? 'Tags' : e.kind === 'sale' ? 'Sale' : e.kind === 'stock' ? 'Stock' : 'Rating'
       if (!out.has(at)) out.set(at, new Set())
       out.get(at)!.add(tag)
     }
@@ -274,7 +271,7 @@ export const RankWhyPanel = memo(function RankWhyPanel({ query, country, mover, 
         <p style={label}>What changed on this listing</p>
         {x.events.length
           ? x.events.map((e, i) => <EventRow key={`${e.kind}-${e.day}-${i}`} e={e} />)
-          : <p style={{ margin: 0, fontSize: 13, color: C.graphite }}>No title, tag, price, sale or stock changes measured ({x.measuredDays} days measured).</p>}
+          : <p style={{ margin: 0, fontSize: 13, color: C.graphite }}>No title, tag, sale, stock or rating changes measured ({x.measuredDays} days measured).</p>}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>

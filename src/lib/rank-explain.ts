@@ -4,7 +4,7 @@
  * Etsy's ranking formula is private and also uses signals nobody outside Etsy can
  * see (clicks, conversion, ads, personalisation). So this never claims a cause. It
  * lists what we MEASURED on the listing around the move (title and tag edits,
- * price and sale changes, stock, rating, the pace of reviews, favorites and views)
+ * sales starting or ending, stock, rating, the pace of reviews, favorites and views)
  * and which listings passed it or were passed. Every value comes from our own daily
  * snapshots; a day we did not capture is reported as a gap, never filled in.
  */
@@ -18,6 +18,8 @@ export interface KeywordFit {
   inTitle: boolean | null
   /** Character index of the phrase in the title, null when absent or unknown. */
   titleIndex: number | null
+  /** Every word of the keyword appears in the title, in any order. */
+  allWordsInTitle: boolean | null
   exactTag: boolean | null
   /** Tags that contain the whole phrase (exact tag included). */
   phraseTags: number | null
@@ -28,7 +30,6 @@ export interface KeywordFit {
 export type RankEvent =
   | { kind: 'title'; day: string; prevDay: string; from: string; to: string; fitBefore: KeywordFit; fitAfter: KeywordFit }
   | { kind: 'tags'; day: string; prevDay: string; added: string[]; removed: string[]; fitBefore: KeywordFit; fitAfter: KeywordFit }
-  | { kind: 'price'; day: string; prevDay: string; from: number; to: number; currency: string; pct: number }
   | { kind: 'sale'; day: string; prevDay: string; started: boolean; pct: number | null }
   | { kind: 'stock'; day: string; prevDay: string; outOfStock: boolean }
   | { kind: 'rating'; day: string; prevDay: string; from: number; to: number }
@@ -94,6 +95,7 @@ export function keywordFit(keyword: string, title: string | undefined, tags: str
   return {
     inTitle: t ? at >= 0 : null,
     titleIndex: at >= 0 ? at : null,
+    allWordsInTitle: t ? words.every(w => ` ${t} `.includes(` ${w} `)) : null,
     exactTag: known ? ntags.includes(phrase) : null,
     phraseTags: known ? ntags.filter(g => ` ${g} `.includes(` ${phrase} `)).length : null,
     wordTags: known ? ntags.filter(g => words.some(w => ` ${g} `.includes(` ${w} `))).length : null,
@@ -114,8 +116,6 @@ export interface SnapRow {
   rating?: number
   quantity?: number
 }
-
-const listPrice = (r: SnapRow) => (r.onSale && r.priceOriginal ? r.priceOriginal : r.price)
 
 /** Gain over a span of measured rows, as total and per day. */
 function gain(rows: SnapRow[], field: 'reviewCount' | 'favorers' | 'views'): { gained: number; perDay: number } | null {
@@ -194,48 +194,13 @@ export function buildEvents(keyword: string, snaps: SnapRow[], titleSeed: string
     }
   }
 
-  events.push(...priceChanges(snaps, windowStart))
+  // No price-change events: daily prices mix the Etsy API list price with what
+  // extension users saw (sale prices without the sale flag, currency-converted
+  // prices), so on live data nearly every "change" was 2x/0.5x or a 1% FX drift
+  // (2026-10-09). Sales still show, from the explicit onSale flag. Real price
+  // changes need the list price recorded on its own first (see Phase 3).
   events.sort((x, y) => (x.day < y.day ? -1 : x.day > y.day ? 1 : 0))
   return { events: events.reverse(), eff }
-}
-
-/**
- * Price changes that really happened. Daily prices come from two sources (the
- * Etsy API's list price, and what an extension user saw, which may be converted
- * to their currency or captured mid-sale), so raw day-to-day differences are
- * mostly noise: 1.99 -> 2.43 -> 1.99 flips, and the odd unit slip (1.81 -> 181)
- * were seen live on 2026-10-09. A change counts only when the LIST price, in the
- * listing's main currency, held for 2+ measured days both before and after it,
- * and is within 3x either way.
- */
-function priceChanges(snaps: SnapRow[], windowStart: string): RankEvent[] {
-  const pts = snaps
-    .map(r => ({ day: r.day, price: listPrice(r), currency: r.currency ?? 'USD' }))
-    .filter((p): p is { day: string; price: number; currency: string } => typeof p.price === 'number' && p.price > 0)
-  if (pts.length < 4) return []
-  const byCur = new Map<string, number>()
-  for (const p of pts) byCur.set(p.currency, (byCur.get(p.currency) ?? 0) + 1)
-  const currency = [...byCur].sort((a, b) => b[1] - a[1])[0][0]
-
-  type Run = { price: number; firstDay: string; lastDay: string; n: number }
-  const same = (a: number, b: number) => Math.abs(a - b) / Math.max(a, b) < 0.005
-  const merge = (runs: Run[]) => runs.reduce<Run[]>((acc, r) => {
-    const last = acc[acc.length - 1]
-    if (last && same(last.price, r.price)) { last.lastDay = r.lastDay; last.n += r.n } else acc.push({ ...r })
-    return acc
-  }, [])
-  let runs = merge(pts.filter(p => p.currency === currency).map(p => ({ price: p.price, firstDay: p.day, lastDay: p.day, n: 1 })))
-  // A price seen on one day only is a reading, not a price the listing held.
-  runs = merge(runs.filter(r => r.n >= 2))
-
-  const out: RankEvent[] = []
-  for (let i = 1; i < runs.length; i++) {
-    const a = runs[i - 1], b = runs[i]
-    const ratio = b.price / a.price
-    if (b.firstDay < windowStart || ratio > 3 || ratio < 1 / 3) continue
-    out.push({ kind: 'price', day: b.firstDay, prevDay: a.lastDay, from: a.price, to: b.price, currency, pct: Math.round((ratio - 1) * 100) })
-  }
-  return out
 }
 
 export async function explainRankMove(
