@@ -38,7 +38,7 @@ const label: React.CSSProperties = { fontSize: 10.5, fontFamily: MONO, color: C.
 const box: React.CSSProperties = { border: `1px solid ${C.hair}`, borderRadius: 10, padding: '12px 14px', background: C.paper, minWidth: 0 }
 
 function titlePlace(f: KeywordFit | null): string {
-  if (!f) return '-'
+  if (!f || f.inTitle == null) return '-'
   if (!f.inTitle || f.titleIndex == null) return 'Not in title'
   if (f.titleIndex === 0) return 'Start of title'
   if (f.titleIndex < 40) return 'First 40 characters'
@@ -47,6 +47,7 @@ function titlePlace(f: KeywordFit | null): string {
 
 /** One plain sentence on how an edit changed the keyword's place in the title. */
 function titleEffect(a: KeywordFit, b: KeywordFit): string | null {
+  if (a.inTitle == null || b.inTitle == null) return null
   if (!a.inTitle && b.inTitle) return b.titleIndex === 0 ? 'Keyword added at the start of the title' : 'Keyword added to the title'
   if (a.inTitle && !b.inTitle) return 'Keyword removed from the title'
   if (a.inTitle && b.inTitle && a.titleIndex != null && b.titleIndex != null && b.titleIndex !== a.titleIndex) {
@@ -73,7 +74,7 @@ function EventRow({ e }: { e: RankEvent }) {
     }
     case 'tags': {
       icon = '#'; head = `Tags edited: ${e.added.length} added, ${e.removed.length} removed`
-      const exact = !e.fitBefore.exactTag && e.fitAfter.exactTag ? 'Exact keyword tag added' : e.fitBefore.exactTag && !e.fitAfter.exactTag ? 'Exact keyword tag removed' : null
+      const exact = e.fitBefore.exactTag === false && e.fitAfter.exactTag ? 'Exact keyword tag added' : e.fitBefore.exactTag && e.fitAfter.exactTag === false ? 'Exact keyword tag removed' : null
       body = (
         <>
           {exact && <p style={{ margin: '2px 0 4px', fontSize: 12.5, fontWeight: 600, color: e.fitAfter.exactTag ? D.good : D.hard }}>{exact}</p>}
@@ -112,6 +113,9 @@ function EventRow({ e }: { e: RankEvent }) {
   )
 }
 
+/** 74.89 -> "75", 0.67 -> "0.7", 0 -> "0". */
+const perDay = (v: number) => (v >= 10 ? Math.round(v).toLocaleString('en-US') : String(Math.round(v * 10) / 10))
+
 function Pace({ name, p }: { name: string; p: PaceMetric }) {
   const ratio = p.perDay != null && p.beforePerDay != null && p.beforePerDay > 0 ? p.perDay / p.beforePerDay : null
   const trend = ratio == null ? null : ratio >= 1.25 ? 'up' : ratio <= 0.8 ? 'down' : 'flat'
@@ -122,8 +126,8 @@ function Pace({ name, p }: { name: string; p: PaceMetric }) {
         {p.gained != null ? `+${p.gained.toLocaleString('en-US')}` : '-'}
       </p>
       <p style={{ margin: '4px 0 0', fontSize: 11.5, fontFamily: MONO, color: C.graphite }}>
-        {p.perDay != null ? `${p.perDay}/day` : 'not measured'}
-        {p.beforePerDay != null && <> · before {p.beforePerDay}/day</>}
+        {p.perDay != null ? `${perDay(p.perDay)}/day` : 'not measured'}
+        {p.beforePerDay != null && <> · before {perDay(p.beforePerDay)}/day</>}
       </p>
       {trend && trend !== 'flat' && (
         <p style={{ margin: '4px 0 0', fontSize: 12, fontWeight: 600, color: trend === 'up' ? D.good : D.hard }}>
@@ -137,9 +141,9 @@ function Pace({ name, p }: { name: string; p: PaceMetric }) {
 function FitTable({ start, now }: { start: KeywordFit | null; now: KeywordFit | null }) {
   const rows: [string, (f: KeywordFit | null) => string][] = [
     ['Keyword in title', titlePlace],
-    ['Exact keyword tag', f => (f ? (f.exactTag ? 'Yes' : 'No') : '-')],
-    ['Tags with the phrase', f => (f ? String(f.phraseTags) : '-')],
-    ['Tags with a keyword word', f => (f ? String(f.wordTags) : '-')],
+    ['Exact keyword tag', f => (f?.exactTag == null ? '-' : f.exactTag ? 'Yes' : 'No')],
+    ['Tags with the phrase', f => (f?.phraseTags == null ? '-' : String(f.phraseTags))],
+    ['Tags with a keyword word', f => (f?.wordTags == null ? '-' : String(f.wordTags))],
   ]
   return (
     <div style={box}>
@@ -206,14 +210,15 @@ function RankChart({ series, events }: { series: WhyMover['series']; events: Ran
   const data = useMemo(() => series.map(p => ({ day: p.day, label: fmtDay(p.day), position: p.position })), [series])
   // Mark each edit on the nearest captured day at or after it.
   const marks = useMemo(() => {
-    const out = new Map<string, string>()
+    const out = new Map<string, Set<string>>()
     for (const e of events) {
       const at = series.find(p => p.day >= e.day)?.day
       if (!at) continue
       const tag = e.kind === 'title' ? 'Title' : e.kind === 'tags' ? 'Tags' : e.kind === 'sale' ? 'Sale' : e.kind === 'price' ? 'Price' : e.kind === 'stock' ? 'Stock' : 'Rating'
-      out.set(at, out.has(at) ? `${out.get(at)} + ${tag}` : tag)
+      if (!out.has(at)) out.set(at, new Set())
+      out.get(at)!.add(tag)
     }
-    return [...out].map(([day, text]) => ({ x: fmtDay(day), text }))
+    return [...out].map(([day, tags]) => ({ x: fmtDay(day), text: [...tags].join(' + ') }))
   }, [events, series])
   if (data.length < 2) return null
   const ps = data.map(d => d.position)
@@ -221,13 +226,13 @@ function RankChart({ series, events }: { series: WhyMover['series']; events: Ran
     <div style={{ ...box, padding: '12px 8px 4px' }}>
       <p style={{ ...label, paddingLeft: 6 }}>Position by day (1 is best)</p>
       <ResponsiveContainer width="100%" height={170}>
-        <LineChart data={data} margin={{ top: 18, right: 14, bottom: 0, left: 0 }}>
+        <LineChart data={data} margin={{ top: 8, right: 14, bottom: 0, left: 0 }}>
           <CartesianGrid stroke="rgba(0,0,0,0.06)" vertical={false} />
           <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9a9a92' }} tickLine={false} axisLine={{ stroke: 'rgba(0,0,0,0.06)' }} minTickGap={18} />
           <YAxis reversed allowDecimals={false} domain={[Math.max(1, Math.min(...ps) - 2), Math.max(...ps) + 2]} tick={{ fontSize: 11, fill: '#9a9a92' }} tickLine={false} axisLine={false} width={34} tickFormatter={v => `#${v}`} />
           <Tooltip formatter={(v) => [`#${v}`, 'Position']} labelStyle={{ fontWeight: 700 }} contentStyle={{ borderRadius: 10, border: `1px solid ${C.hair}`, fontSize: 12 }} />
           {marks.map(m => (
-            <ReferenceLine key={m.x} x={m.x} stroke={C.orange} strokeDasharray="4 3" label={{ value: m.text, position: 'top', fontSize: 10.5, fill: C.orange }} />
+            <ReferenceLine key={m.x} x={m.x} stroke={C.orange} strokeDasharray="4 3" label={{ value: m.text, position: 'insideTopLeft', fontSize: 10.5, fill: C.orange }} />
           ))}
           <Line type="monotone" dataKey="position" stroke={C.ink} strokeWidth={2.2} dot={{ r: 2.5 }} isAnimationActive={false} />
         </LineChart>
@@ -280,7 +285,7 @@ export const RankWhyPanel = memo(function RankWhyPanel({ query, country, mover, 
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 10 }}>
         <FitTable start={x.fitAtStart} now={x.fitNow} />
-        {x.details && <Details d={x.details} s={signals} />}
+        {x.details && (x.details.freeShipping != null || x.details.hasVideo != null || x.details.imageCount != null || x.details.starSeller != null || x.details.badges.length > 0) && <Details d={x.details} s={signals} />}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 10 }}>

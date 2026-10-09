@@ -1171,7 +1171,7 @@ const REVIEW_HISTORY_FROM = /^\d{4}-\d{2}-\d{2}$/.test(process.env.REVIEW_HISTOR
 
 /** A stored reviewCount, or null when it predates REVIEW_HISTORY_FROM. Applied
  *  wherever review deltas are computed, so no consumer sees the fake zeros. */
-const trustedReviews = (day: string, n: number | null | undefined): number | null =>
+export const trustedReviews = (day: string, n: number | null | undefined): number | null =>
   n != null && day >= REVIEW_HISTORY_FROM ? n : null
 
 /**
