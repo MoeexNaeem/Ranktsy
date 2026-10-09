@@ -51,19 +51,68 @@ if ! NEXT_DIST_DIR=.next-build npm run build; then
   exit 1
 fi
 
+# The new build must have everything `next start` needs before the live one is touched.
+for f in BUILD_ID required-server-files.json routes-manifest.json prerender-manifest.json server; do
+  if [ ! -e ".next-build/$f" ]; then
+    echo
+    echo "!! The new build is incomplete (.next-build/$f is missing). The live site was NOT touched."
+    echo "!! Contents of .next-build:"; ls -la .next-build | head -30
+    exit 1
+  fi
+done
+
+# Put build folder $1 in place as .next. Live workers keep writing cache files, and
+# in the instant after the old .next is moved away one of them can recreate an
+# empty .next; a plain `mv` then puts the build INSIDE it (.next/.next-build), the
+# workers find no BUILD_ID and the site goes down (2026-10-09 outage). `mv -T` never
+# nests: it fails on a non-empty .next, which is then moved aside and retried.
+swap_in() {
+  local src="$1" i
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    if mv -T "$src" .next 2>/dev/null; then return 0; fi
+    rm -rf .next-stray
+    mv -T .next .next-stray 2>/dev/null || true
+  done
+  return 1
+}
+
 echo "==> Swapping in the new build"
-rm -rf .next-old
-if [ -d .next ]; then mv .next .next-old; fi
-mv .next-build .next
+rm -rf .next-old .next-stray
+if [ -d .next ]; then mv -T .next .next-old; fi
+if ! swap_in .next-build || [ ! -f .next/BUILD_ID ]; then
+  echo "!! Could not put the new build in place. Restoring the previous one."
+  [ -d .next-old ] && swap_in .next-old || true
+  pm2 restart rankkw --update-env || true
+  exit 1
+fi
+rm -rf .next-stray
 
 echo "==> Restarting all workers"
 restore_workers
 pm2 restart rankkw --update-env
 pm2 save >/dev/null
 
-sleep 5
-pm2 list
+# Wait for the site to answer. If it does not within ~90 s, put the previous build
+# back automatically so a bad deploy never leaves the site down.
 echo "==> Health check"
-curl -s -m 20 http://localhost:3000/api/health || echo "(health check did not answer yet, run: pm2 logs rankkw --lines 50)"
-echo
-echo "Done. Previous build kept in .next-old (see the roll-back line at the top of this script)."
+healthy=0
+for i in $(seq 1 18); do
+  sleep 5
+  if curl -s -m 10 http://localhost:3000/api/health | grep -q '"ok":true'; then healthy=1; break; fi
+done
+if [ "$healthy" = 1 ]; then
+  curl -s -m 10 http://localhost:3000/api/health || true; echo
+  pm2 list || true
+  echo "Done. Previous build kept in .next-old (see the roll-back line at the top of this script)."
+else
+  echo "!! The new build did not come up healthy in 90 s. Rolling back to the previous build."
+  pm2 logs rankkw --err --lines 20 --nostream 2>/dev/null | tail -20 || true
+  if [ -d .next-old ]; then
+    rm -rf .next-failed; mv -T .next .next-failed || true; swap_in .next-old || true
+    pm2 restart rankkw --update-env || true
+    sleep 10
+    curl -s -m 20 http://localhost:3000/api/health || true; echo
+    echo "!! Rolled back. The failed build is kept in .next-failed for inspection."
+  fi
+  exit 1
+fi
