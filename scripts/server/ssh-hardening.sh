@@ -34,8 +34,20 @@ findtime = 1d
 maxretry = 5
 EOF
 
-systemctl enable --now fail2ban
-sleep 2
+# The recidive jail reads fail2ban's own log file, and fail2ban refuses to start if
+# that file is missing ("Have not found any log file for recidive jail", seen
+# 2026-10-09 on CentOS 9). Log to the file explicitly and make sure it exists.
+mkdir -p /etc/fail2ban/fail2ban.d
+printf '[Definition]\nlogtarget = /var/log/fail2ban.log\n' > /etc/fail2ban/fail2ban.d/rankkw.local
+touch /var/log/fail2ban.log
+# Ban through firewalld when it runs (aaPanel's firewall), otherwise nftables directly.
+if ! systemctl is-active --quiet firewalld; then
+  sed -i 's/^banaction = .*/banaction = nftables-multiport/' /etc/fail2ban/jail.d/rankkw-sshd.local
+fi
+
+systemctl enable fail2ban
+systemctl restart fail2ban
+sleep 3
 fail2ban-client status sshd || true
 
 cat <<'NOTE'
