@@ -344,6 +344,18 @@ const ListingSnapshotSchema = new Schema<IListingSnapshot>({
   quantity:      { type: Number },
   // Best rank this listing held in any tracked keyword that day (1 = top).
   bestRank:      { type: Number },
+  // Stored only on the day they change (2026-10-09), so they add almost nothing:
+  // the seller's own list price from the API (the `price` above mixes sources),
+  // Etsy's last-modified / expiry timestamps (edits, renewals), and listing-page
+  // signals. No defaults, for the same reason as above.
+  listPrice:     { type: Number },
+  listCurrency:  { type: String },
+  modTs:         { type: Number },
+  endTs:         { type: Number },
+  freeShipping:  { type: Boolean },
+  hasVideo:      { type: Boolean },
+  imageCount:    { type: Number },
+  badges:        { type: [String], default: undefined },
   capturedAt: { type: Date, default: Date.now },
 }, { timestamps: false })
 
@@ -403,6 +415,11 @@ const TrackedListingSchema = new Schema<ITrackedListing>({
   personalisable:  { type: Boolean, default: null },
   returnsAccepted: { type: Boolean, default: null },
   reviewStars:     { type: [Number], default: undefined },
+  // Last values stored on a snapshot, so the next one is written only on change.
+  listPrice:       { type: Number, default: undefined },
+  listCurrency:    { type: String, default: undefined },
+  modTs:           { type: Number, default: undefined },
+  endTs:           { type: Number, default: undefined },
   lastPrice:       { type: Number, default: null },
   lastViews:       { type: Number, default: null },
   lastFavorers:    { type: Number, default: null },

@@ -31,7 +31,18 @@ export interface WhySignals {
 const fmtDay = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
 const dayGap = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000)
 /** "Sep 28", or "Sep 26 to 28" when the change happened between two captures. */
-const when = (e: RankEvent) => (dayGap(e.prevDay, e.day) > 1 ? `${fmtDay(e.prevDay)} to ${fmtDay(e.day)}` : fmtDay(e.day))
+/** "Sep 28", "Sep 26 to 28" when it happened between two captures, or "seen Sep 28"
+ *  for signals stored only when they change (we know it changed by that day). */
+const when = (e: RankEvent) => ('firstSeen' in e
+  ? `seen ${fmtDay(e.day)}`
+  : dayGap(e.prevDay, e.day) > 1 ? `${fmtDay(e.prevDay)} to ${fmtDay(e.day)}` : fmtDay(e.day))
+const money = (v: number, cur: string) => `${cur === 'USD' ? '$' : `${cur} `}${v.toFixed(2)}`
+
+/** Short chart label per event kind. */
+const MARK: Record<RankEvent['kind'], string> = {
+  title: 'Title', tags: 'Tags', sale: 'Sale', stock: 'Stock', rating: 'Rating', price: 'Price',
+  renewed: 'Renewed', edited: 'Updated', shipping: 'Shipping', video: 'Video', photos: 'Photos', badges: 'Badge',
+}
 
 const label: React.CSSProperties = { fontSize: 10.5, fontFamily: MONO, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 8px' }
 const box: React.CSSProperties = { border: `1px solid ${C.hair}`, borderRadius: 10, padding: '12px 14px', background: C.paper, minWidth: 0 }
@@ -93,6 +104,28 @@ function EventRow({ e }: { e: RankEvent }) {
       break
     case 'rating':
       icon = '★'; head = `Rating ${e.from.toFixed(1)} → ${e.to.toFixed(1)}`; tone = e.to > e.from ? D.good : D.hard
+      break
+    case 'price':
+      icon = '$'; head = `Price ${money(e.from, e.currency)} → ${money(e.to, e.currency)} (${e.pct > 0 ? '+' : ''}${e.pct}%)`
+      break
+    case 'renewed':
+      icon = '↻'; head = 'Listing renewed (manually or after a sale)'
+      break
+    case 'edited':
+      icon = '✎'; head = 'Listing updated (not the title or tags)'
+      break
+    case 'shipping':
+      icon = '⇄'; head = e.free ? 'Free shipping added' : 'Free shipping removed'; tone = e.free ? D.good : D.hard
+      break
+    case 'video':
+      icon = '▶'; head = e.added ? 'Video added' : 'Video removed'; tone = e.added ? D.good : D.hard
+      break
+    case 'photos':
+      icon = '▦'; head = `Photos ${e.from} → ${e.to}`
+      break
+    case 'badges':
+      icon = '◆'; head = [e.gained.length ? `Badge gained: ${e.gained.join(', ')}` : '', e.lost.length ? `Badge lost: ${e.lost.join(', ')}` : ''].filter(Boolean).join(' · ')
+      tone = e.gained.length && !e.lost.length ? D.good : e.lost.length && !e.gained.length ? D.hard : C.ink
       break
   }
   return (
@@ -211,7 +244,7 @@ function RankChart({ series, events }: { series: WhyMover['series']; events: Ran
     for (const e of events) {
       const at = series.find(p => p.day >= e.day)?.day
       if (!at) continue
-      const tag = e.kind === 'title' ? 'Title' : e.kind === 'tags' ? 'Tags' : e.kind === 'sale' ? 'Sale' : e.kind === 'stock' ? 'Stock' : 'Rating'
+      const tag = MARK[e.kind]
       if (!out.has(at)) out.set(at, new Set())
       out.get(at)!.add(tag)
     }

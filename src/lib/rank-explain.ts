@@ -33,6 +33,15 @@ export type RankEvent =
   | { kind: 'sale'; day: string; prevDay: string; started: boolean; pct: number | null }
   | { kind: 'stock'; day: string; prevDay: string; outOfStock: boolean }
   | { kind: 'rating'; day: string; prevDay: string; from: number; to: number }
+  // Recorded since 2026-10-09, only on the day a value changes. `firstSeen` = the
+  // change was first seen that day (it happened since the previous sighting).
+  | { kind: 'price'; day: string; prevDay: string; firstSeen: true; from: number; to: number; currency: string; pct: number }
+  | { kind: 'renewed'; day: string; prevDay: string; firstSeen: true }
+  | { kind: 'edited'; day: string; prevDay: string }
+  | { kind: 'shipping'; day: string; prevDay: string; firstSeen: true; free: boolean }
+  | { kind: 'video'; day: string; prevDay: string; firstSeen: true; added: boolean }
+  | { kind: 'photos'; day: string; prevDay: string; firstSeen: true; from: number; to: number }
+  | { kind: 'badges'; day: string; prevDay: string; firstSeen: true; gained: string[]; lost: string[] }
 
 /** Gained per day in the move window vs the same length of time just before it. */
 export interface PaceMetric {
@@ -65,6 +74,9 @@ export interface RankExplanation {
   pace: { reviews: PaceMetric; favorites: PaceMetric; views: PaceMetric }
   /** Days seen on sale out of days the sale flag was seen, in the window. */
   sale: { daysOnSale: number; daysSeen: number; maxPct: number | null } | null
+  /** Which recorded-since-2026-10-09 signals were already watched when the window
+   *  began. False = we could not have seen such a change, so it must not read as "none". */
+  coverage: Record<RecordedSignal, boolean>
   /** Listings above it now that were below it (or not seen) on the first day. */
   passedBy: { count: number; notSeenBefore: number; sample: PassedListing[] }
   /** Listings below it now that were above it on the first day. */
@@ -118,6 +130,104 @@ export interface SnapRow {
   onSale?: boolean
   rating?: number
   quantity?: number
+  listPrice?: number
+  listCurrency?: string
+  modTs?: number
+  endTs?: number
+  freeShipping?: boolean
+  hasVideo?: boolean
+  imageCount?: number
+  badges?: string[]
+}
+
+/** Signals recorded only since 2026-10-09; see `Coverage`. */
+export type RecordedSignal = 'price' | 'renewal' | 'edits' | 'page'
+
+const dayOfTs = (ts: number) => new Date(ts * 1000).toISOString().slice(0, 10)
+
+/**
+ * Events from the change-only fields: list price, edit and expiry timestamps, and
+ * listing-page signals. Each value is stored only on the day it changed, so a
+ * stored value that differs from the previous stored one IS a change; the very
+ * first value is the baseline. Only changes on or after `windowStart` are returned.
+ */
+export function changeEvents(snaps: SnapRow[], windowStart: string, titleOrTagDays: Set<string>): RankEvent[] {
+  const out: RankEvent[] = []
+  let price: { v: number; cur: string } | null = null
+  let end: number | null = null
+  let mod: number | null = null
+  let ship: boolean | null = null
+  let video: boolean | null = null
+  let imgs: number | null = null
+  let badges: string[] | null = null
+  let prevDay = ''
+  const norm = (b: string[]) => b.map(x => x.trim()).filter(Boolean)
+  for (const r of snaps) {
+    const inWindow = r.day >= windowStart
+    const base = { day: r.day, prevDay: prevDay || r.day, firstSeen: true as const }
+    let renewedHere = false, pricedHere = false
+    if (typeof r.listPrice === 'number' && r.listPrice > 0) {
+      const cur = r.listCurrency ?? 'USD'
+      if (price && price.cur === cur && inWindow) {
+        const ratio = r.listPrice / price.v
+        // A 3x jump either way is a unit slip, not a price the seller set.
+        if (Math.abs(ratio - 1) >= 0.005 && ratio <= 3 && ratio >= 1 / 3) {
+          out.push({ kind: 'price', ...base, from: price.v, to: r.listPrice, currency: cur, pct: Math.round((ratio - 1) * 100) })
+          pricedHere = true
+        }
+      }
+      price = { v: r.listPrice, cur }
+    }
+    if (typeof r.endTs === 'number') {
+      // Renewing sets a new expiry months ahead; a few days' shift is not a renewal.
+      if (end != null && r.endTs - end > 2 * 86_400 && inWindow) { out.push({ kind: 'renewed', ...base }); renewedHere = true }
+      end = r.endTs
+    }
+    if (typeof r.modTs === 'number') {
+      const editDay = dayOfTs(r.modTs)
+      // An edit already explained by a title/tag/price change or a renewal is not repeated.
+      if (mod != null && r.modTs > mod && editDay >= windowStart && !renewedHere && !pricedHere && !titleOrTagDays.has(r.day)) {
+        out.push({ kind: 'edited', day: editDay, prevDay: editDay })
+      }
+      mod = r.modTs
+    }
+    if (typeof r.freeShipping === 'boolean') {
+      if (ship != null && ship !== r.freeShipping && inWindow) out.push({ kind: 'shipping', ...base, free: r.freeShipping })
+      ship = r.freeShipping
+    }
+    if (typeof r.hasVideo === 'boolean') {
+      if (video != null && video !== r.hasVideo && inWindow) out.push({ kind: 'video', ...base, added: r.hasVideo })
+      video = r.hasVideo
+    }
+    if (typeof r.imageCount === 'number') {
+      if (imgs != null && imgs !== r.imageCount && inWindow) out.push({ kind: 'photos', ...base, from: imgs, to: r.imageCount })
+      imgs = r.imageCount
+    }
+    if (r.badges?.length) {
+      const now = norm(r.badges)
+      if (badges && inWindow) {
+        const low = (l: string[]) => new Set(l.map(x => x.toLowerCase()))
+        const before = low(badges), after = low(now)
+        const gained = now.filter(x => !before.has(x.toLowerCase()))
+        const lost = badges.filter(x => !after.has(x.toLowerCase()))
+        if (gained.length || lost.length) out.push({ kind: 'badges', ...base, gained, lost })
+      }
+      badges = now
+    }
+    prevDay = r.day
+  }
+  return out
+}
+
+/** First day each recorded-only-on-change signal was seen for this listing. */
+export function signalBaselines(snaps: SnapRow[]): Record<RecordedSignal, string | null> {
+  const first = (f: (r: SnapRow) => boolean) => snaps.find(f)?.day ?? null
+  return {
+    price: first(r => typeof r.listPrice === 'number'),
+    renewal: first(r => typeof r.endTs === 'number'),
+    edits: first(r => typeof r.modTs === 'number'),
+    page: first(r => typeof r.freeShipping === 'boolean' || typeof r.hasVideo === 'boolean' || typeof r.imageCount === 'number' || !!r.badges?.length),
+  }
 }
 
 /** Gain over a span of measured rows, as total and per day. */
@@ -196,6 +306,8 @@ export function buildEvents(keyword: string, snaps: SnapRow[], titleSeed: string
   // (2026-10-09). Sales still show, from the explicit onSale flag. Real price
   // changes need the list price recorded on its own first (see Phase 3).
   events.push(...saleChanges(snaps, windowStart))
+  const editedDays = new Set(events.filter(e => e.kind === 'title' || e.kind === 'tags').map(e => e.day))
+  events.push(...changeEvents(snaps, windowStart, editedDays))
   events.sort((x, y) => (x.day < y.day ? -1 : x.day > y.day ? 1 : 0))
   return { events: events.reverse(), eff }
 }
@@ -238,7 +350,7 @@ function saleSummary(rows: SnapRow[]): RankExplanation['sale'] {
 
 /** The measured facts about one listing over its move window (shared by the
  *  single-listing panel and the per-keyword comparison). */
-export type ListingFacts = Pick<RankExplanation, 'measuredDays' | 'events' | 'fitNow' | 'fitAtStart' | 'sale' | 'pace' | 'details'>
+export type ListingFacts = Pick<RankExplanation, 'measuredDays' | 'events' | 'fitNow' | 'fitAtStart' | 'sale' | 'pace' | 'details' | 'coverage'>
 
 interface MetaRow { listingId: number; isDigital?: boolean | null; title?: string; tags?: string[]; freeShipping?: boolean | null; hasVideo?: boolean | null; imageCount?: number | null; starSeller?: boolean | null; badges?: string[]; personalisable?: boolean | null }
 
@@ -265,33 +377,36 @@ export async function loadListingFacts(keyword: string, items: { listingId: numb
   const minBefore = [...win.values()].reduce((m, w) => (w.beforeStart < m ? w.beforeStart : m), '9999-99-99')
   const maxTo = [...win.values()].reduce((m, w) => (w.to > m ? w.to : m), '0000-00-00')
 
-  const seed = (field: 'title' | 'tags') => ListingSnapshot.aggregate<{ _id: number; v: string | string[] }>([
-    { $match: { listingId: { $in: ids }, day: { $lt: minBefore }, ...(field === 'title' ? { title: { $nin: [null, ''] } } : { 'tags.0': { $exists: true } }) } },
-    { $sort: { listingId: 1, day: -1 } },
-    { $group: { _id: '$listingId', v: { $first: `$${field}` } } },
-  ]).option({ maxTimeMS: HISTORY_MAX_MS })
-
-  const [snaps, titleSeeds, tagSeeds, metas] = await Promise.all([
+  const FIELDS = 'listingId day title tags price currency views favorers reviewCount priceOriginal onSale rating quantity listPrice listCurrency modTs endTs freeShipping hasVideo imageCount badges'
+  const [snaps, prior, metas] = await Promise.all([
     historyRead(() => ListingSnapshot.find({ listingId: { $in: ids }, day: { $gte: minBefore, $lte: maxTo } })
       .sort({ listingId: 1, day: 1 })
-      .select('listingId day title tags price currency views favorers reviewCount priceOriginal onSale rating quantity')
+      .select(FIELDS)
       .maxTimeMS(HISTORY_MAX_MS)
       .lean<(SnapRow & { listingId: number })[]>()),
-    historyRead(() => seed('title')),
-    historyRead(() => seed('tags')),
+    // Before the range only the change-day rows matter (title, tags and the
+    // recorded signals are stored on change days), and they seed the carry-forward.
+    historyRead(() => ListingSnapshot.find({
+      listingId: { $in: ids }, day: { $lt: minBefore },
+      $or: [{ title: { $nin: [null, ''] } }, { 'tags.0': { $exists: true } }, { listPrice: { $exists: true } }, { modTs: { $exists: true } },
+        { endTs: { $exists: true } }, { freeShipping: { $exists: true } }, { hasVideo: { $exists: true } }, { imageCount: { $exists: true } }, { 'badges.0': { $exists: true } }],
+    })
+      .sort({ listingId: 1, day: 1 })
+      .select('listingId day title tags listPrice listCurrency modTs endTs freeShipping hasVideo imageCount badges')
+      .maxTimeMS(HISTORY_MAX_MS)
+      .lean<(SnapRow & { listingId: number })[]>()),
     TrackedListing.find({ listingId: { $in: ids } })
       .select('listingId title tags freeShipping hasVideo imageCount starSeller badges personalisable isDigital')
       .lean<MetaRow[]>(),
   ])
   const byListing = new Map<number, SnapRow[]>()
-  for (const r of snaps) { const a = byListing.get(r.listingId); if (a) a.push(r); else byListing.set(r.listingId, [r]) }
-  const titleSeed = new Map(titleSeeds.map(t => [t._id, t.v as string]))
-  const tagSeed = new Map(tagSeeds.map(t => [t._id, t.v as string[]]))
+  for (const r of [...prior, ...snaps]) { const a = byListing.get(r.listingId); if (a) a.push(r); else byListing.set(r.listingId, [r]) }
   const metaOf = new Map(metas.map(m => [m.listingId, m]))
 
   for (const [listingId, w] of win) {
     const rows = (byListing.get(listingId) ?? []).filter(r => r.day <= w.to)
-    const { events, eff } = buildEvents(keyword, rows, titleSeed.get(listingId), tagSeed.get(listingId), w.windowStart)
+    const { events, eff } = buildEvents(keyword, rows, undefined, undefined, w.windowStart)
+    const base = signalBaselines(rows)
     const windowRows = rows.filter(r => r.day >= w.windowStart)
     const beforeRows = rows.filter(r => r.day >= w.beforeStart && r.day < w.windowStart)
     const startIdx = rows.findIndex(r => r.day >= w.from)
@@ -305,6 +420,12 @@ export async function loadListingFacts(keyword: string, items: { listingId: numb
       fitNow: nowTitle || nowTags?.length ? keywordFit(keyword, nowTitle, nowTags) : null,
       fitAtStart: atStart && (atStart.title || atStart.tags?.length) ? keywordFit(keyword, atStart.title, atStart.tags) : null,
       sale: saleSummary(windowRows),
+      coverage: {
+        price: base.price != null && base.price <= w.from,
+        renewal: base.renewal != null && base.renewal <= w.from,
+        edits: base.edits != null && base.edits <= w.from,
+        page: base.page != null && base.page <= w.from,
+      },
       pace: {
         reviews: pace(windowRows, beforeRows, 'reviewCount'),
         favorites: pace(windowRows, beforeRows, 'favorers'),
@@ -435,6 +556,14 @@ const TRAITS: Trait[] = [
     test: f => f.pace.favorites.perDay == null || f.pace.favorites.beforePerDay == null ? null : f.pace.favorites.perDay > f.pace.favorites.beforePerDay * 1.25,
   },
   { key: 'onSale', label: 'On sale most days', test: f => f.sale && f.sale.daysSeen > 0 ? f.sale.daysOnSale / f.sale.daysSeen >= 0.5 : null },
+  // Etsy renews multi-quantity listings on each sale, so this counts both kinds.
+  { key: 'renewed', label: 'Renewed (manually or after a sale)', test: f => !f.coverage.renewal ? null : f.events.some(e => e.kind === 'renewed') },
+  { key: 'priceChanged', label: 'Changed the price', test: f => !f.coverage.price ? null : f.events.some(e => e.kind === 'price') },
+  { key: 'priceCut', label: 'Lowered the price', test: f => !f.coverage.price ? null : f.events.some(e => e.kind === 'price' && e.pct < 0) },
+  // No trait for 'edited': Etsy's last-modified time can also move on a sale, so it
+  // would mostly count sales and suggest that editing helps.
+  { key: 'badgeGained', label: 'Gained an Etsy badge', test: f => !f.coverage.page ? null : f.events.some(e => e.kind === 'badges' && e.gained.length > 0) },
+  { key: 'freeShipAdded', label: 'Added free shipping', test: f => !f.coverage.page ? null : f.events.some(e => e.kind === 'shipping' && e.free) },
   { key: 'soldOut', label: 'Sold out at some point', test: f => f.measuredDays < 2 ? null : f.events.some(e => e.kind === 'stock' && e.outOfStock) },
   { key: 'freeShipping', label: 'Free shipping', test: f => f.details?.freeShipping ?? null },
   { key: 'video', label: 'Has a video', test: f => f.details?.hasVideo ?? null },

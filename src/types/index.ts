@@ -418,6 +418,10 @@ export interface EtsyListing {
   shop_id?: number
   taxonomy_id?: number
   created_timestamp?: number   // epoch seconds; listing age → views/day
+  /** Last time the seller edited the listing (epoch seconds). */
+  modified_timestamp?: number
+  /** When the listing expires (epoch seconds); a renewal pushes it forward. */
+  ending_timestamp?: number
   processing_min?: number      // seller's stated processing window, in days
   processing_max?: number
   /** Review count saved in the shared Collective package (Ranktsy Bulk search);
@@ -531,6 +535,21 @@ export interface IListingSnapshot {
   quantity?: number | null
   /** Best (lowest) organic rank held in any observed keyword that day. */
   bestRank?: number | null
+  // ── Stored only on the day they change (absent = unchanged) ──
+  /** The seller's list price in the shop's currency, from the Etsy API only. The
+   *  `price` field mixes this with what extension users saw (sale or converted
+   *  prices), so price changes are read from here. */
+  listPrice?: number
+  listCurrency?: string
+  /** Etsy's last-modified and expiry timestamps (epoch seconds): a new modTs is an
+   *  edit, a later endTs is a renewal. */
+  modTs?: number
+  endTs?: number
+  /** Listing-page signals, when they change. */
+  freeShipping?: boolean
+  hasVideo?: boolean
+  imageCount?: number
+  badges?: string[]
   capturedAt: Date
 }
 
@@ -579,6 +598,11 @@ export interface ITrackedListing {
   /** Star histogram [5,4,3,2,1]. The API gives count and average only, so a 4.2
    *  hiding twenty 1-star reviews is invisible without this. */
   reviewStars?: number[]
+  /** Last stored list price / timestamps, to store snapshots only on change. */
+  listPrice?: number | null
+  listCurrency?: string | null
+  modTs?: number | null
+  endTs?: number | null
   // Newest observed state, denormalised off the latest snapshot.
   lastPrice?: number | null
   lastViews?: number | null

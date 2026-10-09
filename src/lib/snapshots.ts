@@ -169,14 +169,40 @@ const tagsFp = (t?: string[] | null) => {
   return k ? createHash('sha1').update(k).digest('base64url').slice(0, 16) : ''
 }
 
-async function knownTitleTags(ids: number[]): Promise<Map<number, { title: string; tagsFp: string }>> {
+interface KnownListing {
+  title: string
+  tagsFp: string
+  listPrice: number | null
+  listCurrency: string | null
+  modTs: number | null
+  endTs: number | null
+  freeShipping: boolean | null
+  hasVideo: boolean | null
+  imageCount: number | null
+  badges: string
+}
+
+async function knownTitleTags(ids: number[]): Promise<Map<number, KnownListing>> {
   if (!ids.length) return new Map()
   const rows = await TrackedListing.find({ listingId: { $in: ids } })
-    .select('listingId title tags tagsFp')
-    .lean<{ listingId: number; title?: string; tags?: string[]; tagsFp?: string }[]>()
+    .select('listingId title tags tagsFp listPrice listCurrency modTs endTs freeShipping hasVideo imageCount badges')
+    .lean<{ listingId: number; title?: string; tags?: string[]; tagsFp?: string; listPrice?: number | null; listCurrency?: string | null; modTs?: number | null; endTs?: number | null; freeShipping?: boolean | null; hasVideo?: boolean | null; imageCount?: number | null; badges?: string[] }[]>()
   // Rows written before 2026-10-08 still hold the full list: fingerprint it the same way.
-  return new Map(rows.map(r => [r.listingId, { title: r.title ?? '', tagsFp: r.tagsFp ?? tagsFp(r.tags) }]))
+  return new Map(rows.map(r => [r.listingId, {
+    title: r.title ?? '',
+    tagsFp: r.tagsFp ?? tagsFp(r.tags),
+    listPrice: r.listPrice ?? null,
+    listCurrency: r.listCurrency ?? null,
+    modTs: r.modTs ?? null,
+    endTs: r.endTs ?? null,
+    freeShipping: r.freeShipping ?? null,
+    hasVideo: r.hasVideo ?? null,
+    imageCount: r.imageCount ?? null,
+    badges: badgesKey(r.badges),
+  }]))
 }
+
+const badgesKey = (b: string[] | null | undefined) => (b ?? []).map(x => x.toLowerCase().trim()).filter(Boolean).sort().join('|')
 
 /** Record listing state for change-tracking. Fire-and-forget. */
 export function recordListingSnapshots(listings: EtsyListing[]): void {
@@ -187,7 +213,7 @@ export function recordListingSnapshots(listings: EtsyListing[]): void {
       await connectDB()
       const day = dayKey()
       const known = await knownTitleTags(rows.map(l => l.listing_id))
-      const changedTracked: { listingId: number; title?: string; tags?: string[] }[] = []
+      const changedTracked: { listingId: number; title?: string; tags?: string[]; list?: { listPrice: number; listCurrency: string }; modTs?: number; endTs?: number }[] = []
       const written = await ListingSnapshot.bulkWrite(
         rows.map(l => {
           const set: Record<string, unknown> = {
@@ -199,10 +225,22 @@ export function recordListingSnapshots(listings: EtsyListing[]): void {
             capturedAt: new Date(),
           }
           const k = known.get(l.listing_id)
-          const change: { listingId: number; title?: string; tags?: string[] } = { listingId: l.listing_id }
+          const change: (typeof changedTracked)[number] = { listingId: l.listing_id }
           if (l.title && l.title !== k?.title) { set.title = l.title; change.title = l.title }
           if (l.tags?.length && tagsFp(l.tags) !== k?.tagsFp) { set.tags = l.tags; change.tags = l.tags }
-          if (k && (change.title || change.tags)) changedTracked.push(change)
+          // The seller's own list price, edit time and expiry, stored on the day they
+          // change (the first value seen is the baseline). Untracked listings have no
+          // known value to compare with, so they are not stored for them.
+          if (k) {
+            const listPrice = Math.round((l.price.amount / (l.price.divisor || 100)) * 100) / 100
+            if (listPrice > 0 && (listPrice !== k.listPrice || l.price.currency_code !== k.listCurrency)) {
+              set.listPrice = listPrice; set.listCurrency = l.price.currency_code
+              change.list = { listPrice, listCurrency: l.price.currency_code }
+            }
+            if (l.modified_timestamp && l.modified_timestamp !== k.modTs) { set.modTs = l.modified_timestamp; change.modTs = l.modified_timestamp }
+            if (l.ending_timestamp && l.ending_timestamp !== k.endTs) { set.endTs = l.ending_timestamp; change.endTs = l.ending_timestamp }
+          }
+          if (k && (change.title || change.tags || change.list || change.modTs || change.endTs)) changedTracked.push(change)
           return {
             updateOne: {
               filter: { listingId: l.listing_id, day },
@@ -222,7 +260,13 @@ export function recordListingSnapshots(listings: EtsyListing[]): void {
           updateOne: {
             filter: { listingId: c.listingId },
             update: {
-              $set: { ...(c.title ? { title: c.title } : {}), ...(c.tags ? { tagsFp: tagsFp(c.tags) } : {}) },
+              $set: {
+                ...(c.title ? { title: c.title } : {}),
+                ...(c.tags ? { tagsFp: tagsFp(c.tags) } : {}),
+                ...(c.list ?? {}),
+                ...(c.modTs ? { modTs: c.modTs } : {}),
+                ...(c.endTs ? { endTs: c.endTs } : {}),
+              },
               ...(c.tags ? { $unset: { tags: '' } } : {}),
             },
           },
@@ -433,6 +477,12 @@ export async function recordObservedListings(rows: ObservedListing[]): Promise<n
       if (r.onSale != null) set.onSale = r.onSale
       if (r.rating != null) set.rating = r.rating
       if (r.quantity != null) set.quantity = r.quantity
+      // Listing-page signals, on the day they change (first sighting = baseline),
+      // so "free shipping added" or "Bestseller badge gained" can be dated.
+      if (r.freeShipping != null && r.freeShipping !== k?.freeShipping) set.freeShipping = r.freeShipping
+      if (r.hasVideo != null && r.hasVideo !== k?.hasVideo) set.hasVideo = r.hasVideo
+      if (r.imageCount != null && r.imageCount !== k?.imageCount) set.imageCount = r.imageCount
+      if (r.badges != null && r.badges.length && badgesKey(r.badges) !== k?.badges) set.badges = r.badges
 
       const update: Record<string, unknown> = {
         $set: set,

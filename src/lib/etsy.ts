@@ -545,6 +545,8 @@ function mapListing(item: Record<string, any>): EtsyListing {
     shop_id:           item.shop_id != null ? Number(item.shop_id) : undefined,
     taxonomy_id:       item.taxonomy_id != null ? Number(item.taxonomy_id) : undefined,
     created_timestamp: created != null ? Number(created) : undefined,
+    modified_timestamp: (item.last_modified_timestamp ?? item.updated_timestamp) != null ? Number(item.last_modified_timestamp ?? item.updated_timestamp) : undefined,
+    ending_timestamp:  item.ending_timestamp != null ? Number(item.ending_timestamp) : undefined,
     processing_min:    item.processing_min != null ? Number(item.processing_min) : undefined,
     processing_max:    item.processing_max != null ? Number(item.processing_max) : undefined,
   }
