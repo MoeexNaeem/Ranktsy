@@ -58,8 +58,11 @@ export const RankCompareCard = memo(function RankCompareCard({ query, movers }: 
     retry: 1,
   })
 
-  // Strongest differences first.
-  const rows = useMemo(() => [...(q.data?.rows ?? [])].sort((a, b) => Math.abs(gap(b) ?? 0) - Math.abs(gap(a) ?? 0)), [q.data])
+  // Strongest differences first. Traits no listing had on either side get one
+  // summary line instead of a row of zeros.
+  const all = useMemo(() => [...(q.data?.rows ?? [])].sort((a, b) => Math.abs(gap(b) ?? 0) - Math.abs(gap(a) ?? 0)), [q.data])
+  const rows = useMemo(() => all.filter(r => r.climbers.yes + r.droppers.yes > 0), [all])
+  const nobody = useMemo(() => all.filter(r => r.climbers.yes + r.droppers.yes === 0), [all])
 
   const facts: AiFact[] = useMemo(() => {
     const d = q.data
@@ -67,18 +70,19 @@ export const RankCompareCard = memo(function RankCompareCard({ query, movers }: 
     return [
       { label: 'Listings that climbed', value: String(d.climbers) },
       { label: 'Listings that dropped', value: String(d.droppers) },
-      ...rows.filter(r => r.climbers.known + r.droppers.known >= 2).slice(0, 20).map(r => ({
+      ...(d.digitalShare != null ? [{ label: 'Digital downloads among these listings', value: `${d.digitalShare}%` }] : []),
+      ...all.filter(r => r.climbers.known + r.droppers.known >= 2).slice(0, 20).map(r => ({
         label: r.label,
         value: `climbers ${r.climbers.yes} of ${r.climbers.known}, droppers ${r.droppers.yes} of ${r.droppers.known}`,
       })),
     ]
-  }, [q.data, rows])
+  }, [q.data, all])
 
   if (moving.length < 2) return null
   if (q.isLoading) {
     return <div style={{ marginTop: 16, display: 'grid', gap: 8 }}>{[34, 34, 34, 34].map((h, i) => <Shimmer key={i} h={h} r={8} />)}</div>
   }
-  if (q.isError || !q.data || !rows.length || q.data.climbers + q.data.droppers < 2) return null
+  if (q.isError || !q.data || !all.length || q.data.climbers + q.data.droppers < 2) return null
   const d = q.data
 
   return (
@@ -111,6 +115,11 @@ export const RankCompareCard = memo(function RankCompareCard({ query, movers }: 
             )
           })}
         </div>
+        {nobody.length > 0 && (
+          <p style={{ margin: '10px 0 0', fontSize: 12.5, color: C.graphite, lineHeight: 1.55 }}>
+            Not seen on any of these listings this period: {nobody.map(r => r.label.charAt(0).toLowerCase() + r.label.slice(1)).join(', ')}.
+          </p>
+        )}
       </div>
       {facts.length >= 4 && (
         <div style={{ marginTop: 16 }}>
@@ -118,7 +127,7 @@ export const RankCompareCard = memo(function RankCompareCard({ query, movers }: 
             tool="Rank Movement"
             subject={query}
             facts={facts}
-            notes="Etsy listings ranking for this keyword over the last 30 days. Each count is measured: how many climbers vs droppers had the trait. This is correlation, never say a trait caused a move. Turn the clearest differences into practical steps a seller can take on their own listing for this keyword."
+            notes="Etsy listings ranking for this keyword over the last 30 days. Each count is measured: how many climbers vs droppers had the trait. This is correlation, never say a trait caused a move. Turn the clearest differences into practical steps a seller can take on their own listing for this keyword. If most listings are digital downloads, do not suggest packaging or shipping."
           />
         </div>
       )}

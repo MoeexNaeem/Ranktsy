@@ -77,6 +77,7 @@ export interface RankExplanation {
     starSeller: boolean | null
     badges: string[]
     personalisable: boolean | null
+    isDigital: boolean | null
   } | null
 }
 
@@ -239,7 +240,7 @@ function saleSummary(rows: SnapRow[]): RankExplanation['sale'] {
  *  single-listing panel and the per-keyword comparison). */
 export type ListingFacts = Pick<RankExplanation, 'measuredDays' | 'events' | 'fitNow' | 'fitAtStart' | 'sale' | 'pace' | 'details'>
 
-interface MetaRow { listingId: number; title?: string; tags?: string[]; freeShipping?: boolean | null; hasVideo?: boolean | null; imageCount?: number | null; starSeller?: boolean | null; badges?: string[]; personalisable?: boolean | null }
+interface MetaRow { listingId: number; isDigital?: boolean | null; title?: string; tags?: string[]; freeShipping?: boolean | null; hasVideo?: boolean | null; imageCount?: number | null; starSeller?: boolean | null; badges?: string[]; personalisable?: boolean | null }
 
 const isDay = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d)
 
@@ -279,7 +280,7 @@ export async function loadListingFacts(keyword: string, items: { listingId: numb
     historyRead(() => seed('title')),
     historyRead(() => seed('tags')),
     TrackedListing.find({ listingId: { $in: ids } })
-      .select('listingId title tags freeShipping hasVideo imageCount starSeller badges personalisable')
+      .select('listingId title tags freeShipping hasVideo imageCount starSeller badges personalisable isDigital')
       .lean<MetaRow[]>(),
   ])
   const byListing = new Map<number, SnapRow[]>()
@@ -316,6 +317,7 @@ export async function loadListingFacts(keyword: string, items: { listingId: numb
         starSeller: meta.starSeller ?? null,
         badges: meta.badges ?? [],
         personalisable: meta.personalisable ?? null,
+        isDigital: meta.isDigital ?? null,
       } : null,
     })
   }
@@ -407,6 +409,8 @@ export interface MoverComparison {
   keyword: string
   climbers: number
   droppers: number
+  /** Share of the compared listings that are digital downloads, null when unknown. */
+  digitalShare: number | null
   rows: CompareRow[]
 }
 
@@ -459,5 +463,7 @@ export async function compareMovers(
   const rows = TRAITS.map(t => ({ key: t.key, label: t.label, climbers: count(up, t), droppers: count(down, t) }))
     // A trait nobody was measured on says nothing.
     .filter(r => r.climbers.known + r.droppers.known > 0)
-  return { keyword, climbers: up.length, droppers: down.length, rows }
+  const kinds = [...up, ...down].map(m => facts.get(m.listingId)?.details?.isDigital).filter((v): v is boolean => typeof v === 'boolean')
+  const digitalShare = kinds.length ? Math.round(kinds.filter(Boolean).length / kinds.length * 100) : null
+  return { keyword, climbers: up.length, droppers: down.length, digitalShare, rows }
 }
