@@ -11,6 +11,7 @@ import { Spinner, LoadingBlock } from './ui'
 import { C } from '@/utils'
 import { MONO, SectionTitle, EmptyState, cardStyle, tableCard, tableHead, th, tableRow, Pagination } from '@/components/dashboard/kit'
 import { StackedBars } from './AdminCharts'
+import { AdminLocalAudit } from './AdminLocalAudit'
 import type { RevenueReport, CardMonth, LocalMonth, Customer } from '@/lib/revenue-report'
 
 const usd = (n: number) => `$${(n ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -61,6 +62,22 @@ const STATUS_STYLE: Record<Customer['status'], { label: string; bg: string; fg: 
 }
 
 export function AdminEarnings() {
+  const [tab, setTab] = useState<'overview' | 'local'>('overview')
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div role="tablist" aria-label="Earnings view" style={{ display: 'inline-flex', alignSelf: 'flex-start', padding: 3, gap: 3, borderRadius: 100, background: C.canvas, border: `1px solid ${C.ash}` }}>
+        {([['overview', 'Overview'], ['local', 'Local payments (bank / JazzCash)']] as const).map(([k, label]) => (
+          <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
+            style={{ height: 32, padding: '0 16px', borderRadius: 100, border: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600,
+              background: tab === k ? C.ink : 'transparent', color: tab === k ? '#fff' : C.ink }}>{label}</button>
+        ))}
+      </div>
+      {tab === 'overview' ? <EarningsOverview /> : <AdminLocalAudit />}
+    </div>
+  )
+}
+
+function EarningsOverview() {
   const [data, setData] = useState<RevenueReport | null>(null)
   const [state, setState] = useState<'loading' | 'ok' | 'error'>('loading')
   const [year, setYear] = useState('')
