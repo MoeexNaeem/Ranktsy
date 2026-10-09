@@ -235,52 +235,115 @@ function saleSummary(rows: SnapRow[]): RankExplanation['sale'] {
   return { daysOnSale: on.length, daysSeen: seen.length, maxPct: pcts.length ? Math.max(...pcts) : null }
 }
 
+/** The measured facts about one listing over its move window (shared by the
+ *  single-listing panel and the per-keyword comparison). */
+export type ListingFacts = Pick<RankExplanation, 'measuredDays' | 'events' | 'fitNow' | 'fitAtStart' | 'sale' | 'pace' | 'details'>
+
+interface MetaRow { listingId: number; title?: string; tags?: string[]; freeShipping?: boolean | null; hasVideo?: boolean | null; imageCount?: number | null; starSeller?: boolean | null; badges?: string[]; personalisable?: boolean | null }
+
+const isDay = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d)
+
+/**
+ * Facts for many listings in a few reads: one snapshot query for all of them
+ * (served by the { listingId, day } index), one seed query each for the last
+ * title and tags stored before the range, and one TrackedListing read.
+ */
+export async function loadListingFacts(keyword: string, items: { listingId: number; from: string; to: string }[]): Promise<Map<number, ListingFacts>> {
+  const out = new Map<number, ListingFacts>()
+  const valid = items.filter(i => i.listingId > 0 && isDay(i.from) && isDay(i.to) && i.from <= i.to)
+  if (!valid.length) return out
+  await connectDB()
+
+  // Edits made in the week before the first capture can still explain the move,
+  // and pace is compared with the same length of time just before that.
+  const win = new Map(valid.map(i => {
+    const windowStart = shiftDay(i.from, -7)
+    return [i.listingId, { ...i, windowStart, beforeStart: shiftDay(windowStart, -daysBetween(windowStart, i.to)) }]
+  }))
+  const ids = [...win.keys()]
+  const minBefore = [...win.values()].reduce((m, w) => (w.beforeStart < m ? w.beforeStart : m), '9999-99-99')
+  const maxTo = [...win.values()].reduce((m, w) => (w.to > m ? w.to : m), '0000-00-00')
+
+  const seed = (field: 'title' | 'tags') => ListingSnapshot.aggregate<{ _id: number; v: string | string[] }>([
+    { $match: { listingId: { $in: ids }, day: { $lt: minBefore }, ...(field === 'title' ? { title: { $nin: [null, ''] } } : { 'tags.0': { $exists: true } }) } },
+    { $sort: { listingId: 1, day: -1 } },
+    { $group: { _id: '$listingId', v: { $first: `$${field}` } } },
+  ]).option({ maxTimeMS: HISTORY_MAX_MS })
+
+  const [snaps, titleSeeds, tagSeeds, metas] = await Promise.all([
+    historyRead(() => ListingSnapshot.find({ listingId: { $in: ids }, day: { $gte: minBefore, $lte: maxTo } })
+      .sort({ listingId: 1, day: 1 })
+      .select('listingId day title tags price currency views favorers reviewCount priceOriginal onSale rating quantity')
+      .maxTimeMS(HISTORY_MAX_MS)
+      .lean<(SnapRow & { listingId: number })[]>()),
+    historyRead(() => seed('title')),
+    historyRead(() => seed('tags')),
+    TrackedListing.find({ listingId: { $in: ids } })
+      .select('listingId title tags freeShipping hasVideo imageCount starSeller badges personalisable')
+      .lean<MetaRow[]>(),
+  ])
+  const byListing = new Map<number, SnapRow[]>()
+  for (const r of snaps) { const a = byListing.get(r.listingId); if (a) a.push(r); else byListing.set(r.listingId, [r]) }
+  const titleSeed = new Map(titleSeeds.map(t => [t._id, t.v as string]))
+  const tagSeed = new Map(tagSeeds.map(t => [t._id, t.v as string[]]))
+  const metaOf = new Map(metas.map(m => [m.listingId, m]))
+
+  for (const [listingId, w] of win) {
+    const rows = (byListing.get(listingId) ?? []).filter(r => r.day <= w.to)
+    const { events, eff } = buildEvents(keyword, rows, titleSeed.get(listingId), tagSeed.get(listingId), w.windowStart)
+    const windowRows = rows.filter(r => r.day >= w.windowStart)
+    const beforeRows = rows.filter(r => r.day >= w.beforeStart && r.day < w.windowStart)
+    const startIdx = rows.findIndex(r => r.day >= w.from)
+    const atStart = startIdx >= 0 ? eff[startIdx] : null
+    const meta = metaOf.get(listingId)
+    const nowTitle = meta?.title || eff[eff.length - 1]?.title
+    const nowTags = meta?.tags?.length ? meta.tags : eff[eff.length - 1]?.tags
+    out.set(listingId, {
+      measuredDays: new Set(windowRows.map(r => r.day)).size,
+      events,   // newest first
+      fitNow: nowTitle || nowTags?.length ? keywordFit(keyword, nowTitle, nowTags) : null,
+      fitAtStart: atStart && (atStart.title || atStart.tags?.length) ? keywordFit(keyword, atStart.title, atStart.tags) : null,
+      sale: saleSummary(windowRows),
+      pace: {
+        reviews: pace(windowRows, beforeRows, 'reviewCount'),
+        favorites: pace(windowRows, beforeRows, 'favorers'),
+        views: pace(windowRows, beforeRows, 'views'),
+      },
+      details: meta ? {
+        freeShipping: meta.freeShipping ?? null,
+        hasVideo: meta.hasVideo ?? null,
+        imageCount: meta.imageCount ?? null,
+        starSeller: meta.starSeller ?? null,
+        badges: meta.badges ?? [],
+        personalisable: meta.personalisable ?? null,
+      } : null,
+    })
+  }
+  return out
+}
+
 export async function explainRankMove(
   keywordRaw: string, listingId: number, from: string, to: string, countryRaw?: string,
 ): Promise<RankExplanation | null> {
   const keyword = normalizeKeyword(keywordRaw)
-  if (!keyword || !listingId || !/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) || from > to) return null
+  if (!keyword || !listingId || !isDay(from) || !isDay(to) || from > to) return null
   await connectDB()
-
-  // Edits made in the week before the first capture can still explain the move.
-  const windowStart = shiftDay(from, -7)
-  const span = daysBetween(windowStart, to)
-  const beforeStart = shiftDay(windowStart, -span)
 
   const country = countryRaw ? normalizeCountry(countryRaw) : 'xx'
   const countryFilter: Record<string, unknown> = country === 'xx'
     ? { $or: [{ country: 'xx' }, { country: { $exists: false } }] }
     : { country }
 
-  const [snaps, titleSeed, tagsSeed, meta, rankRows] = await Promise.all([
-    ListingSnapshot.find({ listingId, day: { $gte: beforeStart, $lte: to } })
-      .sort({ day: 1 })
-      .select('day title tags price currency views favorers reviewCount priceOriginal onSale rating quantity')
-      .maxTimeMS(HISTORY_MAX_MS)
-      .lean<SnapRow[]>(),
-    // Title/tags are stored only on the days they changed: seed from before the range.
-    ListingSnapshot.findOne({ listingId, day: { $lt: beforeStart }, title: { $nin: [null, ''] } })
-      .sort({ day: -1 }).select('title').lean<{ title?: string }>(),
-    ListingSnapshot.findOne({ listingId, day: { $lt: beforeStart }, 'tags.0': { $exists: true } })
-      .sort({ day: -1 }).select('tags').lean<{ tags?: string[] }>(),
-    TrackedListing.findOne({ listingId })
-      .select('title tags freeShipping hasVideo imageCount starSeller badges personalisable')
-      .lean<{ title?: string; tags?: string[]; freeShipping?: boolean | null; hasVideo?: boolean | null; imageCount?: number | null; starSeller?: boolean | null; badges?: string[]; personalisable?: boolean | null }>(),
+  const [factsMap, rankRows] = await Promise.all([
+    loadListingFacts(keyword, [{ listingId, from, to }]),
     // Organic positions on the first and last day only, for "who passed whom".
     historyRead(() => SearchRankSnapshot.find({ keyword, ...countryFilter, isAd: { $ne: true }, day: { $in: [from, to] } })
       .select('listingId day position')
       .maxTimeMS(HISTORY_MAX_MS)
       .lean<{ listingId: number; day: string; position: number }[]>()),
   ])
-
-  const { events, eff } = buildEvents(keyword, snaps, titleSeed?.title, tagsSeed?.tags, windowStart)
-
-  const windowRows = snaps.filter(r => r.day >= windowStart)
-  const beforeRows = snaps.filter(r => r.day < windowStart)
-  const startIdx = snaps.findIndex(r => r.day >= from)
-  const atStart = startIdx >= 0 ? eff[startIdx] : null
-  const nowTitle = meta?.title || eff[eff.length - 1]?.title
-  const nowTags = meta?.tags?.length ? meta.tags : eff[eff.length - 1]?.tags
+  const facts = factsMap.get(listingId)
+  if (!facts) return null
 
   // ── Who passed whom, from unambiguous positions on the first and last day ──
   const byDay = new Map<string, Map<number, number>>()
@@ -324,25 +387,77 @@ export async function explainRankMove(
     listingId,
     from,
     to,
-    measuredDays: new Set(windowRows.map(r => r.day)).size,
-    events,   // newest first
-    fitNow: nowTitle || nowTags?.length ? keywordFit(keyword, nowTitle, nowTags) : null,
-    fitAtStart: atStart && (atStart.title || atStart.tags?.length) ? keywordFit(keyword, atStart.title, atStart.tags) : null,
-    sale: saleSummary(windowRows),
-    pace: {
-      reviews: pace(windowRows, beforeRows, 'reviewCount'),
-      favorites: pace(windowRows, beforeRows, 'favorers'),
-      views: pace(windowRows, beforeRows, 'views'),
-    },
+    ...facts,
     passedBy: { count: passedByIds.length, notSeenBefore: passedByIds.filter(p => p.was == null).length, sample: passedByIds.slice(0, 5).map(toPassed) },
     passed: { count: passedIds.length, sample: passedIds.slice(0, 5).map(toPassed) },
-    details: meta ? {
-      freeShipping: meta.freeShipping ?? null,
-      hasVideo: meta.hasVideo ?? null,
-      imageCount: meta.imageCount ?? null,
-      starSeller: meta.starSeller ?? null,
-      badges: meta.badges ?? [],
-      personalisable: meta.personalisable ?? null,
-    } : null,
   }
+}
+
+// ─── Per keyword: what the climbers did differently ─────────────────────────────
+
+/** One measured trait, counted among climbers and among droppers. `known` leaves
+ *  out listings where the trait was not observed, so unknown never reads as "no". */
+export interface CompareRow {
+  key: string
+  label: string
+  climbers: { yes: number; known: number }
+  droppers: { yes: number; known: number }
+}
+export interface MoverComparison {
+  keyword: string
+  climbers: number
+  droppers: number
+  rows: CompareRow[]
+}
+
+type Trait = { key: string; label: string; test: (f: ListingFacts) => boolean | null }
+const TRAITS: Trait[] = [
+  {
+    key: 'kwIntoTitle', label: 'Put the keyword into the title',
+    test: f => f.measuredDays < 2 ? null : f.events.some(e => e.kind === 'title' && (
+      (e.fitBefore.allWordsInTitle === false && e.fitAfter.allWordsInTitle === true) || (e.fitBefore.inTitle === false && e.fitAfter.inTitle === true))),
+  },
+  { key: 'titleEdited', label: 'Edited the title', test: f => f.measuredDays < 2 ? null : f.events.some(e => e.kind === 'title') },
+  {
+    key: 'exactTagAdded', label: 'Added the exact keyword as a tag',
+    test: f => f.measuredDays < 2 || f.fitNow?.exactTag == null ? null : f.events.some(e => e.kind === 'tags' && e.fitBefore.exactTag === false && e.fitAfter.exactTag === true),
+  },
+  { key: 'tagsEdited', label: 'Edited tags', test: f => f.measuredDays < 2 || f.fitNow?.exactTag == null ? null : f.events.some(e => e.kind === 'tags') },
+  { key: 'allWords', label: 'All keyword words in the title', test: f => f.fitNow?.allWordsInTitle ?? null },
+  { key: 'exactTag', label: 'Has the exact keyword as a tag', test: f => f.fitNow?.exactTag ?? null },
+  { key: 'newReviews', label: 'Got new reviews', test: f => f.pace.reviews.gained == null ? null : f.pace.reviews.gained > 0 },
+  {
+    key: 'favsFaster', label: 'Favorites growing faster than before',
+    test: f => f.pace.favorites.perDay == null || f.pace.favorites.beforePerDay == null ? null : f.pace.favorites.perDay > f.pace.favorites.beforePerDay * 1.25,
+  },
+  { key: 'onSale', label: 'On sale most days', test: f => f.sale && f.sale.daysSeen > 0 ? f.sale.daysOnSale / f.sale.daysSeen >= 0.5 : null },
+  { key: 'soldOut', label: 'Sold out at some point', test: f => f.measuredDays < 2 ? null : f.events.some(e => e.kind === 'stock' && e.outOfStock) },
+  { key: 'freeShipping', label: 'Free shipping', test: f => f.details?.freeShipping ?? null },
+  { key: 'video', label: 'Has a video', test: f => f.details?.hasVideo ?? null },
+  { key: 'starSeller', label: 'Star Seller shop', test: f => f.details?.starSeller ?? null },
+]
+
+export async function compareMovers(
+  keywordRaw: string, movers: { listingId: number; change: number; firstDay: string; latestDay: string }[],
+): Promise<MoverComparison | null> {
+  const keyword = normalizeKeyword(keywordRaw)
+  if (!keyword) return null
+  const moving = movers.filter(m => m.change !== 0).slice(0, 40)
+  const facts = await loadListingFacts(keyword, moving.map(m => ({ listingId: m.listingId, from: m.firstDay, to: m.latestDay })))
+  const up = moving.filter(m => m.change > 0 && facts.has(m.listingId))
+  const down = moving.filter(m => m.change < 0 && facts.has(m.listingId))
+  const count = (group: typeof moving, t: Trait) => {
+    let yes = 0, known = 0
+    for (const m of group) {
+      const v = t.test(facts.get(m.listingId)!)
+      if (v == null) continue
+      known++
+      if (v) yes++
+    }
+    return { yes, known }
+  }
+  const rows = TRAITS.map(t => ({ key: t.key, label: t.label, climbers: count(up, t), droppers: count(down, t) }))
+    // A trait nobody was measured on says nothing.
+    .filter(r => r.climbers.known + r.droppers.known > 0)
+  return { keyword, climbers: up.length, droppers: down.length, rows }
 }

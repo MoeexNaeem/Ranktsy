@@ -14,6 +14,7 @@ import { Card, SectionTitle, MONO } from '../kit'
 import { C, D } from '@/utils'
 import type { ApiResponse } from '@/types'
 import { RankWhyPanel, type WhySignals } from './RankWhyPanel'
+import { RankCompareCard } from './RankCompareCard'
 
 interface RankMover {
   listingId: number
@@ -242,6 +243,7 @@ export const RankMovementPanel = memo(function RankMovementPanel({ query }: { qu
       <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6, marginTop: 10 }}>
         Position 1 is best, so a rising line means a listing climbed.
       </p>
+      <RankCompareCard query={query} movers={movers} />
       {signals && <SignalStrip s={signals} />}
     </Card>
   )
