@@ -115,6 +115,11 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
           currency: l.price?.currency_code,
           views: l.views,
           favorers: l.num_favorers,
+          // Straight from the Etsy API (cached results may predate these fields).
+          listPrice: l.price?.amount ? l.price.amount / (l.price.divisor || 100) : null,
+          listCurrency: l.price?.currency_code ?? null,
+          modTs: l.modified_timestamp ?? null,
+          endTs: l.ending_timestamp ?? null,
         }))) : 0)).catch(() => {})
     }
 

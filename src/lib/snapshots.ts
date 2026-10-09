@@ -436,6 +436,28 @@ export interface ObservedListing {
   categoryTop?: string | null
   isDigital?: boolean | null
   createdTimestamp?: number | null
+  // ── From the Etsy API only (server callers; /api/etsy/observe never sets them) ──
+  /** The seller's list price in the shop's currency. */
+  listPrice?: number | null
+  listCurrency?: string | null
+  /** Etsy's last-modified and expiry timestamps (epoch seconds). */
+  modTs?: number | null
+  endTs?: number | null
+}
+
+/** Change-only API fields to store for one observation, given what we last stored. */
+function apiChanges(r: ObservedListing, k: KnownListing | undefined): Record<string, number | string> {
+  const set: Record<string, number | string> = {}
+  // Untracked listings have nothing to compare with; their first sighting creates
+  // the TrackedListing row and the next one stores the baseline.
+  if (!k) return set
+  if (r.listPrice != null && r.listPrice > 0 && r.listCurrency) {
+    const lp = Math.round(r.listPrice * 100) / 100
+    if (lp !== k.listPrice || r.listCurrency !== k.listCurrency) { set.listPrice = lp; set.listCurrency = r.listCurrency }
+  }
+  if (r.modTs != null && r.modTs > 0 && r.modTs !== k.modTs) set.modTs = r.modTs
+  if (r.endTs != null && r.endTs > 0 && r.endTs !== k.endTs) set.endTs = r.endTs
+  return set
 }
 
 /**
@@ -483,6 +505,7 @@ export async function recordObservedListings(rows: ObservedListing[]): Promise<n
       if (r.hasVideo != null && r.hasVideo !== k?.hasVideo) set.hasVideo = r.hasVideo
       if (r.imageCount != null && r.imageCount !== k?.imageCount) set.imageCount = r.imageCount
       if (r.badges != null && r.badges.length && badgesKey(r.badges) !== k?.badges) set.badges = r.badges
+      Object.assign(set, apiChanges(r, k))
 
       const update: Record<string, unknown> = {
         $set: set,
@@ -542,10 +565,15 @@ export async function recordObservedListings(rows: ObservedListing[]): Promise<n
       // lastSeenAt / observeCount / last* figures are admin readouts and the 90-day
       // expiry, which a 3-hour granularity does not change.
       const k = known.get(r.listingId)
+      // Keep the last stored list price / timestamps, so the next snapshot is
+      // written only when they change.
+      const api = apiChanges(r, k)
+      Object.assign(set, api)
       const changed = !k
         || (r.title != null && r.title !== k.title)
         || (!!r.tags?.length && tagsFp(r.tags) !== k.tagsFp)
         || hasPageSignals(r)
+        || Object.keys(api).length > 0
       if (changed) return { updateOne: { filter: { listingId: r.listingId }, update, upsert: true } }
       return {
         updateOne: {

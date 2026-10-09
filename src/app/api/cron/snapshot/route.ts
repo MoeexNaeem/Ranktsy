@@ -107,6 +107,10 @@ async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<unk
             shopName: listing.shop_name || null,
             categoryTop: topCategoryForTaxonomy(listing.taxonomy_id),
             createdTimestamp: listing.created_timestamp ?? null,
+            listPrice: listing.price ? listing.price.amount / (listing.price.divisor || 100) : null,
+            listCurrency: listing.price?.currency_code ?? null,
+            modTs: listing.modified_timestamp ?? null,
+            endTs: listing.ending_timestamp ?? null,
           }])
           listingsCaptured++
         } catch (e) {
