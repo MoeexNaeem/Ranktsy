@@ -487,6 +487,11 @@ export interface TrendsPayload {
   note: string
   googleStatus?: GoogleDataStatus
   googleRetryAt?: string | null
+  /** Closest broader phrase Google tracks, when it publishes nothing for the keyword itself. */
+  googleFallback?: string | null
+  googleFallbackSearches?: number | null
+  /** That broader phrase's own real numbers (shown named, never as the keyword's). */
+  googleFallbackMetric?: { searches: number; competition: string; competitionIndex: number | null; cpcLow: number | null; cpcHigh: number | null } | null
 }
 
 // ─── Snapshots (our own history - Etsy returns state, never a series) ─────────

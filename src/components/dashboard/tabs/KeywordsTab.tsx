@@ -291,6 +291,22 @@ function BroaderNote({ exact, broader, onSearch }: { exact: string; broader: str
   )
 }
 
+/** The closest phrase Google tracks, with its real numbers, used when Google publishes nothing for the exact phrase. */
+type BroaderGoogle = { keyword: string; searches: number; competition: string; competitionIndex: number | null; cpcLow: number | null; cpcHigh: number | null }
+
+/** Under the boxes: names the phrase the Google numbers are for, with a one-click search for it. */
+function BroaderStatsNote({ exact, broader, onSearch }: { exact: string; broader: string; onSearch?: (q: string) => void }) {
+  return (
+    <p role="note" style={{ fontSize: 11.5, lineHeight: 1.5, color: C.graphite, background: C.canvas, border: `1px solid ${C.ash}`, borderRadius: 8, padding: '7px 10px', margin: 0 }}>
+      Google publishes no data for &ldquo;{exact}&rdquo; (it withholds most long phrases and many phrases about kids).
+      These Google numbers are for the closest phrase it tracks:{' '}
+      {onSearch
+        ? <button onClick={() => onSearch(broader)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11.5, fontWeight: 600, color: C.orange, textDecoration: 'underline', textUnderlineOffset: 2 }}>{broader}</button>
+        : <strong>{broader}</strong>}
+    </p>
+  )
+}
+
 function GoogleGapNote({ status, retryAt }: { status?: string | null; retryAt?: string | null }) {
   const text = googleGapNote(status, retryAt)
   if (!text) return null
@@ -301,7 +317,7 @@ function GoogleGapNote({ status, retryAt }: { status?: string | null; retryAt?: 
   )
 }
 
-function KeywordStatsPanel({ s, geoName, broader }: { s: KeywordStats; geoName: string; broader?: { keyword: string; searches: number } | null }) {
+function KeywordStatsPanel({ s, geoName, query, broader, onSearch }: { s: KeywordStats; geoName: string; query: string; broader?: BroaderGoogle | null; onSearch?: (q: string) => void }) {
   // Authentic data only, grouped by its real source so the origin of every number is
   // explicit: GOOGLE = search demand from the Google Keyword Planner API; ETSY = Etsy's
   // own listing signals. Nothing is modelled to mimic a competitor — Etsy publishes no
@@ -316,28 +332,31 @@ function KeywordStatsPanel({ s, geoName, broader }: { s: KeywordStats; geoName: 
   }
   // Exact, comma-separated integers (e.g. 1,900,000) — not abbreviated (1.9M / 981.7K).
   const exact = (v: number) => Math.round(v).toLocaleString('en-US')
+  // Google publishes nothing for the exact phrase: the two Google boxes show the
+  // closest phrase it does track, and say which phrase that is.
+  const fb = s.googleSearches == null && broader ? broader : null
+  const vol = fb ? fb.searches : s.googleSearches
+  const comp = fb ? fb.competition : s.googleCompetition
   const groups = [
     {
       source: 'Google', dot: '#4285F4',
       items: [
-        { label: 'Search Volume',  tip: `Real average monthly Google searches for this keyword in ${geoName}, measured not estimated.`, value: s.googleSearches != null ? exact(s.googleSearches) : s.googleStatus === 'pending' ? '…' : '—', color: s.googleSearches != null ? D.good : C.lightGray },
-        // Google tracks no volume for the exact phrase (common for long keywords): show the
-        // closest broader phrase it does track, named, so the number is never passed off
-        // as this keyword's own.
-        ...(!s.googleSearches && broader && broader.searches > 0
-          ? [{ label: `"${broader.keyword}"`, tip: `Google has no search volume for the exact phrase. This is the real monthly volume of the closest broader phrase it tracks, "${broader.keyword}", in ${geoName}.`, value: exact(broader.searches), color: '#2E6DB4' }]
-          : []),
-        { label: 'Ad Competition', tip: 'How strongly advertisers compete for this keyword on Google, measured not estimated.', value: band(s.googleCompetition), color: s.googleCompetition === 'HIGH' ? D.hard : s.googleCompetition === 'MEDIUM' ? D.mid : s.googleCompetition === 'LOW' ? D.good : C.lightGray },
+        { label: 'Search Volume', sub: fb ? `for "${fb.keyword}"` : null,
+          tip: fb ? `Google publishes no search volume for the exact phrase. This is the real average monthly Google searches for "${fb.keyword}", the closest phrase it tracks, in ${geoName}.` : `Real average monthly Google searches for this keyword in ${geoName}, measured not estimated.`,
+          value: vol != null ? exact(vol) : s.googleStatus === 'pending' ? '…' : '—', color: vol != null ? (fb ? '#2E6DB4' : D.good) : C.lightGray },
+        { label: 'Ad Competition', sub: fb ? `for "${fb.keyword}"` : null,
+          tip: fb ? `How strongly advertisers compete on Google for "${fb.keyword}", the closest phrase Google tracks. Measured, not estimated.` : 'How strongly advertisers compete for this keyword on Google, measured not estimated.',
+          value: band(comp), color: comp === 'HIGH' ? D.hard : comp === 'MEDIUM' ? D.mid : comp === 'LOW' ? D.good : C.lightGray },
       ],
     },
     {
       source: 'Etsy', dot: C.orange,
       items: [
-        { label: 'Avg. Views',     tip: 'Mean lifetime views of the Etsy listings ranking for this keyword — Etsy’s own `views` field. Real on-Etsy traffic.', value: exact(s.avgViews), color: '#2E6DB4' },
-        { label: 'Avg. Favorites', tip: 'Mean favorites across those Etsy listings — Etsy’s own `num_favorers` field. Real buyer interest.', value: exact(s.avgFavorites), color: '#2E6DB4' },
-        { label: 'Favs / View',    tip: 'Favorites ÷ views — a real Etsy engagement ratio (~1–3% is typical). Etsy exposes no clicks, so this real signal stands in for CTR rather than a fabricated number.', value: `${s.favPerView}%`, color: s.favPerView >= 4 ? D.good : s.favPerView >= 1.5 ? D.mid : D.neutral },
-        { label: 'Avg. Price',     tip: 'Mean price of the Etsy listings ranking for this keyword — real, from Etsy.', value: money(s.avgPrice, s.currency), color: D.neutral },
-        { label: 'Competition',    tip: 'Real total of active Etsy listings competing for this keyword.', value: exact(s.totalResults), color: s.totalResults > 250_000 ? D.hard : s.totalResults > 25_000 ? D.mid : D.good },
+        { label: 'Avg. Views',     sub: null, tip: 'Mean lifetime views of the Etsy listings ranking for this keyword — Etsy’s own `views` field. Real on-Etsy traffic.', value: exact(s.avgViews), color: '#2E6DB4' },
+        { label: 'Avg. Favorites', sub: null, tip: 'Mean favorites across those Etsy listings — Etsy’s own `num_favorers` field. Real buyer interest.', value: exact(s.avgFavorites), color: '#2E6DB4' },
+        { label: 'Favs / View',    sub: null, tip: 'Favorites ÷ views — a real Etsy engagement ratio (~1–3% is typical). Etsy exposes no clicks, so this real signal stands in for CTR rather than a fabricated number.', value: `${s.favPerView}%`, color: s.favPerView >= 4 ? D.good : s.favPerView >= 1.5 ? D.mid : D.neutral },
+        { label: 'Avg. Price',     sub: null, tip: 'Mean price of the Etsy listings ranking for this keyword — real, from Etsy.', value: money(s.avgPrice, s.currency), color: D.neutral },
+        { label: 'Competition',    sub: null, tip: 'Real total of active Etsy listings competing for this keyword.', value: exact(s.totalResults), color: s.totalResults > 250_000 ? D.hard : s.totalResults > 25_000 ? D.mid : D.good },
       ],
     },
   ]
@@ -352,14 +371,18 @@ function KeywordStatsPanel({ s, geoName, broader }: { s: KeywordStats; geoName: 
               <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: C.stone }}>{g.source}</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
-              {g.source === 'Google' && s.googleSearches == null && <GoogleGapNote status={s.googleStatus} retryAt={s.googleRetryAt} />}
+              {g.source === 'Google' && vol == null && <GoogleGapNote status={s.googleStatus} retryAt={s.googleRetryAt} />}
               {g.items.map(r => (
                 <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                  <span style={{ fontSize: 14.5, color: C.ink, fontWeight: 500 }}>{r.label}</span>
+                  <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    <span style={{ fontSize: 14.5, color: C.ink, fontWeight: 500 }}>{r.label}</span>
+                    {r.sub && <span style={{ fontSize: 11, color: C.stone, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 170 }} title={r.sub}>{r.sub}</span>}
+                  </span>
                   <InfoDot title={r.tip} />
                   <span style={{ minWidth: 92, marginLeft: 'auto', textAlign: 'center', padding: '8px 14px', borderRadius: 9, background: r.color, color: '#fff', fontSize: 15, fontWeight: 600, fontFamily: MONO, letterSpacing: '-0.01em' }}>{r.value}</span>
                 </div>
               ))}
+              {g.source === 'Google' && fb && <BroaderStatsNote exact={query} broader={fb.keyword} onSearch={onSearch} />}
             </div>
           </div>
         ))}
@@ -489,6 +512,13 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
   const ideas = useKeywordIdeas(query, country)
 
   const geoName = COUNTRIES.find(c => c.code === country)?.name ?? country
+  // Google publishes nothing for this exact phrase: Google boxes show the closest
+  // phrase it tracks (real numbers, always named), never a blank and never a guess.
+  const broaderG: BroaderGoogle | null = kw && kw.stats.googleSearches == null && tr?.googleFallback && tr?.googleFallbackMetric
+    ? { keyword: tr.googleFallback, ...tr.googleFallbackMetric }
+    : null
+  const gComp = broaderG ? broaderG.competition : kw?.stats.googleCompetition
+  const gCompIdx = broaderG ? broaderG.competitionIndex : kw?.stats.googleCompetitionIndex
 
   // Related rows arrive unenriched with the core (competition: null) and are
   // replaced in place once probed - so the table shows keywords immediately and
@@ -642,7 +672,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
       {/* Overview - Keyword Statistics · Search Trends · Searchers by Country
           (the sample's three-panel row). Every figure is real or "-". */}
       <div data-tour="kw-stats" className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1.55fr 1fr', gap: 12, alignItems: 'stretch' }}>
-        {kw ? <KeywordStatsPanel s={kw.stats} geoName={geoName} broader={tr?.googleFallback && tr?.googleFallbackSearches ? { keyword: tr.googleFallback, searches: tr.googleFallbackSearches } : null} /> : <StatsCardSkeleton />}
+        {kw ? <KeywordStatsPanel s={kw.stats} geoName={geoName} query={query} broader={broaderG} onSearch={run} /> : <StatsCardSkeleton />}
 
         <Card style={{ display: 'flex', flexDirection: 'column' }}>
           <SectionTitle right={tr?.trends?.length ? <PlatformToggle active={plats} onChange={setPlats} /> : undefined}>
@@ -711,32 +741,33 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, padding: '8px 0' }}>
             {kw ? (
               <span style={{ fontSize: 38, fontWeight: 400, color: '#2E6DB4', letterSpacing: '-1px', lineHeight: 1 }}>
-                {kw.stats.googleSearches != null ? formatNumber(kw.stats.googleSearches) : kw.stats.googleStatus === 'pending' ? '…' : '-'}
+                {kw.stats.googleSearches != null ? formatNumber(kw.stats.googleSearches) : broaderG ? formatNumber(broaderG.searches) : kw.stats.googleStatus === 'pending' ? '…' : '-'}
               </span>
             ) : <Shimmer h={38} w={120} r={8} />}
-            <span style={{ fontSize: 12.5, color: C.stone }}>avg / month</span>
+            <span style={{ fontSize: 12.5, color: C.stone }}>avg / month{broaderG ? ` for "${broaderG.keyword}"` : ''}</span>
           </div>
           {/* Competition + CPC, from the same Keyword Planner call as the volume. */}
           <div className="rgrid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 10, marginTop: 10 }}>
             <div style={{ padding: '10px 12px', background: C.canvas, borderRadius: 10 }}>
               <p style={{ fontSize: 10.5, fontFamily: MONO, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 7 }}>Advertiser competition</p>
-              {kw?.stats.googleCompetition && GCOMP[kw.stats.googleCompetition] ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontFamily: MONO, fontWeight: 600, color: GCOMP[kw.stats.googleCompetition].fg }}>
-                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: GCOMP[kw.stats.googleCompetition].fg }} />
-                  {GCOMP[kw.stats.googleCompetition].label}
-                  {kw.stats.googleCompetitionIndex != null ? ` · ${kw.stats.googleCompetitionIndex}/100` : ''}
+              {gComp && GCOMP[gComp] ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontFamily: MONO, fontWeight: 600, color: GCOMP[gComp].fg }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: GCOMP[gComp].fg }} />
+                  {GCOMP[gComp].label}
+                  {gCompIdx != null ? ` · ${gCompIdx}/100` : ''}
                 </span>
               ) : kw ? <span style={{ fontSize: 15, fontFamily: MONO, color: C.stone }}>-</span> : <Shimmer h={18} w={90} r={5} />}
             </div>
             <div style={{ padding: '10px 12px', background: C.canvas, borderRadius: 10 }}>
               {kw
-                ? <CpcDisplay low={kw.stats.googleCpcLow ?? null} high={kw.stats.googleCpcHigh ?? null} currency={kw.stats.googleCurrency ?? null} />
+                ? <CpcDisplay low={(broaderG ? broaderG.cpcLow : kw.stats.googleCpcLow) ?? null} high={(broaderG ? broaderG.cpcHigh : kw.stats.googleCpcHigh) ?? null} currency={kw.stats.googleCurrency ?? null} />
                 : <><Shimmer h={10} w={110} r={3} /><div style={{ height: 9 }} /><Shimmer h={18} w={120} r={5} /></>}
             </div>
           </div>
           <p style={{ fontSize: 11.5, color: C.stone, lineHeight: 1.55, marginTop: 10 }}>
-            Real monthly search volume, advertiser competition and top-of-page CPC for &ldquo;{query}&rdquo; (US),
-            from real advertiser data.
+            {broaderG
+              ? <>Google publishes no data for &ldquo;{query}&rdquo;. These are the real monthly searches, advertiser competition and top-of-page CPC for &ldquo;{broaderG.keyword}&rdquo;, the closest phrase Google tracks.</>
+              : <>Real monthly search volume, advertiser competition and top-of-page CPC for &ldquo;{query}&rdquo; (US), from real advertiser data.</>}
           </p>
         </Card>
       </div>

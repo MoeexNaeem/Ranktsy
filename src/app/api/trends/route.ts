@@ -37,7 +37,8 @@ async function getHandler(req: NextRequest) {
   // v5: countries moved to /api/trends/countries (they took ~10 s and held up the
   // graphs); this response now carries only the monthly series and market data.
   // v6 (2026-10-06): months come from Google's own calendar (see monthlyEnd).
-  const key    = cacheKey('trends', 'v6', geo, query)
+  // v7 (2026-10-11): carries googleFallbackMetric (broader phrase's competition + CPC).
+  const key    = cacheKey('trends', 'v7', geo, query)
   const cached = memCache.get(key)
   if (cached) return NextResponse.json({ success: true, data: cached, cached: true })
 
@@ -47,6 +48,9 @@ async function getHandler(req: NextRequest) {
   // A package saved while Google was failing has no Google series/countries; don't
   // serve that blank forever - recompute (Google answers come from its own cache).
   const sharedHasGoogle = !isGoogleAdsConfigured() || (shared?.trends?.googleAvailable && (shared.trends.countries?.length ?? 0) > 0)
+    // Saved before the broader phrase's own numbers were included: recompute so the
+    // Search Volume / Ad Competition boxes are not left blank.
+    && !(shared?.trends?.googleFallback && !shared.trends.googleFallbackMetric)
   if (shared?.trends && sharedHasGoogle) {
     memCache.set(key, shared.trends, CACHE_TTL.TRENDING)
     return NextResponse.json({ success: true, data: shared.trends, cached: true })
@@ -121,6 +125,15 @@ async function getHandler(req: NextRequest) {
       // real monthly searches (shown as that phrase's volume, never as the keyword's).
       googleFallback,
       googleFallbackSearches: googleFallback ? gm?.searches ?? null : null,
+      // That phrase's real competition and bids too, so the Search Volume and Ad
+      // Competition boxes can show its numbers (named) instead of a blank.
+      googleFallbackMetric: googleFallback && gm ? {
+        searches: gm.searches,
+        competition: gm.competition,
+        competitionIndex: gm.competitionIndex,
+        cpcLow: gm.cpcLow,
+        cpcHigh: gm.cpcHigh,
+      } : null,
       // Stated explicitly so the UI never has to guess why a series is missing.
       note: googleAvailable
         ? 'Search-volume seasonality is real Google Ads monthly data. Etsy publishes no search volume.'

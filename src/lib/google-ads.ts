@@ -1190,7 +1190,9 @@ export async function googleKeywordMetrics(
 // labelled with the phrase it is for. Real data for a named phrase, never a stand-in
 // number presented as the original keyword's.
 const FILLER_WORDS = new Set(['a', 'an', 'the', 'and', 'or', 'for', 'of', 'with', 'in', 'on', 'to', 'by', 'at', 'from', 'my', 'your', 'set', 'gift', 'gifts'])
-const MIN_BROADER_SEARCHES = 10
+// 100, not 10: a 5-word phrase with 30 searches was chosen over a 4-word one with
+// 4,400, so the page showed a near-empty number (2026-10-11).
+const MIN_BROADER_SEARCHES = 100
 
 /**
  * Contiguous shorter phrases of `kw`, most specific (longest) first; filler-only ones
