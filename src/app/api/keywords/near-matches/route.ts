@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { memCache, CACHE_TTL } from '@/lib/cache'
 import { getKeywordCore, nearKey } from '@/lib/keywords'
-import { getNearMatches, displayKdRows } from '@/lib/etsy'
+import { getNearMatches, authenticKdRows } from '@/lib/etsy'
 import { withUsage } from '@/lib/track'
 import type { ApiResponse, NearMatch } from '@/types'
 
@@ -22,7 +22,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Ne
 
   const key = nearKey(query)
   const hit = memCache.get<NearMatch[]>(key)
-  if (hit) return NextResponse.json({ success: true, data: displayKdRows(hit), cached: true })
+  if (hit) return NextResponse.json({ success: true, data: authenticKdRows(hit), cached: true })
 
   // Not read from the shared Collective store: matches saved there were measured on
   // a 25-listing sample and disagreed with the variant once searched (2026-10-03).
@@ -49,7 +49,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse<ApiResponse<Ne
       : matches
 
     memCache.set(key, reconciled, CACHE_TTL.KEYWORD)
-    return NextResponse.json({ success: true, data: displayKdRows(reconciled), cached: false })
+    return NextResponse.json({ success: true, data: authenticKdRows(reconciled), cached: false })
   } catch (e) {
     console.error('[Keywords/near-matches] failed:', e)
     return NextResponse.json({ success: false, error: 'Could not measure near matches.' }, { status: 502 })

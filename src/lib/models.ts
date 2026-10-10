@@ -941,6 +941,8 @@ export interface ITrackedKeywordDoc extends Document {
   baseVolume?: number | null
   baseCompetition?: number | null
   baseDifficulty?: number | null
+  /** 2 = baseDifficulty saved on the authentic KD scale (from 2026-10-11). */
+  baseKdV?: number | null
   lastCheckedAt: Date
   lastNotifiedAt?: Date | null
   createdAt?: Date
@@ -952,6 +954,7 @@ const TrackedKeywordSchema = new Schema<ITrackedKeywordDoc>({
   baseVolume:      { type: Number, default: null },
   baseCompetition: { type: Number, default: null },
   baseDifficulty:  { type: Number, default: null },
+  baseKdV:         { type: Number, default: null },
   lastCheckedAt:   { type: Date, default: Date.now, index: true },
   lastNotifiedAt:  { type: Date, default: null },
 }, { timestamps: true })

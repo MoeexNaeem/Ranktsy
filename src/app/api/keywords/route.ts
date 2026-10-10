@@ -3,7 +3,7 @@ import { connectDB } from '@/lib/db'
 import { KeywordHistory, SavedKeyword, ListingSnapshot } from '@/lib/models'
 import { getKeywordCore } from '@/lib/keywords'
 import { recordObservedListings } from '@/lib/snapshots'
-import { getListingReviewStats, displayKdPackage, etsyQuotaLow } from '@/lib/etsy'
+import { getListingReviewStats, authenticKdPackage, etsyQuotaLow } from '@/lib/etsy'
 import { normalizeGeo } from '@/lib/google-ads'
 import { detectExtension } from '@/lib/extension'
 import { getCurrentUser } from '@/lib/auth/session'
@@ -193,7 +193,7 @@ export const GET = withUsage(async (req: NextRequest): Promise<NextResponse<ApiR
     }
 
     return NextResponse.json({
-      success: true, data: displayKdPackage(data), cached: !!data.cachedAt,
+      success: true, data: authenticKdPackage(data), cached: !!data.cachedAt,
       searches: counted ? { used: counted.used, limit: Number.isFinite(counted.limit) ? counted.limit : null } : undefined,
       state: charged ? publicState(charged) : undefined,
     })

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { levelForCount, displayKd } from '@/lib/etsy'
+import { levelForCount } from '@/lib/etsy'
 import { googleKeywordMetrics, isGoogleAdsConfigured, normalizeGeo } from '@/lib/google-ads'
 import { getKeywordCore } from '@/lib/keywords'
 import { guardSearch } from '@/lib/searchGate'
@@ -38,7 +38,7 @@ async function analyzeOne(keyword: string, geo: string): Promise<BulkKeywordRow>
       ...base,
       competition: count,
       competitionLevel: noMarket ? null : levelForCount(count),
-      difficulty: noMarket ? null : displayKd(s.difficulty),
+      difficulty: noMarket ? null : s.difficulty,
       avgViews: s.avgViews,
       avgFavorites: s.avgFavorites,
       favPerView: s.favPerView,

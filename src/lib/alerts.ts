@@ -1,5 +1,4 @@
 import { getKeywordCore } from '@/lib/keywords'
-import { displayKd } from '@/lib/etsy'
 
 // Metrics we watch for a tracked keyword. All come from the normal cache-first keyword
 // pipeline, so a re-check is usually free (served from cache) and only rarely spends API.
@@ -13,6 +12,19 @@ export async function fetchMetrics(keyword: string, country: string): Promise<Me
     competition: s?.totalResults ?? null,
     difficulty: s?.difficulty ?? null,
   }
+}
+
+/**
+ * A tracked keyword's saved baseline KD on the authentic scale. Baselines saved
+ * before 2026-10-11 (no baseKdV) hold the old squashed score, where raw 51-100 was
+ * stored as 51-59; this maps those back so a comparison with today's authentic KD
+ * does not report a fake jump. The squash kept 9 steps for 49 points, so a legacy
+ * hard baseline is accurate to about 3 points, well inside the 8-point alert gap.
+ */
+export function baselineKd(base: number | null | undefined, kdV: number | null | undefined): number | null {
+  if (base == null) return null
+  if (kdV === 2 || base <= 50) return base
+  return Math.min(100, Math.round(51 + (Math.min(base, 59) - 51) * 49 / 8))
 }
 
 const fmt = (n: number) => n >= 1000 ? Math.round(n).toLocaleString('en-US') : String(Math.round(n))
@@ -31,7 +43,7 @@ export function describeChange(base: Metrics, cur: Metrics): string[] {
   }
   if (base.difficulty != null && cur.difficulty != null) {
     const d = cur.difficulty - base.difficulty
-    if (Math.abs(d) >= 8) msgs.push(`Keyword difficulty ${d > 0 ? 'rose' : 'dropped'} (${displayKd(base.difficulty)} to ${displayKd(cur.difficulty)})`)
+    if (Math.abs(d) >= 8) msgs.push(`Keyword difficulty ${d > 0 ? 'rose' : 'dropped'} (${base.difficulty} to ${cur.difficulty})`)
   }
   return msgs
 }

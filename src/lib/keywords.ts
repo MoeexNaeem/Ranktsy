@@ -23,7 +23,7 @@ import { packCache, unpackCache } from '@/lib/keyword-cache-codec'
 import { getCollectivePackage } from '@/lib/collective-read'
 import { memCache, cacheKey, CACHE_TTL, cachedFlight } from '@/lib/cache'
 import { singleFlight } from '@/lib/concurrency'
-import { buildKeywordStats, buildSearchAnalysis, warmTaxonomy, searchEtsyTop100 } from '@/lib/etsy'
+import { buildKeywordStats, buildSearchAnalysis, warmTaxonomy, searchEtsyTop100, authenticKdPackage } from '@/lib/etsy'
 import { googleKeywordMetrics, googleAccountCurrency, isGoogleAdsConfigured, googleStatusOf, type GoogleMetricsMeta, type GoogleMetric } from '@/lib/google-ads'
 import type { KeywordSearchResponse, EtsyListing } from '@/types'
 
@@ -96,14 +96,15 @@ export async function getKeywordCore(query: string, geo = 'US'): Promise<Keyword
 
   // Fast, cheap in-memory hit returns immediately (no need to coalesce).
   const memHit = memCache.get<KeywordSearchResponse>(key)
-  if (memHit && !isStaleCore(memHit)) return memHit
+  if (memHit && !isStaleCore(memHit)) return authenticKdPackage(memHit)
 
   // Otherwise collapse concurrent identical requests into ONE upstream fetch:
   // when a keyword trends, N users don't each fire ~3 Etsy + Google calls - the
   // first does the work and the rest await the same result.
   const data = await singleFlight(key, () => computeKeywordCore(query, geo, key))
   rememberKeywordListings(query, data.listings)
-  return data
+  // Cached packages may hold the old squashed KD: recompute it from its inputs.
+  return authenticKdPackage(data)
 }
 
 // ─── One Etsy search per keyword, shared by every keyword panel ──────────────────

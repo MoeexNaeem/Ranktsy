@@ -771,34 +771,12 @@ export async function getListingById(id: number): Promise<EtsyListing | null> {
 // from the real total supply of competing listings plus how strongly the
 // incumbents already engage buyers. Not an eRank-identical score; labelled as
 // an estimate in the UI.
-/**
- * DISPLAY BAND for the hard half of the scale.
- *
- * Deliberate product decision: no keyword should read as harder than 60. Anything
- * the raw model scores above 50 is compressed into 51-59, so a genuinely brutal
- * keyword shows 58 rather than 89.
- *
- * The compression is LINEAR and monotonic on purpose. Mapping each hard keyword to
- * an arbitrary lower number would invert the ranking - a raw 85 could end up
- * displaying below a raw 55, telling a seller the harder keyword was the easier
- * one. Here a harder keyword always shows a higher number than an easier one, so
- * comparing two keywords still works; only the absolute scale is squashed.
- *
- * The cost of squashing: 49 raw points map onto 9 display points, so keywords in
- * the hard half cluster together and small real differences disappear. That is
- * the trade for keeping everything under 60.
- */
-const KD_SOFT_FLOOR = 51   // raw 51 displays here
-const KD_SOFT_CEIL  = 59   // raw 100 displays here (never 60+)
-
 function difficultyScore(totalResults: number, avgEngagementPct: number): number {
   const compFactor = Math.min(1, Math.log10(Math.max(totalResults, 1) + 1) / 6) // 10^6 listings → 1.0
   const engFactor  = Math.min(1, avgEngagementPct / 8)                          // ~8% fav/view is very strong
-  const raw = Math.max(1, Math.min(100, Math.round(100 * (0.7 * compFactor + 0.3 * engFactor))))
-  // 50 and under is already "good" and is shown exactly as measured.
-  if (raw <= 50) return raw
-  const t = (raw - KD_SOFT_FLOOR) / (100 - KD_SOFT_FLOOR)
-  return KD_SOFT_FLOOR + Math.round(Math.max(0, Math.min(1, t)) * (KD_SOFT_CEIL - KD_SOFT_FLOOR))
+  // The authentic score, unscaled (owner restored it on 2026-10-11 after a period
+  // when hard keywords were squashed into 51-59 and shown capped at 50).
+  return Math.max(1, Math.min(100, Math.round(100 * (0.7 * compFactor + 0.3 * engFactor))))
 }
 
 export function buildKeywordStats(query: string, listings: EtsyListing[], totalResults = 0): KeywordSearchResponse {
@@ -1310,42 +1288,38 @@ export function levelForCount(count: number): 'Low' | 'Med' | 'High' {
 export { difficultyScore }
 
 /**
- * KD AS SHOWN TO USERS: never above 50 (owner's product decision, 2026-09-27).
+ * AUTHENTIC KD from a keyword's own inputs (total competing listings + fav/view).
  *
- * difficultyScore() output (the "stored scale": raw up to 50, raw 51-100 squashed
- * into 51-59) is what lives in every cache and saved package, so it is left alone
- * and converted ONCE on the way out, in the API routes. Never store the result:
- * converting an already-converted number would lower it again.
- *
- *   stored <= 40  -> shown as is (easy keywords keep their real number)
- *   stored 41-59  -> spread evenly over 41-50 by the underlying raw score
- *
- * Monotonic: a harder keyword never shows a lower KD than an easier one.
+ * From 2026-09-27 to 2026-10-11 the stored score squashed hard keywords into 51-59,
+ * and caches, saved packages and collective data still hold those numbers. Every
+ * package and row keeps the two inputs, so the true score is simply recomputed on
+ * the way out. Recomputing is idempotent: applying it twice gives the same number.
  */
-export const KD_DISPLAY_MAX = 50
-export function displayKd<T extends number | null | undefined>(v: T): T {
-  if (v == null || !Number.isFinite(v)) return v
-  const stored = v as number
-  const raw = stored <= KD_SOFT_FLOOR - 1 ? stored : KD_SOFT_FLOOR + (stored - KD_SOFT_FLOOR) * (100 - KD_SOFT_FLOOR) / (KD_SOFT_CEIL - KD_SOFT_FLOOR)
-  if (raw <= 40) return Math.round(raw) as T
-  return Math.min(KD_DISPLAY_MAX, 41 + Math.round((Math.min(raw, 100) - 41) * 9 / 59)) as T
+export function kdFromInputs(count: number | null | undefined, favPerView: number | null | undefined): number | null {
+  if (count == null || favPerView == null || !Number.isFinite(count) || !Number.isFinite(favPerView) || count <= 0) return null
+  return difficultyScore(count, favPerView)
 }
 
 const kdLabel = (d: number): 'Easy' | 'Medium' | 'Hard' => d < 34 ? 'Easy' : d < 67 ? 'Medium' : 'Hard'
 
-/** A copy of any rows with their `difficulty` converted for display. */
-export function displayKdRows<R extends { difficulty?: number | null }>(rows: R[]): R[] {
-  return rows.map(r => r.difficulty == null ? r : { ...r, difficulty: displayKd(r.difficulty) })
+/** A copy of rows with `difficulty` recomputed from each row's own inputs (unknown stays as is). */
+export function authenticKdRows<R extends { difficulty?: number | null; competition?: number | null; favPerView?: number | null }>(rows: R[]): R[] {
+  return rows.map(r => {
+    if (r.difficulty == null) return r
+    const kd = kdFromInputs(r.competition, r.favPerView)
+    return kd == null || kd === r.difficulty ? r : { ...r, difficulty: kd }
+  })
 }
 
-/** A copy of a keyword package with every KD converted for display (input untouched). */
-export function displayKdPackage(d: KeywordSearchResponse): KeywordSearchResponse {
-  const difficulty = displayKd(d.stats.difficulty)
+/** A copy of a keyword package with every KD recomputed from its inputs (input untouched). */
+export function authenticKdPackage(d: KeywordSearchResponse): KeywordSearchResponse {
+  const kd = d.stats ? kdFromInputs(d.stats.totalResults || d.stats.etsyCompetition, d.stats.favPerView) : null
+  const difficulty = kd ?? d.stats?.difficulty
   return {
     ...d,
-    stats: { ...d.stats, difficulty, difficultyLabel: kdLabel(difficulty) },
-    related: displayKdRows(d.related ?? []),
-    ...(d.nearMatches ? { nearMatches: displayKdRows(d.nearMatches) } : {}),
+    ...(d.stats && difficulty != null ? { stats: { ...d.stats, difficulty, difficultyLabel: kdLabel(difficulty) } } : {}),
+    related: authenticKdRows(d.related ?? []),
+    ...(d.nearMatches ? { nearMatches: authenticKdRows(d.nearMatches) } : {}),
   }
 }
 

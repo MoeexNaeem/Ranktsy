@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
 import { TrackedKeyword } from '@/lib/models'
-import { fetchMetrics, describeChange } from '@/lib/alerts'
+import { fetchMetrics, describeChange, baselineKd } from '@/lib/alerts'
 import { notifyUser } from '@/lib/notify'
 import { runWithUsageContext } from '@/lib/usage'
 
@@ -33,11 +33,11 @@ async function handleGET(req: NextRequest) {
     checked++
     try {
       const cur = await fetchMetrics(t.keyword, t.country)
-      const base = { volume: t.baseVolume ?? null, competition: t.baseCompetition ?? null, difficulty: t.baseDifficulty ?? null }
+      const base = { volume: t.baseVolume ?? null, competition: t.baseCompetition ?? null, difficulty: baselineKd(t.baseDifficulty, t.baseKdV) }
       const msgs = describeChange(base, cur)
       if (msgs.length) {
         await notifyUser(t.userId, `Keyword alert: ${t.keyword}`, msgs.join('. '), '/dashboard?tab=alerts', 'alert')
-        t.baseVolume = cur.volume; t.baseCompetition = cur.competition; t.baseDifficulty = cur.difficulty
+        t.baseVolume = cur.volume; t.baseCompetition = cur.competition; t.baseDifficulty = cur.difficulty; t.baseKdV = 2
         t.lastNotifiedAt = new Date()
         notified++
       }

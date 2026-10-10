@@ -117,8 +117,10 @@ async function getHandler(req: NextRequest) {
       supplyByMonth,
       market,
       googleAvailable,
-      // The phrase the Google line is for, when it is not the keyword itself.
+      // The phrase the Google line is for, when it is not the keyword itself, and its
+      // real monthly searches (shown as that phrase's volume, never as the keyword's).
       googleFallback,
+      googleFallbackSearches: googleFallback ? gm?.searches ?? null : null,
       // Stated explicitly so the UI never has to guess why a series is missing.
       note: googleAvailable
         ? 'Search-volume seasonality is real Google Ads monthly data. Etsy publishes no search volume.'

@@ -762,7 +762,21 @@ const microsToCurrency = (v?: string | number | null): number | null =>
 interface StoredMetric { m: GoogleMetric | null; at: number; v?: number }
 const ROW_V = 2
 const metricKey = (geoId: string, kw: string) => `m|${geoId}|${kw}`
-const normKws = (keywords: string[]) => [...new Set(keywords.map(k => k.toLowerCase().trim()).filter(Boolean))]
+/**
+ * Keyword Planner rejects keyword text over 80 characters or 10 words, or with
+ * symbols such as , ! ? ( ). Keywords from many users are sent in ONE request, so a
+ * single such keyword can fail the whole request and blank the volume for everyone
+ * in it. Those keywords are never sent: Google could not track them anyway, and the
+ * page falls back to the closest broader phrase it does track.
+ */
+const PLANNER_MAX_CHARS = 80
+const PLANNER_MAX_WORDS = 10
+const PLANNER_BAD_CHARS = /[!@%,*=(){};~`<>?\\|^"[\]]/
+const PLANNER_BAD_CHARS_G = new RegExp(PLANNER_BAD_CHARS.source, 'g')
+export function plannerAccepts(kw: string): boolean {
+  return kw.length <= PLANNER_MAX_CHARS && kw.split(' ').filter(Boolean).length <= PLANNER_MAX_WORDS && !PLANNER_BAD_CHARS.test(kw)
+}
+const normKws = (keywords: string[]) => [...new Set(keywords.map(k => k.toLowerCase().replace(/\s+/g, ' ').trim()).filter(k => k && plannerAccepts(k)))]
 const isFresh = (s: StoredMetric) =>
   // A stored series without its end month can't be placed on the calendar: refresh it once.
   !(s.m && s.m.monthly?.length && !s.m.monthlyEnd) &&
@@ -1178,12 +1192,19 @@ export async function googleKeywordMetrics(
 const FILLER_WORDS = new Set(['a', 'an', 'the', 'and', 'or', 'for', 'of', 'with', 'in', 'on', 'to', 'by', 'at', 'from', 'my', 'your', 'set', 'gift', 'gifts'])
 const MIN_BROADER_SEARCHES = 10
 
-/** Contiguous shorter phrases of `kw`, most specific (longest) first; filler-only ones skipped. */
-function broaderCandidates(kw: string, limit = 14): string[][] {
-  const words = kw.split(' ').filter(Boolean)
+/**
+ * Contiguous shorter phrases of `kw`, most specific (longest) first; filler-only ones
+ * skipped. Starts at BROADER_MAX_WORDS words: Google tracks almost no phrase longer
+ * than that, and starting at "all words but one" spent the whole candidate budget on
+ * 8-11 word phrases for long keywords, so the 2-5 word phrases that DO have volume
+ * were never tried (long keywords showed no volume at all, 2026-10-11).
+ */
+const BROADER_MAX_WORDS = 6
+function broaderCandidates(kw: string, limit = 30): string[][] {
+  const words = kw.replace(PLANNER_BAD_CHARS_G, ' ').split(' ').filter(Boolean)
   const levels: string[][] = []
   let count = 0
-  for (let len = words.length - 1; len >= 1 && count < limit; len--) {
+  for (let len = Math.min(words.length - 1, BROADER_MAX_WORDS); len >= 1 && count < limit; len--) {
     const level: string[] = []
     for (let i = 0; i + len <= words.length && count < limit; i++) {
       const part = words.slice(i, i + len)

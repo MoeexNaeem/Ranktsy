@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
 import { TrackedKeyword } from '@/lib/models'
 import { getCurrentUser } from '@/lib/auth/session'
-import { fetchMetrics } from '@/lib/alerts'
-import { displayKd } from '@/lib/etsy'
+import { fetchMetrics, baselineKd } from '@/lib/alerts'
 import { withUsage } from '@/lib/track'
 
 export const runtime = 'nodejs'
@@ -22,7 +21,7 @@ async function handleGET() {
     country: r.country,
     volume: r.baseVolume ?? null,
     competition: r.baseCompetition ?? null,
-    difficulty: displayKd(r.baseDifficulty ?? null),
+    difficulty: baselineKd(r.baseDifficulty, r.baseKdV),
     lastCheckedAt: r.lastCheckedAt ?? null,
   }))
   return NextResponse.json({ success: true, data: { items, max: MAX_PER_USER } })
@@ -51,7 +50,7 @@ async function handlePOST(req: NextRequest) {
   const m = await fetchMetrics(keyword, country).catch(() => ({ volume: null, competition: null, difficulty: null }))
   const doc = await TrackedKeyword.findOneAndUpdate(
     { userId: auth.id, keyword, country },
-    { $set: { baseVolume: m.volume, baseCompetition: m.competition, baseDifficulty: m.difficulty, lastCheckedAt: new Date() } },
+    { $set: { baseVolume: m.volume, baseCompetition: m.competition, baseDifficulty: m.difficulty, baseKdV: 2, lastCheckedAt: new Date() } },
     { upsert: true, returnDocument: 'after' },
   ).lean<{ _id: unknown }>()
 

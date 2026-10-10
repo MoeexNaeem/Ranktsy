@@ -301,7 +301,7 @@ function GoogleGapNote({ status, retryAt }: { status?: string | null; retryAt?: 
   )
 }
 
-function KeywordStatsPanel({ s, geoName }: { s: KeywordStats; geoName: string }) {
+function KeywordStatsPanel({ s, geoName, broader }: { s: KeywordStats; geoName: string; broader?: { keyword: string; searches: number } | null }) {
   // Authentic data only, grouped by its real source so the origin of every number is
   // explicit: GOOGLE = search demand from the Google Keyword Planner API; ETSY = Etsy's
   // own listing signals. Nothing is modelled to mimic a competitor — Etsy publishes no
@@ -321,6 +321,12 @@ function KeywordStatsPanel({ s, geoName }: { s: KeywordStats; geoName: string })
       source: 'Google', dot: '#4285F4',
       items: [
         { label: 'Search Volume',  tip: `Real average monthly Google searches for this keyword in ${geoName}, measured not estimated.`, value: s.googleSearches != null ? exact(s.googleSearches) : s.googleStatus === 'pending' ? '…' : '—', color: s.googleSearches != null ? D.good : C.lightGray },
+        // Google tracks no volume for the exact phrase (common for long keywords): show the
+        // closest broader phrase it does track, named, so the number is never passed off
+        // as this keyword's own.
+        ...(!s.googleSearches && broader && broader.searches > 0
+          ? [{ label: `"${broader.keyword}"`, tip: `Google has no search volume for the exact phrase. This is the real monthly volume of the closest broader phrase it tracks, "${broader.keyword}", in ${geoName}.`, value: exact(broader.searches), color: '#2E6DB4' }]
+          : []),
         { label: 'Ad Competition', tip: 'How strongly advertisers compete for this keyword on Google, measured not estimated.', value: band(s.googleCompetition), color: s.googleCompetition === 'HIGH' ? D.hard : s.googleCompetition === 'MEDIUM' ? D.mid : s.googleCompetition === 'LOW' ? D.good : C.lightGray },
       ],
     },
@@ -636,7 +642,7 @@ export function KeywordsTab({ onNavigate }: { onNavigate?: (id: string) => void 
       {/* Overview - Keyword Statistics · Search Trends · Searchers by Country
           (the sample's three-panel row). Every figure is real or "-". */}
       <div data-tour="kw-stats" className="rgrid-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1.55fr 1fr', gap: 12, alignItems: 'stretch' }}>
-        {kw ? <KeywordStatsPanel s={kw.stats} geoName={geoName} /> : <StatsCardSkeleton />}
+        {kw ? <KeywordStatsPanel s={kw.stats} geoName={geoName} broader={tr?.googleFallback && tr?.googleFallbackSearches ? { keyword: tr.googleFallback, searches: tr.googleFallbackSearches } : null} /> : <StatsCardSkeleton />}
 
         <Card style={{ display: 'flex', flexDirection: 'column' }}>
           <SectionTitle right={tr?.trends?.length ? <PlatformToggle active={plats} onChange={setPlats} /> : undefined}>
