@@ -28,6 +28,8 @@ interface AUser {
   id: string; name: string; email: string; role: 'user' | 'admin'; plan: string
   isVerified: boolean; createdAt: string | null; searches: number; lastActive: string | null; connectedShops: number
   subscriptionStatus: string | null; imagesThisMonth: number; restricted: boolean; paidViaLemonSqueezy: boolean
+  /** Paid by bank / JazzCash with paid time left (approved local payment). */
+  paidLocally?: { until: string; method: 'bank' | 'jazzcash' } | null
   compExpiresAt: string | null
   creditsUsedToday: number; creditsLimit: number; creditsRemaining: number; creditsUsedTotal: number
   bonus?: BonusInfo | null   // admin-granted bonus pool, only while still valid
@@ -37,7 +39,8 @@ interface AUser {
   planCredits?: number       // the plan's own daily credits (creditsLimit adds SEBT free credits)
   sebtCredits?: { perDay: number; plan: string | null; expiresAt: string } | null
 }
-const isRealPaid = (u: AUser) => u.paidViaLemonSqueezy && u.plan !== 'free'
+// Card (Lemon Squeezy) or an approved bank / JazzCash payment with paid time left.
+const isRealPaid = (u: AUser) => (u.paidViaLemonSqueezy || !!u.paidLocally) && u.plan !== 'free'
 interface Stats {
   total: number; admins: number; verified: number; searches: number
   paying: number; newThisWeek: number
@@ -746,11 +749,11 @@ export function AdminDashboard() {
                         </select>
                         <span aria-hidden style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', fontSize: 9, color: paid ? '#fff' : hue, pointerEvents: 'none' }}>▾</span>
                         {!u.paidViaLemonSqueezy && u.plan !== 'free' && u.compExpiresAt && (
-                          <p title="Admin-granted plan - reverts to Free on this date unless the user pays" style={{ fontSize: 10, fontFamily: MONO, color: C.stone, marginTop: 5, whiteSpace: 'nowrap' }}><Icon name="clock" size={10} color={C.stone} style={{ display: 'inline-block', verticalAlign: '-1px', marginRight: 4 }} />expires {fmtDate(u.compExpiresAt)}</p>
+                          <p title={u.paidLocally ? 'Paid by bank / JazzCash - the plan runs until this date' : 'Admin-granted plan - reverts to Free on this date unless the user pays'} style={{ fontSize: 10, fontFamily: MONO, color: C.stone, marginTop: 5, whiteSpace: 'nowrap' }}><Icon name="clock" size={10} color={C.stone} style={{ display: 'inline-block', verticalAlign: '-1px', marginRight: 4 }} />expires {fmtDate(u.compExpiresAt)}</p>
                         )}
                       </div>
                       {paid
-                        ? <span title="Paid via Lemon Squeezy" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, width: 'fit-content', fontSize: 11.5, fontWeight: 700, color: '#fff', background: PAID_GOLD, padding: '4px 12px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>★ Paid</span>
+                        ? <span title={u.paidViaLemonSqueezy ? 'Paid via Lemon Squeezy (card)' : `Paid by ${u.paidLocally?.method === 'jazzcash' ? 'JazzCash' : 'bank transfer'} (approved local payment), until ${fmtDate(u.paidLocally?.until ?? null)}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, width: 'fit-content', fontSize: 11.5, fontWeight: 700, color: '#fff', background: PAID_GOLD, padding: '4px 12px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>★ Paid</span>
                         : sp ? <span style={{ display: 'inline-flex', alignItems: 'center', width: 'fit-content', fontSize: 11.5, fontWeight: 600, color: sp.fg, background: sp.bg, padding: '4px 11px', borderRadius: 100, textTransform: 'capitalize', whiteSpace: 'nowrap' }}>{sp.label}</span>
                         : <span style={{ color: '#b7b7ae', fontSize: 14 }}>-</span>}
                       <span style={{ ...tdMono, fontSize: 13.5, color: C.graphite }}>{fmtDate(u.createdAt)}</span>
@@ -798,7 +801,7 @@ export function AdminDashboard() {
               </div>
               <Pagination page={usersPage} pageCount={usersPageCount} onChange={setUsersPage} loading={usersLoading} />
               <p style={{ fontSize: 12.5, color: '#808080', marginTop: 12, lineHeight: 1.5 }}>
-                Click a name to open the full profile. Role and plan changes ask you to confirm first. &ldquo;★ Paid&rdquo; marks a real Lemon Squeezy purchase; changing a plan here does not add it. Emails in <code style={{ fontFamily: MONO }}>ADMIN_EMAILS</code> are always admin.
+                Click a name to open the full profile. Role and plan changes ask you to confirm first. &ldquo;★ Paid&rdquo; marks a real purchase: Lemon Squeezy (card) or an approved bank / JazzCash payment with paid time left. Changing a plan here does not add it. Emails in <code style={{ fontFamily: MONO }}>ADMIN_EMAILS</code> are always admin.
               </p>
             </div>
           )}

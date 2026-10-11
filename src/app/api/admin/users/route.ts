@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sameCreditDay } from '@/lib/creditDay'
 import { PENDING_SIGNUP, NOT_PENDING_SIGNUP, cleanupPendingSignups } from '@/lib/auth/pendingSignups'
-import { parseUserFilters, buildUserFilter, isFiltered } from '@/lib/admin/userFilters'
+import { parseUserFilters, buildUserFilter, isFiltered, localPayers } from '@/lib/admin/userFilters'
 import { isDisposableEmail } from '@/lib/auth/disposable'
 import { connectDB } from '@/lib/db'
 import { User, KeywordHistory, ConnectedShop, LocalPayment } from '@/lib/models'
@@ -108,6 +108,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return { total, admins, verified, searches, paying: payingCard + payingLocal, payingCard, payingLocal, newThisWeek, signups, planDist, pending, tempMail, sebt: sebtCount }
   })
 
+  // Bank / JazzCash customers with paid time left count as paying customers too.
+  const local = await localPayers(now).catch(() => new Map<string, { until: Date; method: 'bank' | 'jazzcash'; plan: string }>())
+  const localIds = [...local.keys()]
   const [stats, matched, docs, promoOn] = await Promise.all([
     statsP,
     filtered ? User.countDocuments(filter) : null,
@@ -117,7 +120,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     User.aggregate([
       { $match: filter },
       { $addFields: {
-        _paid: { $cond: [{ $and: [{ $ne: [{ $ifNull: ['$lsSubscriptionId', null] }, null] }, { $ne: ['$plan', 'free'] }] }, 1, 0] },
+        _paid: { $cond: [{ $and: [{ $ne: ['$plan', 'free'] }, { $or: [{ $ne: [{ $ifNull: ['$lsSubscriptionId', null] }, null] }, { $in: [{ $toString: '$_id' }, localIds] }] }] }, 1, 0] },
         _planRank: { $switch: { branches: [
           { case: { $eq: ['$plan', 'custom'] }, then: 9 },
           { case: { $eq: ['$plan', 'enterprise'] }, then: 8 },
@@ -173,6 +176,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       tempMail: isDisposableEmail(u.email),
       restricted: u.restricted ?? false,
       paidViaLemonSqueezy: !!u.lsSubscriptionId,
+      // Paid by bank / JazzCash, with when that paid time ends.
+      paidLocally: local.has(id) && u.plan !== 'free' ? { until: local.get(id)!.until, method: local.get(id)!.method } : null,
       connectedShops: shops.get(id) ?? 0,
       createdAt: u.createdAt ?? null,
       searches: a?.count ?? 0,

@@ -1,4 +1,4 @@
-import { User } from '@/lib/models'
+import { User, LocalPayment } from '@/lib/models'
 import { isDisposableEmail } from '@/lib/auth/disposable'
 import { PENDING_SIGNUP, NOT_PENDING_SIGNUP } from '@/lib/auth/pendingSignups'
 import { PLAN_SLUGS, type PlanSlug } from '@/lib/plans'
@@ -44,6 +44,26 @@ export async function tempDomainsInUse(): Promise<string[]> {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Q = Record<string, any>
 
+export interface LocalPaid { until: Date; method: 'bank' | 'jazzcash'; plan: string }
+const lp = globalThis as typeof globalThis & { __rkLocalPayers?: { at: number; map: Map<string, LocalPaid> } }
+/**
+ * Users who paid by bank / JazzCash and whose paid time is still running (an
+ * approved local payment with grantedUntil in the future), with when it ends.
+ * Served from the { status, grantedUntil, userId } index; cached 60 s per worker.
+ */
+export async function localPayers(now = new Date()): Promise<Map<string, LocalPaid>> {
+  if (lp.__rkLocalPayers && Date.now() - lp.__rkLocalPayers.at < 60_000) return lp.__rkLocalPayers.map
+  const rows = await LocalPayment.aggregate<{ _id: string; until: Date; method: 'bank' | 'jazzcash'; plan: string }>([
+    { $match: { status: 'approved', grantedUntil: { $gt: now } } },
+    { $sort: { grantedUntil: -1 } },
+    { $group: { _id: '$userId', until: { $first: '$grantedUntil' }, method: { $first: '$method' }, plan: { $first: { $ifNull: ['$grantedPlan', '$plan'] } } } },
+  ])
+  const map = new Map(rows.map(r => [String(r._id), { until: r.until, method: r.method, plan: r.plan }]))
+  lp.__rkLocalPayers = { at: Date.now(), map }
+  return map
+}
+const objectIds = (ids: Iterable<string>) => [...ids].filter(id => /^[a-f0-9]{24}$/i.test(id))
+
 export async function buildUserFilter(f: UserFilters): Promise<Q> {
   const and: Q[] = []
   if (f.q) {
@@ -62,8 +82,13 @@ export async function buildUserFilter(f: UserFilters): Promise<Q> {
       : { $expr: { $not: [{ $in: [domainExpr, doms] }] } })
   }
   const now = new Date()
-  if (f.account === 'paying') and.push({ lsSubscriptionId: { $exists: true, $ne: null }, plan: { $ne: 'free' } })
-  if (f.account === 'granted') and.push({ compExpiresAt: { $gt: now }, $or: [{ lsSubscriptionId: null }, { lsSubscriptionId: { $exists: false } }] })
+  // Paying = card (Lemon Squeezy) OR bank / JazzCash with paid time left.
+  // Granted = an admin-given plan that nobody paid for.
+  if (f.account === 'paying' || f.account === 'granted') {
+    const local = objectIds((await localPayers(now)).keys())
+    if (f.account === 'paying') and.push({ plan: { $ne: 'free' }, $or: [{ lsSubscriptionId: { $exists: true, $ne: null } }, { _id: { $in: local } }] })
+    else and.push({ compExpiresAt: { $gt: now }, _id: { $nin: local }, $or: [{ lsSubscriptionId: null }, { lsSubscriptionId: { $exists: false } }] })
+  }
   if (f.account === 'restricted') and.push({ restricted: true })
   if (f.group === 'sebt') and.push({ sebtStudent: true })
   if (f.group === 'notsebt') and.push({ sebtStudent: { $ne: true } })

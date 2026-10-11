@@ -14,6 +14,7 @@ interface Detail {
   id: string; name: string; email: string; authProvider: string | null
   role: 'user' | 'admin'; plan: string; effectivePlan: string
   isVerified: boolean; restricted: boolean; paidViaLemonSqueezy: boolean
+  paidLocally?: { until: string; method: 'bank' | 'jazzcash' } | null
   subscriptionStatus: string | null; lsCustomerId: string | null; planRenewsAt: string | null; compExpiresAt: string | null
   createdAt: string | null
   credits: { usedToday: number; limit: number; remaining: number; usedTotal: number; bonus?: { remaining: number; granted: number; expiresAt: string } | null }
@@ -165,11 +166,11 @@ export function UserDetailPanel({ userId, onClose }: { userId: string | null; on
 
               <Group title="Plan & billing">
                 <Field label="Plan">{d.effectivePlan}{d.plan !== d.effectivePlan ? ` (set: ${d.plan})` : ''}</Field>
-                <Field label="Paid customer">{d.paidViaLemonSqueezy ? '★ Yes (Lemon Squeezy)' : 'No'}</Field>
+                <Field label="Paid customer">{d.paidViaLemonSqueezy ? '★ Yes (Lemon Squeezy)' : d.paidLocally ? `★ Yes (${d.paidLocally.method === 'jazzcash' ? 'JazzCash' : 'bank transfer'}, until ${fmtDate(d.paidLocally.until)})` : 'No'}</Field>
                 <Field label="Subscription">{d.subscriptionStatus ? d.subscriptionStatus.replace(/_/g, ' ') : '-'}</Field>
                 {d.lsCustomerId && <Field label="LS customer">{d.lsCustomerId}</Field>}
                 {d.planRenewsAt && <Field label="Renews">{fmtDate(d.planRenewsAt)}</Field>}
-                {!d.paidViaLemonSqueezy && d.compExpiresAt && d.effectivePlan !== 'free' && (
+                {!d.paidViaLemonSqueezy && !d.paidLocally && d.compExpiresAt && d.effectivePlan !== 'free' && (
                   <Field label="Admin grant expires"><span title="Admin-granted plan reverts to Free on this date unless the user pays">{fmtDate(d.compExpiresAt)}</span></Field>
                 )}
               </Group>

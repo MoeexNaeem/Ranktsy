@@ -13,6 +13,7 @@ import { getSebtConfig, sebtCreditFields } from '@/lib/sebt'
 import { PLAN_LABELS } from '@/lib/plans'
 import { addMonths, grantMonthsFor } from '@/lib/local-payments'
 import { dailyLimitFor, activeBonus } from '@/lib/credits'
+import { localPayers } from '@/lib/admin/userFilters'
 import type { IApiUsage } from '@/types'
 
 export const runtime = 'nodejs'
@@ -61,8 +62,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     }
   })
 
+  const lp = (await localPayers().catch(() => new Map())).get(id)
   return NextResponse.json({ success: true, data: {
     id,
+    paidLocally: lp && u.plan !== 'free' ? { until: lp.until, method: lp.method } : null,
     name: u.name, email: u.email, authProvider: u.authProvider ?? null,
     role: resolveRole(u.email, u.role), plan: u.plan, effectivePlan: plan,
     isVerified: u.isVerified, restricted: u.restricted ?? false,
