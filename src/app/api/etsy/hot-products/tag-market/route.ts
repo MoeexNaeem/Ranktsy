@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { keywordListings } from '@/lib/keywords'
+import { keywordListingIds } from '@/lib/keywords'
 import { getKeywordMarketHistory, HistoryBusyError, type KeywordMarketHistory } from '@/lib/snapshots'
 import { cachedFlight, cacheKey } from '@/lib/cache'
 import { withUsage } from '@/lib/track'
@@ -26,8 +26,7 @@ async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<Rec
   for (const q of tags) {
     try {
       out[q] = await cachedFlight(cacheKey('kwmarket', 'v3', q), 60 * 60 * 3, async () => {
-        const listings = await keywordListings(q)
-        return getKeywordMarketHistory(listings.map(l => l.listing_id).filter(Boolean))
+        return getKeywordMarketHistory(await keywordListingIds(q))
       })
     } catch (e) {
       if (e instanceof HistoryBusyError) busy++

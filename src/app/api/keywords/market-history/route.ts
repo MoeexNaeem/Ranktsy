@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { keywordListings } from '@/lib/keywords'
+import { keywordListingIds } from '@/lib/keywords'
 import { getKeywordMarketHistory, HistoryBusyError, type KeywordMarketHistory } from '@/lib/snapshots'
 import { cachedFlight, cacheKey } from '@/lib/cache'
 import type { ApiResponse } from '@/types'
@@ -20,8 +20,8 @@ async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<Key
     // Snapshots are taken once a day, so 3 h of caching loses nothing and saves a
     // large disk read on every repeat search.
     const data = await cachedFlight(cacheKey('kwmarket', 'v3', q), 60 * 60 * 3, async () => {
-      const listings = await keywordListings(q)   // shared with the core search, no extra Etsy call
-      return getKeywordMarketHistory(listings.map(l => l.listing_id).filter(Boolean))
+      // Shared with the core search (no extra Etsy call); our own rank data when Etsy is down.
+      return getKeywordMarketHistory(await keywordListingIds(q))
     })
     return NextResponse.json({ success: true, data })
   } catch (e) {

@@ -18,7 +18,7 @@
  * instead of showing a spinner for 13 seconds.
  */
 import { connectDB } from '@/lib/db'
-import { KeywordCache } from '@/lib/models'
+import { KeywordCache, SearchRankSnapshot } from '@/lib/models'
 import { packCache, unpackCache } from '@/lib/keyword-cache-codec'
 import { getCollectivePackage } from '@/lib/collective-read'
 import { memCache, cacheKey, CACHE_TTL, cachedFlight } from '@/lib/cache'
@@ -122,6 +122,29 @@ function rememberKeywordListings(query: string, listings?: EtsyListing[]) {
 export function keywordListings(query: string): Promise<EtsyListing[]> {
   return cachedFlight(kwListKey(query), CACHE_TTL.KEYWORD, async () =>
     (await searchEtsyTop100(query, { skipImages: true })).listings)
+}
+
+/**
+ * Ids of the listings ranking for a keyword, for measured-history panels (market
+ * activity, Hot Products tag performance). Etsy's live top 100 when it answers;
+ * when Etsy is unavailable (keys locked) the organic ranking our extension saw for
+ * this keyword on its latest day in the last week, so those panels keep working
+ * on our own data instead of failing (they 502'd while Etsy was locked, 2026-10-11).
+ */
+export async function keywordListingIds(query: string): Promise<number[]> {
+  try {
+    return (await keywordListings(query)).map(l => l.listing_id).filter(Boolean)
+  } catch (e) {
+    const kw = query.replace(/\s+/g, ' ').trim().toLowerCase()
+    await connectDB()
+    const since = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10)
+    const rows = await SearchRankSnapshot.find({ keyword: kw, day: { $gte: since }, isAd: { $ne: true } })
+      .sort({ day: -1, position: 1 }).limit(400).select('listingId day -_id')
+      .maxTimeMS(5000).lean<{ listingId: number; day: string }[]>()
+    if (!rows.length) throw e
+    const latest = rows[0].day
+    return [...new Set(rows.filter(r => r.day === latest).map(r => r.listingId))].slice(0, 100)
+  }
 }
 
 // A failed lookup that still produced numbers (served from the stored Google cache)
