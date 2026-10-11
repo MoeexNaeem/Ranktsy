@@ -316,8 +316,16 @@ Shop-level **lifetime** sales (`transaction_sold_count`) remain real (Competitor
   fetched for the shown page only and saved back (`img`, `tags`).
 - UI: Hot Products opens on "Product database" (`hot/ProductDatabase.tsx`); "Live Etsy
   search" is the old tool. Snapshots now also store `quantity` from the Etsy API path.
-- Next phases: detail-page performance charts + tag table, Top Charts / Rising / New
-  Trending, track & favorite, saved filters, batch search, fee calculator.
+- Phase 2 (detail): `/api/etsy/hot-products/item` (productstats row + daily series via
+  `listingSeries` + rank-explain `buildEvents` timeline, 30/90 days; retention is 90) and
+  `/tag-market` (per-tag `getKeywordMarketHistory`, sequential). UI in `hot/ProductHistory.tsx`.
+- Phase 3: Top Charts (`hot/TopCharts.tsx`; Rising = favorites growth `fg7`, needs >=5 last
+  week), favorites / tracking / saved filters (`HotProductSave`, `/saved`; tracked listings
+  are refreshed from Etsy daily by `refreshTrackedProducts` before the rollup), My products,
+  batch search (`batch=` up to 20), profit calculator (FeeCalculatorTab `initialPrice`).
+- Extension v1.1.9 sends `image`, `shipsFrom`, `madeType` (Etsy's "Handmade item" / "Vintage
+  from the 19xxs" labels only) and `bought24h` (Etsy's "N bought in the last 24 hours"):
+  country + handmade/vintage filters and a "Bought in 24h" sort.
 
 ## What the Etsy API does / doesn't give (memorize)
 **DOES:** active listings (title/tags/price/views/num_favorers/created/taxonomy), shop
