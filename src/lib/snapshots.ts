@@ -224,6 +224,9 @@ export function recordListingSnapshots(listings: EtsyListing[]): void {
             favorers: l.num_favorers ?? 0,
             capturedAt: new Date(),
           }
+          // Stock, every day it is seen: day-to-day drops are the product
+          // database's measured "units sold" (see lib/product-db.ts stockSold).
+          if (typeof l.quantity === 'number' && l.quantity >= 0) set.quantity = l.quantity
           const k = known.get(l.listing_id)
           const change: (typeof changedTracked)[number] = { listingId: l.listing_id }
           if (l.title && l.title !== k?.title) { set.title = l.title; change.title = l.title }

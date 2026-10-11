@@ -26,4 +26,8 @@ if (process.env.NODE_ENV === 'production') {
   // Next's on-disk Etsy fetch cache never expires files on its own and once grew
   // to 169 GB; prune stale entries (see lib/fetch-cache-janitor.ts).
   void import('./lib/fetch-cache-janitor').then(m => m.startFetchCacheJanitor()).catch(() => {})
+
+  // Find Hot Products' product table: rebuilt once a day from the tracking data
+  // (see lib/product-db.ts). One worker, lease-guarded, throttled.
+  void import('./lib/product-db').then(m => m.startProductRollup()).catch(e => console.error('[ProductDB] scheduler failed to start:', e))
 }

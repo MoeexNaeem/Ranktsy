@@ -431,6 +431,79 @@ const TrackedListingSchema = new Schema<ITrackedListing>({
 // snapshots have expired by then too, so no screen could show anything for them.
 TrackedListingSchema.index({ lastSeenAt: -1 }, { expireAfterSeconds: SNAPSHOT_TTL_SECONDS })
 
+// ─── Product database (Find Hot Products) ─────────────────────────────────────
+// One row per listing seen in the last ~45 days, rebuilt once a day from
+// TrackedListing (stable facts) + ListingSnapshot (the daily numbers). It exists
+// so Find Hot Products can browse, filter and sort by MEASURED 7 / 30 day gains
+// without touching the snapshot history (millions of rows) on a user request.
+// Gains are normalised to exactly 7 / 30 days from the nearest real baseline row
+// (see lib/product-db.ts); null = no baseline in range, never a guessed 0.
+// `sales*` = units sold measured from stock drops when we saw them, else a
+// review-based estimate (`salesEst` says which); the UI labels both.
+export interface IProductStat {
+  listingId: number
+  shopId: number
+  shopName: string | null
+  title: string
+  cat: string | null
+  digital: boolean | null
+  personal: boolean | null
+  badges?: string[]
+  freeShip: boolean | null
+  video: boolean | null
+  starSeller: boolean | null
+  created: number | null
+  price: number | null
+  cur: string | null
+  priceUsd: number | null
+  priceOrig: number | null
+  onSale: boolean | null
+  views: number | null
+  favs: number | null
+  reviews: number | null
+  qty: number | null
+  rating: number | null
+  bestRank: number | null
+  inCarts: number | null
+  eng: number | null
+  hot: number
+  v7: number | null; f7: number | null; r7: number | null
+  v30: number | null; f30: number | null; r30: number | null
+  f7p: number | null; sales7p: number | null
+  sold7: number | null; sold30: number | null
+  sales7: number | null; sales30: number | null
+  salesEst: boolean
+  salesEst30: boolean
+  salesTotal: number | null
+  rev7: number | null; rev30: number | null
+  lastDay: string
+  runDay: string
+  img?: string | null
+  tags?: string[]
+}
+const ProductStatSchema = new Schema<IProductStat>({
+  listingId: { type: Number, required: true, unique: true },
+  shopId: Number, shopName: String, title: String, cat: String,
+  digital: Boolean, personal: Boolean, badges: { type: [String], default: undefined },
+  freeShip: Boolean, video: Boolean, starSeller: Boolean,
+  created: Number, price: Number, cur: String, priceUsd: Number, priceOrig: Number, onSale: Boolean,
+  views: Number, favs: Number, reviews: Number, qty: Number, rating: Number, bestRank: Number, inCarts: Number,
+  eng: Number, hot: { type: Number, default: 0 },
+  v7: Number, f7: Number, r7: Number, v30: Number, f30: Number, r30: Number,
+  f7p: Number, sales7p: Number, sold7: Number, sold30: Number,
+  sales7: Number, sales30: Number, salesEst: { type: Boolean, default: true }, salesEst30: { type: Boolean, default: true }, salesTotal: Number,
+  rev7: Number, rev30: Number,
+  lastDay: String, runDay: { type: String, index: true },
+  img: String, tags: { type: [String], default: undefined },
+}, { versionKey: false })
+// Every sort the tool offers, so a browse is an index walk, never a collection scan.
+for (const f of ['sales7', 'rev7', 'f7', 'v7', 'r7', 'sales30', 'f30', 'created', 'favs', 'views', 'hot', 'priceUsd', 'reviews']) {
+  ProductStatSchema.index({ [f]: f === 'priceUsd' ? 1 : -1 })
+}
+ProductStatSchema.index({ cat: 1, sales7: -1 })
+ProductStatSchema.index({ shopName: 1 })
+ProductStatSchema.index({ title: 'text' }, { default_language: 'english', name: 'title_text' })
+
 // ─── Search rank snapshot ──────────────────────────────────────────────────────
 // WHERE a listing ranked for a keyword on a given day.
 //
@@ -1109,6 +1182,7 @@ export const ShopSnapshot    = trackingModel('ShopSnapshot', ShopSnapshotSchema)
 export const ListingSnapshot = trackingModel('ListingSnapshot', ListingSnapshotSchema)
 export const TrackedShop     = models.TrackedShop     ?? model<ITrackedShop>('TrackedShop', TrackedShopSchema)
 export const TrackedListing  = trackingModel('TrackedListing', TrackedListingSchema)
+export const ProductStat     = trackingModel('ProductStat', ProductStatSchema) as mongoose.Model<IProductStat>
 export const SearchRankSnapshot = trackingModel('SearchRankSnapshot', SearchRankSnapshotSchema) as mongoose.Model<ISearchRankSnapshot>
 export const KeywordMarketSnapshot = trackingModel('KeywordMarketSnapshot', KeywordMarketSnapshotSchema) as mongoose.Model<IKeywordMarketSnapshot>
 export const KeywordSuggestion     = trackingModel('KeywordSuggestion', KeywordSuggestionSchema) as mongoose.Model<IKeywordSuggestion>

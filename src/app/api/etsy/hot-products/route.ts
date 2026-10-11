@@ -6,6 +6,7 @@ import { meterSearch } from '@/lib/credit-gate'
 import type { SearchOpts as EtsySearchOpts } from '@/lib/etsy'
 import type { ApiResponse, HotProduct, HotProductsResponse, EtsyListing } from '@/types'
 import { withUsage } from '@/lib/track'
+import { hotScoreOf } from '@/lib/hot-score'
 
 export const runtime = 'nodejs'
 
@@ -33,23 +34,9 @@ function fetchSort(sort: SortKey): Pick<EtsySearchOpts, 'sortOn' | 'sortOrder'> 
   }
 }
 
-/** Hot Score 0–100 from real fields only - favorite-velocity + engagement. */
-function hotScore(l: EtsyListing): { score: number; favPerDay: number | null; engagementPct: number } {
-  const views = l.views ?? 0
-  const favs = l.num_favorers ?? 0
-  const engagementPct = views > 0 ? parseFloat((favs / views * 100).toFixed(1)) : 0
-
-  let favPerDay: number | null = null
-  if (l.created_timestamp) {
-    const ageDays = Math.max(1, (Date.now() - l.created_timestamp * 1000) / 86_400_000)
-    favPerDay = favs / ageDays
-  }
-
-  // velScore: 50 favorites/day ≈ maxed (log-scaled). engScore: 8% fav/view ≈ maxed.
-  const velScore = favPerDay != null ? Math.min(Math.log10(favPerDay + 1) / Math.log10(51), 1) : Math.min(Math.log10(favs + 1) / Math.log10(20001), 1)
-  const engScore = Math.min(engagementPct / 8, 1)
-  const score = Math.round(100 * (0.6 * velScore + 0.4 * engScore))
-  return { score, favPerDay: favPerDay != null ? parseFloat(favPerDay.toFixed(2)) : null, engagementPct }
+/** Hot Score 0-100 from real fields only (shared with the product database). */
+function hotScore(l: EtsyListing) {
+  return hotScoreOf(l.views, l.num_favorers, l.created_timestamp)
 }
 
 async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<HotProductsResponse>>> {

@@ -14,6 +14,7 @@ import { estimateListingSales } from '@/lib/salesEstimate'
 import { C, D, ACCENT, withAlpha, formatNumber } from '@/utils'
 import { SearchBar, Card, SectionTitle, ErrorBox, Loading, EmptyState, MONO } from '../kit'
 import { HotProductDetail } from '../hot/HotProductDetail'
+import { ProductDatabase } from '../hot/ProductDatabase'
 import type { HotProduct, HotProductsResponse, ApiResponse } from '@/types'
 
 const ageDaysOf = (ts?: number | null) => ts ? Math.max(0, Math.floor((Date.now() - ts * 1000) / 86_400_000)) : null
@@ -73,6 +74,9 @@ function HotBar({ score }: { score: number }) {
 }
 
 export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => void }) {
+  // 'db' = the product database (tracked listings, measured 7-day gains);
+  // 'live' = a live Etsy search for anything not in the database yet.
+  const [mode, setMode] = useState<'db' | 'live'>('db')
   const [input, setInput] = useState('')
   const [sort, setSort] = useState('hot')
   const [cat, setCat] = useState('')
@@ -141,8 +145,29 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
     return <HotProductDetail product={selected} onBack={() => setSelected(null)} onNavigate={onNavigate} />
   }
 
+  const modeSwitch = (
+    <div style={{ display: 'flex', gap: 4, background: C.bone, padding: 4, borderRadius: 100, alignSelf: 'flex-start' }}>
+      {([['db', 'Product database'], ['live', 'Live Etsy search']] as const).map(([id, label]) => (
+        <button key={id} onClick={() => setMode(id)}
+          style={{ padding: '8px 16px', borderRadius: 100, border: 'none', cursor: 'pointer', fontSize: 13.5, fontFamily: 'inherit', fontWeight: 500, background: mode === id ? C.paper : 'transparent', color: mode === id ? HUE : C.graphite, boxShadow: mode === id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }}>
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+
+  if (mode === 'db') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {modeSwitch}
+        <ProductDatabase onOpen={setSelected} />
+      </div>
+    )
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {modeSwitch}
       {/* Search + intro */}
       <Card pad="18px">
         <SectionTitle right={<span style={{ fontSize: 11, fontFamily: MONO, color: C.stone }}>live data</span>}>Find Hot Products</SectionTitle>

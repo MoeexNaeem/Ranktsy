@@ -381,6 +381,61 @@ export interface HotProduct {
   quantity: number
 }
 
+/**
+ * A row of the product database (Find Hot Products, browse mode). Totals are the
+ * latest observed values; *7 / *30 are MEASURED gains over the last 7 / 30 days
+ * (null = not enough history yet). sales7/30 are units that left stock when
+ * `salesEst` is false, else a review-based estimate; salesTotal and rev* are
+ * always estimates.
+ */
+export interface DbProduct {
+  listingId: number
+  title: string
+  url: string
+  image: string | null
+  shopName: string | null
+  cat: string | null
+  digital: boolean | null
+  personal: boolean | null
+  badges: string[]
+  freeShip: boolean | null
+  onSale: boolean | null
+  created: number | null
+  price: number | null
+  cur: string | null
+  priceUsd: number | null
+  priceOrig: number | null
+  views: number | null
+  favs: number | null
+  reviews: number | null
+  qty: number | null
+  rating: number | null
+  bestRank: number | null
+  hot: number
+  eng: number | null
+  v7: number | null; f7: number | null; r7: number | null
+  v30: number | null; f30: number | null; r30: number | null
+  sales7: number | null; sales30: number | null
+  salesEst: boolean; salesEst30: boolean
+  salesTotal: number | null
+  rev7: number | null; rev30: number | null
+  lastDay: string
+  tags: string[]
+}
+
+export interface DbProductsResponse {
+  products: DbProduct[]
+  /** Matching rows (a filtered count stops at `cap`, the most the table pages through). */
+  total: number
+  cap: number
+  page: number
+  pageSize: number
+  /** Rows in the whole database, and when it was last rebuilt (null before the first run). */
+  dbSize: number
+  updatedAt: string | null
+  categories?: string[]
+}
+
 export interface HotProductsResponse {
   products: HotProduct[]
   total: number              // real Etsy-wide match count for the query/filters

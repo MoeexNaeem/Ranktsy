@@ -300,6 +300,25 @@ response). **Listing Age** is 100% real (`created_timestamp`).
 Honesty: reviews/age are the real numbers; the `~` figures are directional estimates.
 Shop-level **lifetime** sales (`transaction_sold_count`) remain real (Competitor Sales).
 
+## Find Hot Products: product database (Oct 2026, Phase 1 of the eHunt plan)
+
+- `lib/product-db.ts` rebuilds `productstats` once per UTC day (PM2 worker 0, renewing
+  lease in AppSetting `productdb:lease`, last run in `productdb:last`): one row per
+  TrackedListing seen in 45 days + MEASURED 7/30-day gains from ListingSnapshot.
+  Gains need a real baseline 5-10 (7d) / 21-40 (30d) days back, scaled to 7/30; no
+  baseline = null. views/favorers 0 = "not observed". Sales = stock drops (measured)
+  else reviews gained / reviewRate (estimate, `salesEst`). `PRODUCT_DB_ROLLUP=off`
+  disables; `PRODUCT_DB_BATCH` / `PRODUCT_DB_PAUSE_MS` tune load.
+- API `GET /api/etsy/hot-products/db`: eHunt filters (category, price, sales, revenue,
+  favorites, reviews as `rng_<field>=min~max`, type, labels, free shipping, on sale,
+  release, exclude words, listing id/URL, shop URL), index-backed sorts, 50/page, first
+  5,000. 1 credit per search phrase per day; filters/sort/paging free. Photos + tags
+  fetched for the shown page only and saved back (`img`, `tags`).
+- UI: Hot Products opens on "Product database" (`hot/ProductDatabase.tsx`); "Live Etsy
+  search" is the old tool. Snapshots now also store `quantity` from the Etsy API path.
+- Next phases: detail-page performance charts + tag table, Top Charts / Rising / New
+  Trending, track & favorite, saved filters, batch search, fee calculator.
+
 ## What the Etsy API does / doesn't give (memorize)
 **DOES:** active listings (title/tags/price/views/num_favorers/created/taxonomy), shop
 record incl. **`transaction_sold_count`** (real lifetime sales), reviews, sections,
