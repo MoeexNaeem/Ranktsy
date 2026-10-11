@@ -1454,7 +1454,10 @@ export async function getKeywordMarketHistory(listingIds: number[], daysBack = 9
     const byListing = new Map<number, { day: string; views: number | null; favorers: number | null; reviewCount: number | null }[]>()
     for (const r of rows) {
       const arr = byListing.get(r.listingId) ?? []
-      arr.push({ day: r.day, views: r.views, favorers: r.favorers, reviewCount: trustedReviews(r.day, r.reviewCount) })
+      // views / favorers are stored as 0 on days a reading did not include them, so
+      // 0 means "not observed": read as a real value it turned a listing's whole
+      // lifetime count into one day's "gain" (same rule as lib/product-db.ts).
+      arr.push({ day: r.day, views: r.views || null, favorers: r.favorers || null, reviewCount: trustedReviews(r.day, r.reviewCount) })
       byListing.set(r.listingId, arr)
     }
 
@@ -1469,11 +1472,17 @@ export async function getKeywordMarketHistory(listingIds: number[], daysBack = 9
       if (series.length < 2) continue           // need >=2 snapshots to measure a gain
       series.sort((a, b) => a.day.localeCompare(b.day))
       let contributed = false
+      // Compare with the last day each figure was actually observed, so a reading
+      // without it neither creates a gain nor loses the gain across it.
+      let lastV = series[0].views, lastF = series[0].favorers, lastR = series[0].reviewCount
       for (let i = 1; i < series.length; i++) {
-        const prev = series[i - 1], cur = series[i]
-        const vG = gainOf(prev.views, cur.views)
-        const fG = gainOf(prev.favorers, cur.favorers)
-        const rG = gainOf(prev.reviewCount, cur.reviewCount)
+        const cur = series[i]
+        const vG = gainOf(lastV, cur.views)
+        const fG = gainOf(lastF, cur.favorers)
+        const rG = gainOf(lastR, cur.reviewCount)
+        if (cur.views != null) lastV = cur.views
+        if (cur.favorers != null) lastF = cur.favorers
+        if (cur.reviewCount != null) lastR = cur.reviewCount
         if (vG || fG || rG) contributed = true
         bump(dayAgg, cur.day, 'views', vG); bump(dayAgg, cur.day, 'favorites', fG); bump(dayAgg, cur.day, 'reviews', rG)
         if (rG) bump(dayAgg, cur.day, 'sales', Math.round(rG / rate))

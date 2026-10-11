@@ -19,7 +19,7 @@ async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<Key
   try {
     // Snapshots are taken once a day, so 3 h of caching loses nothing and saves a
     // large disk read on every repeat search.
-    const data = await cachedFlight(cacheKey('kwmarket', 'v2', q), 60 * 60 * 3, async () => {
+    const data = await cachedFlight(cacheKey('kwmarket', 'v3', q), 60 * 60 * 3, async () => {
       const listings = await keywordListings(q)   // shared with the core search, no extra Etsy call
       return getKeywordMarketHistory(listings.map(l => l.listing_id).filter(Boolean))
     })

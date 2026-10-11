@@ -13,7 +13,7 @@ const MAX_TAGS = 13
  * Measured market activity for each of a product's tags (Find Hot Products, Tag
  * performance): what the listings ranking for each tag gained in views, favorites,
  * reviews and estimated sales, per day and per month, from our tracking. The same
- * data and cache as Keyword Search's market panel (key kwmarket:v2), fetched one tag
+ * data and cache as Keyword Search's market panel (key kwmarket:v3), fetched one tag
  * at a time so a product's 13 tags never flood the snapshot reads. A tag that fails
  * is null; the others still come back.
  */
@@ -25,7 +25,7 @@ async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<Rec
   let busy = 0
   for (const q of tags) {
     try {
-      out[q] = await cachedFlight(cacheKey('kwmarket', 'v2', q), 60 * 60 * 3, async () => {
+      out[q] = await cachedFlight(cacheKey('kwmarket', 'v3', q), 60 * 60 * 3, async () => {
         const listings = await keywordListings(q)
         return getKeywordMarketHistory(listings.map(l => l.listing_id).filter(Boolean))
       })
