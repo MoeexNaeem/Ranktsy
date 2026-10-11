@@ -19,9 +19,11 @@
  */
 import { connectDB } from '@/lib/db'
 import { TrackedListing, ListingSnapshot, ProductStat, AppSetting, type IProductStat } from '@/lib/models'
-import { dayKey } from '@/lib/snapshots'
+import { dayKey, trustedReviews } from '@/lib/snapshots'
 import { reviewRate } from '@/lib/salesEstimate'
 import { hotScoreOf } from '@/lib/hot-score'
+import type { DbProduct } from '@/types'
+import type { RankEvent } from '@/lib/rank-explain'
 
 const BATCH = Number(process.env.PRODUCT_DB_BATCH) || 400
 const PAUSE_MS = Number(process.env.PRODUCT_DB_PAUSE_MS) || 150
@@ -91,10 +93,16 @@ export function prevGain7(pts: Pt[]): number | null {
 }
 
 /**
+ * A one-reading stock drop that is the seller editing stock, not sales: 40% or more
+ * of a stock of 100+ gone at once (999 -> 20, 999 -> 500).
+ */
+export const isStockEdit = (prev: number, drop: number) => prev >= 100 && drop >= prev * 0.4
+
+/**
  * Units that left stock over the last `n` days: the sum of day-to-day drops in
  * quantity (restocks are increases and are ignored). A big one-off cut on a
- * large stock (999 -> 20) is the seller editing stock, not 979 sales, so a drop
- * of half or more of a 100+ stock is skipped. Needs readings spanning `minSpan` days.
+ * large stock (999 -> 20) is the seller editing stock, not 979 sales, so those
+ * drops are skipped (isStockEdit). Needs readings spanning `minSpan` days.
  */
 export function stockSold(pts: Pt[], n: number, minSpan: number): number | null {
   if (pts.length < 2) return null
@@ -108,7 +116,7 @@ export function stockSold(pts: Pt[], n: number, minSpan: number): number | null 
     const prev = win[i - 1].v
     const drop = prev - win[i].v
     if (drop <= 0) continue
-    if (prev >= 100 && drop >= prev / 2) continue
+    if (isStockEdit(prev, drop)) continue
     sold += drop
   }
   return Math.round(sold * n / span)
@@ -143,7 +151,8 @@ export function buildProductRow(t: TrackedFacts, snaps: SnapRow[], usdPerUnit: (
   const rows = [...snaps].sort((a, b) => a.day.localeCompare(b.day))
   const views = seriesOf(rows, r => r.views, true)
   const favs = seriesOf(rows, r => r.favorers, true)
-  const revs = seriesOf(rows, r => r.reviewCount, false)
+  // Review counts stored before the observe fix are not trustworthy (see trustedReviews).
+  const revs = seriesOf(rows, r => trustedReviews(r.day, r.reviewCount), false)
   const qty = seriesOf(rows, r => r.quantity, false)
   const lastOf = (pts: Pt[]) => (pts.length ? pts[pts.length - 1].v : null)
   const latest = <K extends keyof SnapRow>(k: K): SnapRow[K] | null => {
@@ -213,6 +222,99 @@ export function buildProductRow(t: TrackedFacts, snaps: SnapRow[], usdPerUnit: (
     rev7: usd(sales7), rev30: usd(sales30),
     lastDay, runDay,
   }
+}
+
+export type ProductLean = IProductStat & { _id?: unknown }
+
+/** A productstats row as the API returns it. */
+export function toProduct(r: ProductLean): DbProduct {
+  return {
+    listingId: r.listingId, title: r.title, url: `https://www.etsy.com/listing/${r.listingId}`,
+    image: r.img ?? null, shopName: r.shopName ?? null, cat: r.cat ?? null,
+    digital: r.digital ?? null, personal: r.personal ?? null, badges: r.badges ?? [],
+    freeShip: r.freeShip ?? null, onSale: r.onSale ?? null, created: r.created ?? null,
+    price: r.price ?? null, cur: r.cur ?? null, priceUsd: r.priceUsd ?? null, priceOrig: r.priceOrig ?? null,
+    views: r.views ?? null, favs: r.favs ?? null, reviews: r.reviews ?? null, qty: r.qty ?? null,
+    rating: r.rating ?? null, bestRank: r.bestRank ?? null, hot: r.hot ?? 0, eng: r.eng ?? null,
+    v7: r.v7 ?? null, f7: r.f7 ?? null, r7: r.r7 ?? null, v30: r.v30 ?? null, f30: r.f30 ?? null, r30: r.r30 ?? null,
+    sales7: r.sales7 ?? null, sales30: r.sales30 ?? null, salesEst: r.salesEst ?? true, salesEst30: r.salesEst30 ?? true,
+    salesTotal: r.salesTotal ?? null, rev7: r.rev7 ?? null, rev30: r.rev30 ?? null,
+    lastDay: r.lastDay, tags: r.tags ?? [],
+  }
+}
+
+// ─── One listing's daily history (product detail chart) ──────────────────────
+
+export interface HistoryRow extends SnapRow { listPrice?: number | null; listCurrency?: string | null }
+export interface HistoryPoint {
+  day: string
+  views: number | null; favs: number | null; reviews: number | null
+  /** The seller's list price when recorded (2026-10-09 on), else the price seen that day. */
+  price: number | null; cur: string | null
+  priceOrig: number | null; onSale: boolean | null
+  qty: number | null; rank: number | null
+  /** Average per day since the previous reading (null on the first one). */
+  dViews: number | null; dFavs: number | null; dReviews: number | null
+  /** Units that left stock per day (measured); reviews gained per day / review rate (estimate). */
+  sold: number | null; salesEst: number | null
+}
+
+export interface ProductItemData {
+  stat: DbProduct | null
+  days: number
+  series: HistoryPoint[]
+  /** What changed on the listing in the window, newest first (measured, never causes). */
+  events: RankEvent[]
+  trackedSince: string | null
+}
+
+/** Daily points for a chart, oldest first, from a listing's snapshot rows. */
+export function listingSeries(rowsIn: HistoryRow[]): HistoryPoint[] {
+  const rows = [...rowsIn].sort((a, b) => a.day.localeCompare(b.day))
+  const rr = reviewRate()
+  const last: Record<string, { d: number; v: number } | null> = { views: null, favs: null, reviews: null, qty: null }
+  let listPrice: { v: number; cur: string | null } | null = null
+  const r1 = (n: number) => Math.round(n * 10) / 10
+  const step = (k: string, v: number | null, d: number): number | null => {
+    if (v == null) return null
+    const prev = last[k]
+    last[k] = { d, v }
+    if (!prev || d <= prev.d) return null
+    return r1(Math.max(0, v - prev.v) / (d - prev.d))
+  }
+  return rows.map(r => {
+    const d = dayNum(r.day)
+    if (r.listPrice != null && r.listPrice > 0) listPrice = { v: r.listPrice, cur: r.listCurrency ?? null }
+    const views = r.views != null && r.views > 0 ? r.views : null
+    const favs = r.favorers != null && r.favorers > 0 ? r.favorers : null
+    const reviews = trustedReviews(r.day, r.reviewCount)
+    const qty = r.quantity != null && r.quantity >= 0 ? r.quantity : null
+    const prevQty = last.qty
+    const dViews = step('views', views, d)
+    const dFavs = step('favs', favs, d)
+    const dReviews = step('reviews', reviews, d)
+    step('qty', qty, d)
+    let sold: number | null = null
+    if (qty != null && prevQty && d > prevQty.d) {
+      const drop = prevQty.v - qty
+      // A big cut on a large stock is the seller editing stock, not sales (see stockSold).
+      sold = drop > 0 && !isStockEdit(prevQty.v, drop) ? r1(drop / (d - prevQty.d)) : 0
+    }
+    const lp = listPrice as { v: number; cur: string | null } | null
+    return {
+      day: r.day,
+      views, favs, reviews,
+      price: lp ? lp.v : (r.price != null && r.price > 0 ? r.price : null),
+      cur: lp ? lp.cur : (r.currency ?? null),
+      priceOrig: r.priceOriginal ?? null,
+      onSale: r.onSale ?? null,
+      qty,
+      rank: r.bestRank != null && r.bestRank > 0 ? r.bestRank : null,
+      dViews, dFavs, dReviews,
+      sold,
+      salesEst: dReviews == null ? null : r1(dReviews / rr),
+    }
+  })
 }
 
 // ─── Currency ────────────────────────────────────────────────────────────────

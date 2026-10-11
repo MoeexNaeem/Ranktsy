@@ -66,7 +66,8 @@ function titleEffect(a: KeywordFit, b: KeywordFit): string | null {
   return null
 }
 
-function EventRow({ e }: { e: RankEvent }) {
+/** One recorded change (also used by Find Hot Products' "What changed"). */
+export function EventRow({ e }: { e: RankEvent }) {
   let icon = '•', head = '', tone: string = C.ink
   let body: React.ReactNode = null
   switch (e.kind) {

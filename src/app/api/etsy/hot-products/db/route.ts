@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
-import { ProductStat, type IProductStat } from '@/lib/models'
-import { lastRollup } from '@/lib/product-db'
+import { ProductStat } from '@/lib/models'
+import { lastRollup, toProduct, type ProductLean as Lean } from '@/lib/product-db'
 import { getListingById, etsyQuotaLow } from '@/lib/etsy'
 import { guardSearch } from '@/lib/searchGate'
 import { meterSearch } from '@/lib/credit-gate'
@@ -111,24 +111,6 @@ function buildFilter(sp: URLSearchParams): { filter: Record<string, unknown>; te
     if (Object.keys(c).length) { and.push({ [field]: c }); keyParts[k] = v }
   }
   return { filter: and.length ? { $and: and } : {}, text, keyParts }
-}
-
-type Lean = IProductStat & { _id?: unknown }
-
-function toProduct(r: Lean): DbProduct {
-  return {
-    listingId: r.listingId, title: r.title, url: `https://www.etsy.com/listing/${r.listingId}`,
-    image: r.img ?? null, shopName: r.shopName ?? null, cat: r.cat ?? null,
-    digital: r.digital ?? null, personal: r.personal ?? null, badges: r.badges ?? [],
-    freeShip: r.freeShip ?? null, onSale: r.onSale ?? null, created: r.created ?? null,
-    price: r.price ?? null, cur: r.cur ?? null, priceUsd: r.priceUsd ?? null, priceOrig: r.priceOrig ?? null,
-    views: r.views ?? null, favs: r.favs ?? null, reviews: r.reviews ?? null, qty: r.qty ?? null,
-    rating: r.rating ?? null, bestRank: r.bestRank ?? null, hot: r.hot ?? 0, eng: r.eng ?? null,
-    v7: r.v7 ?? null, f7: r.f7 ?? null, r7: r.r7 ?? null, v30: r.v30 ?? null, f30: r.f30 ?? null, r30: r.r30 ?? null,
-    sales7: r.sales7 ?? null, sales30: r.sales30 ?? null, salesEst: r.salesEst ?? true, salesEst30: r.salesEst30 ?? true,
-    salesTotal: r.salesTotal ?? null, rev7: r.rev7 ?? null, rev30: r.rev30 ?? null,
-    lastDay: r.lastDay, tags: r.tags ?? [],
-  }
 }
 
 /** Photo + tags for rows that have none yet: one batched, cached Etsy call; saved back. */

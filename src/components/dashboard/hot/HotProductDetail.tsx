@@ -16,6 +16,7 @@ import { estimateListingSales } from '@/lib/salesEstimate'
 import { C, D, formatNumber, withAlpha, ACCENT } from '@/utils'
 import { Card, SectionTitle, Loading, MONO, primaryBtn } from '../kit'
 import { AiInsights } from '../AiInsights'
+import { useProductItem, MeasuredStrip, PerformanceChart, ChangesTimeline, TagPerformance } from './ProductHistory'
 import type { HotProduct, EtsyListing, AiFact, ApiResponse, BulkKeywordRow } from '@/types'
 
 const HUE = ACCENT.rose   // Hot Products' accent
@@ -57,6 +58,12 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
   })
   const shop = shopQ.data?.shop
   const listing = listingQ.data
+  // Database products may arrive without tags until the live listing loads.
+  const tags = useMemo(() => (product.tags.length ? product.tags : (listing?.tags ?? [])), [product.tags, listing?.tags])
+  // What we measured on it: 7/30-day gains, daily history and recorded changes.
+  const [days, setDays] = useState<30 | 90>(90)
+  const itemQ = useProductItem(product.listing_id, days)
+  const stat = itemQ.data?.stat ?? null
 
   // Real review signals for this one listing → the labelled per-listing sales estimate.
   const reviewsQ = useListingReviews([product.listing_id])
@@ -83,7 +90,7 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
   // Per-tag analysis - real competition/views/favorites/Google, on demand.
   const tagAnalysis = useMutation({
     mutationFn: async () => {
-      const { data } = await axios.post<ApiResponse<BulkKeywordRow[]>>('/api/keywords/bulk', { keywords: product.tags })
+      const { data } = await axios.post<ApiResponse<BulkKeywordRow[]>>('/api/keywords/bulk', { keywords: tags })
       if (!data.success || !data.data) throw new Error(data.error ?? 'Failed')
       return data.data
     },
@@ -104,9 +111,13 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
     if (rstats?.count != null) f.push({ label: 'Listing reviews', value: formatNumber(rstats.count), hint: 'real · verified-purchase floor' })
     if (est.estMonthlySales != null) f.push({ label: 'Est. monthly sales', value: `~${formatNumber(est.estMonthlySales)}`, hint: 'ESTIMATE from review velocity' })
     if (est.estMonthlyRevenue != null) f.push({ label: 'Est. monthly revenue', value: `~${sym(product.currency)}${formatNumber(est.estMonthlyRevenue)}`, hint: 'ESTIMATE' })
-    if (product.tags[0]) f.push({ label: 'Top tag', value: product.tags[0] })
+    if (tags[0]) f.push({ label: 'Top tag', value: tags[0] })
+    if (stat?.sales7 != null) f.push({ label: 'Sales, last 7 days', value: `${stat.salesEst ? '~' : ''}${formatNumber(stat.sales7)}`, hint: stat.salesEst ? 'ESTIMATE from reviews gained' : 'measured from stock drops' })
+    if (stat?.f7 != null) f.push({ label: 'Favorites gained, 7 days', value: formatNumber(stat.f7), hint: 'measured' })
+    if (stat?.v7 != null) f.push({ label: 'Views gained, 7 days', value: formatNumber(stat.v7), hint: 'measured' })
+    if (stat?.bestRank != null) f.push({ label: 'Best search rank, 7 days', value: `#${stat.bestRank}`, hint: 'measured' })
     return f
-  }, [product, shopSales, shopRating, shopReviews, rstats, est])
+  }, [product, shopSales, shopRating, shopReviews, rstats, est, tags, stat])
 
   // Clicking a tag seeds the Keyword tool with it and jumps there - real new data.
   const researchTag = useCallback((tag: string) => {
@@ -167,13 +178,18 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <a href={product.url} target="_blank" rel="noopener noreferrer" style={{ ...primaryBtn, background: HUE, height: 42, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>View on Etsy ↗</a>
-            <button onClick={() => tagAnalysis.mutate()} disabled={tagAnalysis.isPending || !product.tags.length}
+            <button onClick={() => tagAnalysis.mutate()} disabled={tagAnalysis.isPending || !tags.length}
               style={{ height: 42, padding: '0 18px', borderRadius: 28, border: `1px solid ${C.ash}`, background: C.paper, color: C.ink, fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', opacity: tagAnalysis.isPending ? 0.6 : 1 }}>
               {tagAnalysis.isPending ? 'Analyzing tags…' : 'Analyze all tags'}
             </button>
           </div>
         </div>
       </div>
+
+      {/* Measured: 7/30-day gains, daily performance, recorded changes */}
+      <MeasuredStrip data={itemQ.data} />
+      <PerformanceChart days={days} setDays={setDays} q={itemQ} />
+      <ChangesTimeline q={itemQ} />
 
       {/* Sales estimate - review-based, clearly labelled (Etsy publishes no per-listing sales) */}
       <Card>
@@ -192,11 +208,11 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
       </Card>
 
       {/* Tags - clickable */}
-      {product.tags.length > 0 && (
+      {tags.length > 0 && (
         <Card>
           <SectionTitle right={<span style={{ fontSize: 11, fontFamily: MONO, color: C.stone }}>click a tag to research it</span>}>Tags</SectionTitle>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {product.tags.map(t => (
+            {tags.map(t => (
               <button key={t} onClick={() => researchTag(t)} title="Research this keyword"
                 style={{ fontSize: 13, fontFamily: MONO, color: HUE, background: withAlpha(HUE, 0.10), border: `1px solid ${withAlpha(HUE, 0.4)}`, padding: '5px 13px', borderRadius: 100, cursor: 'pointer', transition: 'all 0.15s' }}
                 onMouseEnter={e => { e.currentTarget.style.background = HUE; e.currentTarget.style.color = '#fff' }}
@@ -208,36 +224,9 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
         </Card>
       )}
 
-      {/* Per-tag analysis table (real) */}
+      {/* Per-tag market: competition, Google, and measured 30-day activity */}
       {(tagAnalysis.data || tagAnalysis.isPending) && (
-        <Card pad={0}>
-          <div style={{ padding: '16px 18px 12px' }}>
-            <SectionTitle right={<span style={{ fontSize: 11, fontFamily: MONO, color: C.stone }}>real, measured + Google</span>}>Tag analysis</SectionTitle>
-          </div>
-          {tagAnalysis.isPending ? <div style={{ padding: '0 18px 18px' }}><Loading label="Analyzing each tag…" /></div> : (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr 0.9fr 0.9fr 0.9fr 0.9fr', gap: 10, padding: '10px 18px', background: C.headerBg, borderTop: `1px solid ${C.ash}`, borderBottom: `1px solid ${C.ash}` }}>
-                {['Tag', 'Competition', 'Avg views', 'Avg favs', 'Favs/view', 'Search/mo'].map((h, i) => (
-                  <span key={h} style={{ fontSize: 10.5, fontFamily: MONO, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: C.graphite, textAlign: i === 0 ? 'left' : 'right' }}>{h}</span>
-                ))}
-              </div>
-              {(tagAnalysis.data ?? []).map(r => (
-                <button key={r.keyword} onClick={() => researchTag(r.keyword)}
-                  style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr 0.9fr 0.9fr 0.9fr 0.9fr', gap: 10, padding: '11px 18px', borderBottom: `1px solid ${C.hair}`, alignItems: 'center', width: '100%', background: 'transparent', border: 'none', borderBottomStyle: 'solid', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
-                  <span style={{ fontSize: 13.5, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.keyword}</span>
-                  <span style={{ fontSize: 13, fontFamily: MONO, color: r.competition == null ? C.stone : r.competition > 100000 ? D.hard : r.competition > 10000 ? D.mid : D.good, textAlign: 'right' }}>{r.competition != null ? formatNumber(r.competition) : '-'}</span>
-                  <span style={{ fontSize: 13, fontFamily: MONO, color: C.graphite, textAlign: 'right' }}>{r.avgViews != null ? formatNumber(r.avgViews) : '-'}</span>
-                  <span style={{ fontSize: 13, fontFamily: MONO, color: C.graphite, textAlign: 'right' }}>{r.avgFavorites != null ? formatNumber(r.avgFavorites) : '-'}</span>
-                  <span style={{ fontSize: 13, fontFamily: MONO, color: C.graphite, textAlign: 'right' }}>{r.favPerView != null ? `${r.favPerView}%` : '-'}</span>
-                  <span style={{ fontSize: 13, fontFamily: MONO, color: r.googleSearches != null ? C.ink : C.stone, textAlign: 'right' }}>{r.googleSearches != null ? formatNumber(r.googleSearches) : '-'}</span>
-                </button>
-              ))}
-              <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6, padding: '12px 18px' }}>
-                Competition = real live-listing count per tag. Views/favorites are the real averages of the listings ranking for it. Search/mo is real search volume when connected. No sales column - Etsy publishes none per listing.
-              </p>
-            </>
-          )}
-        </Card>
+        <TagPerformance rows={tagAnalysis.data} loading={tagAnalysis.isPending} onResearch={researchTag} />
       )}
 
       {/* Shop card */}
