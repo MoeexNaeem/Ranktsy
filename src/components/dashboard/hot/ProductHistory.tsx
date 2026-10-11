@@ -69,8 +69,8 @@ export function MeasuredStrip({ data }: { data: ProductItemData | undefined }) {
     <Card>
       <SectionTitle right={<span style={{ fontSize: 11, fontFamily: MONO, color: C.stone }}>measured {fmtDay(s.lastDay)} · green measured, amber ~ estimate</span>}>Last 7 and 30 days</SectionTitle>
       <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
-        <Stat label="Sales · 7 days" value={g(s.sales7, s.salesEst)} sub={s.sales7 == null ? 'not enough history' : s.salesEst ? 'estimate from reviews' : 'measured from stock'} tone={s.sales7 == null ? 'muted' : s.salesEst ? 'est' : 'good'} />
-        <Stat label="Sales · 30 days" value={g(s.sales30, s.salesEst30)} sub={s.sales30 == null ? 'not enough history' : s.salesEst30 ? 'estimate from reviews' : 'measured from stock'} tone={s.sales30 == null ? 'muted' : s.salesEst30 ? 'est' : 'good'} />
+        <Stat label="Sales · 7 days" value={g(s.sales7, s.salesEst)} sub={s.sales7 == null ? 'not enough history' : s.salesEst ? 'estimate from reviews' : 'units out of stock (measured)'} tone={s.sales7 == null ? 'muted' : s.salesEst ? 'est' : 'good'} />
+        <Stat label="Sales · 30 days" value={g(s.sales30, s.salesEst30)} sub={s.sales30 == null ? 'not enough history' : s.salesEst30 ? 'estimate from reviews' : 'units out of stock (measured)'} tone={s.sales30 == null ? 'muted' : s.salesEst30 ? 'est' : 'good'} />
         <Stat label="Revenue · 7 days" value={s.rev7 == null ? '-' : `~${money(s.rev7)}`} sub="sales × price (USD)" tone={s.rev7 == null ? 'muted' : 'est'} />
         <Stat label="Revenue · 30 days" value={s.rev30 == null ? '-' : `~${money(s.rev30)}`} sub="sales × price (USD)" tone={s.rev30 == null ? 'muted' : 'est'} />
         <Stat label="Favorites gained" value={g(s.f7)} sub={`7 days · ${g(s.f30)} in 30`} tone={s.f7 == null ? 'muted' : 'good'} />
@@ -171,7 +171,7 @@ export function PerformanceChart({ days, setDays, q }: { days: 30 | 90; setDays:
             </ComposedChart>
           </ResponsiveContainer>
           <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6, marginTop: 8 }}>
-            {metric === 'sales' ? <>Solid green = units that left stock (measured). {anyEst ? <>Dashed amber = reviews gained ÷ review rate (estimate). </> : null}</> : null}
+            {metric === 'sales' ? <>Solid green = units that left stock (measured; one order can be several units). {anyEst ? <>Dashed amber = reviews gained ÷ review rate (estimate). </> : null}</> : null}
             {metric === 'views' || metric === 'favs' ? 'Average gained per day between our readings. ' : null}
             {metric === 'price' ? `Seller's list price when recorded, else the price seen that day${cur ? ` (${cur})` : ''}. ` : null}
             {metric === 'rank' ? 'Best organic position seen in any tracked search that day (1 = top). ' : null}

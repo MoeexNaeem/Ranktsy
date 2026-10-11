@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
 import { ProductStat } from '@/lib/models'
 import { lastRollup, toProduct, type ProductLean as Lean } from '@/lib/product-db'
-import { getListingById, etsyQuotaLow } from '@/lib/etsy'
+import { getListingById } from '@/lib/etsy'
 import { guardSearch } from '@/lib/searchGate'
 import { meterSearch } from '@/lib/credit-gate'
 import { memCache } from '@/lib/cache'
@@ -143,8 +143,10 @@ function buildFilter(sp: URLSearchParams): { filter: Record<string, unknown>; te
 
 /** Photo + tags for rows that have none yet: one batched, cached Etsy call; saved back. */
 async function hydrate(rows: DbProduct[]): Promise<void> {
+  // A user is waiting on this page: photos are worth one batched Etsy call per
+  // page whatever the quota (no rationing of user-facing features).
   const need = rows.filter(r => !r.image)
-  if (!need.length || etsyQuotaLow()) return
+  if (!need.length) return
   const got = await Promise.all(need.map(r => getListingById(r.listingId).catch(() => null)))
   const save: { updateOne: { filter: { listingId: number }; update: { $set: Record<string, unknown> } } }[] = []
   need.forEach((r, i) => {
@@ -165,7 +167,8 @@ async function distinctOf(field: 'cat' | 'ship'): Promise<string[]> {
   const hit = memCache.get<string[]>(key)
   if (hit) return hit
   const vals = (await ProductStat.distinct(field).catch(() => []) as (string | null)[]).filter((c): c is string => !!c).sort()
-  memCache.set(key, vals, 3600)
+  // An empty list (table still building) is not cached, so the filter fills in as soon as it can.
+  if (vals.length) memCache.set(key, vals, 3600)
   return vals
 }
 

@@ -461,7 +461,7 @@ export function ProductDatabase({ onOpen }: { onOpen: (p: HotProduct) => void })
 
           <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6 }}>
             7-day figures are measured: what each listing gained between our daily readings, scaled to exactly 7 days. &ldquo;no 7d data&rdquo; means we have not tracked it long enough yet.
-            Sales are measured from stock that left the listing when we saw it; otherwise they are an estimate from reviews gained (amber, ~). Total sales and revenue are always estimates.
+            Sales are units that left the listing's stock when we saw it (one order can be several units; stock cuts bigger than the views gained are ignored as seller edits); otherwise they are an estimate from reviews gained (amber, ~). Total sales and revenue are always estimates.
           </p>
         </>
       )}

@@ -95,10 +95,22 @@ export function prevGain7(pts: Pt[]): number | null {
 }
 
 /**
- * A one-reading stock drop that is the seller editing stock, not sales: 40% or more
- * of a stock of 100+ gone at once (999 -> 20, 999 -> 500).
+ * A stock drop that is the seller editing stock, not sales:
+ *  - more units gone than the listing gained views over the same days (you cannot
+ *    sell 1,082 units to 300 visitors: 2026-10-11, listing 4465311900), or
+ *  - 40% or more of a stock of 100+ gone at once (999 -> 20, 999 -> 500).
+ * One order can be several units (bridesmaid sets), so units may exceed orders.
  */
-export const isStockEdit = (prev: number, drop: number) => prev >= 100 && drop >= prev * 0.4
+export const isStockEdit = (prev: number, drop: number, viewsGain?: number | null) =>
+  (viewsGain != null && drop > viewsGain + 5) || (prev >= 100 && drop >= prev * 0.4)
+
+/** The latest value at or before day `d` (null if none). */
+function valueAt(pts: Pt[] | undefined, d: number): number | null {
+  if (!pts) return null
+  let v: number | null = null
+  for (const p of pts) { if (p.d <= d) v = p.v; else break }
+  return v
+}
 
 /**
  * Units that left stock over the last `n` days: the sum of day-to-day drops in
@@ -106,7 +118,7 @@ export const isStockEdit = (prev: number, drop: number) => prev >= 100 && drop >
  * large stock (999 -> 20) is the seller editing stock, not 979 sales, so those
  * drops are skipped (isStockEdit). Needs readings spanning `minSpan` days.
  */
-export function stockSold(pts: Pt[], n: number, minSpan: number): number | null {
+export function stockSold(pts: Pt[], n: number, minSpan: number, views?: Pt[]): number | null {
   if (pts.length < 2) return null
   const last = pts[pts.length - 1]
   const win = pts.filter(p => last.d - p.d <= n)
@@ -118,7 +130,8 @@ export function stockSold(pts: Pt[], n: number, minSpan: number): number | null 
     const prev = win[i - 1].v
     const drop = prev - win[i].v
     if (drop <= 0) continue
-    if (isStockEdit(prev, drop)) continue
+    const va = valueAt(views, win[i - 1].d), vb = valueAt(views, win[i].d)
+    if (isStockEdit(prev, drop, va != null && vb != null ? vb - va : null)) continue
     sold += drop
   }
   return Math.round(sold * n / span)
@@ -187,7 +200,7 @@ export function buildProductRow(t: TrackedFacts, snaps: SnapRow[], usdPerUnit: (
   const v30 = gainOver(views, 30, 21, 40), f30 = gainOver(favs, 30, 21, 40), r30 = gainOver(revs, 30, 21, 40)
   const rr = reviewRate()
   const est = (g: number | null) => (g == null ? null : Math.round(g / rr))
-  const sold7 = stockSold(qty, 7, 4), sold30 = stockSold(qty, 30, 18)
+  const sold7 = stockSold(qty, 7, 4, views), sold30 = stockSold(qty, 30, 18, views)
   const sales7 = sold7 ?? est(r7)
   const sales30 = sold30 ?? est(r30)
   const r7p = prevGain7(revs)
@@ -294,6 +307,8 @@ export function listingSeries(rowsIn: HistoryRow[]): HistoryPoint[] {
   const rows = [...rowsIn].sort((a, b) => a.day.localeCompare(b.day))
   const rr = reviewRate()
   const last: Record<string, { d: number; v: number } | null> = { views: null, favs: null, reviews: null, qty: null }
+  // Views as they stood at each stock reading, to tell sales from stock edits.
+  let viewsAtQty: number | null = null
   let listPrice: { v: number; cur: string | null } | null = null
   const r1 = (n: number) => Math.round(n * 10) / 10
   const step = (k: string, v: number | null, d: number): number | null => {
@@ -311,6 +326,7 @@ export function listingSeries(rowsIn: HistoryRow[]): HistoryPoint[] {
     const reviews = trustedReviews(r.day, r.reviewCount)
     const qty = r.quantity != null && r.quantity >= 0 ? r.quantity : null
     const prevQty = last.qty
+    const prevViewsAtQty = viewsAtQty
     const dViews = step('views', views, d)
     const dFavs = step('favs', favs, d)
     const dReviews = step('reviews', reviews, d)
@@ -319,8 +335,11 @@ export function listingSeries(rowsIn: HistoryRow[]): HistoryPoint[] {
     if (qty != null && prevQty && d > prevQty.d) {
       const drop = prevQty.v - qty
       // A big cut on a large stock is the seller editing stock, not sales (see stockSold).
-      sold = drop > 0 && !isStockEdit(prevQty.v, drop) ? r1(drop / (d - prevQty.d)) : 0
+      const vNow = last.views?.v ?? null
+      const viewsGain = vNow != null && prevViewsAtQty != null ? vNow - prevViewsAtQty : null
+      sold = drop > 0 && !isStockEdit(prevQty.v, drop, viewsGain) ? r1(drop / (d - prevQty.d)) : 0
     }
+    if (qty != null) viewsAtQty = last.views?.v ?? null
     const lp = listPrice as { v: number; cur: string | null } | null
     return {
       day: r.day,
