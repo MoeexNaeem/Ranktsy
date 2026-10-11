@@ -6,6 +6,7 @@ import { C, D, ACCENT, withAlpha, formatNumber } from '@/utils'
 import { Card, SectionTitle, Loading, EmptyState, MONO } from '../kit'
 import { dbToHot } from './ProductDatabase'
 import { useSaved, useToggleSaved } from './useSaved'
+import { productHref, isModifiedClick } from './urlState'
 import type { HotProduct, SavedItem } from '@/types'
 
 const HUE = ACCENT.rose
@@ -45,14 +46,14 @@ export function MyProducts({ onOpen }: { onOpen: (p: HotProduct) => void }) {
                 const p = s.product
                 return (
                   <div key={s.key} style={{ display: 'grid', gridTemplateColumns: 'minmax(260px,2.4fr) repeat(4, minmax(90px,1fr)) 80px', gap: 10, padding: '12px 18px', borderBottom: `1px solid ${C.hair}`, alignItems: 'center' }}>
-                    <button onClick={() => open(s)} style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
+                    <a href={productHref(s.listingId!)} onClick={e => { if (isModifiedClick(e)) return; e.preventDefault(); open(s) }} style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0, textDecoration: 'none', color: 'inherit', cursor: 'pointer', textAlign: 'left' }}>
                       {(p?.image ?? s.image) ? <img src={(p?.image ?? s.image)!} alt="" style={{ width: 56, height: 56, borderRadius: 9, objectFit: 'cover', flexShrink: 0 }} />
                         : <div style={{ width: 56, height: 56, borderRadius: 9, background: C.bone, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name="image" size={18} color={C.stone} /></div>}
                       <div style={{ minWidth: 0 }}>
                         <p style={{ fontSize: 13.5, color: C.ink, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{p?.title || s.title || `Listing ${s.listingId}`}</p>
                         <p style={{ fontSize: 11, color: C.stone, marginTop: 2 }}>{p ? `measured ${p.lastDay}` : 'not in the database yet: measured from tomorrow'}</p>
                       </div>
-                    </button>
+                    </a>
                     <span style={{ fontSize: 13.5, fontFamily: MONO, textAlign: 'right', color: p?.sales7 == null ? C.stone : p.salesEst ? D.mid : D.good }}>{g(p?.sales7, p?.salesEst)}</span>
                     <span style={{ fontSize: 13.5, fontFamily: MONO, textAlign: 'right', color: p?.f7 == null ? C.stone : D.good }}>{g(p?.f7)}</span>
                     <span style={{ fontSize: 13.5, fontFamily: MONO, textAlign: 'right', color: p?.v7 == null ? C.stone : D.good }}>{g(p?.v7)}</span>

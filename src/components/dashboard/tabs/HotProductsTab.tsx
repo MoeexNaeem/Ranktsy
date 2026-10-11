@@ -6,7 +6,7 @@ import { Icon } from '@/components/ui/Icon'
  * filter and sort hits our live data for fresh real data. NO per-listing sales or
  * revenue is shown - Etsy publishes none, and this product never fabricates.
  */
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import axios from 'axios'
 import { useListingReviews } from '@/hooks/useListingReviews'
@@ -17,6 +17,9 @@ import { HotProductDetail } from '../hot/HotProductDetail'
 import { ProductDatabase } from '../hot/ProductDatabase'
 import { TopCharts } from '../hot/TopCharts'
 import { MyProducts } from '../hot/MyProducts'
+import { dbToHot } from '../hot/ProductDatabase'
+import { readHp, writeHp } from '../hot/urlState'
+import type { DbProduct, EtsyListing } from '@/types'
 import type { HotProduct, HotProductsResponse, ApiResponse } from '@/types'
 
 const ageDaysOf = (ts?: number | null) => ts ? Math.max(0, Math.floor((Date.now() - ts * 1000) / 86_400_000)) : null
@@ -78,7 +81,12 @@ function HotBar({ score }: { score: number }) {
 export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => void }) {
   // 'db' = the product database (tracked listings, measured 7-day gains);
   // 'live' = a live Etsy search for anything not in the database yet.
-  const [mode, setMode] = useState<'db' | 'charts' | 'mine' | 'live'>('db')
+  // View and open product live in the URL (hp, hpid) so refresh / new tab keep them.
+  const [mode, setModeState] = useState<'db' | 'charts' | 'mine' | 'live'>(() => {
+    const m = readHp('hp')
+    return m === 'charts' || m === 'mine' || m === 'live' ? m : 'db'
+  })
+  const setMode = useCallback((m: 'db' | 'charts' | 'mine' | 'live') => { setModeState(m); writeHp({ hp: m === 'db' ? null : m }) }, [])
   const [input, setInput] = useState('')
   const [sort, setSort] = useState('hot')
   const [cat, setCat] = useState('')
@@ -87,7 +95,52 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
   const [minFav, setMinFav] = useState('')
   const [release, setRelease] = useState('')
   const [view, setView] = useState<'list' | 'grid'>('list')
-  const [selected, setSelected] = useState<HotProduct | null>(null)
+  const [selected, setSelectedState] = useState<HotProduct | null>(null)
+  const setSelected = useCallback((p: HotProduct | null) => {
+    setSelectedState(p)
+    if (p) {
+      // A history entry per opened product, so the browser's Back returns to the list.
+      const params = new URLSearchParams(window.location.search)
+      params.set('hpid', String(p.listing_id))
+      window.history.pushState(null, '', `${window.location.pathname}?${params}${window.location.hash}`)
+    } else writeHp({ hpid: null })
+    if (p) { try { sessionStorage.setItem(`hp:sel:${p.listing_id}`, JSON.stringify(p)) } catch { /* storage unavailable */ } }
+    window.scrollTo({ top: 0 })
+  }, [])
+  // Browser Back from a product: the URL no longer has hpid, so show the list.
+  useEffect(() => {
+    const onPop = () => { if (!readHp('hpid')) setSelectedState(null) }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+  // Opened from a link / refresh with ?hpid=: rebuild the product from what we have.
+  const [loadingLinked, setLoadingLinked] = useState(() => !!readHp('hpid'))
+  useEffect(() => {
+    const id = Number(readHp('hpid'))
+    if (!id) return
+    let stop = false
+    void (async () => {
+      let p: HotProduct | null = null
+      try { const s = sessionStorage.getItem(`hp:sel:${id}`); if (s) p = JSON.parse(s) as HotProduct } catch { /* none */ }
+      if (!p) {
+        const stat = await axios.get(`/api/etsy/hot-products/item?id=${id}&days=90`).then(r => r.data?.data?.stat as DbProduct | null).catch(() => null)
+        if (stat) p = dbToHot(stat)
+      }
+      if (!p) {
+        const l = await axios.get(`/api/etsy/listing?id=${id}`).then(r => r.data?.data as EtsyListing | null).catch(() => null)
+        if (l) p = {
+          listing_id: l.listing_id, title: l.title, url: l.url || `https://www.etsy.com/listing/${id}`, image: l.images?.[0]?.url_570xN ?? null,
+          price: l.price ? l.price.amount / (l.price.divisor || 100) : null, currency: l.price?.currency_code ?? 'USD',
+          views: l.views ?? 0, favorites: l.num_favorers ?? 0, engagementPct: l.views ? Math.round((l.num_favorers ?? 0) / l.views * 1000) / 10 : 0,
+          favPerDay: null, hotScore: 0, tags: l.tags ?? [], shopName: l.shop_name ?? '', createdTimestamp: l.created_timestamp ?? null, quantity: l.quantity ?? 0,
+        }
+      }
+      if (stop) return
+      if (p) setSelectedState(p); else writeHp({ hpid: null })
+      setLoadingLinked(false)
+    })()
+    return () => { stop = true }
+  }, [])
   const [applied, setApplied] = useState({ q: '', sort: 'hot', cat: '', minP: '', maxP: '', minFav: '', release: '' })
 
   const { data: taxo } = useQuery({
@@ -143,6 +196,7 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
   }, [reviewsQ.data])
   const reviewsLoading = reviewsQ.isPending || reviewsQ.isFetching
 
+  if (loadingLinked && !selected) return <Loading label="Opening product…" />
   if (selected) {
     return <HotProductDetail product={selected} onBack={() => setSelected(null)} onNavigate={onNavigate} />
   }

@@ -17,6 +17,7 @@ import { Icon } from '@/components/ui/Icon'
 import { C, D, ACCENT, withAlpha, formatNumber } from '@/utils'
 import { SearchBar, Card, SectionTitle, ErrorBox, Loading, EmptyState, Pagination, MONO } from '../kit'
 import { SaveButtons } from './SaveButtons'
+import { readHp, readHpJson, writeHp, productHref, isModifiedClick } from './urlState'
 import { useSaved, useToggleSaved } from './useSaved'
 import type { ApiResponse, DbProduct, DbProductsResponse, HotProduct } from '@/types'
 
@@ -183,13 +184,21 @@ function exportCsv(rows: DbProduct[]) {
   URL.revokeObjectURL(url)
 }
 
-const GRID = 'minmax(330px,2.6fr) repeat(5, minmax(96px,1fr)) 96px'
+const GRID = 'minmax(330px,2.6fr) repeat(5, minmax(96px,1fr)) 70px'
+const iconBtn: React.CSSProperties = { width: 30, height: 30, borderRadius: 8, border: `1px solid ${C.ash}`, background: C.paper, color: HUE, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontSize: 15 }
 
 export function ProductDatabase({ onOpen }: { onOpen: (p: HotProduct) => void }) {
-  const [draft, setDraft] = useState<Filters>(EMPTY)
-  const [applied, setApplied] = useState<Filters | null>(null)
-  const [sort, setSort] = useState('sales7')
-  const [page, setPage] = useState(1)
+  // Filters, sort and page come back from the URL after a refresh or in a new tab.
+  const [draft, setDraft] = useState<Filters>(() => ({ ...EMPTY, ...(readHpJson<Partial<Filters>>('hpf') ?? {}) }))
+  const [applied, setApplied] = useState<Filters | null>(() => { const f = readHpJson<Partial<Filters>>('hpf'); return f ? { ...EMPTY, ...f } : null })
+  const [sort, setSort] = useState(() => (SORTS.some(s => s.id === readHp('hps')) ? readHp('hps')! : 'sales7'))
+  const [page, setPage] = useState(() => Math.max(1, Number(readHp('hpg')) || 1))
+  useEffect(() => {
+    if (!applied) return
+    // Only what differs from the defaults, to keep the link short.
+    const diff = Object.fromEntries(Object.entries(applied).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(EMPTY[k as keyof Filters])))
+    writeHp({ hpf: JSON.stringify(diff), hps: sort === 'sales7' ? null : sort, hpg: page > 1 ? String(page) : null })
+  }, [applied, sort, page])
   const [view, setView] = useState<'list' | 'grid'>('list')
   const [showEx, setShowEx] = useState(false)
   const [showBatch, setShowBatch] = useState(false)
@@ -396,7 +405,7 @@ export function ProductDatabase({ onOpen }: { onOpen: (p: HotProduct) => void })
                   const totalRev = p.salesTotal != null && p.priceUsd != null ? Math.round(p.salesTotal * p.priceUsd) : null
                   return (
                     <div key={p.listingId} style={{ display: 'grid', gridTemplateColumns: GRID, gap: 12, padding: '14px 18px', borderBottom: `1px solid ${C.hair}`, alignItems: 'center' }}>
-                      <button onClick={() => onOpen(dbToHot(p))} style={{ display: 'flex', gap: 13, alignItems: 'center', minWidth: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
+                      <a href={productHref(p.listingId)} onClick={e => { if (isModifiedClick(e)) return; e.preventDefault(); onOpen(dbToHot(p)) }} title="Open product (Ctrl/⌘-click: new tab)" style={{ display: 'flex', gap: 13, alignItems: 'center', minWidth: 0, textDecoration: 'none', color: 'inherit', cursor: 'pointer', textAlign: 'left' }}>
                         {p.image ? <img src={p.image} alt="" style={{ width: 78, height: 78, borderRadius: 10, objectFit: 'cover', flexShrink: 0, border: `1px solid ${C.hair}` }} />
                           : <div style={{ width: 78, height: 78, borderRadius: 10, background: C.bone, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="image" size={22} color={C.stone} /></div>}
                         <div style={{ minWidth: 0 }}>
@@ -421,16 +430,16 @@ export function ProductDatabase({ onOpen }: { onOpen: (p: HotProduct) => void })
                             <span style={{ fontSize: 11.5, color: C.stone }}>Released {fmtDate(p.created)}</span>
                           </div>
                         </div>
-                      </button>
+                      </a>
                       <Cell total={p.salesTotal} totalEst gain={p.sales7} gainEst={p.salesEst} />
                       <Cell total={totalRev} totalEst gain={p.rev7} gainEst isMoney />
                       <Cell total={p.reviews} gain={p.r7} />
                       <Cell total={p.favs} gain={p.f7} />
                       <Cell total={p.views} gain={p.v7} />
-                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 30px)', gap: 6, justifyContent: 'end' }}>
                         <SaveButtons listingId={p.listingId} title={p.title} image={p.image} />
-                        <a href={p.url} target="_blank" rel="noopener noreferrer" title="Open on Etsy" style={{ color: HUE, display: 'flex' }}><Icon name="link" size={17} color={HUE} /></a>
-                        <button onClick={() => onOpen(dbToHot(p))} title="Product details" style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex' }}><Icon name="chart" size={17} color={HUE} /></button>
+                        <a href={productHref(p.listingId)} target="_blank" rel="noopener" title="Open product in a new tab" style={iconBtn}>↗</a>
+                        <a href={p.url} target="_blank" rel="noopener noreferrer" title="Open on Etsy" style={iconBtn}><Icon name="link" size={14} color={HUE} /></a>
                       </div>
                     </div>
                   )
@@ -440,8 +449,8 @@ export function ProductDatabase({ onOpen }: { onOpen: (p: HotProduct) => void })
           ) : (
             <div className="rgrid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, opacity: isFetching ? 0.65 : 1 }}>
               {products.map(p => (
-                <button key={p.listingId} onClick={() => onOpen(dbToHot(p))}
-                  style={{ display: 'block', textAlign: 'left', background: C.paper, border: `1px solid ${C.hair}`, borderRadius: 12, overflow: 'hidden', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
+                <a key={p.listingId} href={productHref(p.listingId)} onClick={e => { if (isModifiedClick(e)) return; e.preventDefault(); onOpen(dbToHot(p)) }}
+                  style={{ display: 'block', textDecoration: 'none', color: 'inherit', textAlign: 'left', background: C.paper, border: `1px solid ${C.hair}`, borderRadius: 12, overflow: 'hidden', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
                   <div style={{ position: 'relative', height: 160, background: C.bone }}>
                     {p.image ? <img src={p.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="image" size={26} color={C.stone} /></div>}
                     {p.badges[0] && <span style={{ position: 'absolute', top: 8, left: 8, fontSize: 11, color: '#fff', background: withAlpha(HUE, 0.95), padding: '3px 9px', borderRadius: 100 }}>{p.badges[0]}</span>}
@@ -457,7 +466,7 @@ export function ProductDatabase({ onOpen }: { onOpen: (p: HotProduct) => void })
                       <span>★ {formatNumber(p.reviews ?? 0)}</span>
                     </div>
                   </div>
-                </button>
+                </a>
               ))}
             </div>
           )}

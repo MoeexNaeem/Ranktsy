@@ -7,7 +7,7 @@
  * "New Trending" limits all three to products listed in the last 90 days.
  * All from the product database: measured gains, sales labelled when estimated.
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { Icon } from '@/components/ui/Icon'
@@ -15,6 +15,7 @@ import { C, D, ACCENT, withAlpha, formatNumber } from '@/utils'
 import { Card, SectionTitle, Loading, EmptyState, MONO } from '../kit'
 import { dbToHot } from './ProductDatabase'
 import { SaveButtons } from './SaveButtons'
+import { readHpJson, writeHp, productHref, isModifiedClick } from './urlState'
 import type { ApiResponse, DbProduct, DbProductsResponse, HotProduct } from '@/types'
 
 const HUE = ACCENT.rose
@@ -53,8 +54,8 @@ function ChartList({ title, hint, accent, q, line, onOpen }: {
         : q.isError ? <p style={{ padding: 16, fontSize: 13, color: C.graphite }}>Could not load this chart.</p>
         : rows.length === 0 ? <div style={{ padding: 16 }}><EmptyState icon="📈" title="Not enough history yet" sub="This chart fills in as our daily tracking builds up." /></div>
         : rows.map((p, i) => (
-          <div key={p.listingId} onClick={() => onOpen(dbToHot(p))} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && onOpen(dbToHot(p))}
-            style={{ display: 'grid', gridTemplateColumns: '26px 64px 1fr auto', gap: 10, alignItems: 'center', padding: '11px 14px', borderBottom: `1px solid ${C.hair}`, cursor: 'pointer' }}>
+          <a key={p.listingId} href={productHref(p.listingId)} onClick={e => { if (isModifiedClick(e)) return; e.preventDefault(); onOpen(dbToHot(p)) }}
+            style={{ display: 'grid', gridTemplateColumns: '26px 64px 1fr auto', gap: 10, alignItems: 'center', padding: '11px 14px', borderBottom: `1px solid ${C.hair}`, cursor: 'pointer', textDecoration: 'none', color: 'inherit' }}>
             <span style={{ fontSize: 13, fontFamily: MONO, fontWeight: 700, color: i < 3 ? accent : C.stone, textAlign: 'center' }}>#{i + 1}</span>
             {p.image ? <img src={p.image} alt="" style={{ width: 64, height: 64, borderRadius: 9, objectFit: 'cover' }} />
               : <div style={{ width: 64, height: 64, borderRadius: 9, background: C.bone, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="image" size={18} color={C.stone} /></div>}
@@ -65,20 +66,25 @@ function ChartList({ title, hint, accent, q, line, onOpen }: {
               </p>
               <div style={{ fontSize: 12, fontFamily: MONO, marginTop: 3 }}>{line(p)}</div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }} onClick={e => { e.preventDefault(); e.stopPropagation() }}>
               <SaveButtons listingId={p.listingId} title={p.title} image={p.image} />
             </div>
-          </div>
+          </a>
         ))}
     </Card>
   )
 }
 
 export function TopCharts({ onOpen }: { onOpen: (p: HotProduct) => void }) {
-  const [fresh, setFresh] = useState(false)
-  const [period, setPeriod] = useState<7 | 30>(7)
-  const [cat, setCat] = useState('')
-  const [started, setStarted] = useState(false)
+  // Settings come back from the URL after a refresh or in a new tab.
+  const init = readHpJson<{ fresh?: boolean; period?: 7 | 30; cat?: string; started?: boolean }>('hpc') ?? {}
+  const [fresh, setFresh] = useState(!!init.fresh)
+  const [period, setPeriod] = useState<7 | 30>(init.period === 30 ? 30 : 7)
+  const [cat, setCat] = useState(init.cat ?? '')
+  const [started, setStarted] = useState(!!init.started)
+  useEffect(() => {
+    writeHp({ hpc: started ? JSON.stringify({ started, ...(fresh ? { fresh } : {}), ...(period === 30 ? { period } : {}), ...(cat ? { cat } : {}) }) : null })
+  }, [started, fresh, period, cat])
   const best = useChart(period === 7 ? 'sales7' : 'sales30', period, fresh, cat, started)
   const rising = useChart('rising', 7, fresh, cat, started)
   const favs = useChart(period === 7 ? 'f7' : 'f30', period, fresh, cat, started)

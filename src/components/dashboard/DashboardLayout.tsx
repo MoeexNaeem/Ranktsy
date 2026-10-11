@@ -190,6 +190,8 @@ function writeTabToUrl(id: TabId, mode: 'push' | 'replace') {
   const params = new URLSearchParams(window.location.search)
   params.delete('etsy')   // one-shot OAuth flag; never keep it around
   if (id === 'overview') params.delete('tab'); else params.set('tab', id)
+  // Find Hot Products' own view state (hp*) belongs to that tab only.
+  if (id !== 'hotproducts') for (const k of ['hp', 'hpf', 'hps', 'hpg', 'hpc', 'hpid']) params.delete(k)
   const qs = params.toString()
   const url = window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash
   if (url === window.location.pathname + window.location.search + window.location.hash) return

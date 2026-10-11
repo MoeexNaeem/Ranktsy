@@ -19,11 +19,11 @@ export function SaveButtons({ listingId, title, image, shopId, labelled = false 
   const base = { listingId, title, image, shopId }
   return (
     <>
-      <button onClick={e => { e.stopPropagation(); toggle.mutate({ kind: 'fav', on: !isFav, ...base }) }} disabled={toggle.isPending}
+      <button onClick={e => { e.preventDefault(); e.stopPropagation(); toggle.mutate({ kind: 'fav', on: !isFav, ...base }) }} disabled={toggle.isPending}
         title={isFav ? 'Remove from favorites' : 'Add to favorites'} aria-pressed={isFav} style={btn(isFav)}>
         {isFav ? '♥' : '♡'}{labelled ? (isFav ? ' Favorited' : ' Add to favorites') : ''}
       </button>
-      <button onClick={e => { e.stopPropagation(); toggle.mutate({ kind: 'track', on: !isTracked, ...base }) }} disabled={toggle.isPending}
+      <button onClick={e => { e.preventDefault(); e.stopPropagation(); toggle.mutate({ kind: 'track', on: !isTracked, ...base }) }} disabled={toggle.isPending}
         title={isTracked ? 'Stop tracking' : 'Track daily: we measure it every day'} aria-pressed={isTracked} style={btn(isTracked)}>
         {isTracked ? '◉' : '◎'}{labelled ? (isTracked ? ' Tracking' : ' Track daily') : ''}
       </button>
