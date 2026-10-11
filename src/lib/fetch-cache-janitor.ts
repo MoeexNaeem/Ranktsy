@@ -35,7 +35,7 @@ async function sweep(dir: string): Promise<void> {
     if ((e as NodeJS.ErrnoException)?.code !== 'ENOENT') console.error('[fetch-cache] sweep failed:', e)
     return
   }
-  if (removed) console.log(`[fetch-cache] removed ${removed} stale entries, kept ${kept}`)
+  if (removed) console.info(`[fetch-cache] removed ${removed} stale entries, kept ${kept}`)
 }
 
 export function startFetchCacheJanitor(): void {

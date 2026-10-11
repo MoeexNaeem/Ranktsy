@@ -24,7 +24,10 @@ const nextConfig: NextConfig = {
   },
 
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
+    // Strip console.log noise from production, but KEEP errors, warnings and
+    // console.info: with everything stripped the server logged nothing at all,
+    // not even crashes or failed jobs (found 2026-10-11).
+    removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn', 'info'] } : false,
   },
 
   async headers() {

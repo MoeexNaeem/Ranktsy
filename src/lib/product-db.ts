@@ -17,6 +17,7 @@
  *  - Sales: units that left stock (measured) when we have stock readings, else
  *    reviews gained / review rate (an estimate). `salesEst` says which one it is.
  */
+import mongoose from 'mongoose'
 import { connectDB } from '@/lib/db'
 import { TrackedListing, ListingSnapshot, ProductStat, AppSetting, HotProductSave, type IProductStat } from '@/lib/models'
 import { dayKey, trustedReviews, recordObservedListings } from '@/lib/snapshots'
@@ -31,6 +32,7 @@ const PAUSE_MS = Number(process.env.PRODUCT_DB_PAUSE_MS) || 150
 const WINDOW_DAYS = 45
 const LEASE_KEY = 'productdb:lease'
 const LAST_KEY = 'productdb:last'
+const PROGRESS_KEY = 'productdb:progress'
 const LEASE_MS = 15 * 60_000          // renewed every batch; a killed run frees it within 15 min
 // Bump when the row maths changes: the scheduler rebuilds the same day instead of
 // waiting for tomorrow (v2 2026-10-11: views-based stock-edit rule, sale price fix).
@@ -428,9 +430,21 @@ export async function runProductRollup(): Promise<RollupResult | null> {
   const since = new Date(started - WINDOW_DAYS * 86_400_000)
   const fromDay = dayKey(new Date(started - (WINDOW_DAYS + 1) * 86_400_000))
   const usdPerUnit = await usdRates()
+  // Resume an interrupted run of the same day and version (every deploy restarts
+  // the worker; the first build never finished because each restart began again
+  // from zero, 2026-10-11). _id order is stable, so carrying on is exact.
   let lastId: unknown = null
   let listings = 0, written = 0
-  console.log(`[ProductDB] rollup started for ${runDay}`)
+  try {
+    const p = await AppSetting.findOne({ key: PROGRESS_KEY }).lean<{ str?: string }>()
+    const prog = p?.str ? JSON.parse(p.str) as { day: string; v: number; lastId: string; listings: number } : null
+    if (prog && prog.day === runDay && prog.v === ROLLUP_V && prog.lastId) {
+      lastId = new mongoose.Types.ObjectId(prog.lastId)
+      listings = written = prog.listings
+      console.info(`[ProductDB] resuming ${runDay} after ${listings} listings`)
+    }
+  } catch { /* no usable progress: start from the beginning */ }
+  console.info(`[ProductDB] rollup started for ${runDay}`)
   try {
     for (;;) {
       const q: Record<string, unknown> = { lastSeenAt: { $gte: since } }
@@ -461,14 +475,15 @@ export async function runProductRollup(): Promise<RollupResult | null> {
       listings += tl.length
       written += ops.length
       if (!(await renewLease(holder))) throw new Error('lease lost to another worker')
-      if (listings % (BATCH * 50) === 0) console.log(`[ProductDB] ${listings} listings so far`)
+      await AppSetting.updateOne({ key: PROGRESS_KEY }, { $set: { str: JSON.stringify({ day: runDay, v: ROLLUP_V, lastId: String(lastId), listings }) } }, { upsert: true })
+      if (listings % (BATCH * 50) === 0) console.info(`[ProductDB] ${listings} listings so far`)
       await sleep(PAUSE_MS)
     }
     // Listings that dropped out of tracking were not refreshed this run.
     const removed = (await ProductStat.deleteMany({ runDay: { $ne: runDay } })).deletedCount ?? 0
     const result: RollupResult = { day: runDay, listings, written, removed, ms: Date.now() - started, at: new Date().toISOString(), v: ROLLUP_V }
     await AppSetting.updateOne({ key: LAST_KEY }, { $set: { str: JSON.stringify(result), num: Date.now() } }, { upsert: true })
-    console.log(`[ProductDB] rollup done: ${listings} listings in ${Math.round(result.ms / 1000)} s, ${removed} removed`)
+    console.info(`[ProductDB] rollup done: ${listings} listings in ${Math.round(result.ms / 1000)} s, ${removed} removed`)
     return result
   } catch (e) {
     console.error(`[ProductDB] rollup failed after ${listings} listings:`, e)
@@ -513,7 +528,7 @@ export async function refreshTrackedProducts(): Promise<number> {
     if (rows.length) recorded += await recordObservedListings(rows)
     await sleep(PAUSE_MS)
   }
-  if (ids.length) console.log(`[ProductDB] refreshed ${recorded} of ${ids.length} user-tracked products`)
+  if (ids.length) console.info(`[ProductDB] refreshed ${recorded} of ${ids.length} user-tracked products`)
   return recorded
 }
 
