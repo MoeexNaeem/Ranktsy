@@ -77,7 +77,7 @@ export function MeasuredStrip({ data }: { data: ProductItemData | undefined }) {
         <Stat label="Views gained" value={g(s.v7)} sub={`7 days · ${g(s.v30)} in 30`} tone={s.v7 == null ? 'muted' : 'good'} />
         <Stat label="Reviews gained" value={g(s.r7)} sub={`7 days · ${g(s.r30)} in 30`} tone={s.r7 == null ? 'muted' : 'good'} />
         <Stat label="Best search rank" value={s.bestRank != null ? `#${s.bestRank}` : '-'} sub="best position seen, 7 days" tone={s.bestRank == null ? 'muted' : undefined} />
-        <Stat label="Price" value={s.priceUsd != null ? money(s.priceUsd) : s.price != null ? `${s.price} ${s.cur ?? ''}` : '-'} sub={off ? `${off}% off ${s.priceOrig} ${s.cur ?? ''}` : s.onSale === false ? 'not on sale' : undefined} />
+        <Stat label="Price" value={s.priceUsd != null ? money(s.priceUsd) : s.price != null ? `${s.price} ${s.cur ?? ''}` : '-'} sub={off ? `${off}% off ${s.priceUsd != null && s.price ? money(s.priceOrig! * (s.priceUsd / s.price)) : `${s.priceOrig} ${s.cur ?? ''}`}` : s.onSale === false ? 'not on sale' : undefined} />
         <Stat label="Stock" value={s.qty != null ? formatNumber(s.qty) : '-'} sub="units listed" />
         <Stat label="Total sales" value={s.salesTotal != null ? `~${formatNumber(s.salesTotal)}` : '-'} sub="estimate from all reviews" tone={s.salesTotal == null ? 'muted' : 'est'} />
         <Stat label="Badges" value={s.badges.length ? s.badges.join(', ') : 'None seen'} sub={[s.freeShip ? 'Free shipping' : '', s.ship ? `Ships from ${s.ship}` : '', s.made ? (s.made === 'vintage' ? 'Vintage' : 'Handmade') : ''].filter(Boolean).join(' · ') || undefined} />

@@ -125,7 +125,7 @@ export function TopCharts({ onOpen }: { onOpen: (p: HotProduct) => void }) {
       )}
       <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6 }}>
         Gains are measured between our daily readings and scaled to exactly 7 or 30 days. Sales in green are units that left stock; amber ~ are estimates from reviews gained.
-        Rising compares favorites gained this week with last week, for products with at least 5 favorites last week.
+        Rising compares favorites gained this week with last week, for products with at least 10 favorites last week.
       </p>
     </div>
   )

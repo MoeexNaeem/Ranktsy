@@ -32,6 +32,9 @@ const WINDOW_DAYS = 45
 const LEASE_KEY = 'productdb:lease'
 const LAST_KEY = 'productdb:last'
 const LEASE_MS = 15 * 60_000          // renewed every batch; a killed run frees it within 15 min
+// Bump when the row maths changes: the scheduler rebuilds the same day instead of
+// waiting for tomorrow (v2 2026-10-11: views-based stock-edit rule, sale price fix).
+const ROLLUP_V = 2
 
 // ─── Pure maths (unit-tested) ─────────────────────────────────────────────────
 
@@ -96,13 +99,14 @@ export function prevGain7(pts: Pt[]): number | null {
 
 /**
  * A stock drop that is the seller editing stock, not sales:
- *  - more units gone than the listing gained views over the same days (you cannot
- *    sell 1,082 units to 300 visitors: 2026-10-11, listing 4465311900), or
+ *  - more units gone than half the views it gained over the same days (you cannot
+ *    sell 1,082 units to 300 visitors: 2026-10-11, listing 4465311900; real hot
+ *    listings measured 8-13% units per view, multi-unit orders included), or
  *  - 40% or more of a stock of 100+ gone at once (999 -> 20, 999 -> 500).
  * One order can be several units (bridesmaid sets), so units may exceed orders.
  */
 export const isStockEdit = (prev: number, drop: number, viewsGain?: number | null) =>
-  (viewsGain != null && drop > viewsGain + 5) || (prev >= 100 && drop >= prev * 0.4)
+  (viewsGain != null && drop > viewsGain * 0.5 + 5) || (prev >= 100 && drop >= prev * 0.4)
 
 /** The latest value at or before day `d` (null if none). */
 function valueAt(pts: Pt[] | undefined, d: number): number | null {
@@ -125,16 +129,24 @@ export function stockSold(pts: Pt[], n: number, minSpan: number, views?: Pt[]): 
   if (win.length < 2) return null
   const span = last.d - win[0].d
   if (span < minSpan) return null
-  let sold = 0
+  // Only stretches we can read count: a restock (stock went up) or a stock edit
+  // hides that stretch's sales, so its days are left out rather than read as 0,
+  // and the rate from the readable days is scaled to `n` days.
+  let sold = 0, days = 0
   for (let i = 1; i < win.length; i++) {
     const prev = win[i - 1].v
     const drop = prev - win[i].v
-    if (drop <= 0) continue
-    const va = valueAt(views, win[i - 1].d), vb = valueAt(views, win[i].d)
-    if (isStockEdit(prev, drop, va != null && vb != null ? vb - va : null)) continue
+    const gap = win[i].d - win[i - 1].d
+    if (drop < 0) continue
+    if (drop > 0) {
+      const va = valueAt(views, win[i - 1].d), vb = valueAt(views, win[i].d)
+      if (isStockEdit(prev, drop, va != null && vb != null ? vb - va : null)) continue
+    }
     sold += drop
+    days += gap
   }
-  return Math.round(sold * n / span)
+  if (days < minSpan) return null
+  return Math.round(sold * n / days)
 }
 
 export interface TrackedFacts {
@@ -184,9 +196,16 @@ export function buildProductRow(t: TrackedFacts, snaps: SnapRow[], usdPerUnit: (
   const rNow = lastOf(revs) ?? t.lastReviewCount ?? null
 
   // Price: the latest day it was seen with a price, else the tracked last price.
+  // The original (pre-sale) price only from the SAME reading as the price, so both
+  // are in one currency (a sale price in USD with an original in PLN read as 90% off).
   let price: number | null = null, cur: string | null = null
+  let priceOrig: number | null = null, onSale: boolean | null = null
   for (let i = rows.length - 1; i >= 0; i--) {
-    if (rows[i].price != null && rows[i].price! > 0) { price = rows[i].price!; cur = rows[i].currency ?? t.currency ?? null; break }
+    if (rows[i].price != null && rows[i].price! > 0) {
+      price = rows[i].price!; cur = rows[i].currency ?? t.currency ?? null
+      priceOrig = rows[i].priceOriginal ?? null; onSale = rows[i].onSale ?? null
+      break
+    }
   }
   if (price == null && t.lastPrice != null && t.lastPrice > 0) { price = t.lastPrice; cur = t.currency ?? null }
   const rate = cur ? usdPerUnit(cur) : null
@@ -230,8 +249,7 @@ export function buildProductRow(t: TrackedFacts, snaps: SnapRow[], usdPerUnit: (
     starSeller: t.starSeller ?? null,
     created: t.createdTimestamp ?? null,
     price, cur, priceUsd,
-    priceOrig: latest('priceOriginal') ?? null,
-    onSale: latest('onSale') ?? null,
+    priceOrig, onSale,
     views: vNow, favs: fNow, reviews: rNow,
     qty: lastOf(qty),
     rating: latest('rating') ?? null,
@@ -245,12 +263,14 @@ export function buildProductRow(t: TrackedFacts, snaps: SnapRow[], usdPerUnit: (
     hot: score,
     v7, f7, r7, v30, f30, r30,
     f7p, sales7p,
-    fg7: growth(f7, f7p, 5),
+    fg7: growth(f7, f7p, 10),
     sg7: growth(sales7, sales7p, 3),
     sold7, sold30, sales7, sales30,
     salesEst: sold7 == null,
     salesEst30: sold30 == null,
-    salesTotal: rNow != null ? Math.round(rNow / rr) : null,
+    // Never below the units we measured leaving stock (a listing with few or pooled
+    // reviews read "~0 total" next to "+1.7K units this week", 2026-10-11).
+    salesTotal: rNow != null || sold30 != null || sold7 != null ? Math.max(rNow != null ? Math.round(rNow / rr) : 0, sold30 ?? 0, sold7 ?? 0) : null,
     rev7: usd(sales7), rev30: usd(sales30),
     lastDay, runDay,
   }
@@ -337,7 +357,8 @@ export function listingSeries(rowsIn: HistoryRow[]): HistoryPoint[] {
       // A big cut on a large stock is the seller editing stock, not sales (see stockSold).
       const vNow = last.views?.v ?? null
       const viewsGain = vNow != null && prevViewsAtQty != null ? vNow - prevViewsAtQty : null
-      sold = drop > 0 && !isStockEdit(prevQty.v, drop, viewsGain) ? r1(drop / (d - prevQty.d)) : 0
+      // Restock (stock went up) or a stock edit: that stretch's sales are unknown, not 0.
+      sold = drop < 0 || (drop > 0 && isStockEdit(prevQty.v, drop, viewsGain)) ? null : r1(drop / (d - prevQty.d))
     }
     if (qty != null) viewsAtQty = last.views?.v ?? null
     const lp = listPrice as { v: number; cur: string | null } | null
@@ -395,7 +416,7 @@ async function renewLease(holder: string): Promise<boolean> {
   }
 }
 
-export interface RollupResult { day: string; listings: number; written: number; removed: number; ms: number; at: string }
+export interface RollupResult { day: string; listings: number; written: number; removed: number; ms: number; at: string; v?: number }
 
 /** Rebuild the product table. Holds a renewing cross-worker lease; returns null if another worker has it. */
 export async function runProductRollup(): Promise<RollupResult | null> {
@@ -445,7 +466,7 @@ export async function runProductRollup(): Promise<RollupResult | null> {
     }
     // Listings that dropped out of tracking were not refreshed this run.
     const removed = (await ProductStat.deleteMany({ runDay: { $ne: runDay } })).deletedCount ?? 0
-    const result: RollupResult = { day: runDay, listings, written, removed, ms: Date.now() - started, at: new Date().toISOString() }
+    const result: RollupResult = { day: runDay, listings, written, removed, ms: Date.now() - started, at: new Date().toISOString(), v: ROLLUP_V }
     await AppSetting.updateOne({ key: LAST_KEY }, { $set: { str: JSON.stringify(result), num: Date.now() } }, { upsert: true })
     console.log(`[ProductDB] rollup done: ${listings} listings in ${Math.round(result.ms / 1000)} s, ${removed} removed`)
     return result
@@ -520,7 +541,7 @@ export function startProductRollup(): void {
     running = true
     try {
       const last = await lastRollup()
-      if (last?.day !== dayKey()) {
+      if (last?.day !== dayKey() || last.v !== ROLLUP_V) {
         // Today's readings for user-tracked products first, so the rebuild includes them.
         await refreshTrackedProducts().catch(e => console.error('[ProductDB] tracked refresh failed:', e))
         await runProductRollup()

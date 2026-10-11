@@ -86,9 +86,15 @@ function buildFilter(sp: URLSearchParams): { filter: Record<string, unknown>; te
     if (look.listingId) and.push({ listingId: look.listingId })
     else if (look.shop) and.push({ shopName: new RegExp(`^${esc(look.shop)}$`, 'i') })
     else {
-      // Every word must appear (quoted terms are ANDed by Mongo's text search).
+      // The text index narrows the candidates (any word, stemmed); then every word
+      // must START a word in the title, so "ring" finds "ring"/"rings" but not
+      // "earrings" (quoted phrases matched inside words, 2026-10-11).
       const words = q.toLowerCase().replace(/[^\p{L}\p{N}\s'-]/gu, ' ').split(/\s+/).filter(w => w.length > 1).slice(0, 8)
-      if (words.length) { and.push({ $text: { $search: words.map(w => `"${w}"`).join(' ') } }); text = true }
+      if (words.length) {
+        and.push({ $text: { $search: words.join(' ') } })
+        for (const w of words) and.push({ title: { $regex: `(^|[^a-z0-9])${esc(w)}`, $options: 'i' } })
+        text = true
+      }
     }
   }
   const ex = (sp.get('ex') ?? '').split(/[,\n]/).map(s => s.trim().toLowerCase()).filter(Boolean).slice(0, 15)

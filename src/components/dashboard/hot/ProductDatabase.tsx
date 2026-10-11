@@ -412,7 +412,12 @@ export function ProductDatabase({ onOpen }: { onOpen: (p: HotProduct) => void })
                           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 5 }}>
                             {p.priceUsd != null ? <span style={{ fontSize: 15, fontFamily: MONO, fontWeight: 600, color: HUE }}>{money(p.priceUsd)}</span>
                               : p.price != null ? <span style={{ fontSize: 15, fontFamily: MONO, fontWeight: 600, color: HUE }}>{p.price} {p.cur}</span> : null}
-                            {p.onSale && p.priceOrig != null && p.price != null && p.priceOrig > p.price && <span style={{ fontSize: 12, color: C.stone, textDecoration: 'line-through' }}>{Math.round(p.priceOrig * 100) / 100} {p.cur}</span>}
+                            {p.onSale && p.priceOrig != null && p.price != null && p.priceOrig > p.price && (
+                              <span style={{ fontSize: 12, color: C.stone, textDecoration: 'line-through' }}>
+                                {p.priceUsd != null ? money(p.priceOrig * (p.priceUsd / p.price)) : `${Math.round(p.priceOrig * 100) / 100} ${p.cur}`}
+                              </span>
+                            )}
+                            {p.onSale && p.priceOrig != null && p.price != null && p.priceOrig > p.price && <span style={{ fontSize: 11.5, color: D.good, fontWeight: 600 }}>{Math.round((1 - p.price / p.priceOrig) * 100)}% off</span>}
                             <span style={{ fontSize: 11.5, color: C.stone }}>Released {fmtDate(p.created)}</span>
                           </div>
                         </div>
@@ -461,7 +466,7 @@ export function ProductDatabase({ onOpen }: { onOpen: (p: HotProduct) => void })
 
           <p style={{ fontSize: 11, color: C.stone, fontFamily: MONO, lineHeight: 1.6 }}>
             7-day figures are measured: what each listing gained between our daily readings, scaled to exactly 7 days. &ldquo;no 7d data&rdquo; means we have not tracked it long enough yet.
-            Sales are units that left the listing's stock when we saw it (one order can be several units; stock cuts bigger than the views gained are ignored as seller edits); otherwise they are an estimate from reviews gained (amber, ~). Total sales and revenue are always estimates.
+            Sales are units that left the listing&apos;s stock when we saw it (one order can be several units; stock cuts bigger than half the views gained are ignored as seller edits); otherwise they are an estimate from reviews gained (amber, ~). Total sales and revenue are always estimates.
           </p>
         </>
       )}
