@@ -14,7 +14,8 @@ const PROBLEM: Record<Problem, { label: string; help: string; fg: string; bg: st
   paid_no_access:     { label: 'Paid, no access', help: 'Active subscription, but the account is on Free.', fg: '#B42318', bg: '#FEE4E2' },
   not_linked:         { label: 'Not linked', help: 'No account carries this subscription; matched only by email. The webhook never applied it.', fg: '#B54708', bg: '#FEF0C7' },
   no_account:         { label: 'No account', help: 'Active subscription, no account with its email, subscription or customer id. The buyer may use another email.', fg: '#6B6B63', bg: '#F0EFEA' },
-  wrong_plan:         { label: 'Wrong plan', help: 'The account has a different plan from the one bought.', fg: '#B54708', bg: '#FEF0C7' },
+  wrong_plan:         { label: 'Wrong plan', help: 'The account has a LOWER plan than the one bought.', fg: '#B54708', bg: '#FEF0C7' },
+  paying_twice:       { label: 'Paying twice', help: 'The account has a higher plan (usually Pro 1-Year paid by bank / JazzCash) while this card subscription keeps renewing every month. Nothing to fix here: tell the customer to cancel the card subscription, or refund it in Lemon Squeezy.', fg: '#175CD3', bg: '#D1E9FF' },
   ended_still_access: { label: 'Ended, still has access', help: 'The subscription ended but the account still has the paid plan.', fg: '#6941C6', bg: '#F4EBFF' },
 }
 const fmt = (d: string | null) => (d ? new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: '2-digit' }) : '-')
@@ -44,6 +45,21 @@ export function AdminBillingCheck() {
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [])
+
+  const endAccess = (r: CheckRow) => {
+    if (!r.user) return
+    void confirm({
+      title: `End ${r.user.email}'s paid access?`,
+      body: <>Lemon Squeezy says this subscription is <strong>{r.status}</strong> (the card payment failed and was not recovered, or it ended), but the account still has <strong>{r.user.effectivePlan}</strong>. The account goes to Free. They can subscribe again any time.</>,
+      confirmLabel: 'End access', busyLabel: 'Saving…', tone: 'danger',
+      action: async () => {
+        const res = await fetch('/api/admin/billing-check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subId: r.subId, userId: r.user!.id }) })
+        const j = await res.json().catch(() => ({}))
+        if (!j.success) return j.error || 'Could not apply'
+        await load(true)
+      },
+    })
+  }
 
   const fix = (r: CheckRow) => {
     if (!r.user) return
@@ -112,6 +128,9 @@ export function AdminBillingCheck() {
                 <td style={{ padding: '10px 12px', textAlign: 'right' }}>
                   {r.user && (r.problem === 'paid_no_access' || r.problem === 'not_linked' || r.problem === 'wrong_plan') && (
                     <button onClick={() => fix(r)} style={adminBtn('primary')}>Give plan</button>
+                  )}
+                  {r.user && r.problem === 'ended_still_access' && (
+                    <button onClick={() => endAccess(r)} style={adminBtn('danger')}>End access</button>
                   )}
                 </td>
               </tr>

@@ -40,7 +40,8 @@ export type Problem =
   | 'paid_no_access'        // live subscription, the matched account is on Free
   | 'not_linked'            // live subscription no account carries (webhook never applied); matched by email at best
   | 'no_account'            // live subscription, no account at all
-  | 'wrong_plan'            // account plan differs from the plan bought
+  | 'wrong_plan'            // account plan is LOWER than the plan bought
+  | 'paying_twice'          // account has a higher plan (usually Pro 1-Year by bank / JazzCash) while this card subscription keeps renewing
   | 'ended_still_access'    // subscription ended, the account still has the paid plan
 
 export interface CheckRow {
@@ -60,6 +61,7 @@ export interface BillingCheck {
 }
 
 const LIVE = new Set(['active', 'on_trial', 'past_due', 'cancelled'])
+const PLAN_RANK: Record<string, number> = { free: 0, starter: 1, basic: 2, pro: 3, 'pro-1yr': 4, business: 5, agency: 6, enterprise: 7, custom: 8 }
 /** A subscription that still entitles its buyer to the plan right now. */
 function isLive(s: LsSub, now: number): boolean {
   if (!LIVE.has(s.status)) return false
@@ -92,13 +94,16 @@ export async function runBillingCheck(): Promise<BillingCheck> {
     else if ((u = byEmail.get((s.user_email ?? '').toLowerCase()))) matchedBy = 'email'
     const plan = planForVariant(s.variant_id)
     const live = isLive(s, now)
+    const rank = (p?: string | null) => PLAN_RANK[p ?? 'free'] ?? 0
     const eff = u ? effectivePlan(u) : null
     let problem: Problem | null = null
     if (live) {
       if (!u) problem = 'no_account'
       else if (eff === 'free') problem = matchedBy === 'email' ? 'not_linked' : 'paid_no_access'
       else if (matchedBy === 'email') problem = 'not_linked'
-      else if (plan && u.plan !== plan && u.lsSubscriptionId === s.id) problem = 'wrong_plan'
+      // A higher plan than the card one is not an error to "fix" (that would be a
+      // downgrade): it is a customer paying twice, worth telling them to cancel.
+      else if (plan && u.plan !== plan && u.lsSubscriptionId === s.id) problem = rank(u.plan) > rank(plan) ? 'paying_twice' : 'wrong_plan'
     } else if (u && matchedBy === 'subscription' && eff !== 'free' && ['expired', 'unpaid'].includes(s.status)) {
       problem = 'ended_still_access'
     }
@@ -109,7 +114,7 @@ export async function runBillingCheck(): Promise<BillingCheck> {
       problem,
     }
   })
-  const problems: Record<Problem, number> = { paid_no_access: 0, not_linked: 0, no_account: 0, wrong_plan: 0, ended_still_access: 0 }
+  const problems: Record<Problem, number> = { paid_no_access: 0, not_linked: 0, no_account: 0, wrong_plan: 0, paying_twice: 0, ended_still_access: 0 }
   for (const r of rows) if (r.problem) problems[r.problem]++
   const live = subs.filter(s => isLive(s, now)).length
   rows.sort((a, b) => (a.problem ? 0 : 1) - (b.problem ? 0 : 1) || b.createdAt.localeCompare(a.createdAt))
@@ -134,7 +139,12 @@ export async function applySubscription(subId: string, userId: string): Promise<
   const j = await res.json() as { data?: { attributes?: LsSubAttrs } }
   const s = j.data?.attributes
   if (!s) return { ok: false, message: 'Subscription not found' }
-  if (!isLive({ ...s, id: subId }, Date.now())) return { ok: false, message: `Subscription is ${s.status}, not active` }
+  if (!isLive({ ...s, id: subId }, Date.now())) {
+    // Ended (expired / unpaid): end the access it was still giving, as the webhook should have.
+    await connectDB()
+    const r = await User.updateOne({ _id: userId, lsSubscriptionId: subId }, { $set: { subscriptionStatus: s.status === 'unpaid' ? 'unpaid' : 'expired', plan: 'free' } })
+    return r.matchedCount ? { ok: true, message: `Access ended (subscription ${s.status})` } : { ok: false, message: 'That account is not on this subscription' }
+  }
   const plan = planForVariant(s.variant_id)
   if (!plan) return { ok: false, message: `Variant ${s.variant_id} is not mapped to a plan (LS_VARIANT_* env)` }
   await connectDB()
