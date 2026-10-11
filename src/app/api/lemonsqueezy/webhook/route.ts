@@ -46,7 +46,13 @@ export async function POST(req: NextRequest) {
     // Prefer our own user_id; fall back to the buyer's email.
     let user = userId ? await User.findById(userId).catch(() => null) : null
     if (!user && attrs.user_email) user = await User.findOne({ email: String(attrs.user_email).toLowerCase() })
-    if (!user) return NextResponse.json({ received: true }) // ack - nothing we can attach to
+    if (!user) {
+      // Acknowledged (a retry would not find it either), but loud: a payment that
+      // reached no account is lost access for a paying customer. Admin > Earnings >
+      // Billing check lists these and can apply them.
+      console.error(`[LS webhook] NO ACCOUNT for ${event}: sub ${lsSubId ?? '-'}, user_id ${userId ?? '-'}, email ${attrs.user_email ?? '-'}`)
+      return NextResponse.json({ received: true })
+    }
 
     const status = String(attrs.status ?? '')
 
@@ -117,7 +123,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ received: true })
   } catch (err) {
-    console.error('[LS webhook]', err)
+    console.error(`[LS webhook] FAILED ${event} sub ${lsSubId ?? '-'} user_id ${userId ?? '-'}:`, err)
     return NextResponse.json({ error: 'server' }, { status: 500 })
   }
 }
