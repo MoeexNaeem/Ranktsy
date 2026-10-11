@@ -64,8 +64,8 @@ function Row({ label, value, cur, strong, accent }: {
   )
 }
 
-export function FeeCalculatorTab() {
-  const [price, setPrice] = useState('25.00')
+export function FeeCalculatorTab({ initialPrice }: { initialPrice?: number | null } = {}) {
+  const [price, setPrice] = useState(initialPrice != null && initialPrice > 0 ? initialPrice.toFixed(2) : '25.00')
   const [shipping, setShipping] = useState('5.00')
   const [cost, setCost] = useState('8.00')
   const [qty, setQty] = useState('1')

@@ -80,7 +80,10 @@ export function MeasuredStrip({ data }: { data: ProductItemData | undefined }) {
         <Stat label="Price" value={s.priceUsd != null ? money(s.priceUsd) : s.price != null ? `${s.price} ${s.cur ?? ''}` : '-'} sub={off ? `${off}% off ${s.priceOrig} ${s.cur ?? ''}` : s.onSale === false ? 'not on sale' : undefined} />
         <Stat label="Stock" value={s.qty != null ? formatNumber(s.qty) : '-'} sub="units listed" />
         <Stat label="Total sales" value={s.salesTotal != null ? `~${formatNumber(s.salesTotal)}` : '-'} sub="estimate from all reviews" tone={s.salesTotal == null ? 'muted' : 'est'} />
-        <Stat label="Badges" value={s.badges.length ? s.badges.join(', ') : 'None seen'} sub={s.freeShip ? 'Free shipping' : undefined} />
+        <Stat label="Badges" value={s.badges.length ? s.badges.join(', ') : 'None seen'} sub={[s.freeShip ? 'Free shipping' : '', s.ship ? `Ships from ${s.ship}` : '', s.made ? (s.made === 'vintage' ? 'Vintage' : 'Handmade') : ''].filter(Boolean).join(' · ') || undefined} />
+        {s.bought24h != null && (
+          <Stat label="Bought in 24 hours" value={`${formatNumber(s.bought24h)}+`} sub={`Etsy's own counter, seen ${fmtDay(s.boughtDay ?? s.lastDay)}`} tone="good" />
+        )}
       </div>
     </Card>
   )

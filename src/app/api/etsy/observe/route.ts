@@ -221,6 +221,12 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
       categoryTop: strOrNull(r.categoryTop, 80),
       isDigital: boolOrNull(r.isDigital),
       createdTimestamp: boundedOrNull(r.createdTimestamp, 4_000_000_000),
+      // Product photo (Etsy's own image CDN only), the country it ships from,
+      // handmade / vintage, and Etsy's own "N bought in the last 24 hours".
+      image: typeof r.image === 'string' && /^https:\/\/i\.etsystatic\.com\/[\w./-]+$/.test(r.image) && r.image.length <= 300 ? r.image : null,
+      shipsFrom: strOrNull(r.shipsFrom, 40),
+      madeType: r.madeType === 'handmade' || r.madeType === 'vintage' ? r.madeType : null,
+      bought24h: boundedOrNull(r.bought24h, 1_000_000),
     })
   }
   if (!clean.length) return NextResponse.json({ success: true, data: { captured: 0, ranks } })

@@ -15,6 +15,8 @@ import { C, D, ACCENT, withAlpha, formatNumber } from '@/utils'
 import { SearchBar, Card, SectionTitle, ErrorBox, Loading, EmptyState, MONO } from '../kit'
 import { HotProductDetail } from '../hot/HotProductDetail'
 import { ProductDatabase } from '../hot/ProductDatabase'
+import { TopCharts } from '../hot/TopCharts'
+import { MyProducts } from '../hot/MyProducts'
 import type { HotProduct, HotProductsResponse, ApiResponse } from '@/types'
 
 const ageDaysOf = (ts?: number | null) => ts ? Math.max(0, Math.floor((Date.now() - ts * 1000) / 86_400_000)) : null
@@ -76,7 +78,7 @@ function HotBar({ score }: { score: number }) {
 export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => void }) {
   // 'db' = the product database (tracked listings, measured 7-day gains);
   // 'live' = a live Etsy search for anything not in the database yet.
-  const [mode, setMode] = useState<'db' | 'live'>('db')
+  const [mode, setMode] = useState<'db' | 'charts' | 'mine' | 'live'>('db')
   const [input, setInput] = useState('')
   const [sort, setSort] = useState('hot')
   const [cat, setCat] = useState('')
@@ -146,8 +148,8 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
   }
 
   const modeSwitch = (
-    <div style={{ display: 'flex', gap: 4, background: C.bone, padding: 4, borderRadius: 100, alignSelf: 'flex-start' }}>
-      {([['db', 'Product database'], ['live', 'Live Etsy search']] as const).map(([id, label]) => (
+    <div style={{ display: 'flex', gap: 4, background: C.bone, padding: 4, borderRadius: 100, alignSelf: 'flex-start', flexWrap: 'wrap' }}>
+      {([['db', 'Product database'], ['charts', 'Top charts'], ['mine', 'My products'], ['live', 'Live Etsy search']] as const).map(([id, label]) => (
         <button key={id} onClick={() => setMode(id)}
           style={{ padding: '8px 16px', borderRadius: 100, border: 'none', cursor: 'pointer', fontSize: 13.5, fontFamily: 'inherit', fontWeight: 500, background: mode === id ? C.paper : 'transparent', color: mode === id ? HUE : C.graphite, boxShadow: mode === id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }}>
           {label}
@@ -161,6 +163,14 @@ export function HotProductsTab({ onNavigate }: { onNavigate?: (id: string) => vo
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {modeSwitch}
         <ProductDatabase onOpen={setSelected} />
+      </div>
+    )
+  }
+  if (mode === 'charts' || mode === 'mine') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {modeSwitch}
+        {mode === 'charts' ? <TopCharts onOpen={setSelected} /> : <MyProducts onOpen={setSelected} />}
       </div>
     )
   }

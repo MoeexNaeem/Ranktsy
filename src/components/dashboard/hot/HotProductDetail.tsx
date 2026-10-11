@@ -17,6 +17,8 @@ import { C, D, formatNumber, withAlpha, ACCENT } from '@/utils'
 import { Card, SectionTitle, Loading, MONO, primaryBtn } from '../kit'
 import { AiInsights } from '../AiInsights'
 import { useProductItem, MeasuredStrip, PerformanceChart, ChangesTimeline, TagPerformance } from './ProductHistory'
+import { SaveButtons } from './SaveButtons'
+import { FeeCalculatorTab } from '../tabs/FeeCalculatorTab'
 import type { HotProduct, EtsyListing, AiFact, ApiResponse, BulkKeywordRow } from '@/types'
 
 const HUE = ACCENT.rose   // Hot Products' accent
@@ -40,6 +42,7 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
   product: HotProduct; onBack: () => void; onNavigate?: (id: string) => void
 }) {
   const [activeImg, setActiveImg] = useState(0)
+  const [showFees, setShowFees] = useState(false)
   // Captured once (lazy init) so age stays stable across re-renders and we never
   // call Date.now() during render.
   const [nowMs] = useState(() => Date.now())
@@ -182,9 +185,17 @@ export function HotProductDetail({ product, onBack, onNavigate }: {
               style={{ height: 42, padding: '0 18px', borderRadius: 28, border: `1px solid ${C.ash}`, background: C.paper, color: C.ink, fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', opacity: tagAnalysis.isPending ? 0.6 : 1 }}>
               {tagAnalysis.isPending ? 'Analyzing tags…' : 'Analyze all tags'}
             </button>
+            <SaveButtons listingId={product.listing_id} title={product.title} image={product.image} labelled />
+            <button onClick={() => setShowFees(f => !f)}
+              style={{ height: 42, padding: '0 16px', borderRadius: 28, border: `1px solid ${showFees ? HUE : C.ash}`, background: C.paper, color: showFees ? HUE : C.ink, fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Profit calculator
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Etsy fees and profit at this product's price */}
+      {showFees && <FeeCalculatorTab initialPrice={product.currency === 'USD' ? product.price : null} />}
 
       {/* Measured: 7/30-day gains, daily performance, recorded changes */}
       <MeasuredStrip data={itemQ.data} />

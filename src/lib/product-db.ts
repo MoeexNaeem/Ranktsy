@@ -18,8 +18,9 @@
  *    reviews gained / review rate (an estimate). `salesEst` says which one it is.
  */
 import { connectDB } from '@/lib/db'
-import { TrackedListing, ListingSnapshot, ProductStat, AppSetting, type IProductStat } from '@/lib/models'
-import { dayKey, trustedReviews } from '@/lib/snapshots'
+import { TrackedListing, ListingSnapshot, ProductStat, AppSetting, HotProductSave, type IProductStat } from '@/lib/models'
+import { dayKey, trustedReviews, recordObservedListings } from '@/lib/snapshots'
+import { getListingById, etsyQuotaLow, topCategoryForTaxonomy } from '@/lib/etsy'
 import { reviewRate } from '@/lib/salesEstimate'
 import { hotScoreOf } from '@/lib/hot-score'
 import type { DbProduct } from '@/types'
@@ -46,6 +47,7 @@ export interface SnapRow {
   onSale?: boolean | null
   rating?: number | null
   bestRank?: number | null
+  bought24h?: number | null
 }
 export interface Pt { d: number; v: number }
 
@@ -142,6 +144,9 @@ export interface TrackedFacts {
   lastReviewCount?: number | null
   inCarts?: number | null
   lastSeenAt?: Date | string | null
+  image?: string | null
+  shipsFrom?: string | null
+  madeType?: string | null
 }
 
 type Row = Omit<IProductStat, 'img' | 'tags'>
@@ -186,8 +191,17 @@ export function buildProductRow(t: TrackedFacts, snaps: SnapRow[], usdPerUnit: (
   const sales7 = sold7 ?? est(r7)
   const sales30 = sold30 ?? est(r30)
   const r7p = prevGain7(revs)
+  const f7p = prevGain7(favs)
+  const sales7p = r7p == null ? null : est(r7p)
+  // Growth this week vs last, only when last week was big enough to compare with
+  // (2 -> 10 favorites is "+400%" but means nothing).
+  const growth = (now: number | null, prev: number | null, min: number) =>
+    now != null && prev != null && prev >= min ? Math.round((now - prev) / prev * 100) : null
   const usd = (n: number | null) => (n != null && priceUsd != null ? Math.round(n * priceUsd) : null)
   const { score, engagementPct } = hotScoreOf(vNow, fNow, t.createdTimestamp, nowMs)
+  // Etsy's own recent-purchase counter: the latest one seen in the last 7 days.
+  let bought: { v: number; day: string } | null = null
+  for (const r of rows) if (r.bought24h != null && r.bought24h >= 0 && lastD - dayNum(r.day) <= 7) bought = { v: r.bought24h, day: r.day }
 
   return {
     listingId: t.listingId,
@@ -210,11 +224,16 @@ export function buildProductRow(t: TrackedFacts, snaps: SnapRow[], usdPerUnit: (
     rating: latest('rating') ?? null,
     bestRank,
     inCarts: t.inCarts ?? null,
+    ship: t.shipsFrom ?? null,
+    made: t.madeType ?? null,
+    bought24h: bought?.v ?? null,
+    boughtDay: bought?.day ?? null,
     eng: vNow ? engagementPct : null,
     hot: score,
     v7, f7, r7, v30, f30, r30,
-    f7p: prevGain7(favs),
-    sales7p: r7p == null ? null : est(r7p),
+    f7p, sales7p,
+    fg7: growth(f7, f7p, 5),
+    sg7: growth(sales7, sales7p, 3),
     sold7, sold30, sales7, sales30,
     salesEst: sold7 == null,
     salesEst30: sold30 == null,
@@ -238,8 +257,10 @@ export function toProduct(r: ProductLean): DbProduct {
     rating: r.rating ?? null, bestRank: r.bestRank ?? null, hot: r.hot ?? 0, eng: r.eng ?? null,
     v7: r.v7 ?? null, f7: r.f7 ?? null, r7: r.r7 ?? null, v30: r.v30 ?? null, f30: r.f30 ?? null, r30: r.r30 ?? null,
     sales7: r.sales7 ?? null, sales30: r.sales30 ?? null, salesEst: r.salesEst ?? true, salesEst30: r.salesEst30 ?? true,
+    fg7: r.fg7 ?? null, sg7: r.sg7 ?? null,
     salesTotal: r.salesTotal ?? null, rev7: r.rev7 ?? null, rev30: r.rev30 ?? null,
     lastDay: r.lastDay, tags: r.tags ?? [],
+    ship: r.ship ?? null, made: r.made ?? null, bought24h: r.bought24h ?? null, boughtDay: r.boughtDay ?? null,
   }
 }
 
@@ -376,14 +397,14 @@ export async function runProductRollup(): Promise<RollupResult | null> {
       if (lastId) q._id = { $gt: lastId }
       const tl = await TrackedListing.find(q)
         .sort({ _id: 1 }).limit(BATCH)
-        .select('listingId shopId shopName title categoryTop isDigital personalisable badges freeShipping hasVideo starSeller createdTimestamp currency lastPrice lastViews lastFavorers lastReviewCount inCarts lastSeenAt')
+        .select('listingId shopId shopName title categoryTop isDigital personalisable badges freeShipping hasVideo starSeller createdTimestamp currency lastPrice lastViews lastFavorers lastReviewCount inCarts lastSeenAt image shipsFrom madeType')
         .lean<(TrackedFacts & { _id: unknown })[]>()
         .maxTimeMS(120_000)
       if (!tl.length) break
       lastId = tl[tl.length - 1]._id
       const ids = tl.map(t => t.listingId)
       const snaps = await ListingSnapshot.find({ listingId: { $in: ids }, day: { $gte: fromDay } })
-        .select('listingId day views favorers reviewCount quantity price currency priceOriginal onSale rating bestRank -_id')
+        .select('listingId day views favorers reviewCount quantity price currency priceOriginal onSale rating bestRank bought24h -_id')
         .lean<(SnapRow & { listingId: number })[]>()
         .maxTimeMS(120_000)
       const byId = new Map<number, SnapRow[]>()
@@ -393,7 +414,8 @@ export async function runProductRollup(): Promise<RollupResult | null> {
       }
       const ops = tl.map(t => {
         const row = buildProductRow(t, byId.get(t.listingId) ?? [], usdPerUnit, runDay)
-        return { updateOne: { filter: { listingId: t.listingId }, update: { $set: row }, upsert: true } }
+        // A photo the extension saw saves an Etsy call when the row is shown.
+        return { updateOne: { filter: { listingId: t.listingId }, update: { $set: t.image ? { ...row, img: t.image } : row }, upsert: true } }
       })
       if (ops.length) await ProductStat.bulkWrite(ops, { ordered: false })
       listings += tl.length
@@ -414,6 +436,45 @@ export async function runProductRollup(): Promise<RollupResult | null> {
   } finally {
     await AppSetting.updateOne({ key: LEASE_KEY, str: holder }, { $set: { num: 0 } }).catch(() => {})
   }
+}
+
+/**
+ * Products users chose to track are read from Etsy once a day, even when nobody
+ * browses them, so their history never has gaps. Listings are fetched through
+ * getListingById, which batches up to 100 ids into one Etsy call. Stops early when
+ * the Etsy quota runs low. Returns how many were recorded.
+ */
+export async function refreshTrackedProducts(): Promise<number> {
+  await connectDB()
+  const ids = (await HotProductSave.distinct('listingId', { kind: 'track' }) as (number | null)[]).filter((n): n is number => !!n)
+  let recorded = 0
+  for (let i = 0; i < ids.length; i += 100) {
+    if (etsyQuotaLow()) break
+    const chunk = ids.slice(i, i + 100)
+    const got = await Promise.all(chunk.map(id => getListingById(id).catch(() => null)))
+    const rows = got.filter((l): l is NonNullable<typeof l> => !!l && !!l.shop_id).map(l => ({
+      listingId: l.listing_id,
+      shopId: l.shop_id!,
+      title: l.title,
+      tags: l.tags ?? [],
+      price: l.price ? l.price.amount / (l.price.divisor || 100) : null,
+      currency: l.price?.currency_code,
+      views: l.views ?? null,
+      favorers: l.num_favorers ?? null,
+      quantity: typeof l.quantity === 'number' ? l.quantity : null,
+      shopName: l.shop_name ?? null,
+      categoryTop: topCategoryForTaxonomy(l.taxonomy_id),
+      createdTimestamp: l.created_timestamp ?? null,
+      listPrice: l.price ? l.price.amount / (l.price.divisor || 100) : null,
+      listCurrency: l.price?.currency_code ?? null,
+      modTs: l.modified_timestamp ?? null,
+      endTs: l.ending_timestamp ?? null,
+    }))
+    if (rows.length) recorded += await recordObservedListings(rows)
+    await sleep(PAUSE_MS)
+  }
+  if (ids.length) console.log(`[ProductDB] refreshed ${recorded} of ${ids.length} user-tracked products`)
+  return recorded
 }
 
 /** The last completed run (for the "updated" line on the page), or null. */
@@ -440,7 +501,11 @@ export function startProductRollup(): void {
     running = true
     try {
       const last = await lastRollup()
-      if (last?.day !== dayKey()) await runProductRollup()
+      if (last?.day !== dayKey()) {
+        // Today's readings for user-tracked products first, so the rebuild includes them.
+        await refreshTrackedProducts().catch(e => console.error('[ProductDB] tracked refresh failed:', e))
+        await runProductRollup()
+      }
     } catch (e) {
       console.error('[ProductDB] scheduler tick failed:', e)
     } finally {

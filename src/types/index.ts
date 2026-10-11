@@ -417,10 +417,29 @@ export interface DbProduct {
   v30: number | null; f30: number | null; r30: number | null
   sales7: number | null; sales30: number | null
   salesEst: boolean; salesEst30: boolean
+  /** Ships-from country, handmade / vintage, and Etsy's own "bought in the last 24 hours" (latest in 7 days). */
+  ship: string | null
+  made: string | null
+  bought24h: number | null
+  boughtDay: string | null
+  /** This week vs last week, %: favorites (fg7) and sales (sg7). null without both weeks measured. */
+  fg7: number | null; sg7: number | null
   salesTotal: number | null
   rev7: number | null; rev30: number | null
   lastDay: string
   tags: string[]
+}
+
+/** A Find Hot Products favorite, tracked product or saved filter (key = listing id or filter name). */
+export interface SavedItem {
+  kind: 'fav' | 'track' | 'filter'
+  key: string
+  listingId?: number
+  title?: string
+  image?: string | null
+  params?: string
+  createdAt?: string
+  product?: DbProduct | null
 }
 
 export interface DbProductsResponse {
@@ -434,6 +453,7 @@ export interface DbProductsResponse {
   dbSize: number
   updatedAt: string | null
   categories?: string[]
+  countries?: string[]
 }
 
 export interface HotProductsResponse {
@@ -586,6 +606,8 @@ export interface IListingSnapshot {
   /** Lifetime review count on that day. Its day-over-day delta is the only real
    *  per-listing sales signal Etsy exposes (reviews ÷ review-rate = units sold). */
   reviewCount?: number | null
+  /** Etsy's own "N people bought this in the last 24 hours" (a floor), when shown. */
+  bought24h?: number | null
   /** Pre-discount price, when the page showed a struck-through original. */
   priceOriginal?: number | null
   onSale?: boolean | null
@@ -634,6 +656,9 @@ export interface ITrackedListing {
   isDigital?: boolean | null
   currency?: string | null
   createdTimestamp?: number | null
+  image?: string
+  shipsFrom?: string
+  madeType?: string
   // ── Page-only signals ──────────────────────────────────────────────────────
   // Visible to any shopper but absent from the Etsy API, so a listing page is
   // the only source. Each is null until actually observed; null means unknown,

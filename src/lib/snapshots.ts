@@ -439,6 +439,13 @@ export interface ObservedListing {
   categoryTop?: string | null
   isDigital?: boolean | null
   createdTimestamp?: number | null
+  /** Main photo URL (i.etsystatic.com), the country it ships from, handmade / vintage. */
+  image?: string | null
+  shipsFrom?: string | null
+  madeType?: 'handmade' | 'vintage' | null
+  // ── Day-varying, from the page ─────────────────────────────────────────────
+  /** Etsy's own "N people bought this in the last 24 hours" (a floor when Etsy prints "N+"). */
+  bought24h?: number | null
   // ── From the Etsy API only (server callers; /api/etsy/observe never sets them) ──
   /** The seller's list price in the shop's currency. */
   listPrice?: number | null
@@ -502,6 +509,8 @@ export async function recordObservedListings(rows: ObservedListing[]): Promise<n
       if (r.onSale != null) set.onSale = r.onSale
       if (r.rating != null) set.rating = r.rating
       if (r.quantity != null) set.quantity = r.quantity
+      // Etsy's own recent-purchase counter: the strongest demand signal it shows.
+      if (r.bought24h != null) set.bought24h = r.bought24h
       // Listing-page signals, on the day they change (first sighting = baseline),
       // so "free shipping added" or "Bestseller badge gained" can be dated.
       if (r.freeShipping != null && r.freeShipping !== k?.freeShipping) set.freeShipping = r.freeShipping
@@ -536,6 +545,9 @@ export async function recordObservedListings(rows: ObservedListing[]): Promise<n
       if (r.isDigital != null) set.isDigital = r.isDigital
       if (r.currency != null) set.currency = r.currency
       if (r.createdTimestamp != null) set.createdTimestamp = r.createdTimestamp
+      if (r.image) set.image = r.image
+      if (r.shipsFrom) set.shipsFrom = r.shipsFrom
+      if (r.madeType) set.madeType = r.madeType
       if (r.price != null) set.lastPrice = r.price
       if (r.views != null) set.lastViews = r.views
       if (r.favorers != null) set.lastFavorers = r.favorers

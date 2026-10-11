@@ -22,6 +22,7 @@ export const runtime = 'nodejs'
  */
 
 const PAGE_SIZE = 50
+const CHART_SIZE = 20   // Top Charts lists
 const CAP = 5000
 
 const SORTS: Record<string, Record<string, 1 | -1>> = {
@@ -29,6 +30,10 @@ const SORTS: Record<string, Record<string, 1 | -1>> = {
   sales30: { sales30: -1 }, f30: { f30: -1 },
   newest: { created: -1 }, favs: { favs: -1 }, views: { views: -1 }, reviews: { reviews: -1 },
   hot: { hot: -1 }, price_low: { priceUsd: 1 }, price_high: { priceUsd: -1 },
+  // This week vs last week (Top Charts' Rising): favorites, the densest measured signal.
+  rising: { fg7: -1 },
+  // Etsy's own "bought in the last 24 hours" counter, latest seen this week.
+  bought: { bought24h: -1 },
 }
 // Range filters: ?rng_<field>=min~max (either side optional).
 const RANGE_FIELDS = new Set(['priceUsd', 'favs', 'f7', 'reviews', 'r7', 'views', 'v7', 'sales7', 'sales30', 'salesTotal', 'rev7', 'rev30'])
@@ -56,7 +61,26 @@ function buildFilter(sp: URLSearchParams): { filter: Record<string, unknown>; te
   const keyParts: Record<string, string> = {}
   const q = (sp.get('q') ?? '').trim().slice(0, 200)
   let text = false
-  if (q) {
+  // Batch search: up to 20 listing ids / URLs, shop URLs or keywords, one per line.
+  const batch = (sp.get('batch') ?? '').split(/[\n,]/).map(x => x.trim()).filter(Boolean).slice(0, 20)
+  if (batch.length) {
+    keyParts.batch = batch.map(b => b.toLowerCase()).sort().join('|')
+    const ids: number[] = [], shops: RegExp[] = [], words: string[] = []
+    for (const b of batch) {
+      const look = parseLookup(b)
+      if (look.listingId) ids.push(look.listingId)
+      else if (look.shop) shops.push(new RegExp(`^${esc(look.shop)}$`, 'i'))
+      else words.push(...b.toLowerCase().replace(/[^\p{L}\p{N}\s'-]/gu, ' ').split(/\s+/).filter(w => w.length > 1))
+    }
+    const or: Record<string, unknown>[] = []
+    if (ids.length) or.push({ listingId: { $in: ids } })
+    if (shops.length) or.push({ shopName: { $in: shops } })
+    // Unquoted words: any of them matches (each clause of this $or is indexed, as
+    // MongoDB requires when $text sits inside $or).
+    if (words.length) { or.push({ $text: { $search: [...new Set(words)].slice(0, 40).join(' ') } }); text = true }
+    if (or.length) and.push(or.length === 1 ? or[0] : { $or: or })
+  }
+  if (q && !batch.length) {
     keyParts.q = q.toLowerCase()
     const look = parseLookup(q)
     if (look.listingId) and.push({ listingId: look.listingId })
@@ -72,6 +96,8 @@ function buildFilter(sp: URLSearchParams): { filter: Record<string, unknown>; te
 
   const cat = sp.get('cat')
   if (cat) { and.push({ cat }); keyParts.cat = cat }
+  const ship = sp.get('ship')
+  if (ship) and.push({ ship })
 
   const types = (sp.get('type') ?? '').split(',').filter(Boolean)
   if (types.length) {
@@ -79,6 +105,8 @@ function buildFilter(sp: URLSearchParams): { filter: Record<string, unknown>; te
     if (types.includes('digital')) or.push({ digital: true })
     if (types.includes('physical')) or.push({ digital: false })
     if (types.includes('personal')) or.push({ personal: true })
+    if (types.includes('handmade')) or.push({ made: 'handmade' })
+    if (types.includes('vintage')) or.push({ made: 'vintage' })
     if (or.length) and.push(or.length === 1 ? or[0] : { $or: or })
     keyParts.type = types.sort().join(',')
   }
@@ -131,19 +159,21 @@ async function hydrate(rows: DbProduct[]): Promise<void> {
   if (save.length) await ProductStat.bulkWrite(save, { ordered: false }).catch(() => {})
 }
 
-/** Distinct categories (for the filter), cached an hour. */
-async function categories(): Promise<string[]> {
-  const hit = memCache.get<string[]>('productdb:cats')
+/** Distinct values of a field (for the category and country filters), cached an hour. */
+async function distinctOf(field: 'cat' | 'ship'): Promise<string[]> {
+  const key = `productdb:distinct:${field}`
+  const hit = memCache.get<string[]>(key)
   if (hit) return hit
-  const cats = (await ProductStat.distinct('cat').catch(() => []) as (string | null)[]).filter((c): c is string => !!c).sort()
-  memCache.set('productdb:cats', cats, 3600)
-  return cats
+  const vals = (await ProductStat.distinct(field).catch(() => []) as (string | null)[]).filter((c): c is string => !!c).sort()
+  memCache.set(key, vals, 3600)
+  return vals
 }
 
 async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<DbProductsResponse>>> {
   const sp = req.nextUrl.searchParams
   const sortKey = SORTS[sp.get('sort') ?? ''] ? sp.get('sort')! : 'sales7'
   const page = Math.min(Math.max(1, Number(sp.get('page')) || 1), CAP / PAGE_SIZE)
+  const pageSize = sp.get('limit') === String(CHART_SIZE) ? CHART_SIZE : PAGE_SIZE
   const { filter, text, keyParts } = buildFilter(sp)
 
   // A browse is a search: same human check, and 1 credit per distinct search
@@ -151,7 +181,7 @@ async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<DbP
   // only read our own table), so trying filters never burns credits.
   const gate = await guardSearch<DbProductsResponse>(req)
   if (gate) return gate
-  const meter = await meterSearch(req, 'hotproducts', 'db|' + JSON.stringify({ q: keyParts.q ?? '', ex: keyParts.ex ?? '' }))
+  const meter = await meterSearch(req, 'hotproducts', 'db|' + JSON.stringify({ q: keyParts.q ?? '', ex: keyParts.ex ?? '', b: keyParts.batch ?? '' }))
   if (meter.deny) return meter.deny as NextResponse<ApiResponse<DbProductsResponse>>
 
   try {
@@ -159,22 +189,26 @@ async function handleGET(req: NextRequest): Promise<NextResponse<ApiResponse<DbP
     const sort = SORTS[sortKey]
     // Rows with no value for the sorted field go last on a descending sort anyway;
     // on price ascending they would come first, so leave them out there.
-    const f = sortKey === 'price_low' ? { $and: [filter, { priceUsd: { $ne: null } }] } : filter
+    const f = sortKey === 'price_low' ? { $and: [filter, { priceUsd: { $ne: null } }] }
+      : sortKey === 'rising' ? { $and: [filter, { fg7: { $gt: 0 } }] }
+      : sortKey === 'bought' ? { $and: [filter, { bought24h: { $gt: 0 } }] }
+      : filter
     const hasFilter = Object.keys(filter).length > 0
-    const [rows, total, dbSize, last, cats] = await Promise.all([
-      ProductStat.find(f).sort({ ...sort, listingId: 1 }).skip((page - 1) * PAGE_SIZE).limit(PAGE_SIZE)
+    const [rows, total, dbSize, last, cats, countries] = await Promise.all([
+      ProductStat.find(f).sort({ ...sort, listingId: 1 }).skip((page - 1) * pageSize).limit(pageSize)
         .lean<Lean[]>().maxTimeMS(text ? 20_000 : 10_000),
       hasFilter ? ProductStat.countDocuments(f, { limit: CAP }).maxTimeMS(10_000).catch(() => CAP) : ProductStat.estimatedDocumentCount(),
       ProductStat.estimatedDocumentCount(),
       lastRollup(),
-      sp.get('meta') === '1' ? categories() : Promise.resolve(undefined),
+      sp.get('meta') === '1' ? distinctOf('cat') : Promise.resolve(undefined),
+      sp.get('meta') === '1' ? distinctOf('ship') : Promise.resolve(undefined),
     ])
     const products = rows.map(toProduct)
     await hydrate(products)
     const state = products.length ? await meter.commit() : undefined
     return NextResponse.json({
       success: true,
-      data: { products, total, cap: CAP, page, pageSize: PAGE_SIZE, dbSize, updatedAt: last?.at ?? null, ...(cats ? { categories: cats } : {}) },
+      data: { products, total, cap: CAP, page, pageSize, dbSize, updatedAt: last?.at ?? null, ...(cats ? { categories: cats } : {}), ...(countries ? { countries } : {}) },
       ...(state ? { state } : {}),
     })
   } catch (e) {

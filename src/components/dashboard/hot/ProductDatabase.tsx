@@ -16,12 +16,15 @@ import axios from 'axios'
 import { Icon } from '@/components/ui/Icon'
 import { C, D, ACCENT, withAlpha, formatNumber } from '@/utils'
 import { SearchBar, Card, SectionTitle, ErrorBox, Loading, EmptyState, Pagination, MONO } from '../kit'
+import { SaveButtons } from './SaveButtons'
+import { useSaved, useToggleSaved } from './useSaved'
 import type { ApiResponse, DbProduct, DbProductsResponse, HotProduct } from '@/types'
 
 const HUE = ACCENT.rose
 
 const SORTS: { id: string; label: string }[] = [
   { id: 'sales7', label: '7-day sales' },
+  { id: 'bought', label: 'Bought in 24h (Etsy)' },
   { id: 'rev7', label: '7-day revenue' },
   { id: 'f7', label: '7-day favorites' },
   { id: 'r7', label: '7-day reviews' },
@@ -36,7 +39,7 @@ const SORTS: { id: string; label: string }[] = [
   { id: 'price_high', label: 'Price: high to low' },
 ]
 const RELEASE = [{ id: '30', label: '30 Days' }, { id: '180', label: '180 Days' }, { id: '365', label: '1 Year' }, { id: '', label: 'All Time' }]
-const TYPES = [{ id: 'physical', label: 'Physical' }, { id: 'digital', label: 'Digital' }, { id: 'personal', label: 'Personalizable' }]
+const TYPES = [{ id: 'handmade', label: 'Handmade' }, { id: 'vintage', label: 'Vintage' }, { id: 'physical', label: 'Physical' }, { id: 'digital', label: 'Digital' }, { id: 'personal', label: 'Personalizable' }]
 const LABELS = [
   { id: 'bestseller', label: 'Bestseller' }, { id: 'pick', label: "Etsy's Pick" },
   { id: 'popular', label: 'Popular now' }, { id: 'starseller', label: 'Star Seller' },
@@ -64,11 +67,11 @@ const RANGES: { id: string; label: string; rows: RangeRow[] }[] = [
 ]
 
 interface Filters {
-  q: string; ex: string; cat: string; type: string[]; labels: string[]
+  q: string; ex: string; batch: string; cat: string; ship: string; type: string[]; labels: string[]
   freeShip: boolean; onSale: boolean; release: string; from: string; to: string
   rng: Record<string, string>
 }
-const EMPTY: Filters = { q: '', ex: '', cat: '', type: [], labels: [], freeShip: false, onSale: false, release: '', from: '', to: '', rng: {} }
+const EMPTY: Filters = { q: '', ex: '', batch: '', cat: '', ship: '', type: [], labels: [], freeShip: false, onSale: false, release: '', from: '', to: '', rng: {} }
 
 const ctrl: React.CSSProperties = { background: C.paper, border: `1px solid ${C.ash}`, borderRadius: 10, padding: '8px 12px', fontSize: 13.5, fontFamily: 'inherit', color: C.ink, outline: 'none' }
 const lbl: React.CSSProperties = { fontSize: 11, fontFamily: MONO, color: C.graphite, textTransform: 'uppercase', letterSpacing: '0.06em', minWidth: 74 }
@@ -180,7 +183,7 @@ function exportCsv(rows: DbProduct[]) {
   URL.revokeObjectURL(url)
 }
 
-const GRID = 'minmax(330px,2.6fr) repeat(5, minmax(96px,1fr)) 70px'
+const GRID = 'minmax(330px,2.6fr) repeat(5, minmax(96px,1fr)) 96px'
 
 export function ProductDatabase({ onOpen }: { onOpen: (p: HotProduct) => void }) {
   const [draft, setDraft] = useState<Filters>(EMPTY)
@@ -189,13 +192,19 @@ export function ProductDatabase({ onOpen }: { onOpen: (p: HotProduct) => void })
   const [page, setPage] = useState(1)
   const [view, setView] = useState<'list' | 'grid'>('list')
   const [showEx, setShowEx] = useState(false)
+  const [showBatch, setShowBatch] = useState(false)
+  const [filterName, setFilterName] = useState('')
+  const savedFilters = useSaved('filter')
+  const toggleSaved = useToggleSaved()
 
   const params = useMemo(() => {
     if (!applied) return null
     const p = new URLSearchParams({ sort, page: String(page), meta: '1' })
     if (applied.q) p.set('q', applied.q)
     if (applied.ex) p.set('ex', applied.ex)
+    if (applied.batch) p.set('batch', applied.batch)
     if (applied.cat) p.set('cat', applied.cat)
+    if (applied.ship) p.set('ship', applied.ship)
     if (applied.type.length) p.set('type', applied.type.join(','))
     if (applied.labels.length) p.set('labels', applied.labels.join(','))
     if (applied.freeShip) p.set('freeShip', '1')
@@ -227,6 +236,7 @@ export function ProductDatabase({ onOpen }: { onOpen: (p: HotProduct) => void })
   const products = data?.products ?? []
   const pageCount = data ? Math.max(1, Math.ceil(Math.min(data.total, data.cap) / data.pageSize)) : 1
   const cats = data?.categories ?? []
+  const countries = data?.countries ?? []
   const errMsg = (error as { response?: { data?: { error?: string } } } | null)?.response?.data?.error
 
   const headSort = (id: string) => () => { setSort(id); setPage(1) }
@@ -249,9 +259,24 @@ export function ProductDatabase({ onOpen }: { onOpen: (p: HotProduct) => void })
           {' '}<span style={{ color: D.good, fontWeight: 600 }}>Green</span> = measured. <span style={{ color: D.mid, fontWeight: 600 }}>~ Amber</span> = estimate (Etsy publishes no per-listing sales).
           Filters and sorting are free: only a new search uses a credit.
         </p>
-        <SearchBar value={draft.q} onChange={q => setDraft(d => ({ ...d, q }))} onSubmit={() => applyNow({ ...draft, q: draft.q.trim() })}
+        <SearchBar value={draft.q} onChange={q => setDraft(d => ({ ...d, q }))} onSubmit={() => applyNow({ ...draft, q: draft.q.trim(), batch: '' })}
           placeholder="Product name, listing ID, listing URL or shop URL" button="Search →" maxWidth={640}
-          control={<button onClick={() => setShowEx(s => !s)} style={{ ...ctrl, borderRadius: 100, cursor: 'pointer', color: draft.ex ? HUE : C.graphite, borderColor: draft.ex ? HUE : C.ash }}>{draft.ex ? `Excluding ${draft.ex.split(',').filter(Boolean).length}` : 'Exclude'}</button>} />
+          control={<>
+            <button onClick={() => setShowEx(s => !s)} style={{ ...ctrl, borderRadius: 100, cursor: 'pointer', color: draft.ex ? HUE : C.graphite, borderColor: draft.ex ? HUE : C.ash }}>{draft.ex ? `Excluding ${draft.ex.split(',').filter(Boolean).length}` : 'Exclude'}</button>
+            <button onClick={() => setShowBatch(s => !s)} style={{ ...ctrl, borderRadius: 100, cursor: 'pointer', color: draft.batch ? HUE : C.graphite, borderColor: draft.batch ? HUE : C.ash }}>{draft.batch ? `Batch: ${draft.batch.split('\n').filter(Boolean).length}` : 'Batch search'}</button>
+          </>} />
+        {showBatch && (
+          <div style={{ marginTop: 10 }}>
+            <textarea value={draft.batch} onChange={e => setDraft(d => ({ ...d, batch: e.target.value.split('\n').slice(0, 20).join('\n') }))} rows={5}
+              placeholder={'Up to 20, one per line: listing IDs, listing URLs, shop URLs or keywords'}
+              style={{ ...ctrl, width: '100%', borderRadius: 12, resize: 'vertical', fontFamily: MONO, fontSize: 12.5 }} />
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
+              <span style={{ fontSize: 12, color: C.stone }}>{draft.batch.split('\n').filter(x => x.trim()).length}/20</span>
+              <button onClick={() => applyNow({ ...draft, q: '' })} disabled={!draft.batch.trim()} style={{ background: HUE, color: '#fff', border: 'none', borderRadius: 100, padding: '8px 18px', cursor: 'pointer', fontFamily: 'inherit', marginLeft: 'auto' }}>Search all</button>
+              {draft.batch && <button onClick={() => applyNow({ ...draft, batch: '' })} style={{ ...ctrl, border: 'none', cursor: 'pointer', color: C.graphite }}>Clear batch</button>}
+            </div>
+          </div>
+        )}
         {showEx && (
           <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
             <input value={draft.ex} onChange={e => setDraft(d => ({ ...d, ex: e.target.value }))} onKeyDown={e => e.key === 'Enter' && applyNow(draft)}
@@ -273,6 +298,10 @@ export function ProductDatabase({ onOpen }: { onOpen: (p: HotProduct) => void })
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <span style={lbl}>Advanced</span>
+            <select value={draft.ship} onChange={e => patch({ ship: e.target.value })} style={{ ...ctrl, cursor: 'pointer', maxWidth: 200, borderColor: draft.ship ? HUE : C.ash }} aria-label="Ships from">
+              <option value="">Ships from: any</option>
+              {countries.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
             {RANGES.slice(3).map(r => <RangeMenu key={r.id} def={r} value={draft.rng} onApply={rng => patch({ rng })} />)}
             {TYPES.map(t => <button key={t.id} onClick={() => patch({ type: toggle(draft.type, t.id) })} style={pill(draft.type.includes(t.id))}>{t.label}</button>)}
           </div>
@@ -288,8 +317,20 @@ export function ProductDatabase({ onOpen }: { onOpen: (p: HotProduct) => void })
             <input type="date" value={draft.from} onChange={e => patch({ from: e.target.value, release: '' })} style={{ ...ctrl, padding: '6px 9px' }} aria-label="Released from" />
             <span style={{ color: C.stone }}>~</span>
             <input type="date" value={draft.to} onChange={e => patch({ to: e.target.value, release: '' })} style={{ ...ctrl, padding: '6px 9px' }} aria-label="Released until" />
+            <select value="" onChange={e => { const f = (savedFilters.data ?? []).find(x => x.key === e.target.value); if (f?.params) { try { applyNow({ ...EMPTY, ...JSON.parse(f.params) as Partial<Filters> }) } catch { /* ignore a bad saved filter */ } } }}
+              style={{ ...ctrl, cursor: 'pointer', marginLeft: 'auto' }} aria-label="Saved filters">
+              <option value="">Saved filters ({(savedFilters.data ?? []).length})</option>
+              {(savedFilters.data ?? []).map(f => <option key={f.key} value={f.key}>{f.key}</option>)}
+            </select>
             {applied && JSON.stringify(applied) !== JSON.stringify(EMPTY) && (
-              <button onClick={() => applyNow(EMPTY)} style={{ ...ctrl, border: 'none', cursor: 'pointer', color: C.graphite, marginLeft: 'auto' }}>Clear all</button>
+              <span style={{ display: 'inline-flex', gap: 6 }}>
+                <input value={filterName} onChange={e => setFilterName(e.target.value)} placeholder="Name these filters" style={{ ...ctrl, width: 150, padding: '6px 10px' }} />
+                <button onClick={() => { if (filterName.trim()) { toggleSaved.mutate({ kind: 'filter', on: true, name: filterName.trim(), params: JSON.stringify(applied) }); setFilterName('') } }}
+                  disabled={!filterName.trim()} style={{ ...ctrl, cursor: 'pointer', color: HUE, borderColor: HUE }}>Save</button>
+              </span>
+            )}
+            {applied && JSON.stringify(applied) !== JSON.stringify(EMPTY) && (
+              <button onClick={() => applyNow(EMPTY)} style={{ ...ctrl, border: 'none', cursor: 'pointer', color: C.graphite }}>Clear all</button>
             )}
           </div>
         </div>
@@ -365,6 +406,8 @@ export function ProductDatabase({ onOpen }: { onOpen: (p: HotProduct) => void })
                             {p.shopName && <span style={{ fontSize: 10.5, color: C.graphite, background: C.bone, borderRadius: 5, padding: '1px 6px' }}>{p.shopName}</span>}
                             {p.cat && <span style={{ fontSize: 10.5, color: C.graphite, background: C.bone, borderRadius: 5, padding: '1px 6px' }}>{p.cat}</span>}
                             {p.freeShip && <span style={{ fontSize: 10.5, color: D.good, background: withAlpha(D.good, 0.1), borderRadius: 5, padding: '1px 6px' }}>Free shipping</span>}
+                            {p.ship && <span style={{ fontSize: 10.5, color: C.graphite, background: C.bone, borderRadius: 5, padding: '1px 6px' }}>{p.ship}</span>}
+                            {p.bought24h != null && p.bought24h > 0 && <span title={`Etsy showed this on ${p.boughtDay}`} style={{ fontSize: 10.5, fontWeight: 600, color: D.good, background: withAlpha(D.good, 0.12), borderRadius: 5, padding: '1px 6px' }}>{formatNumber(p.bought24h)}+ bought in 24h</span>}
                           </div>
                           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 5 }}>
                             {p.priceUsd != null ? <span style={{ fontSize: 15, fontFamily: MONO, fontWeight: 600, color: HUE }}>{money(p.priceUsd)}</span>
@@ -379,7 +422,8 @@ export function ProductDatabase({ onOpen }: { onOpen: (p: HotProduct) => void })
                       <Cell total={p.reviews} gain={p.r7} />
                       <Cell total={p.favs} gain={p.f7} />
                       <Cell total={p.views} gain={p.v7} />
-                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <SaveButtons listingId={p.listingId} title={p.title} image={p.image} />
                         <a href={p.url} target="_blank" rel="noopener noreferrer" title="Open on Etsy" style={{ color: HUE, display: 'flex' }}><Icon name="link" size={17} color={HUE} /></a>
                         <button onClick={() => onOpen(dbToHot(p))} title="Product details" style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex' }}><Icon name="chart" size={17} color={HUE} /></button>
                       </div>

@@ -334,6 +334,8 @@ const ListingSnapshotSchema = new Schema<IListingSnapshot>({
   // into every one of millions of daily rows. A real value, including 0 or false,
   // is saved whenever it is observed.
   reviewCount:{ type: Number },
+  // Etsy's own "N people bought this in the last 24 hours", on days the page showed it.
+  bought24h:  { type: Number },
   // What the buyer actually saw that day. The Etsy API reports a listing's
   // ORIGINAL list price, so a discounted listing is wrong everywhere unless the
   // real price is captured from the page - which is exactly what the extension
@@ -399,6 +401,10 @@ const TrackedListingSchema = new Schema<ITrackedListing>({
   isDigital:    { type: Boolean, default: null },
   currency:     { type: String, default: null },
   createdTimestamp: { type: Number, default: null },
+  // From listing pages / cards: main photo, ships-from country, handmade or vintage.
+  image:        { type: String, default: undefined },
+  shipsFrom:    { type: String, default: undefined },
+  madeType:     { type: String, default: undefined },
   // ── Last observed state ────────────────────────────────────────────────────
   // A denormalised copy of the newest snapshot, so leaderboards and coverage
   // readouts don't have to fan out across ListingSnapshot.
@@ -465,11 +471,17 @@ export interface IProductStat {
   rating: number | null
   bestRank: number | null
   inCarts: number | null
+  ship: string | null
+  made: string | null
+  /** Etsy's own recent-purchase counter, latest seen in the last 7 days, and its day. */
+  bought24h: number | null
+  boughtDay: string | null
   eng: number | null
   hot: number
   v7: number | null; f7: number | null; r7: number | null
   v30: number | null; f30: number | null; r30: number | null
   f7p: number | null; sales7p: number | null
+  fg7: number | null; sg7: number | null
   sold7: number | null; sold30: number | null
   sales7: number | null; sales30: number | null
   salesEst: boolean
@@ -488,21 +500,48 @@ const ProductStatSchema = new Schema<IProductStat>({
   freeShip: Boolean, video: Boolean, starSeller: Boolean,
   created: Number, price: Number, cur: String, priceUsd: Number, priceOrig: Number, onSale: Boolean,
   views: Number, favs: Number, reviews: Number, qty: Number, rating: Number, bestRank: Number, inCarts: Number,
+  ship: String, made: String, bought24h: Number, boughtDay: String,
   eng: Number, hot: { type: Number, default: 0 },
   v7: Number, f7: Number, r7: Number, v30: Number, f30: Number, r30: Number,
-  f7p: Number, sales7p: Number, sold7: Number, sold30: Number,
+  f7p: Number, sales7p: Number, fg7: Number, sg7: Number, sold7: Number, sold30: Number,
   sales7: Number, sales30: Number, salesEst: { type: Boolean, default: true }, salesEst30: { type: Boolean, default: true }, salesTotal: Number,
   rev7: Number, rev30: Number,
   lastDay: String, runDay: { type: String, index: true },
   img: String, tags: { type: [String], default: undefined },
 }, { versionKey: false })
 // Every sort the tool offers, so a browse is an index walk, never a collection scan.
-for (const f of ['sales7', 'rev7', 'f7', 'v7', 'r7', 'sales30', 'f30', 'created', 'favs', 'views', 'hot', 'priceUsd', 'reviews']) {
+for (const f of ['bought24h', 'sales7', 'rev7', 'fg7', 'f7', 'v7', 'r7', 'sales30', 'f30', 'created', 'favs', 'views', 'hot', 'priceUsd', 'reviews']) {
   ProductStatSchema.index({ [f]: f === 'priceUsd' ? 1 : -1 })
 }
 ProductStatSchema.index({ cat: 1, sales7: -1 })
 ProductStatSchema.index({ shopName: 1 })
+ProductStatSchema.index({ ship: 1, sales7: -1 })
 ProductStatSchema.index({ title: 'text' }, { default_language: 'english', name: 'title_text' })
+
+// ─── Find Hot Products: a user's favorites, tracked products and saved filters ──
+// key = the listing id (fav / track) or the filter name (filter). Tracking a
+// product also adds it to TrackedListing and to the daily refresh in
+// lib/product-db.ts, so it keeps getting measured even when nobody browses it.
+export interface IHotProductSave {
+  userId: string
+  kind: 'fav' | 'track' | 'filter'
+  key: string
+  listingId?: number
+  shopId?: number
+  title?: string
+  image?: string | null
+  /** Saved filter: the browse query string. */
+  params?: string
+  createdAt?: Date
+}
+const HotProductSaveSchema = new Schema<IHotProductSave>({
+  userId: { type: String, required: true },
+  kind: { type: String, required: true, enum: ['fav', 'track', 'filter'] },
+  key: { type: String, required: true },
+  listingId: Number, shopId: Number, title: String, image: String, params: String,
+}, { timestamps: true })
+HotProductSaveSchema.index({ userId: 1, kind: 1, key: 1 }, { unique: true })
+HotProductSaveSchema.index({ kind: 1, listingId: 1 })
 
 // ─── Search rank snapshot ──────────────────────────────────────────────────────
 // WHERE a listing ranked for a keyword on a given day.
@@ -1183,6 +1222,7 @@ export const ListingSnapshot = trackingModel('ListingSnapshot', ListingSnapshotS
 export const TrackedShop     = models.TrackedShop     ?? model<ITrackedShop>('TrackedShop', TrackedShopSchema)
 export const TrackedListing  = trackingModel('TrackedListing', TrackedListingSchema)
 export const ProductStat     = trackingModel('ProductStat', ProductStatSchema) as mongoose.Model<IProductStat>
+export const HotProductSave  = (models.HotProductSave as mongoose.Model<IHotProductSave>) ?? model<IHotProductSave>('HotProductSave', HotProductSaveSchema)
 export const SearchRankSnapshot = trackingModel('SearchRankSnapshot', SearchRankSnapshotSchema) as mongoose.Model<ISearchRankSnapshot>
 export const KeywordMarketSnapshot = trackingModel('KeywordMarketSnapshot', KeywordMarketSnapshotSchema) as mongoose.Model<IKeywordMarketSnapshot>
 export const KeywordSuggestion     = trackingModel('KeywordSuggestion', KeywordSuggestionSchema) as mongoose.Model<IKeywordSuggestion>
